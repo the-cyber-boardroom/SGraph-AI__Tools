@@ -7,7 +7,7 @@
      // <sg-header> is now available as a custom element
 
    Or in HTML:
-     <script type="module" src="/components/header/v1.0.0/sg-header.js"></script>
+     <script type="module" src="/components/header/v1/v1.0/v1.0.0/sg-header.js"></script>
      <sg-header></sg-header>
    ============================================================================= */
 
@@ -77,14 +77,14 @@ export class SgHeader extends HTMLElement {
             </style>
             <header class="sg-header">
                 <div style="display:flex;align-items:center;">
-                    <a href="/tools/" class="sg-header__brand">
+                    <a href="/tools/v0/v0.1/v0.1.0/en-gb/" class="sg-header__brand">
                         tools.sgraph.ai
                     </a>
                     ${toolName ? `<span class="sg-header__sep">/</span><span class="sg-header__tool-name">${toolName}</span>` : ''}
                 </div>
                 <nav class="sg-header__nav">
-                    <span class="sg-header__badge">Client-side only</span>
-                    <a href="/tools/" class="sg-header__link">All Tools</a>
+                    <span class="sg-header__badge" data-i18n="header.badge">Client-side only</span>
+                    <a href="/tools/v0/v0.1/v0.1.0/en-gb/" class="sg-header__link" data-i18n="header.all_tools">All Tools</a>
                     <a href="https://send.sgraph.ai" class="sg-header__link">SG/Send</a>
                 </nav>
             </header>
