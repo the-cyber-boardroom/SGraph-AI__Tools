@@ -1,0 +1,123 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Verify CDN Imports — tools.sgraph.ai</title>
+    <style>
+        body {
+            font-family: monospace;
+            background: #0f0f23;
+            color: #f0f0f5;
+            padding: 2rem;
+            line-height: 1.8;
+        }
+        .pass { color: #4ecdc4; }
+        .fail { color: #e94560; }
+        h1 { margin-bottom: 1rem; }
+    </style>
+</head>
+<body>
+    <h1>CDN Import Verification</h1>
+    <div id="results"></div>
+
+    <script type="module">
+        const results = document.getElementById('results');
+
+        function log(msg, ok) {
+            const cls = ok ? 'pass' : 'fail';
+            const icon = ok ? 'PASS' : 'FAIL';
+            results.innerHTML += `<div class="${cls}">[${icon}] ${msg}</div>`;
+        }
+
+        // Test 1: sg-crypto.js imports
+        try {
+            const crypto = await import('/core/crypto/v1.0.0/sg-crypto.js');
+            log('sg-crypto.js imported successfully', true);
+
+            const exports = ['ALGORITHM', 'KEY_LENGTH', 'IV_LENGTH', 'isAvailable',
+                             'requireSecureContext', 'generateKey', 'exportKey',
+                             'importKey', 'encryptFile', 'decryptFile',
+                             'bufferToBase64Url', 'base64UrlToBuffer'];
+
+            for (const name of exports) {
+                const exists = name in crypto;
+                log(`  export "${name}" ${exists ? 'found' : 'MISSING'}`, exists);
+            }
+
+            // Functional test: generate key, export, encrypt, decrypt
+            if (crypto.isAvailable()) {
+                log('  Web Crypto API available', true);
+                const key = await crypto.generateKey();
+                log('  generateKey() works', true);
+                const exported = await crypto.exportKey(key);
+                log(`  exportKey() -> "${exported.slice(0, 20)}..."`, true);
+
+                const plaintext = new TextEncoder().encode('Hello, tools.sgraph.ai!');
+                const encrypted = await crypto.encryptFile(key, plaintext);
+                log(`  encryptFile() -> ${encrypted.byteLength} bytes`, true);
+
+                // Import key for decryption (need encrypt+decrypt key)
+                const key2 = await globalThis.crypto.subtle.generateKey(
+                    { name: 'AES-GCM', length: 256 }, true, ['encrypt', 'decrypt']
+                );
+                const enc2 = await crypto.encryptFile(key2, plaintext);
+                const dec = await globalThis.crypto.subtle.decrypt(
+                    { name: 'AES-GCM', iv: new Uint8Array(enc2).slice(0, 12) },
+                    key2,
+                    new Uint8Array(enc2).slice(12)
+                );
+                const decoded = new TextDecoder().decode(dec);
+                const match = decoded === 'Hello, tools.sgraph.ai!';
+                log(`  encrypt/decrypt round-trip: "${decoded}" ${match ? '(match)' : '(MISMATCH)'}`, match);
+            } else {
+                log('  Web Crypto API NOT available (need HTTPS or localhost)', false);
+            }
+        } catch (err) {
+            log(`sg-crypto.js import FAILED: ${err.message}`, false);
+        }
+
+        // Test 2: sg-ssh.js imports
+        try {
+            const ssh = await import('/core/ssh/v1.0.0/sg-ssh.js');
+            log('sg-ssh.js imported successfully', true);
+
+            const hasExport = 'generateSSHKeyPair' in ssh;
+            log(`  export "generateSSHKeyPair" ${hasExport ? 'found' : 'MISSING'}`, hasExport);
+
+            if (hasExport) {
+                const { publicKey, privateKey } = await ssh.generateSSHKeyPair({ comment: 'test@verify' });
+                const pubOk = publicKey.startsWith('ssh-ed25519 ');
+                const privOk = privateKey.startsWith('-----BEGIN OPENSSH PRIVATE KEY-----');
+                log(`  generateSSHKeyPair() public key starts with "ssh-ed25519": ${pubOk}`, pubOk);
+                log(`  generateSSHKeyPair() private key has PEM header: ${privOk}`, privOk);
+            }
+        } catch (err) {
+            log(`sg-ssh.js import FAILED: ${err.message}`, false);
+        }
+
+        // Test 3: sg-header.js component
+        try {
+            const header = await import('/components/header/v1.0.0/sg-header.js');
+            log('sg-header.js imported successfully', true);
+            const defined = customElements.get('sg-header') !== undefined;
+            log(`  <sg-header> custom element registered: ${defined}`, defined);
+        } catch (err) {
+            log(`sg-header.js import FAILED: ${err.message}`, false);
+        }
+
+        // Test 4: sg-footer.js component
+        try {
+            const footer = await import('/components/footer/v1.0.0/sg-footer.js');
+            log('sg-footer.js imported successfully', true);
+            const defined = customElements.get('sg-footer') !== undefined;
+            log(`  <sg-footer> custom element registered: ${defined}`, defined);
+        } catch (err) {
+            log(`sg-footer.js import FAILED: ${err.message}`, false);
+        }
+
+        log('', true);
+        log('Verification complete.', true);
+    </script>
+</body>
+</html>
