@@ -1,0 +1,24 @@
+[tool.poetry]
+name        = "sgraph-ai-tools"
+version     = "v0.1.0"
+description = "SGraph_AI__Tools"
+readme      = "README.md"
+license     = "Apache-2.0"
+authors     = ["The Cyber Boardroom"]
+keywords    = ["sg-send", "vault", "encryption", "cli", "sync"]
+homepage    = "https://github.com/the-cyber-boardroom/SGraph-AI__Tools"
+repository  = "https://github.com/the-cyber-boardroom/SGraph-AI__Tools"
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Intended Audience :: Developers",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Topic :: Security :: Cryptography",
+]
+
+[tool.poetry.dependencies]
+python                         = "^3.12"
+
+[build-system]
+requires = ["poetry-core>=1.9.1"]
+build-backend = "poetry.core.masonry.api"

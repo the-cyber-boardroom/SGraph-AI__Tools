@@ -1,4 +1,4 @@
-# Role: Designer — sgraph_ai__tools
+# Role: Designer — sgraph_ai_tools__static
 
 **Team:** Explorer
 **Scope:** Consistent tool UX, shared styling, landing page design

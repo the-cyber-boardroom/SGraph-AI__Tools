@@ -32,7 +32,7 @@ from pathlib import Path
 
 # ── Configuration ──────────────────────────────────────────────────────────
 
-UI_BASE    = Path(__file__).parent.parent / 'sgraph_ai__tools' / 'tools'
+UI_BASE    = Path(__file__).parent.parent / 'sgraph_ai_tools__static' / 'tools'
 SOURCE_DIR = 'en-gb'
 
 # Starter locale set — expand to full 17 once i18n pipeline is proven.

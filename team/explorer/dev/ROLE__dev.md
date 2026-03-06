@@ -1,4 +1,4 @@
-# Role: Dev — sgraph_ai__tools
+# Role: Dev — sgraph_ai_tools__static
 
 **Team:** Explorer
 **Scope:** Implementation, module extraction, tool building, testing

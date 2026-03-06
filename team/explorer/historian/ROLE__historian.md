@@ -1,4 +1,4 @@
-# Role: Historian — sgraph_ai__tools
+# Role: Historian — sgraph_ai_tools__static
 
 **Team:** Explorer
 **Scope:** Decision tracking, session history

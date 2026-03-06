@@ -1,4 +1,4 @@
-# Designer — sgraph_ai__tools
+# Designer — sgraph_ai_tools__static
 
 Consistent tool UX, shared styling, landing page design.
 

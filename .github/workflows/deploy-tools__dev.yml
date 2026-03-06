@@ -1,6 +1,6 @@
 name: Deploy Tools UI to S3 (dev)
 
-# Deploys sgraph_ai__tools to S3 for CloudFront distribution.
+# Deploys sgraph_ai_tools__static to S3 for CloudFront distribution.
 #
 # S3 path: websites/sgraph-tools/dev/
 #
@@ -15,7 +15,7 @@ on:
     branches:
       - dev
     paths:
-      - 'sgraph_ai__tools/**'
+      - 'sgraph_ai_tools__static/**'
       - 'scripts/**'
       - '.github/workflows/deploy-tools__dev.yml'
       - 'version'
@@ -27,7 +27,7 @@ concurrency:
 env:
   AWS_REGION  : eu-west-2
   UI_VERSION  : v0.1.0
-  SOURCE_DIR  : sgraph_ai__tools
+  SOURCE_DIR  : sgraph_ai_tools__static
 
 jobs:
   increment-tag:
@@ -41,7 +41,7 @@ jobs:
         #if: inputs.should_increment_tag
         uses: owasp-sbot/OSBot-GitHub-Actions/.github/actions/git__increment-tag@dev
         with:
-          release_type : dev
+          release_type : minor
           #release_type: ${{ inputs.release_type }}
 
   deploy:

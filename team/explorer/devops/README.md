@@ -1,4 +1,4 @@
-# DevOps — sgraph_ai__tools
+# DevOps — sgraph_ai_tools__static
 
 CI/CD pipelines per module, S3 deployment, CloudFront config.
 

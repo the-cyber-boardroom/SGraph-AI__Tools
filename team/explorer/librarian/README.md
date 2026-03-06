@@ -1,4 +1,4 @@
-# Librarian — sgraph_ai__tools
+# Librarian — sgraph_ai_tools__static
 
 Maintain BRIEF_PACK.md, document module APIs, track what exists.
 
