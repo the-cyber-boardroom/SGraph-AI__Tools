@@ -2,7 +2,7 @@ name: Deploy Tools UI to S3 (dev)
 
 # Deploys sgraph_ai__tools to S3 for CloudFront distribution.
 #
-# S3 path: websites/tools-sgraph-ai/dev/
+# S3 path: websites/sgraph-tools/dev/
 #
 # Steps:
 #   1. Generate i18n locale pages from en-gb/ templates + i18n/*.json
@@ -30,9 +30,24 @@ env:
   SOURCE_DIR  : sgraph_ai__tools
 
 jobs:
+  increment-tag:
+    name: Increment Tag
+    runs-on: ubuntu-latest
+    #needs: [ run-tests ]
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Increment Tag
+        #if: inputs.should_increment_tag
+        uses: owasp-sbot/OSBot-GitHub-Actions/.github/actions/git__increment-tag@dev
+        with:
+          release_type : dev
+          #release_type: ${{ inputs.release_type }}
+
   deploy:
     name: "Deploy Tools to S3 (dev)"
     runs-on: ubuntu-latest
+    needs: [increment-tag]
     timeout-minutes: 10
     environment: dev
 
@@ -80,7 +95,7 @@ jobs:
         if: steps.check-creds.outputs.has-credentials == 'true'
         run: |
           python scripts/deploy_static_site.py \
-            --site tools-sgraph-ai \
+            --site sgraph-tools \
             --version ${{ steps.version.outputs.version }} \
             --source-dir ${{ env.SOURCE_DIR }} \
             --bucket ${{ secrets.SGRAPH_TOOLS__S3_BUCKET }} \
