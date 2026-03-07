@@ -1,0 +1,194 @@
+<!DOCTYPE html>
+<html lang="en-GB">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title data-i18n="landing.title">tools.sgraph.ai — Browser-Based Privacy Tools</title>
+    <meta name="description" data-i18n="landing.meta_description" content="Free browser-based tools that run entirely client-side. No uploads, no servers, no tracking. SSH key generation, video splitting, file encryption, and more.">
+    <link rel="stylesheet" href="../_common/css/tools.css">
+    <style>
+        .hero {
+            text-align: center;
+            padding: 3rem 1.5rem 2rem;
+        }
+
+        .hero__title {
+            font-size: 2rem;
+            font-weight: 700;
+            margin-bottom: 0.75rem;
+        }
+
+        .hero__title span {
+            color: var(--sg-accent);
+        }
+
+        .hero__subtitle {
+            color: var(--sg-text-muted);
+            font-size: 1.0625rem;
+            max-width: 600px;
+            margin: 0 auto 1rem;
+            line-height: 1.6;
+        }
+
+        .tools-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+            gap: 1.25rem;
+            max-width: 960px;
+            margin: 0 auto;
+            padding: 1.5rem;
+            flex: 1;
+        }
+
+        .tool-card {
+            background: var(--sg-bg-card);
+            border: 1px solid var(--sg-border);
+            border-radius: 8px;
+            padding: 1.5rem;
+            text-decoration: none;
+            color: inherit;
+            transition: border-color 150ms, transform 150ms;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .tool-card:hover {
+            border-color: var(--sg-accent);
+            transform: translateY(-2px);
+        }
+
+        .tool-card__icon {
+            font-size: 1.5rem;
+            margin-bottom: 0.75rem;
+        }
+
+        .tool-card__title {
+            font-size: 1.125rem;
+            font-weight: 600;
+            margin-bottom: 0.5rem;
+        }
+
+        .tool-card__desc {
+            color: var(--sg-text-muted);
+            font-size: 0.875rem;
+            line-height: 1.5;
+            flex: 1;
+        }
+
+        .tool-card__status {
+            display: inline-block;
+            margin-top: 0.75rem;
+            padding: 0.125rem 0.5rem;
+            border-radius: var(--sg-radius-pill);
+            font-size: 0.6875rem;
+            font-weight: 600;
+        }
+
+        .tool-card__status--live {
+            background: var(--sg-accent-bg);
+            color: var(--sg-accent);
+        }
+
+        .tool-card__status--coming {
+            background: rgba(148, 163, 184, 0.1);
+            color: var(--sg-text-dim);
+        }
+
+        .coming-soon {
+            opacity: 0.5;
+            pointer-events: none;
+        }
+
+        footer {
+            padding: 2rem 1.5rem;
+            text-align: center;
+            border-top: 1px solid var(--sg-border);
+        }
+
+        footer p {
+            color: var(--sg-text-dim);
+            font-size: 0.8125rem;
+            margin-bottom: 0.375rem;
+        }
+
+        footer a {
+            color: var(--sg-text-muted);
+            text-decoration: none;
+        }
+
+        footer a:hover {
+            color: var(--sg-accent);
+        }
+    </style>
+</head>
+<body>
+    <div class="hero">
+        <h1 class="hero__title"><span>tools</span>.sgraph.ai</h1>
+        <p class="hero__subtitle" data-i18n="landing.subtitle">
+            Free browser-based tools that run entirely on your device.
+            No uploads. No servers. No tracking. Your data never leaves your browser.
+        </p>
+        <span class="badge" data-i18n="landing.badge">100% Client-Side</span>
+    </div>
+
+    <div class="tools-grid">
+        <a href="ssh-keygen/" class="tool-card">
+            <div class="tool-card__icon">&#128273;</div>
+            <h2 class="tool-card__title" data-i18n="tools.ssh_keygen.title">SSH Key Generator</h2>
+            <p class="tool-card__desc" data-i18n="tools.ssh_keygen.desc">
+                Generate Ed25519 SSH key pairs entirely in your browser.
+                No server involved. Copy or download your keys instantly.
+            </p>
+            <span class="tool-card__status tool-card__status--live" data-i18n="status.live">Live</span>
+        </a>
+
+        <div class="tool-card coming-soon">
+            <div class="tool-card__icon">&#127916;</div>
+            <h2 class="tool-card__title" data-i18n="tools.video_splitter.title">Video Splitter</h2>
+            <p class="tool-card__desc" data-i18n="tools.video_splitter.desc">
+                Split MP4 videos into clips using FFmpeg WASM.
+                No upload required. Process files up to 500 MB locally.
+            </p>
+            <span class="tool-card__status tool-card__status--coming" data-i18n="status.coming_soon">Coming Soon</span>
+        </div>
+
+        <div class="tool-card coming-soon">
+            <div class="tool-card__icon">&#129302;</div>
+            <h2 class="tool-card__title" data-i18n="tools.llm_client.title">LLM Client</h2>
+            <p class="tool-card__desc" data-i18n="tools.llm_client.desc">
+                Connect to OpenRouter or local Ollama. Chat with any LLM
+                directly from your browser. API key stays local.
+            </p>
+            <span class="tool-card__status tool-card__status--coming" data-i18n="status.coming_soon">Coming Soon</span>
+        </div>
+
+        <div class="tool-card coming-soon">
+            <div class="tool-card__icon">&#128274;</div>
+            <h2 class="tool-card__title" data-i18n="tools.file_encryptor.title">File Encryptor</h2>
+            <p class="tool-card__desc" data-i18n="tools.file_encryptor.desc">
+                Encrypt any file with AES-256-GCM in your browser.
+                Same encryption used by SG/Send.
+            </p>
+            <span class="tool-card__status tool-card__status--coming" data-i18n="status.coming_soon">Coming Soon</span>
+        </div>
+
+        <div class="tool-card coming-soon">
+            <div class="tool-card__icon">&#128200;</div>
+            <h2 class="tool-card__title" data-i18n="tools.file_hasher.title">File Hasher</h2>
+            <p class="tool-card__desc" data-i18n="tools.file_hasher.desc">
+                Calculate SHA-256, SHA-1, or MD5 hashes of any file.
+                Verify file integrity without uploading.
+            </p>
+            <span class="tool-card__status tool-card__status--coming" data-i18n="status.coming_soon">Coming Soon</span>
+        </div>
+    </div>
+
+    <footer>
+        <p data-i18n="footer.privacy">All processing happens in your browser. No data is sent to any server.</p>
+        <p>
+            <span data-i18n="footer.cta_text">Need to share files securely?</span>
+            <a href="https://send.sgraph.ai" data-i18n="footer.cta_link">Try SG/Send &rarr;</a>
+        </p>
+    </footer>
+</body>
+</html>

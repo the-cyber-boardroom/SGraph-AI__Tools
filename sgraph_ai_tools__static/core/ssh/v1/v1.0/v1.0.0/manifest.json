@@ -1,0 +1,12 @@
+{
+    "version": "1.0.0",
+    "name": "sg-ssh",
+    "description": "Ed25519 SSH key pair generation via Web Crypto API",
+    "type": "core",
+    "exports": [
+        "generateSSHKeyPair"
+    ],
+    "dependencies": [],
+    "requires_secure_context": true,
+    "status": "built from scratch — Ed25519 only (Send also supports RSA-4096)"
+}

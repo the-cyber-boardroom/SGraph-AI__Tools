@@ -1,0 +1,23 @@
+{
+    "version": "1.0.0",
+    "name": "sg-crypto",
+    "description": "AES-256-GCM client-side encryption via Web Crypto API",
+    "type": "core",
+    "exports": [
+        "ALGORITHM",
+        "KEY_LENGTH",
+        "IV_LENGTH",
+        "isAvailable",
+        "requireSecureContext",
+        "generateKey",
+        "exportKey",
+        "importKey",
+        "encryptFile",
+        "decryptFile",
+        "bufferToBase64Url",
+        "base64UrlToBuffer"
+    ],
+    "dependencies": [],
+    "requires_secure_context": true,
+    "status": "unverified — not yet tested against Send production crypto"
+}

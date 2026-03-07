@@ -1,0 +1,259 @@
+<!DOCTYPE html>
+<html lang="en-GB">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title data-i18n="ssh_keygen.title">SSH Key Generator — tools.sgraph.ai</title>
+    <meta name="description" data-i18n="ssh_keygen.meta_description" content="Generate Ed25519 SSH key pairs entirely in your browser. No server, no upload, no tracking. Free and private.">
+    <link rel="stylesheet" href="../../_common/css/tools.css">
+    <style>
+        .main {
+            flex: 1;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 2rem 1.5rem;
+            width: 100%;
+        }
+
+        h1 {
+            font-size: 1.5rem;
+            margin-bottom: 0.5rem;
+        }
+
+        .subtitle {
+            color: var(--sg-text-muted);
+            font-size: 0.9375rem;
+            margin-bottom: 2rem;
+            line-height: 1.5;
+        }
+
+        .controls {
+            display: flex;
+            gap: 1rem;
+            align-items: flex-end;
+            margin-bottom: 1.5rem;
+            flex-wrap: wrap;
+        }
+
+        .key-section {
+            margin-bottom: 1.5rem;
+        }
+
+        .key-section__header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 0.5rem;
+        }
+
+        .key-section__title {
+            font-size: 0.9375rem;
+            font-weight: 600;
+        }
+
+        .key-section__actions {
+            display: flex;
+            gap: 0.5rem;
+        }
+
+        .key-output {
+            width: 100%;
+            min-height: 120px;
+            padding: 0.75rem;
+            background: var(--sg-bg-card);
+            color: var(--sg-text-muted);
+            border: 1px solid var(--sg-border);
+            border-radius: var(--sg-radius);
+            font-family: var(--sg-font-mono);
+            font-size: 0.75rem;
+            line-height: 1.5;
+            resize: vertical;
+            outline: none;
+            word-break: break-all;
+        }
+
+        .key-output:focus {
+            border-color: var(--sg-accent);
+        }
+
+        .info-box {
+            margin-top: 2rem;
+            padding: 1rem;
+            background: rgba(78, 205, 196, 0.05);
+            border: 1px solid var(--sg-border);
+            border-radius: var(--sg-radius);
+        }
+
+        .info-box h3 {
+            font-size: 0.875rem;
+            margin-bottom: 0.5rem;
+            color: var(--sg-accent);
+        }
+
+        .info-box p, .info-box li {
+            color: var(--sg-text-muted);
+            font-size: 0.8125rem;
+            line-height: 1.6;
+        }
+
+        .info-box ul {
+            margin-left: 1.25rem;
+            margin-top: 0.25rem;
+        }
+
+        .fingerprint {
+            margin-top: 0.5rem;
+            font-family: monospace;
+            font-size: 0.75rem;
+            color: var(--sg-text-dim);
+        }
+    </style>
+</head>
+<body>
+    <script type="module" src="/components/header/v1/v1.0/v1.0.0/sg-header.js"></script>
+    <sg-header tool-name="SSH Key Generator"></sg-header>
+
+    <div class="main">
+        <h1 data-i18n="ssh_keygen.heading">SSH Key Generator</h1>
+        <p class="subtitle" data-i18n="ssh_keygen.subtitle">
+            Generate Ed25519 SSH key pairs entirely in your browser using the Web Crypto API.
+            Nothing is sent to any server. The private key exists only in your browser until you save it.
+        </p>
+
+        <div class="controls">
+            <div class="field">
+                <label for="comment" data-i18n="ssh_keygen.comment_label">Comment (optional)</label>
+                <input type="text" id="comment" data-i18n-placeholder="ssh_keygen.comment_placeholder" placeholder="user@example.com" value="">
+            </div>
+            <button class="btn" id="generate-btn" data-i18n="ssh_keygen.generate_btn">Generate Key Pair</button>
+        </div>
+
+        <div id="status" class="status"></div>
+
+        <div id="key-output" class="hidden">
+            <div class="key-section">
+                <div class="key-section__header">
+                    <h2 class="key-section__title" data-i18n="ssh_keygen.public_key">Public Key</h2>
+                    <div class="key-section__actions">
+                        <button class="btn btn--secondary" id="copy-public" data-i18n="ssh_keygen.copy">Copy</button>
+                        <button class="btn btn--secondary" id="download-public" data-i18n="ssh_keygen.download">Download</button>
+                    </div>
+                </div>
+                <textarea class="key-output" id="public-key" readonly rows="3"></textarea>
+                <div class="fingerprint" id="fingerprint"></div>
+            </div>
+
+            <div class="key-section">
+                <div class="key-section__header">
+                    <h2 class="key-section__title" data-i18n="ssh_keygen.private_key">Private Key</h2>
+                    <div class="key-section__actions">
+                        <button class="btn btn--secondary" id="copy-private" data-i18n="ssh_keygen.copy">Copy</button>
+                        <button class="btn btn--secondary" id="download-private" data-i18n="ssh_keygen.download">Download</button>
+                    </div>
+                </div>
+                <textarea class="key-output" id="private-key" readonly rows="8"></textarea>
+            </div>
+        </div>
+
+        <div class="info-box">
+            <h3 data-i18n="ssh_keygen.how_title">How it works</h3>
+            <p data-i18n="ssh_keygen.how_intro">This tool uses the Web Crypto API to generate Ed25519 SSH key pairs directly in your browser:</p>
+            <ul>
+                <li data-i18n="ssh_keygen.how_1">Keys are generated using <code>crypto.subtle.generateKey()</code></li>
+                <li data-i18n="ssh_keygen.how_2">The private key is formatted in OpenSSH PEM format</li>
+                <li data-i18n="ssh_keygen.how_3">The public key is formatted in OpenSSH authorized_keys format</li>
+                <li data-i18n="ssh_keygen.how_4">No data leaves your browser at any point</li>
+                <li data-i18n="ssh_keygen.how_5">Requires a secure context (HTTPS or localhost)</li>
+            </ul>
+        </div>
+    </div>
+
+    <script type="module" src="/components/footer/v1/v1.0/v1.0.0/sg-footer.js"></script>
+    <sg-footer></sg-footer>
+
+    <script type="module">
+        import { generateSSHKeyPair } from '/core/ssh/v1/v1.0/v1.0.0/sg-ssh.js';
+
+        const generateBtn   = document.getElementById('generate-btn');
+        const commentInput   = document.getElementById('comment');
+        const statusDiv      = document.getElementById('status');
+        const keyOutputDiv   = document.getElementById('key-output');
+        const publicKeyArea  = document.getElementById('public-key');
+        const privateKeyArea = document.getElementById('private-key');
+        const fingerprintDiv = document.getElementById('fingerprint');
+
+        generateBtn.addEventListener('click', async () => {
+            generateBtn.disabled = true;
+            generateBtn.textContent = 'Generating...';
+            statusDiv.className = 'status';
+            statusDiv.style.display = 'none';
+
+            try {
+                const comment = commentInput.value.trim();
+                const { publicKey, privateKey } = await generateSSHKeyPair({ comment });
+
+                publicKeyArea.value  = publicKey;
+                privateKeyArea.value = privateKey;
+                keyOutputDiv.classList.remove('hidden');
+
+                // Calculate fingerprint (SHA-256 of the base64 key blob)
+                const parts = publicKey.split(' ');
+                if (parts.length >= 2) {
+                    const keyBlob = Uint8Array.from(atob(parts[1]), c => c.charCodeAt(0));
+                    const hash = await crypto.subtle.digest('SHA-256', keyBlob);
+                    const b64 = btoa(String.fromCharCode(...new Uint8Array(hash)))
+                        .replace(/=+$/, '');
+                    fingerprintDiv.textContent = `SHA256:${b64}`;
+                }
+
+                statusDiv.textContent = 'Key pair generated successfully.';
+                statusDiv.className = 'status status--success';
+            } catch (err) {
+                statusDiv.textContent = `Error: ${err.message}`;
+                statusDiv.className = 'status status--error';
+                console.error(err);
+            }
+
+            generateBtn.disabled = false;
+            generateBtn.textContent = 'Generate Key Pair';
+        });
+
+        // Copy buttons
+        document.getElementById('copy-public').addEventListener('click', async () => {
+            await navigator.clipboard.writeText(publicKeyArea.value);
+            showCopied('copy-public');
+        });
+
+        document.getElementById('copy-private').addEventListener('click', async () => {
+            await navigator.clipboard.writeText(privateKeyArea.value);
+            showCopied('copy-private');
+        });
+
+        function showCopied(btnId) {
+            const btn = document.getElementById(btnId);
+            const orig = btn.textContent;
+            btn.textContent = 'Copied!';
+            setTimeout(() => { btn.textContent = orig; }, 1500);
+        }
+
+        // Download buttons
+        document.getElementById('download-public').addEventListener('click', () => {
+            downloadFile('id_ed25519.pub', publicKeyArea.value);
+        });
+
+        document.getElementById('download-private').addEventListener('click', () => {
+            downloadFile('id_ed25519', privateKeyArea.value);
+        });
+
+        function downloadFile(filename, content) {
+            const blob = new Blob([content], { type: 'text/plain' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = filename;
+            a.click();
+            URL.revokeObjectURL(url);
+        }
+    </script>
+</body>
+</html>

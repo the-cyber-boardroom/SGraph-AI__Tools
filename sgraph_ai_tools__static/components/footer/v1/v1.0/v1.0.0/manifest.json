@@ -1,0 +1,11 @@
+{
+    "version": "1.0.0",
+    "name": "sg-footer",
+    "description": "Shared footer web component for tools.sgraph.ai",
+    "type": "component",
+    "exports": [
+        "SgFooter"
+    ],
+    "custom_element": "sg-footer",
+    "dependencies": []
+}

@@ -1,0 +1,12 @@
+{
+    "version": "1.0.0",
+    "name": "sg-header",
+    "description": "Shared header web component for tools.sgraph.ai",
+    "type": "component",
+    "exports": [
+        "SgHeader"
+    ],
+    "custom_element": "sg-header",
+    "attributes": ["tool-name"],
+    "dependencies": []
+}
