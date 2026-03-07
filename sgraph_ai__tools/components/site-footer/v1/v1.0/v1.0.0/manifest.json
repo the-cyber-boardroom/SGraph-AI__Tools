@@ -1,0 +1,15 @@
+{
+    "version": "1.0.0",
+    "name": "sg-site-footer",
+    "description": "Shared footer for all sgraph.ai domains. Brand, configurable link columns, sherpa CTA.",
+    "type": "component",
+    "exports": [
+        "SgSiteFooter"
+    ],
+    "custom_element": "sg-site-footer",
+    "attributes": ["brand-desc", "columns", "copyright", "sherpa-text", "sherpa-href"],
+    "dependencies": [
+        "sg-component",
+        "sg-tokens"
+    ]
+}

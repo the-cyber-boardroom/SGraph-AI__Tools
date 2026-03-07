@@ -1,0 +1,16 @@
+{
+    "version": "1.0.0",
+    "name": "sg-locale-picker",
+    "description": "Language selector dropdown with 17 locales and flag emojis. Used in site header.",
+    "type": "component",
+    "exports": [
+        "SgLocalePicker",
+        "SG_LOCALES"
+    ],
+    "custom_element": "sg-locale-picker",
+    "attributes": ["locale", "base-path"],
+    "dependencies": [
+        "sg-component",
+        "sg-tokens"
+    ]
+}

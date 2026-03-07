@@ -1,0 +1,8 @@
+{
+    "version": "1.0.0",
+    "name": "sg-tokens",
+    "description": "Canonical SGraph brand design tokens. Colours, typography, spacing, radii.",
+    "type": "core",
+    "exports": [],
+    "dependencies": []
+}

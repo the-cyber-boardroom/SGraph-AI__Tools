@@ -1,0 +1,11 @@
+{
+    "version": "1.0.0",
+    "name": "sg-component",
+    "description": "Base class for all SGraph shared UI components. Shadow DOM with resource loading.",
+    "type": "core",
+    "exports": [
+        "SgComponent",
+        "SgComponentPaths"
+    ],
+    "dependencies": []
+}

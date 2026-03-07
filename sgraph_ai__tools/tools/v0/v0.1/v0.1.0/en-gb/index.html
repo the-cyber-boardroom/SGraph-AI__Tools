@@ -98,30 +98,16 @@
             opacity: 0.5;
             pointer-events: none;
         }
-
-        footer {
-            padding: 2rem 1.5rem;
-            text-align: center;
-            border-top: 1px solid var(--sg-border);
-        }
-
-        footer p {
-            color: var(--sg-text-dim);
-            font-size: 0.8125rem;
-            margin-bottom: 0.375rem;
-        }
-
-        footer a {
-            color: var(--sg-text-muted);
-            text-decoration: none;
-        }
-
-        footer a:hover {
-            color: var(--sg-accent);
-        }
     </style>
 </head>
 <body>
+    <script type="module" src="/components/site-header/v1/v1.0/v1.0.0/sg-site-header.js"></script>
+    <sg-site-header
+        site="Tools"
+        home-url="/tools/v0/v0.1/v0.1.0/en-gb/"
+        nav-items='[{"label":"All Tools","href":"/tools/v0/v0.1/v0.1.0/en-gb/"},{"label":"SG/Send","href":"https://send.sgraph.ai"}]'>
+    </sg-site-header>
+
     <div class="hero">
         <h1 class="hero__title"><span>tools</span>.sgraph.ai</h1>
         <p class="hero__subtitle" data-i18n="landing.subtitle">
@@ -183,12 +169,10 @@
         </div>
     </div>
 
-    <footer>
-        <p data-i18n="footer.privacy">All processing happens in your browser. No data is sent to any server.</p>
-        <p>
-            <span data-i18n="footer.cta_text">Need to share files securely?</span>
-            <a href="https://send.sgraph.ai" data-i18n="footer.cta_link">Try SG/Send &rarr;</a>
-        </p>
-    </footer>
+    <script type="module" src="/components/site-footer/v1/v1.0/v1.0.0/sg-site-footer.js"></script>
+    <sg-site-footer
+        brand-desc="Free browser-based tools that run entirely on your device. No uploads, no servers, no tracking."
+        columns='[{"title":"Tools","links":[{"label":"SSH Key Generator","href":"ssh-keygen/"},{"label":"All Tools","href":"./"}]},{"title":"SGraph","links":[{"label":"send.sgraph.ai","href":"https://send.sgraph.ai"},{"label":"GitHub","href":"https://github.com/the-cyber-boardroom/SGraph-AI__Tools"}]}]'>
+    </sg-site-footer>
 </body>
 </html>

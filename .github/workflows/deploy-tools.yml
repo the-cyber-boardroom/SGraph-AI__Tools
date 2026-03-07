@@ -1,0 +1,135 @@
+name: Deploy Tools UI to S3
+
+# Deploys sgraph_ai__tools to S3 for CloudFront distribution.
+# Matches the workspace deploy pattern: single workflow, 3-way environment.
+#
+# S3 path isolation by branch/environment:
+#   websites/tools-sgraph-ai/dev/    — dev branch (automatic)
+#   websites/tools-sgraph-ai/main/   — main branch (automatic)
+#   websites/tools-sgraph-ai/prod/   — production (manual dispatch)
+#
+# Domains:
+#   dev.tools.sgraph.ai   — dev environment
+#   main.tools.sgraph.ai  — main environment
+#   tools.sgraph.ai        — production
+#
+# Steps:
+#   1. Read version from version file
+#   2. Inject build version
+#   3. Generate i18n locale pages from en-gb/ templates + i18n/*.json
+#   4. Sync content to S3 under the resolved environment prefix
+#   5. Invalidate CloudFront cache
+#
+# Secrets (per environment):
+#   AWS_ACCESS_KEY_ID
+#   AWS_SECRET_ACCESS_KEY
+#   SGRAPH_TOOLS__S3_BUCKET
+#   SGRAPH_TOOLS__DEV__CLOUDFRONT_DISTRIBUTION_ID   (dev + main)
+#   SGRAPH_TOOLS__CLOUDFRONT_DISTRIBUTION_ID         (production)
+
+on:
+  push:
+    branches:
+      - dev
+      - main
+    paths:
+      - 'sgraph_ai__tools/**'
+      - 'scripts/**'
+      - '.github/workflows/deploy-tools.yml'
+      - 'version'
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: 'Deployment environment'
+        required: false
+        default: 'dev'
+        type: choice
+        options:
+          - dev
+          - production
+
+concurrency:
+  group: "tools-deploy-${{ inputs.environment || github.ref_name || 'dev' }}"
+  cancel-in-progress: false
+
+env:
+  AWS_REGION  : eu-west-2
+  SOURCE_DIR  : sgraph_ai__tools
+
+jobs:
+  deploy:
+    name: "Deploy Tools to S3 (${{ inputs.environment || github.ref_name || 'dev' }})"
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    environment: ${{ inputs.environment || (github.ref_name == 'main' && 'main') || 'dev' }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Read version
+        id: version
+        run: |
+          VERSION=$(cat version)
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+          echo "Using version: $VERSION"
+
+      - name: Resolve deployment environment
+        id: env
+        run: |
+          DEPLOY_ENV="${{ inputs.environment || github.ref_name }}"
+          if [ "$DEPLOY_ENV" == "production" ]; then
+            echo "deploy_env=prod" >> $GITHUB_OUTPUT
+            echo "dist_id=${{ secrets.SGRAPH_TOOLS__CLOUDFRONT_DISTRIBUTION_ID }}" >> $GITHUB_OUTPUT
+            echo "Deploying to PRODUCTION (tools.sgraph.ai) → S3: websites/tools-sgraph-ai/prod/"
+          elif [ "$DEPLOY_ENV" == "main" ]; then
+            echo "deploy_env=main" >> $GITHUB_OUTPUT
+            echo "dist_id=${{ secrets.SGRAPH_TOOLS__DEV__CLOUDFRONT_DISTRIBUTION_ID }}" >> $GITHUB_OUTPUT
+            echo "Deploying to MAIN (main.tools.sgraph.ai) → S3: websites/tools-sgraph-ai/main/"
+          else
+            echo "deploy_env=dev" >> $GITHUB_OUTPUT
+            echo "dist_id=${{ secrets.SGRAPH_TOOLS__DEV__CLOUDFRONT_DISTRIBUTION_ID }}" >> $GITHUB_OUTPUT
+            echo "Deploying to DEV (dev.tools.sgraph.ai) → S3: websites/tools-sgraph-ai/dev/"
+          fi
+
+      - name: Inject build version
+        run: python scripts/inject_build_version.py --version ${{ steps.version.outputs.version }}
+
+      - name: Generate i18n locale pages
+        run: python scripts/generate_tools_i18n_pages.py --version ${{ steps.version.outputs.version }}
+
+      - name: Check AWS credentials
+        id: check-creds
+        run: |
+          if [ -z "${{ secrets.AWS_ACCESS_KEY_ID }}" ] || [ -z "${{ secrets.AWS_SECRET_ACCESS_KEY }}" ]; then
+            echo "has-credentials=false" >> $GITHUB_OUTPUT
+            echo "WARNING: AWS credentials not configured — skipping deployment"
+          else
+            echo "has-credentials=true" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Configure AWS credentials
+        if: steps.check-creds.outputs.has-credentials == 'true'
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id     : ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key : ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region            : ${{ env.AWS_REGION }}
+
+      - name: Deploy to S3
+        if: steps.check-creds.outputs.has-credentials == 'true'
+        run: |
+          python scripts/deploy_static_site.py \
+            --site tools-sgraph-ai \
+            --version ${{ steps.version.outputs.version }} \
+            --source-dir ${{ env.SOURCE_DIR }} \
+            --bucket ${{ secrets.SGRAPH_TOOLS__S3_BUCKET }} \
+            --region ${{ env.AWS_REGION }} \
+            --deploy-env ${{ steps.env.outputs.deploy_env }} \
+            --cloudfront-distribution-id ${{ steps.env.outputs.dist_id }} \
+            --skip-validation

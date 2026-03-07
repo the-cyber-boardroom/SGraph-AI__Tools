@@ -1,0 +1,15 @@
+{
+    "version": "1.0.0",
+    "name": "sg-site-header",
+    "description": "Shared sticky header for all sgraph.ai domains. SG/ logo, nav links, locale picker slot.",
+    "type": "component",
+    "exports": [
+        "SgSiteHeader"
+    ],
+    "custom_element": "sg-site-header",
+    "attributes": ["site", "home-url", "nav-items"],
+    "dependencies": [
+        "sg-component",
+        "sg-tokens"
+    ]
+}

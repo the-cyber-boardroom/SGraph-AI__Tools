@@ -1,0 +1,155 @@
+/* =============================================================================
+   SGraph — Site Footer Component Styles
+   v1.0.0 — Responsive footer with configurable link columns
+
+   Matches the sgraph.ai website footer (Aurora theme).
+   ============================================================================= */
+
+:host {
+    display: block;
+}
+
+.site-footer {
+    background-color: var(--sg-bg-secondary, #16213E);
+    border-top: 1px solid var(--sg-border, #2C3E6B);
+    padding: 48px 0;
+}
+
+.site-footer__container {
+    max-width: 1200px;
+    margin: 0 auto;
+    padding: 0 var(--sg-sp-6, 24px);
+}
+
+/* ── Grid ──────────────────────────────────────────────────────────────── */
+
+.site-footer__grid {
+    display: grid;
+    grid-template-columns: 2fr 3fr;
+    gap: var(--sg-sp-8, 32px);
+}
+
+/* ── Brand ─────────────────────────────────────────────────────────────── */
+
+.site-footer__logo {
+    font-size: 1.5rem;
+    text-decoration: none;
+    display: inline-block;
+    margin-bottom: var(--sg-sp-4, 16px);
+}
+
+.site-footer__logo:hover {
+    text-decoration: none;
+}
+
+.brand-prefix {
+    font-family: var(--sg-font-display, 'DM Sans', system-ui, sans-serif);
+    font-weight: var(--sg-fw-bold, 700);
+    color: var(--sg-text-heading, #FFFFFF);
+}
+
+.brand-slash {
+    font-family: var(--sg-font-display, 'DM Sans', system-ui, sans-serif);
+    font-weight: var(--sg-fw-bold, 700);
+    color: var(--sg-accent, #4ECDC4);
+}
+
+.site-footer__brand p {
+    color: var(--sg-text-muted, #8892A0);
+    font-family: var(--sg-font-body, system-ui, sans-serif);
+    font-size: 0.9rem;
+    max-width: 300px;
+    line-height: 1.6;
+}
+
+/* ── Columns ───────────────────────────────────────────────────────────── */
+
+.site-footer__columns {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+    gap: var(--sg-sp-8, 32px);
+}
+
+.site-footer__col h4 {
+    font-family: var(--sg-font-display, 'DM Sans', system-ui, sans-serif);
+    font-size: 0.85rem;
+    font-weight: var(--sg-fw-medium, 500);
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: var(--sg-text-muted, #8892A0);
+    margin: 0 0 var(--sg-sp-4, 16px) 0;
+}
+
+.site-footer__col ul {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+    gap: var(--sg-sp-3, 12px);
+}
+
+.site-footer__col a {
+    color: var(--sg-text-muted, #8892A0);
+    font-family: var(--sg-font-body, system-ui, sans-serif);
+    font-size: 0.9rem;
+    text-decoration: none;
+    transition: color var(--sg-transition-fast, 150ms ease);
+}
+
+.site-footer__col a:hover {
+    color: var(--sg-accent, #4ECDC4);
+}
+
+/* ── Bottom Bar ────────────────────────────────────────────────────────── */
+
+.site-footer__bottom {
+    margin-top: var(--sg-sp-8, 32px);
+    padding-top: var(--sg-sp-6, 24px);
+    border-top: 1px solid var(--sg-border, #2C3E6B);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: var(--sg-sp-4, 16px);
+}
+
+.site-footer__bottom p {
+    color: var(--sg-text-muted, #8892A0);
+    font-family: var(--sg-font-body, system-ui, sans-serif);
+    font-size: var(--sg-fs-small, 0.8rem);
+    margin: 0;
+}
+
+.site-footer__sherpa {
+    display: inline-flex;
+    align-items: center;
+    padding: var(--sg-sp-2, 8px) var(--sg-sp-4, 16px);
+    background-color: var(--sg-accent, #4ECDC4);
+    color: var(--sg-color-navy, #1A1A2E);
+    font-family: var(--sg-font-body, system-ui, sans-serif);
+    font-weight: var(--sg-fw-bold, 700);
+    font-size: var(--sg-fs-small, 0.8rem);
+    border-radius: var(--sg-radius, 6px);
+    text-decoration: none;
+    transition: background-color var(--sg-transition-fast, 150ms ease);
+}
+
+.site-footer__sherpa:hover {
+    background-color: var(--sg-accent-hover, #3DB8B0);
+}
+
+/* ── Responsive ────────────────────────────────────────────────────────── */
+
+@media (max-width: 768px) {
+    .site-footer__grid {
+        grid-template-columns: 1fr;
+    }
+}
+
+@media (max-width: 480px) {
+    .site-footer__bottom {
+        flex-direction: column;
+        text-align: center;
+    }
+}
