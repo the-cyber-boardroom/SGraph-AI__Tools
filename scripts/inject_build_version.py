@@ -19,7 +19,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 REPO_ROOT        = Path(__file__).parent.parent
-VERSION_FILE     = REPO_ROOT / 'version'
+VERSION_FILE     = REPO_ROOT / 'sgraph_ai_tools' / 'version'
 UI_BASE          = 'sgraph_ai_tools__static/tools'
 
 BUILD_INFO_TEMPLATE = """\

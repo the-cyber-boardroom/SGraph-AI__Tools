@@ -33,10 +33,10 @@ on:
       - dev
       - main
     paths:
-      - 'sgraph_ai__tools/**'
+      - 'sgraph_ai_tools__static/**'
       - 'scripts/**'
       - '.github/workflows/deploy-tools.yml'
-      - 'version'
+      - 'sgraph_ai_tools/version'
   workflow_dispatch:
     inputs:
       environment:
@@ -54,7 +54,8 @@ concurrency:
 
 env:
   AWS_REGION  : eu-west-2
-  SOURCE_DIR  : sgraph_ai__tools
+  UI_VERSION  : v0.1.0
+  SOURCE_DIR  : sgraph_ai_tools__static
 
 jobs:
   deploy:
@@ -72,12 +73,13 @@ jobs:
         with:
           python-version: '3.12'
 
-      - name: Read version
+      - name: Read repo version
         id: version
         run: |
-          VERSION=$(cat version)
+          VERSION=$(cat sgraph_ai_tools/version)
           echo "version=$VERSION" >> $GITHUB_OUTPUT
-          echo "Using version: $VERSION"
+          echo "Repo version: $VERSION"
+          echo "IFD version:  ${{ env.UI_VERSION }}"
 
       - name: Resolve deployment environment
         id: env
@@ -98,10 +100,10 @@ jobs:
           fi
 
       - name: Inject build version
-        run: python scripts/inject_build_version.py --version ${{ steps.version.outputs.version }}
+        run: python scripts/inject_build_version.py --version ${{ env.UI_VERSION }}
 
       - name: Generate i18n locale pages
-        run: python scripts/generate_tools_i18n_pages.py --version ${{ steps.version.outputs.version }}
+        run: python scripts/generate_tools_i18n_pages.py --version ${{ env.UI_VERSION }}
 
       - name: Check AWS credentials
         id: check-creds
@@ -126,7 +128,7 @@ jobs:
         run: |
           python scripts/deploy_static_site.py \
             --site tools-sgraph-ai \
-            --version ${{ steps.version.outputs.version }} \
+            --version ${{ env.UI_VERSION }} \
             --source-dir ${{ env.SOURCE_DIR }} \
             --bucket ${{ secrets.SGRAPH_TOOLS__S3_BUCKET }} \
             --region ${{ env.AWS_REGION }} \
