@@ -1,4 +1,4 @@
-# Role: Librarian — sgraph_ai__tools
+# Role: Librarian — sgraph_ai_tools__static
 
 **Team:** Explorer
 **Scope:** Reality document, knowledge base, briefing pack, module registry

@@ -1,4 +1,4 @@
-# Architect — sgraph_ai__tools
+# Architect — sgraph_ai_tools__static
 
 Module API design, dependency management, versioning strategy.
 

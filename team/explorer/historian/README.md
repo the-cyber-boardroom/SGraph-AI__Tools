@@ -1,4 +1,4 @@
-# Historian — sgraph_ai__tools
+# Historian — sgraph_ai_tools__static
 
 Decision tracking, session history.
 

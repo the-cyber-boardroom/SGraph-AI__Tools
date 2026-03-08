@@ -1,4 +1,4 @@
-# Dev — sgraph_ai__tools
+# Dev — sgraph_ai_tools__static
 
 Build tools, extract modules, write tests, implement CI/CD.
 

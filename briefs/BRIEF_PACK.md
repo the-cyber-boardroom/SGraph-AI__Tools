@@ -1,4 +1,4 @@
-# BRIEF_PACK.md — sgraph_ai__tools Session Bootstrap
+# BRIEF_PACK.md — sgraph_ai_tools__static Session Bootstrap
 
 **Version:** v0.1.0
 **Last updated:** 5 Mar 2026
@@ -79,7 +79,7 @@ Role definitions at: `team/explorer/{role}/ROLE__{role}.md`
 ## 5. Repo Structure
 
 ```
-sgraph_ai__tools/
+sgraph_ai_tools__static/
   .claude/
     CLAUDE.md                     # Main project guidance
     explorer/CLAUDE.md            # Explorer team session instructions
@@ -136,7 +136,7 @@ sgraph_ai__tools/
 **Task:** Set up the repo, deploy the infrastructure, and build the first tools.
 
 **Steps:**
-1. Create `sgraph_ai__tools` repo with the three-tier folder structure
+1. Create `sgraph_ai_tools__static` repo with the three-tier folder structure
 2. Create `.claude/CLAUDE.md` and `.claude/explorer/CLAUDE.md`
 3. Create `team/explorer/{role}/` directories with README.md + ROLE files
 4. Create `briefs/BRIEF_PACK.md` with all 10 sections
@@ -156,7 +156,7 @@ sgraph_ai__tools/
 
 ```bash
 # No dependencies to install -- vanilla JS and static files
-cd sgraph_ai__tools
+cd sgraph_ai_tools__static
 
 # Start a local server
 python3 -m http.server 8080
@@ -201,8 +201,8 @@ open http://localhost:8080/tools/
 
 ```bash
 # Clone the repo
-git clone https://github.com/the-cyber-boardroom/SGraph-AI__Tools.git sgraph_ai__tools
-cd sgraph_ai__tools
+git clone https://github.com/the-cyber-boardroom/SGraph-AI__Tools.git sgraph_ai_tools__static
+cd sgraph_ai_tools__static
 
 # No dependencies to install -- it's all vanilla JS and static files
 
@@ -227,7 +227,7 @@ open http://localhost:8080/tools/
 
 ```
 1. Create new Claude Code session
-2. Point it at the sgraph_ai__tools repo
+2. Point it at the sgraph_ai_tools__static repo
 3. First message: "Read briefs/BRIEF_PACK.md and set up the team"
 4. Session reads the briefing pack
 5. Session understands: roles, conventions, architecture, what exists, what to build

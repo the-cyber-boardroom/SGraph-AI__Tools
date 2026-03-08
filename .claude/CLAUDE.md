@@ -1,6 +1,6 @@
 # SGraph Tools — Agent Guidance
 
-**Read this before starting any task.** This file is the single source of truth for all agents and roles working on sgraph_ai__tools (tools.sgraph.ai).
+**Read this before starting any task.** This file is the single source of truth for all agents and roles working on sgraph_ai_tools__static (tools.sgraph.ai).
 
 ---
 
@@ -30,7 +30,7 @@ This is the **code-verified** record of every module, component, tool, and featu
 
 ## Project
 
-**sgraph_ai__tools** — the canonical component library and tool platform for the SGraph ecosystem at [tools.sgraph.ai](https://tools.sgraph.ai).
+**sgraph_ai_tools__static** — the canonical component library and tool platform for the SGraph ecosystem at [tools.sgraph.ai](https://tools.sgraph.ai).
 
 Three tiers:
 - **core/** — Pure JS modules (crypto, API client, LLM, video, SSH). No UI. Used by all SGraph projects.
@@ -58,7 +58,7 @@ Three tiers:
 ## Repo Structure
 
 ```
-sgraph_ai__tools/
+sgraph_ai_tools__static/
   .claude/
     CLAUDE.md                     # This file
     explorer/CLAUDE.md            # Explorer team session instructions

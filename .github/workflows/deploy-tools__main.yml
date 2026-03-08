@@ -1,8 +1,8 @@
 name: Deploy Tools UI to S3 (main)
 
-# Deploys sgraph_ai__tools to S3 for CloudFront distribution.
+# Deploys sgraph_ai_tools__static to S3 for CloudFront distribution.
 #
-# S3 path: websites/tools-sgraph-ai/main/
+# S3 path: websites/sgraph-tools/main/
 #
 # Same as dev workflow but triggered on main branch.
 
@@ -11,7 +11,7 @@ on:
     branches:
       - main
     paths:
-      - 'sgraph_ai__tools/**'
+      - 'sgraph_ai_tools__static/**'
       - 'scripts/**'
       - '.github/workflows/deploy-tools__main.yml'
       - 'version'
@@ -32,7 +32,7 @@ concurrency:
 
 env:
   AWS_REGION  : eu-west-2
-  SOURCE_DIR  : sgraph_ai__tools
+  SOURCE_DIR  : sgraph_ai_tools__static
 
 jobs:
   deploy:
@@ -97,7 +97,7 @@ jobs:
         if: steps.check-creds.outputs.has-credentials == 'true'
         run: |
           python scripts/deploy_static_site.py \
-            --site tools-sgraph-ai \
+            --site sgraph-tools \
             --version ${{ steps.version.outputs.version }} \
             --source-dir ${{ env.SOURCE_DIR }} \
             --bucket ${{ secrets.SGRAPH_TOOLS__S3_BUCKET }} \

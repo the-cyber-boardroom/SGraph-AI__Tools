@@ -1,4 +1,4 @@
-# Role: Architect — sgraph_ai__tools
+# Role: Architect — sgraph_ai_tools__static
 
 **Team:** Explorer
 **Scope:** Module API design, dependency management, versioning strategy

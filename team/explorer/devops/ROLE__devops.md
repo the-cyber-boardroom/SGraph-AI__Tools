@@ -1,4 +1,4 @@
-# Role: DevOps — sgraph_ai__tools
+# Role: DevOps — sgraph_ai_tools__static
 
 **Team:** Explorer
 **Scope:** CI/CD pipelines per module, S3 deployment, CloudFront config, cache headers
