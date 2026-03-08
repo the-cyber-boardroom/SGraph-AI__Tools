@@ -18,7 +18,7 @@
      sherpa-href — Href for the sherpa CTA button
    ================================================================================= */
 
-import { SgComponent } from '../../base/v1/v1.0/v1.0.0/sg-component.js'
+import { SgComponent } from '/components/base/v1/v1.0/v1.0.0/sg-component.js'
 
 class SgSiteFooter extends SgComponent {
 
@@ -27,7 +27,7 @@ class SgSiteFooter extends SgComponent {
     get resourceName() { return 'sg-site-footer' }
 
     get sharedCssPaths() {
-        return ['../../tokens/v1/v1.0/v1.0.0/sg-tokens.css']
+        return ['/components/tokens/v1/v1.0/v1.0.0/sg-tokens.css']
     }
 
     onReady() {
