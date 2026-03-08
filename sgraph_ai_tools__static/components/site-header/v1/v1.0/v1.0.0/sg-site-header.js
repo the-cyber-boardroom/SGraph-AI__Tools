@@ -26,7 +26,7 @@ class SgSiteHeader extends SgComponent {
     get resourceName() { return 'sg-site-header' }
 
     get sharedCssPaths() {
-        return ['../../tokens/v1/v1.0/v1.0.0/sg-tokens.css']
+        return ['/components/tokens/v1/v1.0/v1.0.0/sg-tokens.css']
     }
 
     onReady() {

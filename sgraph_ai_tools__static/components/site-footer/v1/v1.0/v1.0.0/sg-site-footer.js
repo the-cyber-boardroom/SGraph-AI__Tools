@@ -27,7 +27,7 @@ class SgSiteFooter extends SgComponent {
     get resourceName() { return 'sg-site-footer' }
 
     get sharedCssPaths() {
-        return ['../../tokens/v1/v1.0/v1.0.0/sg-tokens.css']
+        return ['/components/tokens/v1/v1.0/v1.0.0/sg-tokens.css']
     }
 
     onReady() {

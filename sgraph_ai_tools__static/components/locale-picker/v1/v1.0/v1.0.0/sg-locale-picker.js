@@ -51,7 +51,7 @@ class SgLocalePicker extends SgComponent {
     get resourceName() { return 'sg-locale-picker' }
 
     get sharedCssPaths() {
-        return ['../../tokens/v1/v1.0/v1.0.0/sg-tokens.css']
+        return ['/components/tokens/v1/v1.0/v1.0.0/sg-tokens.css']
     }
 
     onReady() {
