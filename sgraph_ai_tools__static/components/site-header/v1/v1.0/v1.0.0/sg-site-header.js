@@ -17,7 +17,7 @@
      nav-items  — JSON array of {label, href} objects for navigation links
    ================================================================================= */
 
-import { SgComponent } from '../../../../base/v1/v1.0/v1.0.0/sg-component.js'
+import { SgComponent } from '/components/base/v1/v1.0/v1.0.0/sg-component.js'
 
 class SgSiteHeader extends SgComponent {
 

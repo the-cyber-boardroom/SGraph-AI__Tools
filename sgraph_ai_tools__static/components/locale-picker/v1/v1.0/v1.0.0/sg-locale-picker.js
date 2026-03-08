@@ -18,7 +18,7 @@
      base-path — Base path prefix before the locale slug (default: "/")
    ================================================================================= */
 
-import { SgComponent } from '../../../../base/v1/v1.0/v1.0.0/sg-component.js'
+import { SgComponent } from '/components/base/v1/v1.0/v1.0.0/sg-component.js'
 
 /**
  * All supported locales with display names and flag emojis.
