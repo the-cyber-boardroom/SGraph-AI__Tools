@@ -1,7 +1,7 @@
 {
-    "version": "0.1.0",
+    "version": "0.1.1",
     "name": "SGraph Tools UI",
-    "description": "v0.1.0 — MVP tools landing page + SSH key generator",
+    "description": "v0.1.1 — Design alignment with sgraph.ai, locale picker integration, Tools nav link",
     "base_locale": "en-gb",
     "locales": [
         "en-gb", "en-us", "fr-fr", "de-de", "es-es"
@@ -42,9 +42,20 @@
     "tools": [
         "ssh-keygen"
     ],
+    "components": {
+        "site-header": "v1.0.1",
+        "site-footer": "v1.0.0",
+        "locale-picker": "v1.0.0"
+    },
+    "changes_from": "0.1.0",
+    "changes": [
+        "Integrate locale picker into site header via slot composition",
+        "Add 'Tools' nav link for cross-site navigation",
+        "Use site-header v1.0.1 (teal accent line, slot support)",
+        "Design aligned with sgraph.ai website"
+    ],
     "ifd": {
-        "frozen": true,
-        "frozen_date": "2026-03-09",
-        "next_version": "v0.1.1"
+        "frozen": false,
+        "next_version": "v0.1.2"
     }
 }
