@@ -19,5 +19,6 @@
     ],
     "dependencies": [],
     "requires_secure_context": true,
-    "status": "unverified — not yet tested against Send production crypto"
+    "source": "sgraph_ai_app_send__ui__user/v0/v0.2/v0.2.0/_common/js/crypto.js",
+    "status": "verified — wire-format compatible with Send production crypto"
 }

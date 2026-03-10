@@ -1,0 +1,10 @@
+{
+    "name": "sg-pbkdf2",
+    "version": "1.0.0",
+    "layer": "core",
+    "description": "PBKDF2 key derivation for friendly passphrase-based keys",
+    "exports": ["deriveKey", "deriveKeyFromWords", "calculateEntropy"],
+    "dependencies": [],
+    "author": "SGraph Tools Team",
+    "license": "CC-BY-4.0"
+}

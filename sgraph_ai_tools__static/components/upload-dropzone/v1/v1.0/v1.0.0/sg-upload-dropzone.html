@@ -1,0 +1,27 @@
+<div class="dropzone" data-state="idle">
+    <input type="file" id="file-input" class="dropzone__input" tabindex="-1">
+
+    <div class="dropzone__prompt">
+        <div class="dropzone__icon">
+            <slot name="icon">
+                <svg width="40" height="40" viewBox="0 0 40 40" fill="none" xmlns="http://www.w3.org/2000/svg">
+                    <path d="M20 6L20 26M20 6L12 14M20 6L28 14" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                    <path d="M6 24V30C6 32.2091 7.79086 34 10 34H30C32.2091 34 34 32.2091 34 30V24" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                </svg>
+            </slot>
+        </div>
+        <div class="dropzone__label">
+            <slot>Drop a file here or click to select</slot>
+        </div>
+    </div>
+
+    <div class="dropzone__drag-overlay">
+        <span class="dropzone__drag-text">Drop here!</span>
+    </div>
+
+    <div class="dropzone__file-info">
+        <span class="dropzone__file-name"></span>
+        <span class="dropzone__file-size"></span>
+        <button class="dropzone__change-btn" type="button">Change file</button>
+    </div>
+</div>

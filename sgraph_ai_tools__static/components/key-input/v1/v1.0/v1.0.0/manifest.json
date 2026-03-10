@@ -1,0 +1,13 @@
+{
+    "name": "sg-key-input",
+    "version": "1.0.0",
+    "layer": "component",
+    "description": "Mobile-optimised input for friendly decryption keys",
+    "exports": ["SgKeyInput"],
+    "dependencies": ["sg-component", "sg-pbkdf2", "sg-wordlist"],
+    "tagName": "sg-key-input",
+    "attributes": ["locale", "placeholder", "auto-submit", "button-text", "show-validation"],
+    "events": ["key-submitted", "key-changed"],
+    "author": "SGraph Tools Team",
+    "license": "CC-BY-4.0"
+}

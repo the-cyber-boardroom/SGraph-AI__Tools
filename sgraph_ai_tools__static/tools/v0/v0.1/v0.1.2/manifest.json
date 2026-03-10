@@ -46,6 +46,9 @@
         "_common/js/sg-nav.js":                  { "type": "js",   "role": "shared-nav" },
         "en-gb/index.html":                      { "type": "html", "role": "page", "page": "landing" },
         "en-gb/ssh-keygen/index.html":           { "type": "html", "role": "page", "page": "ssh-keygen" },
+        "en-gb/file-hasher/index.html":          { "type": "html", "role": "page", "page": "file-hasher" },
+        "en-gb/file-encryptor/index.html":       { "type": "html", "role": "page", "page": "file-encryptor" },
+        "en-gb/key-generator/index.html":        { "type": "html", "role": "page", "page": "key-generator" },
         "i18n/en-gb.json":                       { "type": "json", "role": "i18n-master" },
         "i18n/en-us.json":                       { "type": "json", "role": "i18n" },
         "i18n/fr-fr.json":                       { "type": "json", "role": "i18n" },
@@ -53,7 +56,10 @@
         "i18n/es-es.json":                       { "type": "json", "role": "i18n" }
     },
     "tools": [
-        "ssh-keygen"
+        "ssh-keygen",
+        "file-hasher",
+        "file-encryptor",
+        "key-generator"
     ],
     "components": {
         "site-header": "v1.0.1",

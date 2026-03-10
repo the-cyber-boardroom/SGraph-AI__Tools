@@ -1,0 +1,141 @@
+:host {
+    display: block;
+    width: 100%;
+}
+
+.dropzone {
+    position: relative;
+    border: 2px dashed var(--sg-border, #1e293b);
+    border-radius: var(--sg-radius, 8px);
+    padding: 2rem 1.5rem;
+    text-align: center;
+    cursor: pointer;
+    transition: border-color 200ms, background-color 200ms;
+    background: var(--sg-bg-card, #1a1a2e);
+    min-height: 120px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.dropzone:hover {
+    border-color: var(--sg-accent, #4ecdc4);
+}
+
+/* --- States --- */
+
+.dropzone[data-state="drag-over"] {
+    border-color: var(--sg-accent, #4ecdc4);
+    background: rgba(78, 205, 196, 0.05);
+}
+
+.dropzone[data-state="file-loaded"] {
+    border-style: solid;
+    border-color: var(--sg-accent, #4ecdc4);
+    cursor: default;
+}
+
+.dropzone[data-state="drag-over"] .dropzone__prompt,
+.dropzone[data-state="file-loaded"] .dropzone__prompt {
+    display: none;
+}
+
+.dropzone[data-state="idle"] .dropzone__drag-overlay,
+.dropzone[data-state="file-loaded"] .dropzone__drag-overlay {
+    display: none;
+}
+
+.dropzone[data-state="idle"] .dropzone__file-info,
+.dropzone[data-state="drag-over"] .dropzone__file-info {
+    display: none;
+}
+
+/* --- Hidden file input --- */
+
+.dropzone__input {
+    position: absolute;
+    width: 0;
+    height: 0;
+    opacity: 0;
+    overflow: hidden;
+    pointer-events: none;
+}
+
+/* --- Prompt (idle state) --- */
+
+.dropzone__prompt {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0.75rem;
+}
+
+.dropzone__icon {
+    color: var(--sg-text-muted, #94a3b8);
+    opacity: 0.6;
+}
+
+.dropzone__label {
+    color: var(--sg-text-muted, #94a3b8);
+    font-size: 0.9375rem;
+    line-height: 1.5;
+}
+
+/* --- Drag overlay --- */
+
+.dropzone__drag-overlay {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.dropzone__drag-text {
+    font-size: 1.125rem;
+    font-weight: 600;
+    color: var(--sg-accent, #4ecdc4);
+}
+
+/* --- File info (loaded state) --- */
+
+.dropzone__file-info {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0.25rem;
+}
+
+.dropzone__file-name {
+    font-size: 0.9375rem;
+    font-weight: 600;
+    color: var(--sg-text, #f0f0f5);
+    word-break: break-all;
+}
+
+.dropzone__file-size {
+    font-size: 0.8125rem;
+    color: var(--sg-text-muted, #94a3b8);
+}
+
+.dropzone__change-btn {
+    margin-top: 0.5rem;
+    padding: 0.25rem 0.75rem;
+    font-size: 0.8125rem;
+    color: var(--sg-accent, #4ecdc4);
+    background: transparent;
+    border: 1px solid var(--sg-accent, #4ecdc4);
+    border-radius: var(--sg-radius-pill, 999px);
+    cursor: pointer;
+    transition: background-color 150ms;
+}
+
+.dropzone__change-btn:hover {
+    background: rgba(78, 205, 196, 0.1);
+}
+
+/* --- Disabled --- */
+
+:host([disabled]) .dropzone {
+    opacity: 0.5;
+    cursor: not-allowed;
+    pointer-events: none;
+}
