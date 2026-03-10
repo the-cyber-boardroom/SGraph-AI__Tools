@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title data-i18n="landing.title">tools.sgraph.ai — Browser-Based Privacy Tools</title>
     <meta name="description" data-i18n="landing.meta_description" content="Free browser-based tools that run entirely client-side. No uploads, no servers, no tracking. SSH key generation, video splitting, file encryption, and more.">
-    <link rel="stylesheet" href="/_common/css/tools.css">
+    <link rel="stylesheet" href="../_common/css/tools.css">
     <style>
         .hero {
             text-align: center;
@@ -104,13 +104,13 @@
     <script type="module" src="/components/site-header/v1/v1.0/v1.0.1/sg-site-header.js"></script>
     <script type="module" src="/components/locale-picker/v1/v1.0/v1.0.1/sg-locale-picker.js"></script>
     <sg-site-header
-        site="Tools"
+        site="Send"
         home-url="/en-gb/">
         <sg-locale-picker slot="locale" locale="en-gb" base-path="/"></sg-locale-picker>
     </sg-site-header>
 
     <script type="module">
-        import { buildToolsNav } from '/_common/js/sg-nav.js'
+        import { buildToolsNav } from '../_common/js/sg-nav.js'
         document.querySelector('sg-site-header').whenReady().then(() => {
             buildToolsNav(document.querySelector('sg-site-header'))
         }).catch(() => {
@@ -194,5 +194,15 @@
         brand-desc="Free browser-based tools that run entirely on your device. No uploads, no servers, no tracking."
         columns='[{"title":"Tools","links":[{"label":"SSH Key Generator","href":"ssh-keygen/"},{"label":"All Tools","href":"./"}]},{"title":"SGraph","links":[{"label":"sgraph.ai","href":"https://sgraph.ai/en-gb/"},{"label":"send.sgraph.ai","href":"https://send.sgraph.ai"},{"label":"GitHub","href":"https://github.com/the-cyber-boardroom/SGraph-AI__Tools"}]}]'>
     </sg-site-footer>
+
+    <script src="../_common/js/build-info.js"></script>
+    <div id="build-version" style="text-align:center;color:var(--sg-text-dim, #4a5568);font-size:0.7rem;padding:8px 0;opacity:0.6;background:var(--sg-bg-secondary, #16213E);"></div>
+    <script>
+        (function() {
+            var b = window.SGRAPH_BUILD || { appVersion: 'v0.1.0', uiVersion: 'v0.1.2' };
+            var el = document.getElementById('build-version');
+            if (el) el.textContent = b.appVersion + '  \u00b7  UI ' + b.uiVersion + (b.buildTime ? '  \u00b7  ' + b.buildTime : '');
+        })();
+    </script>
 </body>
 </html>
