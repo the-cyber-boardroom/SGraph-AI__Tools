@@ -1,13 +1,15 @@
 {
-    "version": "0.1.1",
+    "version": "0.1.2",
     "name": "SGraph Tools UI",
-    "description": "v0.1.1 — Design alignment with sgraph.ai, locale picker integration, Tools nav link",
+    "description": "v0.1.2 — Cross-site nav, clean URLs, locale picker fix, environment parity",
     "base_locale": "en-gb",
     "locales": [
         "en-gb", "en-us", "fr-fr", "de-de", "es-es"
     ],
     "deploy": {
         "_comment": "Folders and files to sync to S3. Source of truth for what gets deployed.",
+        "url_structure": "clean",
+        "root_redirect": "locale-detect",
         "source_folders": [
             "_common",
             "en-gb",
@@ -23,7 +25,17 @@
             "robots.txt",
             "sitemap.xml",
             "manifest.json"
-        ]
+        ],
+        "environments": {
+            "dev":  "https://dev.tools.sgraph.ai",
+            "main": "https://main.tools.sgraph.ai",
+            "prod": "https://tools.sgraph.ai"
+        },
+        "sgraph_environments": {
+            "dev":  "https://dev.sgraph.ai",
+            "main": "https://main.sgraph.ai",
+            "prod": "https://sgraph.ai"
+        }
     },
     "files": {
         "index.html":                           { "type": "html", "role": "locale-redirect" },
@@ -31,6 +43,7 @@
         "robots.txt":                            { "type": "txt",  "role": "seo" },
         "sitemap.xml":                           { "type": "xml",  "role": "seo" },
         "_common/css/tools.css":                 { "type": "css",  "role": "shared-styles" },
+        "_common/js/sg-nav.js":                  { "type": "js",   "role": "shared-nav" },
         "en-gb/index.html":                      { "type": "html", "role": "page", "page": "landing" },
         "en-gb/ssh-keygen/index.html":           { "type": "html", "role": "page", "page": "ssh-keygen" },
         "i18n/en-gb.json":                       { "type": "json", "role": "i18n-master" },
@@ -45,18 +58,19 @@
     "components": {
         "site-header": "v1.0.1",
         "site-footer": "v1.0.0",
-        "locale-picker": "v1.0.0"
+        "locale-picker": "v1.0.1"
     },
-    "changes_from": "0.1.0",
+    "changes_from": "0.1.1",
     "changes": [
-        "Integrate locale picker into site header via slot composition",
-        "Add 'Tools' nav link for cross-site navigation",
-        "Use site-header v1.0.1 (teal accent line, slot support)",
-        "Design aligned with sgraph.ai website"
+        "Dynamic environment-aware cross-site nav (sg-nav.js)",
+        "Locale picker v1.0.1 (CSS [hidden] fix, sessionStorage write)",
+        "Clean URLs: base-path='/' instead of versioned path",
+        "All asset paths use clean URL structure (/_common/, /en-gb/)",
+        "Environment mapping in manifest for dev/main/prod parity",
+        "17-locale support in locale redirect (up from 5)"
     ],
     "ifd": {
-        "frozen": true,
-        "frozen_date": "2026-03-10",
-        "next_version": "v0.1.2"
+        "frozen": false,
+        "next_version": "v0.1.3"
     }
 }

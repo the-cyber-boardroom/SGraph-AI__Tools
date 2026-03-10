@@ -291,6 +291,131 @@ def deploy_to_s3(source_dir, bucket, site, version, deploy_env=None):
     )
 
 
+def deploy_clean_urls(source_dir, bucket, site, version, deploy_env=None,
+                      clean_urls_source_version=None):
+    """Deploy with clean URLs: locale folders go directly to latest/ root.
+
+    Instead of latest/tools/v0/v0.1/v0.1.2/en-gb/index.html, the user sees
+    latest/en-gb/index.html. The versioned archive is still created for rollback.
+
+    Deployment steps:
+      1. Sync full source to releases/{ifd_path}/ (versioned archive)
+      2. Build clean latest/ by syncing:
+         a. Root files (index.html, 404.html, robots.txt, sitemap.xml)
+         b. _common/ folder
+         c. components/ folder
+         d. core/ folder
+         e. Locale folders (en-gb/, de-de/, etc.)
+         f. i18n/ folder
+    """
+    ifd_path = version_to_ifd_path(version)
+    env_segment = f"{deploy_env}/" if deploy_env else ""
+    release_prefix = f"s3://{bucket}/websites/{site}/{env_segment}releases/{ifd_path}/"
+    latest_prefix  = f"s3://{bucket}/websites/{site}/{env_segment}latest/"
+
+    # ----- Step 1: Deploy full source to releases/ (versioned archive) -----
+    print(f"\n{'='*60}")
+    print(f"Deploying full archive to releases/{ifd_path}/")
+    print(f"{'='*60}")
+
+    s3_sync_by_type(source_dir, release_prefix, "html",
+                    HTML_EXTENSIONS, CACHE_CONTROL["html"],
+                    content_type="text/html", delete=True)
+    s3_sync_by_type(source_dir, release_prefix, "css",
+                    {".css"}, CACHE_CONTROL["css_js"],
+                    content_type="text/css")
+    s3_sync_by_type(source_dir, release_prefix, "js",
+                    {".js"}, CACHE_CONTROL["css_js"],
+                    content_type="application/javascript")
+    s3_sync_by_type(source_dir, release_prefix, "json",
+                    {".json"}, CACHE_CONTROL["css_js"],
+                    content_type="application/json")
+    s3_sync_by_type(source_dir, release_prefix, "image",
+                    IMAGE_EXTENSIONS, CACHE_CONTROL["image"])
+    s3_sync_by_type(source_dir, release_prefix, "font",
+                    FONT_EXTENSIONS, CACHE_CONTROL["image"])
+
+    # ----- Step 2: Build clean latest/ -----
+    print(f"\n{'='*60}")
+    print(f"Building clean URL latest/ (no versioned paths in user URLs)")
+    print(f"{'='*60}")
+
+    # Resolve the versioned content folder
+    if clean_urls_source_version:
+        content_dir = source_dir / clean_urls_source_version
+    else:
+        content_dir = source_dir
+
+    if not content_dir.is_dir():
+        print(f"ERROR: clean-urls content directory not found: {content_dir}")
+        sys.exit(1)
+
+    # Sync top-level shared folders from source_dir (components/, core/)
+    for shared_folder in ["components", "core"]:
+        shared_path = source_dir / shared_folder
+        if shared_path.is_dir():
+            shared_prefix = f"{latest_prefix}{shared_folder}/"
+            run_cmd(
+                ["aws", "s3", "sync", str(shared_path) + "/", shared_prefix, "--delete"],
+                description=f"Syncing {shared_folder}/ to latest/{shared_folder}/"
+            )
+
+    # Sync _common/ from the versioned content folder
+    common_path = content_dir / "_common"
+    if common_path.is_dir():
+        run_cmd(
+            ["aws", "s3", "sync", str(common_path) + "/", f"{latest_prefix}_common/", "--delete"],
+            description="Syncing _common/ to latest/_common/"
+        )
+
+    # Sync locale folders (en-gb/, de-de/, fr-fr/, etc.)
+    locale_pattern = [
+        "en-gb", "en-us", "de-de", "de-ch",
+        "es-es", "es-ar", "es-mx",
+        "fr-fr", "fr-ca",
+        "hr-hr", "it-it", "nl-nl", "pl-pl",
+        "pt-br", "pt-pt", "ro-ro", "tlh"
+    ]
+    for locale in locale_pattern:
+        locale_path = content_dir / locale
+        if locale_path.is_dir():
+            run_cmd(
+                ["aws", "s3", "sync", str(locale_path) + "/", f"{latest_prefix}{locale}/", "--delete"],
+                description=f"Syncing {locale}/ to latest/{locale}/"
+            )
+
+    # Sync i18n/ folder
+    i18n_path = content_dir / "i18n"
+    if i18n_path.is_dir():
+        run_cmd(
+            ["aws", "s3", "sync", str(i18n_path) + "/", f"{latest_prefix}i18n/", "--delete"],
+            description="Syncing i18n/ to latest/i18n/"
+        )
+
+    # Sync root files from content folder
+    root_files = ["index.html", "404.html", "robots.txt", "sitemap.xml", "manifest.json"]
+    for fname in root_files:
+        fpath = content_dir / fname
+        if fpath.is_file():
+            ext = fpath.suffix
+            ct = CONTENT_TYPE_MAP.get(ext, "application/octet-stream")
+            cc = cache_control_for(ext)
+            run_cmd(
+                ["aws", "s3", "cp", str(fpath), f"{latest_prefix}{fname}",
+                 "--content-type", ct, "--cache-control", cc],
+                description=f"Copying {fname} to latest/"
+            )
+
+    # Sync root index.html from source_dir root (the locale detector)
+    root_index = source_dir / "index.html"
+    if root_index.is_file():
+        run_cmd(
+            ["aws", "s3", "cp", str(root_index), f"{latest_prefix}index.html",
+             "--content-type", "text/html", "--cache-control", CACHE_CONTROL["html"]],
+            description="Copying root index.html (locale detector) to latest/"
+        )
+
+
 # ---------------------------------------------------------------------------
 # CloudFront
 # ---------------------------------------------------------------------------
@@ -407,6 +532,20 @@ def parse_args():
              "Without this, deploys to websites/{site}/ directly (legacy behaviour).",
     )
     parser.add_argument(
+        "--clean-urls",
+        action="store_true",
+        help="Deploy for clean URLs: sync locale folders, _common, and components "
+             "directly to latest/ root instead of under the versioned subfolder. "
+             "The versioned archive is still created in releases/ for rollback.",
+    )
+    parser.add_argument(
+        "--clean-urls-source-version",
+        default=None,
+        help="When --clean-urls is set, this is the versioned subfolder within "
+             "source-dir that contains the locale content (e.g. 'tools/v0/v0.1/v0.1.2'). "
+             "The script extracts locale folders, _common, and root files from this path.",
+    )
+    parser.add_argument(
         "--dry-run",
         action="store_true",
         help="Print what would be done without executing S3 commands.",
@@ -456,6 +595,8 @@ def main():
         ifd_path = version_to_ifd_path(args.version)
         env_segment = f"{args.deploy_env}/" if args.deploy_env else ""
         print(f"\n[dry-run] Would deploy {source_dir} to s3://{bucket}/websites/{args.site}/{env_segment}releases/{ifd_path}/")
+        if args.clean_urls:
+            print(f"[dry-run] Would deploy clean URLs from {args.clean_urls_source_version or 'source root'}")
         print(f"[dry-run] Would copy release to s3://{bucket}/websites/{args.site}/{env_segment}latest/")
         for dist_id in args.cloudfront_distribution_id:
             print(f"[dry-run] Would invalidate CloudFront {dist_id}")
@@ -463,7 +604,12 @@ def main():
         sys.exit(0)
 
     # --- Deploy ---
-    deploy_to_s3(source_dir, bucket, args.site, args.version, deploy_env=args.deploy_env)
+    if args.clean_urls:
+        deploy_clean_urls(source_dir, bucket, args.site, args.version,
+                          deploy_env=args.deploy_env,
+                          clean_urls_source_version=args.clean_urls_source_version)
+    else:
+        deploy_to_s3(source_dir, bucket, args.site, args.version, deploy_env=args.deploy_env)
 
     # --- CloudFront ---
     for dist_id in args.cloudfront_distribution_id:
