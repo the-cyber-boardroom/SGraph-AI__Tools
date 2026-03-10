@@ -5,7 +5,8 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title data-i18n="keygen.title">Key Generator — tools.sgraph.ai</title>
     <meta name="description" data-i18n="keygen.meta_description" content="Create friendly encryption keys like apple-mango-56 instead of random strings. See how secure your key is with entropy visualisation.">
-    <link rel="stylesheet" href="/_common/css/tools.css">
+    <link rel="icon" type="image/svg+xml" href="../../_common/favicon.svg">
+    <link rel="stylesheet" href="../../_common/css/tools.css">
     <style>
         .main {
             flex: 1;
@@ -109,7 +110,7 @@
     </style>
 </head>
 <body>
-    <script type="module" src="/components/site-header/v1/v1.0/v1.0.1/sg-site-header.js"></script>
+    <script type="module" src="/components/site-header/v1/v1.0/v1.0.2/sg-site-header.js"></script>
     <script type="module" src="/components/locale-picker/v1/v1.0/v1.0.1/sg-locale-picker.js"></script>
     <sg-site-header
         site="Tools"
@@ -118,7 +119,7 @@
     </sg-site-header>
 
     <script type="module">
-        import { buildToolsNav } from '/_common/js/sg-nav.js'
+        import { buildToolsNav } from '../../_common/js/sg-nav.js'
         document.querySelector('sg-site-header').whenReady().then(() => {
             buildToolsNav(document.querySelector('sg-site-header'))
         }).catch(() => {
@@ -172,5 +173,15 @@
         brand-desc="Free browser-based tools that run entirely on your device. No uploads, no servers, no tracking."
         columns='[{"title":"Tools","links":[{"label":"Key Generator","href":"./"},{"label":"All Tools","href":"/en-gb/"}]},{"title":"SGraph","links":[{"label":"sgraph.ai","href":"https://sgraph.ai/en-gb/"},{"label":"send.sgraph.ai","href":"https://send.sgraph.ai"},{"label":"GitHub","href":"https://github.com/the-cyber-boardroom/SGraph-AI__Tools"}]}]'>
     </sg-site-footer>
+
+    <script src="../../_common/js/build-info.js"></script>
+    <div id="build-version" style="text-align:center;color:var(--sg-text-dim, #4a5568);font-size:0.7rem;padding:8px 0;opacity:0.6;background:var(--sg-bg-secondary, #16213E);"></div>
+    <script>
+        (function() {
+            var b = window.SGRAPH_BUILD || { appVersion: 'v0.1.0', uiVersion: 'v0.1.2' };
+            var el = document.getElementById('build-version');
+            if (el) el.textContent = b.appVersion + '  \u00b7  UI ' + b.uiVersion + (b.buildTime ? '  \u00b7  ' + b.buildTime : '');
+        })();
+    </script>
 </body>
 </html>

@@ -67,20 +67,19 @@
 .brand-prefix {
     font-family: var(--sg-font-display, 'DM Sans', system-ui, sans-serif);
     font-weight: var(--sg-fw-bold, 700);
-    color: var(--sg-text-heading, #FFFFFF);
+    color: var(--sg-accent, #4ECDC4);
 }
 
 .brand-slash {
     font-family: var(--sg-font-display, 'DM Sans', system-ui, sans-serif);
-    font-weight: var(--sg-fw-bold, 700);
-    color: var(--sg-accent, #4ECDC4);
+    font-weight: var(--sg-fw-regular, 400);
+    color: var(--sg-text-muted, #8892A0);
 }
 
 .brand-product {
     font-family: var(--sg-font-display, 'DM Sans', system-ui, sans-serif);
     font-weight: var(--sg-fw-bold, 700);
     color: var(--sg-text-heading, #FFFFFF);
-    font-size: 1.1rem;
 }
 
 /* ── Navigation ────────────────────────────────────────────────────────── */
