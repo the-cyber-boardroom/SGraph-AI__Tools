@@ -188,6 +188,16 @@
         columns='[{"title":"Tools","links":[{"label":"SSH Key Generator","href":"./"},{"label":"All Tools","href":"/en-gb/"}]},{"title":"SGraph","links":[{"label":"sgraph.ai","href":"https://sgraph.ai/en-gb/"},{"label":"send.sgraph.ai","href":"https://send.sgraph.ai"},{"label":"GitHub","href":"https://github.com/the-cyber-boardroom/SGraph-AI__Tools"}]}]'>
     </sg-site-footer>
 
+    <script src="../../_common/js/build-info.js"></script>
+    <div id="build-version" style="text-align:center;color:var(--sg-text-dim, #4a5568);font-size:0.7rem;padding:8px 0;opacity:0.6;background:var(--sg-bg-secondary, #16213E);"></div>
+    <script>
+        (function() {
+            var b = window.SGRAPH_BUILD || { version: 'v0.1.2' };
+            var el = document.getElementById('build-version');
+            if (el) el.textContent = b.version + (b.buildTime ? ' | ' + b.buildTime : '');
+        })();
+    </script>
+
     <script type="module">
         import { generateSSHKeyPair } from '/core/ssh/v1/v1.0/v1.0.0/sg-ssh.js';
 
