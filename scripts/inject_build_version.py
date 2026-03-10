@@ -27,8 +27,9 @@ BUILD_INFO_TEMPLATE = """\
    Source: scripts/inject_build_version.py
    Build:  {build_time} */
 window.SGRAPH_BUILD = {{
-    version   : '{version}',
-    buildTime : '{build_time}'
+    appVersion : '{app_version}',
+    uiVersion  : '{ui_version}',
+    buildTime  : '{build_time}'
 }};
 """
 
@@ -50,16 +51,20 @@ def main():
                         help='Print what would be written without writing')
     args = parser.parse_args()
 
-    # Read version
-    version = args.version
-    if not version:
-        if not VERSION_FILE.exists():
-            print(f"ERROR: Version file not found: {VERSION_FILE}")
-            return 1
-        version = VERSION_FILE.read_text().strip()
+    # Read versions
+    ui_version = args.version
+    if not ui_version:
+        print("ERROR: --version (UI version) is required")
+        return 1
+
+    # App version from repo version file
+    if VERSION_FILE.exists():
+        app_version = VERSION_FILE.read_text().strip()
+    else:
+        app_version = ui_version
 
     # Resolve target path
-    ifd_path    = version_to_ifd_path(version)
+    ifd_path    = version_to_ifd_path(ui_version)
     ui_base     = REPO_ROOT / UI_BASE
     version_dir = ui_base / ifd_path
     target      = version_dir / '_common' / 'js' / 'build-info.js'
@@ -69,14 +74,16 @@ def main():
 
     # Generate content
     content = BUILD_INFO_TEMPLATE.format(
-        version=version,
+        app_version=app_version,
+        ui_version=ui_version,
         build_time=build_time,
     )
 
     print(f"SGraph Tools — Build Version Injection")
-    print(f"  Version    : {version}")
-    print(f"  Build time : {build_time}")
-    print(f"  Target     : {target}")
+    print(f"  App version : {app_version}")
+    print(f"  UI version  : {ui_version}")
+    print(f"  Build time  : {build_time}")
+    print(f"  Target      : {target}")
 
     if args.dry_run:
         print(f"\n[dry-run] Would write:\n{content}")

@@ -189,9 +189,9 @@
     <div id="build-version" style="text-align:center;color:var(--sg-text-dim, #4a5568);font-size:0.7rem;padding:8px 0;opacity:0.6;background:var(--sg-bg-secondary, #16213E);"></div>
     <script>
         (function() {
-            var b = window.SGRAPH_BUILD || { version: 'v0.1.2' };
+            var b = window.SGRAPH_BUILD || { appVersion: 'v0.1.0', uiVersion: 'v0.1.2' };
             var el = document.getElementById('build-version');
-            if (el) el.textContent = b.version + (b.buildTime ? ' | ' + b.buildTime : '');
+            if (el) el.textContent = b.appVersion + '  \u00b7  UI ' + b.uiVersion + (b.buildTime ? '  \u00b7  ' + b.buildTime : '');
         })();
     </script>
 </body>
