@@ -58,9 +58,9 @@ cp -r "$CONTENT_DIR/_common" "$SERVE_DIR/_common"
 # Symlink tests/
 [ -d "$STATIC_DIR/tests" ]      && ln -sf "$STATIC_DIR/tests"      "$SERVE_DIR/tests"
 
-# Copy root files (404.html, manifest.json, etc.)
+# Copy root files (404.html, manifest.json, etc.) — skip index.html, we create our own
 for f in "$CONTENT_DIR"/*.html "$CONTENT_DIR"/*.json; do
-    [ -f "$f" ] && ln -sf "$f" "$SERVE_DIR/$(basename "$f")"
+    [ -f "$f" ] && [ "$(basename "$f")" != "index.html" ] && cp "$f" "$SERVE_DIR/$(basename "$f")"
 done
 
 # Inject build-info.js for local dev (CI generates this in production)
