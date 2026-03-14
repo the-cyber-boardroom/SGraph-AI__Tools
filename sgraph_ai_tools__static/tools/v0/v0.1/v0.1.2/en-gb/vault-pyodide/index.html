@@ -609,9 +609,11 @@
             const code = pythonInput.value
             if (!code.trim()) return
 
-            // Show input in history
-            for (const line of code.split('\n')) {
-                appendLog(replHistory, `>>> ${line}`, '')
+            // Show input in history (>>> for first line, ... for continuation)
+            const codeLines = code.split('\n')
+            for (let i = 0; i < codeLines.length; i++) {
+                const prompt = i === 0 ? '>>>' : '...'
+                appendLog(replHistory, `${prompt} ${codeLines[i]}`, '')
             }
 
             // Store in command history
@@ -621,19 +623,39 @@
             pythonInput.value = ''
 
             try {
-                const { stdout, stderr } = await runPythonCapture(pyodide, code)
+                const { result, stdout, stderr, error } = await runPythonCapture(pyodide, code)
+
+                // Show stdout (print output)
                 if (stdout) {
                     for (const line of stdout.trimEnd().split('\n')) {
                         appendLog(replHistory, line, 'ok')
                     }
                 }
+
+                // Show return value for expressions (like 2+2 → 4)
+                if (result !== undefined && result !== null) {
+                    appendLog(replHistory, String(result), 'ok')
+                }
+
+                // Show stderr warnings
                 if (stderr) {
                     for (const line of stderr.trimEnd().split('\n')) {
                         appendLog(replHistory, line, 'warn')
                     }
                 }
+
+                // Show clean error (traceback without Pyodide internals)
+                if (error) {
+                    for (const line of error.split('\n')) {
+                        appendLog(replHistory, line, 'fail')
+                    }
+                }
             } catch (err) {
-                appendLog(replHistory, err.message, 'fail')
+                // Fallback: extract just the last meaningful line from Pyodide errors
+                const msg = err.message || String(err)
+                const lines = msg.split('\n').filter(l => l.trim())
+                const lastLine = lines[lines.length - 1] || msg
+                appendLog(replHistory, lastLine, 'fail')
             }
 
             pythonInput.focus()
