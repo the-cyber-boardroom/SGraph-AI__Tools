@@ -135,14 +135,37 @@ export async function runPython(pyodide, code) {
  */
 export async function runPythonCapture(pyodide, code) {
     const captureCode = `
-import sys, io
+import sys, io, ast
+
 _sg_stdout = io.StringIO()
 _sg_stderr = io.StringIO()
 sys.stdout = _sg_stdout
 sys.stderr = _sg_stderr
+_sg_result = None
+_sg_error  = None
+
 try:
-    _sg_result = None
-    exec(${JSON.stringify(code)})
+    _sg_code = ${JSON.stringify(code)}
+    # Try to compile as an expression first (like the Python REPL does).
+    # If the code is an expression (e.g. "2+2"), eval() returns its value.
+    # If it's a statement (e.g. "x = 1" or "print('hi')"), we fall back to exec().
+    try:
+        _sg_compiled = compile(_sg_code, '<repl>', 'eval')
+        _sg_result = eval(_sg_compiled)
+    except SyntaxError:
+        _sg_compiled = compile(_sg_code, '<repl>', 'exec')
+        exec(_sg_compiled)
+except Exception as _sg_exc:
+    import traceback
+    # Extract just the user-relevant part of the traceback (skip Pyodide internals)
+    _sg_tb_lines = traceback.format_exception(type(_sg_exc), _sg_exc, _sg_exc.__traceback__)
+    _sg_clean_lines = []
+    for _sg_line in _sg_tb_lines:
+        # Skip internal Pyodide frames
+        if '/_pyodide/_base.py' in _sg_line or 'pyodide_py' in _sg_line:
+            continue
+        _sg_clean_lines.append(_sg_line)
+    _sg_error = ''.join(_sg_clean_lines).strip()
 finally:
     sys.stdout = sys.__stdout__
     sys.stderr = sys.__stderr__
@@ -153,9 +176,10 @@ finally:
 
     const stdout = pyodide.globals.get('_sg_captured_out') || ''
     const stderr = pyodide.globals.get('_sg_captured_err') || ''
+    const error  = pyodide.globals.get('_sg_error')  || null
     const result = pyodide.globals.get('_sg_result')
 
-    return { result, stdout, stderr }
+    return { result, stdout, stderr, error }
 }
 
 /**
