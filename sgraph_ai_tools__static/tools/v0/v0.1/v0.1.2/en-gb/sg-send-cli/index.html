@@ -1,0 +1,797 @@
+<!DOCTYPE html>
+<html lang="en-GB">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SG/Send CLI — tools.sgraph.ai</title>
+    <meta name="description" content="Run sg-send-cli vault operations entirely in your browser via Pyodide. Init, commit, push, inspect — no Python installation required.">
+    <link rel="icon" type="image/svg+xml" href="../../_common/favicon.svg">
+    <link rel="stylesheet" href="../../_common/css/tools.css">
+    <style>
+        .main {
+            flex: 1;
+            max-width: 960px;
+            margin: 0 auto;
+            padding: 2rem 1.5rem;
+            width: 100%;
+        }
+
+        h1 { font-size: 1.5rem; margin-bottom: 0.5rem; }
+
+        .subtitle {
+            color: var(--sg-text-muted);
+            font-size: 0.9375rem;
+            margin-bottom: 2rem;
+            line-height: 1.5;
+        }
+
+        .badge--pkg {
+            background: rgba(78,205,196,0.12);
+            color: var(--sg-accent);
+            font-size: 0.6875rem;
+            font-weight: 600;
+            padding: 0.125rem 0.5rem;
+            border-radius: var(--sg-radius-pill);
+            margin-left: 0.5rem;
+            vertical-align: middle;
+        }
+
+        .section {
+            background: var(--sg-bg-card);
+            border: 1px solid var(--sg-border);
+            border-radius: var(--sg-radius);
+            padding: 1.5rem;
+            margin-bottom: 1.5rem;
+        }
+
+        .section h2 {
+            font-size: 1rem;
+            margin-bottom: 0.75rem;
+        }
+
+        /* ---------- Terminal ---------- */
+        .terminal {
+            font-family: var(--sg-font-mono);
+            font-size: 0.8125rem;
+            line-height: 1.8;
+            min-height: 200px;
+            max-height: 500px;
+            overflow-y: auto;
+            background: var(--sg-bg-secondary, #16213E);
+            border: 1px solid var(--sg-border);
+            border-radius: var(--sg-radius);
+            padding: 0.75rem;
+        }
+
+        .term-line          { color: var(--sg-text-muted); white-space: pre-wrap; word-break: break-all; }
+        .term-line.input    { color: var(--sg-text); }
+        .term-line.output   { color: var(--sg-accent); }
+        .term-line.error    { color: var(--sg-error); }
+        .term-line.warn     { color: #ffc107; }
+        .term-line.info     { color: var(--sg-text-dim); }
+        .term-line.heading  { color: var(--sg-text); font-weight: 600; margin-top: 0.5rem; }
+
+        .input-area {
+            display: flex;
+            gap: 0.5rem;
+            margin-top: 0.5rem;
+            align-items: flex-end;
+        }
+
+        .input-area textarea {
+            flex: 1;
+            background: var(--sg-bg-secondary, #16213E);
+            color: var(--sg-text);
+            border: 1px solid var(--sg-border);
+            border-radius: var(--sg-radius);
+            padding: 0.625rem 0.75rem;
+            font-family: var(--sg-font-mono);
+            font-size: 0.8125rem;
+            resize: vertical;
+            outline: none;
+            min-height: 2.5rem;
+        }
+
+        .input-area textarea:focus { border-color: var(--sg-accent); }
+        .input-area textarea::placeholder { color: var(--sg-text-dim); }
+
+        .input-hint {
+            color: var(--sg-text-dim);
+            font-size: 0.6875rem;
+            margin-top: 0.375rem;
+        }
+
+        /* ---------- Scenario buttons ---------- */
+        .scenario-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 0.75rem;
+            margin-top: 0.75rem;
+        }
+
+        @media (max-width: 600px) {
+            .scenario-grid { grid-template-columns: 1fr; }
+        }
+
+        .scenario-btn {
+            text-align: left;
+            padding: 0.75rem 1rem;
+            background: var(--sg-bg-secondary, #16213E);
+            border: 1px solid var(--sg-border);
+            border-radius: var(--sg-radius);
+            color: var(--sg-text);
+            cursor: pointer;
+            transition: border-color 150ms;
+        }
+
+        .scenario-btn:hover { border-color: var(--sg-accent); }
+        .scenario-btn:disabled { opacity: 0.5; pointer-events: none; }
+
+        .scenario-btn__title {
+            font-weight: 600;
+            font-size: 0.875rem;
+            margin-bottom: 0.25rem;
+        }
+
+        .scenario-btn__desc {
+            font-size: 0.75rem;
+            color: var(--sg-text-muted);
+            line-height: 1.4;
+        }
+
+        .progress-bar {
+            height: 4px;
+            background: var(--sg-border);
+            border-radius: 2px;
+            margin-top: 0.75rem;
+            overflow: hidden;
+            display: none;
+        }
+
+        .progress-bar.visible { display: block; }
+
+        .progress-bar__fill {
+            height: 100%;
+            background: var(--sg-accent);
+            border-radius: 2px;
+            transition: width 300ms ease;
+            width: 0%;
+        }
+
+        .spinner {
+            display: inline-block;
+            width: 14px; height: 14px;
+            border: 2px solid var(--sg-border);
+            border-top-color: var(--sg-accent);
+            border-radius: 50%;
+            animation: spin 0.6s linear infinite;
+            vertical-align: middle;
+            margin-right: 0.5rem;
+        }
+
+        @keyframes spin { to { transform: rotate(360deg); } }
+
+        .info-box {
+            margin-top: 2rem;
+            padding: 1rem;
+            background: rgba(78,205,196,0.05);
+            border: 1px solid var(--sg-border);
+            border-radius: var(--sg-radius);
+        }
+
+        .info-box h3 { font-size: 0.875rem; margin-bottom: 0.5rem; color: var(--sg-accent); }
+        .info-box p  { color: var(--sg-text-muted); font-size: 0.8125rem; line-height: 1.6; }
+        .info-box ul { color: var(--sg-text-muted); font-size: 0.8125rem; line-height: 1.8; padding-left: 1.25rem; margin-top: 0.5rem; }
+        .info-box code { background: rgba(78,205,196,0.1); padding: 0.125rem 0.375rem; border-radius: 3px; font-size: 0.75rem; }
+    </style>
+</head>
+<body>
+    <script type="module" src="/components/site-header/v1/v1.0/v1.0.1/sg-site-header.js"></script>
+    <script type="module" src="/components/locale-picker/v1/v1.0/v1.0.1/sg-locale-picker.js"></script>
+    <sg-site-header
+        site="Tools"
+        home-url="/en-gb/">
+        <sg-locale-picker slot="locale" locale="en-gb" base-path="/"></sg-locale-picker>
+    </sg-site-header>
+
+    <script type="module">
+        import { buildToolsNav } from '../../_common/js/sg-nav.js'
+        document.querySelector('sg-site-header').whenReady().then(() => {
+            buildToolsNav(document.querySelector('sg-site-header'))
+        }).catch(() => {
+            buildToolsNav(document.querySelector('sg-site-header'))
+        })
+    </script>
+
+    <div class="main">
+        <h1>SG/Send CLI <span class="badge--pkg">sgraph-ai-app-send</span></h1>
+        <p class="subtitle">
+            Run sg-send-cli vault operations entirely in your browser.
+            Init vaults, add files, commit, push, inspect — all via Pyodide with the real Python package from PyPI.
+        </p>
+
+        <!-- Step 1: Load Pyodide + Install sg-send-cli -->
+        <div class="section" id="section-load">
+            <h2>Step 1 — Load Python + Install sg-send-cli</h2>
+            <p style="color:var(--sg-text-muted);font-size:0.8125rem;margin-bottom:0.75rem;">
+                Downloads Pyodide (~20 MB) and installs <code style="background:rgba(78,205,196,0.1);padding:0.125rem 0.375rem;border-radius:3px;font-size:0.75rem;">sgraph-ai-app-send</code> from PyPI via micropip.
+                First load may take 30-60 seconds. Subsequent visits use cache.
+            </p>
+            <button class="btn" id="load-btn">Load &amp; Install</button>
+            <div class="progress-bar" id="load-progress"><div class="progress-bar__fill" id="load-progress-fill"></div></div>
+            <div id="load-log" class="terminal" style="display:none;"></div>
+        </div>
+
+        <!-- Step 2: Scenarios -->
+        <div class="section" id="section-scenarios" style="opacity:0.5;pointer-events:none;">
+            <h2>Step 2 — Run Vault Scenarios</h2>
+            <p style="color:var(--sg-text-muted);font-size:0.8125rem;margin-bottom:0.5rem;">
+                Pre-built scenarios that exercise the full vault lifecycle.
+                Each runs against an in-memory API (no server required).
+            </p>
+            <div class="scenario-grid">
+                <button class="scenario-btn" id="scenario-init">
+                    <div class="scenario-btn__title">Init Vault</div>
+                    <div class="scenario-btn__desc">Create an empty vault, inspect the bare structure (data, refs, keys, indexes).</div>
+                </button>
+                <button class="scenario-btn" id="scenario-commit">
+                    <div class="scenario-btn__title">Add Files + Commit</div>
+                    <div class="scenario-btn__desc">Add README.md and configs/EC2.json, commit, inspect the commit chain and tree.</div>
+                </button>
+                <button class="scenario-btn" id="scenario-push">
+                    <div class="scenario-btn__title">Push to Server</div>
+                    <div class="scenario-btn__desc">Push to in-memory API, verify objects uploaded, check delta sync.</div>
+                </button>
+                <button class="scenario-btn" id="scenario-full">
+                    <div class="scenario-btn__title">Full Solo Workflow</div>
+                    <div class="scenario-btn__desc">Init → add files → commit → push → modify → delete → commit → push. Complete lifecycle.</div>
+                </button>
+            </div>
+        </div>
+
+        <!-- Step 3: Console -->
+        <div class="section" id="section-console" style="opacity:0.5;pointer-events:none;">
+            <h2>Console</h2>
+            <p style="color:var(--sg-text-muted);font-size:0.8125rem;margin-bottom:0.75rem;">
+                Interactive Python console with sg-send-cli pre-loaded.
+                All vault modules are available: <code style="background:rgba(78,205,196,0.1);padding:0.125rem 0.375rem;border-radius:3px;font-size:0.75rem;">Vault__Crypto</code>,
+                <code style="background:rgba(78,205,196,0.1);padding:0.125rem 0.375rem;border-radius:3px;font-size:0.75rem;">Vault__Sync</code>,
+                <code style="background:rgba(78,205,196,0.1);padding:0.125rem 0.375rem;border-radius:3px;font-size:0.75rem;">Vault__Inspector</code>,
+                <code style="background:rgba(78,205,196,0.1);padding:0.125rem 0.375rem;border-radius:3px;font-size:0.75rem;">Vault__API__In_Memory</code>.
+            </p>
+            <div id="terminal" class="terminal"></div>
+            <div class="input-area">
+                <textarea id="code-input" rows="3" placeholder=">>> Type Python code here (Shift+Enter to run)"></textarea>
+                <button class="btn" id="run-btn" style="height:fit-content;">Run</button>
+            </div>
+            <p class="input-hint">
+                Shift+Enter to run &nbsp;|&nbsp; Enter for newline &nbsp;|&nbsp;
+                Up/Down arrows to recall history
+            </p>
+        </div>
+
+        <div class="info-box">
+            <h3>About sg-send-cli</h3>
+            <p>
+                <code>sgraph-ai-app-send</code> is the Python CLI for SG/Send encrypted vaults.
+                It provides git-like operations (init, commit, push, pull, clone) with client-side encryption.
+            </p>
+            <ul>
+                <li>All encryption uses PBKDF2-SHA256 (600K iterations) + AES-256-GCM</li>
+                <li>Vault keys derive deterministic read/write keys and file IDs</li>
+                <li>In-memory API mode — no external server needed for testing</li>
+                <li>Same code that runs on your machine, now running in WebAssembly</li>
+            </ul>
+            <p style="margin-top:0.75rem;">
+                PyPI: <a href="https://pypi.org/project/sgraph-ai-app-send/" style="color:var(--sg-accent);">pypi.org/project/sgraph-ai-app-send</a>
+                &nbsp;|&nbsp;
+                GitHub: <a href="https://github.com/the-cyber-boardroom/SGraph-AI__App__Send" style="color:var(--sg-accent);">SGraph-AI__App__Send</a>
+            </p>
+        </div>
+    </div>
+
+    <script type="module" src="/components/site-footer/v1/v1.0/v1.0.0/sg-site-footer.js"></script>
+    <sg-site-footer
+        brand-desc="Free browser-based tools that run entirely on your device. No uploads, no servers, no tracking."
+        columns='[{"title":"Tools","links":[{"label":"SG/Send CLI","href":"./"},{"label":"Python REPL","href":"../pyodide-repl/"},{"label":"All Tools","href":"/en-gb/"}]},{"title":"SGraph","links":[{"label":"sgraph.ai","href":"https://sgraph.ai/en-gb/"},{"label":"send.sgraph.ai","href":"https://send.sgraph.ai"},{"label":"GitHub","href":"https://github.com/the-cyber-boardroom/SGraph-AI__Tools"}]}]'>
+    </sg-site-footer>
+
+    <script src="../../_common/js/build-info.js"></script>
+    <div id="build-version" style="text-align:center;color:var(--sg-text-dim, #4a5568);font-size:0.7rem;padding:8px 0;opacity:0.6;background:var(--sg-bg-secondary, #16213E);"></div>
+    <script>
+        (function() {
+            var b = window.SGRAPH_BUILD || { appVersion: 'v0.1.0', uiVersion: 'v0.1.2' };
+            var el = document.getElementById('build-version');
+            if (el) el.textContent = b.appVersion + '  \u00b7  UI ' + b.uiVersion + (b.buildTime ? '  \u00b7  ' + b.buildTime : '');
+        })();
+    </script>
+
+    <script type="module">
+        import {
+            loadPyodide    as loadPyodideRuntime,
+            installPackages,
+            runPythonCapture
+        } from '/core/pyodide/v1/v1.0/v1.0.0/sg-pyodide.js'
+
+        // --- Elements ---
+        const loadBtn        = document.getElementById('load-btn')
+        const loadLog        = document.getElementById('load-log')
+        const loadProgress   = document.getElementById('load-progress')
+        const loadFill       = document.getElementById('load-progress-fill')
+        const sectionScenarios = document.getElementById('section-scenarios')
+        const sectionConsole   = document.getElementById('section-console')
+        const terminal       = document.getElementById('terminal')
+        const codeInput      = document.getElementById('code-input')
+        const runBtn         = document.getElementById('run-btn')
+
+        let pyodide = null
+        let cmdHistory = []
+        let historyIdx = -1
+        let vaultReady = false  // true after scenario setup
+
+        // --- Step 1: Load + Install ---
+        loadBtn.addEventListener('click', async () => {
+            loadBtn.disabled = true
+            loadBtn.innerHTML = '<span class="spinner"></span>Loading Pyodide...'
+            loadLog.style.display = 'block'
+            loadProgress.classList.add('visible')
+
+            const stages = {
+                'loading-script': 10,
+                'initialising': 30,
+                'loading-micropip': 50,
+                'ready': 60,
+                'installing-packages': 80
+            }
+
+            try {
+                pyodide = await loadPyodideRuntime({
+                    onProgress: ({ stage, detail }) => {
+                        logWrite(loadLog, detail, 'info')
+                        if (stages[stage]) loadFill.style.width = stages[stage] + '%'
+                    }
+                })
+
+                loadBtn.innerHTML = '<span class="spinner"></span>Installing sg-send-cli...'
+                logWrite(loadLog, 'Installing sgraph-ai-app-send from PyPI...', 'info')
+                loadFill.style.width = '70%'
+
+                await installPackages(pyodide, ['sgraph-ai-app-send'])
+                loadFill.style.width = '90%'
+                logWrite(loadLog, 'Installed: sgraph-ai-app-send', 'output')
+
+                // Verify import
+                await pyodide.runPythonAsync(`
+from sg_send_cli.crypto.Vault__Crypto      import Vault__Crypto
+from sg_send_cli.sync.Vault__Sync          import Vault__Sync
+from sg_send_cli.objects.Vault__Inspector   import Vault__Inspector
+from sg_send_cli.api.Vault__API__In_Memory import Vault__API__In_Memory
+import sys
+`)
+                const pyVersion = await pyodide.runPythonAsync('sys.version')
+                logWrite(loadLog, `Python ${pyVersion}`, 'output')
+                logWrite(loadLog, 'All vault modules imported successfully.', 'output')
+                loadFill.style.width = '100%'
+
+                loadBtn.style.display = 'none'
+                sectionScenarios.style.opacity = '1'
+                sectionScenarios.style.pointerEvents = 'auto'
+                sectionConsole.style.opacity = '1'
+                sectionConsole.style.pointerEvents = 'auto'
+
+                termWrite('sg-send-cli loaded. Ready for vault operations.', 'output')
+                termWrite('Available: Vault__Crypto, Vault__Sync, Vault__Inspector, Vault__API__In_Memory', 'info')
+                termWrite('', '')
+
+            } catch (err) {
+                logWrite(loadLog, `Error: ${err.message}`, 'error')
+                loadBtn.innerHTML = 'Retry'
+                loadBtn.disabled = false
+                loadFill.style.width = '0%'
+            }
+        })
+
+        // --- Scenarios ---
+        const VAULT_KEY = 'solo-qa-passphrase:solo-qa-vault'
+
+        const scenarioCode = {
+            init: `
+import json, os, tempfile
+from sg_send_cli.crypto.Vault__Crypto      import Vault__Crypto
+from sg_send_cli.sync.Vault__Sync          import Vault__Sync
+from sg_send_cli.objects.Vault__Inspector   import Vault__Inspector
+from sg_send_cli.api.Vault__API__In_Memory import Vault__API__In_Memory
+
+VAULT_KEY = '${VAULT_KEY}'
+
+# Setup
+api    = Vault__API__In_Memory().setup()
+crypto = Vault__Crypto()
+sync   = Vault__Sync(crypto=crypto, api=api)
+
+# Init vault
+vault_dir = tempfile.mkdtemp(prefix='sg_vault_browser_')
+result    = sync.init(vault_dir, vault_key=VAULT_KEY)
+
+print(f'=== Vault Initialised ===')
+print(f'  Directory:    {result["directory"]}')
+print(f'  Vault ID:     {result["vault_id"]}')
+print(f'  Vault key:    {result["vault_key"]}')
+print(f'  Named branch: {result["named_branch"]}')
+print(f'  Clone branch: {result["branch_id"]}')
+print(f'  Init commit:  {result["commit_id"]}')
+
+# Count bare files
+sg_dir = os.path.join(vault_dir, '.sg_vault', 'bare')
+counts = {}
+for sub in ['data', 'refs', 'keys', 'indexes']:
+    sub_dir = os.path.join(sg_dir, sub)
+    if os.path.isdir(sub_dir):
+        counts[sub] = len([f for f in os.listdir(sub_dir) if os.path.isfile(os.path.join(sub_dir, f))])
+    else:
+        counts[sub] = 0
+counts['total'] = sum(counts.values())
+
+print(f'\\n=== Bare Structure ===')
+for k, v in sorted(counts.items()):
+    print(f'  {k:10s}: {v}')
+
+# Status
+status = sync.status(vault_dir)
+print(f'\\n=== Status ===')
+print(f'  Clean: {status["clean"]}')
+
+# Inspect
+inspector = Vault__Inspector(crypto=crypto)
+keys = crypto.derive_keys_from_vault_key(VAULT_KEY)
+chain = inspector.inspect_commit_chain(vault_dir, read_key=keys['read_key_bytes'])
+print(f'\\n=== Commit Chain ({len(chain)} commits) ===')
+for c in chain:
+    print(f'  {c["commit_id"][:12]}  {c["message"]}')
+
+# Store for next scenarios
+import builtins
+builtins._sg_vault_dir = vault_dir
+builtins._sg_sync      = sync
+builtins._sg_crypto    = crypto
+builtins._sg_api       = api
+builtins._sg_inspector = inspector
+builtins._sg_keys      = keys
+print(f'\\nVault stored in _sg_vault_dir for subsequent scenarios.')
+`,
+
+            commit: `
+import os, json
+
+vault_dir = _sg_vault_dir
+sync      = _sg_sync
+inspector = _sg_inspector
+keys      = _sg_keys
+crypto    = _sg_crypto
+
+# Create files
+with open(os.path.join(vault_dir, 'README.md'), 'w') as f:
+    f.write('# My Project\\n')
+
+os.makedirs(os.path.join(vault_dir, 'configs'), exist_ok=True)
+with open(os.path.join(vault_dir, 'configs', 'EC2.json'), 'w') as f:
+    f.write('{"region": "eu-west-2"}\\n')
+
+# Status before commit
+status = sync.status(vault_dir)
+print(f'=== Status Before Commit ===')
+print(f'  Added: {status.get("added", [])}')
+
+# Commit
+result = sync.commit(vault_dir, message='add initial files')
+print(f'\\n=== Commit Result ===')
+print(f'  Commit ID: {result.get("commit_id", "n/a")}')
+
+# Count bare files
+sg_dir = os.path.join(vault_dir, '.sg_vault', 'bare')
+counts = {}
+for sub in ['data', 'refs', 'keys', 'indexes']:
+    sub_dir = os.path.join(sg_dir, sub)
+    if os.path.isdir(sub_dir):
+        counts[sub] = len([f for f in os.listdir(sub_dir) if os.path.isfile(os.path.join(sub_dir, f))])
+    else:
+        counts[sub] = 0
+counts['total'] = sum(counts.values())
+print(f'\\n=== Bare Structure After Commit ===')
+for k, v in sorted(counts.items()):
+    print(f'  {k:10s}: {v}')
+
+# Inspect commit chain
+chain = inspector.inspect_commit_chain(vault_dir, read_key=keys['read_key_bytes'])
+print(f'\\n=== Commit Chain ({len(chain)} commits) ===')
+for c in chain:
+    print(f'  {c["commit_id"][:12]}  {c["message"]}')
+
+# Inspect tree
+tree_info = inspector.inspect_tree(vault_dir, read_key=keys['read_key_bytes'])
+print(f'\\n=== Tree ({tree_info["file_count"]} files) ===')
+for entry in tree_info.get('entries', []):
+    print(f'  {entry["path"]:30s}  blob={entry["blob_id"][:12]}  size={entry["size"]}')
+
+# Status after commit
+status = sync.status(vault_dir)
+print(f'\\n=== Status After Commit ===')
+print(f'  Clean: {status["clean"]}')
+`,
+
+            push: `
+import json
+
+vault_dir = _sg_vault_dir
+sync      = _sg_sync
+api       = _sg_api
+
+# Push
+result = sync.push(vault_dir)
+print(f'=== Push Result ===')
+print(f'  Status:           {result["status"]}')
+print(f'  Objects uploaded:  {result.get("objects_uploaded", "n/a")}')
+print(f'  Commits pushed:   {result.get("commits_pushed", "n/a")}')
+
+print(f'\\n=== API Store ===')
+print(f'  Entries:      {len(api._store)}')
+print(f'  Total writes: {api._write_count}')
+
+# Status
+status = sync.status(vault_dir)
+print(f'\\n=== Status After Push ===')
+print(f'  Clean: {status["clean"]}')
+`,
+
+            full: `
+import os, json, tempfile
+from sg_send_cli.crypto.Vault__Crypto      import Vault__Crypto
+from sg_send_cli.sync.Vault__Sync          import Vault__Sync
+from sg_send_cli.objects.Vault__Inspector   import Vault__Inspector
+from sg_send_cli.api.Vault__API__In_Memory import Vault__API__In_Memory
+
+VAULT_KEY = '${VAULT_KEY}'
+
+# Fresh setup
+api    = Vault__API__In_Memory().setup()
+crypto = Vault__Crypto()
+sync   = Vault__Sync(crypto=crypto, api=api)
+inspector = Vault__Inspector(crypto=crypto)
+keys   = crypto.derive_keys_from_vault_key(VAULT_KEY)
+
+vault_dir = tempfile.mkdtemp(prefix='sg_vault_full_')
+
+# --- Step 1: Init ---
+print('=' * 50)
+print('STEP 1: Init Vault')
+print('=' * 50)
+result = sync.init(vault_dir, vault_key=VAULT_KEY)
+print(f'  Vault ID:     {result["vault_id"]}')
+print(f'  Init commit:  {result["commit_id"]}')
+
+# --- Step 2: Add files + Commit ---
+print(f'\\n{"=" * 50}')
+print('STEP 2: Add Files + Commit')
+print('=' * 50)
+with open(os.path.join(vault_dir, 'README.md'), 'w') as f:
+    f.write('# My Project\\n')
+os.makedirs(os.path.join(vault_dir, 'configs'), exist_ok=True)
+with open(os.path.join(vault_dir, 'configs', 'EC2.json'), 'w') as f:
+    f.write('{"region": "eu-west-2"}\\n')
+result = sync.commit(vault_dir, message='add initial files')
+print(f'  Committed: {result.get("commit_id", "n/a")}')
+
+chain = inspector.inspect_commit_chain(vault_dir, read_key=keys['read_key_bytes'])
+print(f'  Commits: {len(chain)}')
+tree = inspector.inspect_tree(vault_dir, read_key=keys['read_key_bytes'])
+print(f'  Files in tree: {tree["file_count"]}')
+
+# --- Step 3: Push ---
+print(f'\\n{"=" * 50}')
+print('STEP 3: Push to Server')
+print('=' * 50)
+result = sync.push(vault_dir)
+print(f'  Status: {result["status"]}')
+print(f'  Objects uploaded: {result.get("objects_uploaded", "n/a")}')
+
+# --- Step 4: Modify + Delete + Commit ---
+print(f'\\n{"=" * 50}')
+print('STEP 4: Modify README, Delete EC2.json, Commit')
+print('=' * 50)
+with open(os.path.join(vault_dir, 'README.md'), 'w') as f:
+    f.write('# My Project v2\\nUpdated with new info.\\n')
+os.remove(os.path.join(vault_dir, 'configs', 'EC2.json'))
+os.rmdir(os.path.join(vault_dir, 'configs'))
+
+status = sync.status(vault_dir)
+print(f'  Modified: {status.get("modified", [])}')
+print(f'  Deleted:  {status.get("deleted", [])}')
+
+result = sync.commit(vault_dir, message='update readme, remove EC2 config')
+print(f'  Committed: {result.get("commit_id", "n/a")}')
+
+# --- Step 5: Add more files + Commit ---
+print(f'\\n{"=" * 50}')
+print('STEP 5: Add notes.txt + Commit')
+print('=' * 50)
+with open(os.path.join(vault_dir, 'notes.txt'), 'w') as f:
+    f.write('- Buy milk\\n- Ship it\\n')
+result = sync.commit(vault_dir, message='add notes.txt')
+print(f'  Committed: {result.get("commit_id", "n/a")}')
+
+# --- Step 6: Second Push ---
+print(f'\\n{"=" * 50}')
+print('STEP 6: Second Push (delta)')
+print('=' * 50)
+result = sync.push(vault_dir)
+print(f'  Status: {result["status"]}')
+print(f'  Commits pushed: {result.get("commits_pushed", "n/a")}')
+
+# --- Final Summary ---
+print(f'\\n{"=" * 50}')
+print('FINAL SUMMARY')
+print('=' * 50)
+chain = inspector.inspect_commit_chain(vault_dir, read_key=keys['read_key_bytes'])
+print(f'  Total commits: {len(chain)}')
+for c in chain:
+    print(f'    {c["commit_id"][:12]}  {c["message"]}')
+
+tree = inspector.inspect_tree(vault_dir, read_key=keys['read_key_bytes'])
+print(f'\\n  Files in tree: {tree["file_count"]}')
+for entry in tree.get('entries', []):
+    print(f'    {entry["path"]:30s}  size={entry["size"]}')
+
+stats = inspector.object_store_stats(vault_dir)
+print(f'\\n  Object store: {stats["total_objects"]} objects, {stats["total_bytes"]} bytes')
+print(f'  API store: {len(api._store)} entries, {api._write_count} total writes')
+print(f'\\n  Working files: {len([f for f in os.listdir(vault_dir) if not f.startswith(".")])}')
+
+# Store for console
+import builtins
+builtins._sg_vault_dir = vault_dir
+builtins._sg_sync      = sync
+builtins._sg_crypto    = crypto
+builtins._sg_api       = api
+builtins._sg_inspector = inspector
+builtins._sg_keys      = keys
+print(f'\\nVault stored in _sg_vault_dir for interactive use.')
+`
+        }
+
+        document.getElementById('scenario-init').addEventListener('click',   () => runScenario('init'))
+        document.getElementById('scenario-commit').addEventListener('click', () => runScenario('commit'))
+        document.getElementById('scenario-push').addEventListener('click',   () => runScenario('push'))
+        document.getElementById('scenario-full').addEventListener('click',   () => runScenario('full'))
+
+        async function runScenario(name) {
+            if (!pyodide) return
+            const code = scenarioCode[name]
+            if (!code) return
+
+            // Disable all scenario buttons during run
+            const btns = document.querySelectorAll('.scenario-btn')
+            btns.forEach(b => b.disabled = true)
+
+            termWrite(`=== Running scenario: ${name} ===`, 'heading')
+
+            try {
+                const { stdout, stderr, error } = await runPythonCapture(pyodide, code)
+
+                if (stdout) {
+                    for (const line of stdout.trimEnd().split('\n')) {
+                        termWrite(line, 'output')
+                    }
+                }
+                if (stderr) {
+                    for (const line of stderr.trimEnd().split('\n')) {
+                        termWrite(line, 'warn')
+                    }
+                }
+                if (error) {
+                    for (const line of error.split('\n')) {
+                        termWrite(line, 'error')
+                    }
+                }
+
+                vaultReady = true
+            } catch (err) {
+                const msg = err.message || String(err)
+                const lines = msg.split('\n').filter(l => l.trim())
+                termWrite(lines[lines.length - 1] || msg, 'error')
+            }
+
+            termWrite('', '')
+            btns.forEach(b => b.disabled = false)
+        }
+
+        // --- Console (REPL) ---
+        async function runCode() {
+            if (!pyodide) return
+            const code = codeInput.value
+            if (!code.trim()) return
+
+            const lines = code.split('\n')
+            for (let i = 0; i < lines.length; i++) {
+                termWrite(`${i === 0 ? '>>>' : '...'} ${lines[i]}`, 'input')
+            }
+
+            cmdHistory.push(code)
+            historyIdx = cmdHistory.length
+            codeInput.value = ''
+
+            try {
+                const { result, stdout, stderr, error } = await runPythonCapture(pyodide, code)
+
+                if (stdout) {
+                    for (const line of stdout.trimEnd().split('\n')) {
+                        termWrite(line, 'output')
+                    }
+                }
+                if (result !== undefined && result !== null) {
+                    termWrite(String(result), 'output')
+                }
+                if (stderr) {
+                    for (const line of stderr.trimEnd().split('\n')) {
+                        termWrite(line, 'warn')
+                    }
+                }
+                if (error) {
+                    for (const line of error.split('\n')) {
+                        termWrite(line, 'error')
+                    }
+                }
+            } catch (err) {
+                const msg = err.message || String(err)
+                const lines = msg.split('\n').filter(l => l.trim())
+                termWrite(lines[lines.length - 1] || msg, 'error')
+            }
+
+            codeInput.focus()
+        }
+
+        runBtn.addEventListener('click', runCode)
+
+        codeInput.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter' && e.shiftKey) {
+                e.preventDefault()
+                runCode()
+                return
+            }
+            if (e.key === 'ArrowUp' && codeInput.selectionStart === 0) {
+                e.preventDefault()
+                if (historyIdx > 0) {
+                    historyIdx--
+                    codeInput.value = cmdHistory[historyIdx]
+                }
+            }
+            if (e.key === 'ArrowDown' && codeInput.selectionEnd === codeInput.value.length) {
+                e.preventDefault()
+                if (historyIdx < cmdHistory.length - 1) {
+                    historyIdx++
+                    codeInput.value = cmdHistory[historyIdx]
+                } else {
+                    historyIdx = cmdHistory.length
+                    codeInput.value = ''
+                }
+            }
+        })
+
+        // --- Helpers ---
+        function termWrite(text, cls) {
+            const div = document.createElement('div')
+            div.className = `term-line ${cls || ''}`
+            div.textContent = text
+            terminal.appendChild(div)
+            terminal.scrollTop = terminal.scrollHeight
+        }
+
+        function logWrite(container, text, cls) {
+            const div = document.createElement('div')
+            div.className = `term-line ${cls || ''}`
+            div.textContent = text
+            container.appendChild(div)
+            container.scrollTop = container.scrollHeight
+        }
+    </script>
+</body>
+</html>
