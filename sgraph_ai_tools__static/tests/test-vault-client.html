@@ -1,0 +1,323 @@
+<!DOCTYPE html>
+<html lang="en-GB">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Tests — sg-vault-client.js</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: 'SF Mono', 'Fira Code', 'Consolas', monospace;
+            background: #0a0e1a;
+            color: #e2e8f0;
+            padding: 2rem;
+            line-height: 1.6;
+        }
+        h1 { font-size: 1.25rem; margin-bottom: 1rem; color: #4ECDC4; }
+        h2 { font-size: 1rem; margin: 1.5rem 0 0.75rem; color: #94a3b8; border-bottom: 1px solid #1e293b; padding-bottom: 0.25rem; }
+        .test       { padding: 0.25rem 0; font-size: 0.8125rem; }
+        .test.pass  { color: #4ECDC4; }
+        .test.fail  { color: #e94560; }
+        .test.skip  { color: #ffc107; }
+        .summary {
+            margin-top: 1.5rem;
+            padding: 1rem;
+            border-radius: 6px;
+            font-size: 0.875rem;
+            font-weight: 600;
+        }
+        .summary.all-pass { background: rgba(78,205,196,0.15); color: #4ECDC4; border: 1px solid rgba(78,205,196,0.3); }
+        .summary.has-fail { background: rgba(233,69,96,0.15); color: #e94560; border: 1px solid rgba(233,69,96,0.3); }
+        .detail     { color: #64748b; font-size: 0.75rem; margin-left: 1.5rem; }
+        .timing     { color: #64748b; font-size: 0.75rem; }
+    </style>
+</head>
+<body>
+    <h1>sg-vault-client.js — Test Suite</h1>
+    <div id="output"></div>
+    <div id="summary"></div>
+
+    <script type="module">
+        import {
+            parseVaultKey,
+            deriveVaultKeys,
+            deriveFileId,
+            KDF_ITERATIONS,
+            KEY_LENGTH,
+            FILE_ID_LENGTH,
+            SALT_PREFIX
+        } from '/core/vault-client/v1/v1.0/v1.0.0/sg-vault-client.js'
+
+        const output  = document.getElementById('output')
+        const summary = document.getElementById('summary')
+        let passed = 0, failed = 0, total = 0
+
+        function log(msg, cls) {
+            const div = document.createElement('div')
+            div.className = `test ${cls}`
+            div.textContent = msg
+            output.appendChild(div)
+        }
+
+        function detail(msg) {
+            const div = document.createElement('div')
+            div.className = 'detail'
+            div.textContent = msg
+            output.appendChild(div)
+        }
+
+        function heading(msg) {
+            const h = document.createElement('h2')
+            h.textContent = msg
+            output.appendChild(h)
+        }
+
+        function assert(condition, testName, extra) {
+            total++
+            if (condition) {
+                passed++
+                log(`PASS  ${testName}`, 'pass')
+            } else {
+                failed++
+                log(`FAIL  ${testName}`, 'fail')
+                if (extra) detail(extra)
+            }
+        }
+
+        function assertEqual(actual, expected, testName) {
+            total++
+            if (actual === expected) {
+                passed++
+                log(`PASS  ${testName}`, 'pass')
+            } else {
+                failed++
+                log(`FAIL  ${testName}`, 'fail')
+                detail(`Expected: ${expected}`)
+                detail(`Actual:   ${actual}`)
+            }
+        }
+
+        function bytesToHex(bytes) {
+            return Array.from(bytes).map(b => b.toString(16).padStart(2, '0')).join('')
+        }
+
+        const t0 = performance.now()
+
+        // =====================================================================
+        // Constants
+        // =====================================================================
+        heading('Constants')
+        assertEqual(KDF_ITERATIONS, 600_000, 'KDF_ITERATIONS = 600,000')
+        assertEqual(KEY_LENGTH, 32, 'KEY_LENGTH = 32 bytes')
+        assertEqual(FILE_ID_LENGTH, 12, 'FILE_ID_LENGTH = 12 hex chars')
+        assertEqual(SALT_PREFIX, 'sg-vault-v1', 'SALT_PREFIX = sg-vault-v1')
+
+        // =====================================================================
+        // parseVaultKey
+        // =====================================================================
+        heading('parseVaultKey — valid keys')
+
+        {
+            const { passphrase, vaultId } = parseVaultKey('my-secret-passphrase:a1b2c3d4')
+            assertEqual(passphrase, 'my-secret-passphrase', 'Parses passphrase correctly')
+            assertEqual(vaultId, 'a1b2c3d4', 'Parses vault_id correctly')
+        }
+
+        {
+            const { passphrase, vaultId } = parseVaultKey('pass:with:colons:deadbeef')
+            assertEqual(passphrase, 'pass:with:colons', 'Handles colons in passphrase')
+            assertEqual(vaultId, 'deadbeef', 'Extracts vault_id after last colon')
+        }
+
+        {
+            const { passphrase, vaultId } = parseVaultKey('simple:00000000')
+            assertEqual(passphrase, 'simple', 'Simple passphrase without colons')
+            assertEqual(vaultId, '00000000', 'All-zero vault_id')
+        }
+
+        {
+            const { passphrase, vaultId } = parseVaultKey('x:abcdef01')
+            assertEqual(passphrase, 'x', 'Single-char passphrase')
+            assertEqual(vaultId, 'abcdef01', 'Valid hex vault_id')
+        }
+
+        heading('parseVaultKey — invalid keys')
+
+        const invalidKeys = [
+            { input: '',              desc: 'Empty string' },
+            { input: 'nodelimiter',   desc: 'No colon separator' },
+            { input: ':a1b2c3d4',     desc: 'Empty passphrase (leading colon)' },
+            { input: 'pass:ABCDEF01', desc: 'Uppercase hex (must be lowercase)' },
+            { input: 'pass:a1b2c3',   desc: 'Too short vault_id (6 chars)' },
+            { input: 'pass:a1b2c3d4e', desc: 'Too long vault_id (9 chars)' },
+            { input: 'pass:a1b2g3d4', desc: 'Non-hex character in vault_id' },
+        ]
+
+        for (const { input, desc } of invalidKeys) {
+            try {
+                parseVaultKey(input)
+                assert(false, `Rejects: ${desc}`, `Input "${input}" should throw`)
+            } catch (e) {
+                assert(true, `Rejects: ${desc}`)
+            }
+        }
+
+        // =====================================================================
+        // deriveVaultKeys — Test Vector 1
+        // =====================================================================
+        heading('deriveVaultKeys — Test Vector 1 (my-secret-passphrase:a1b2c3d4)')
+
+        {
+            const keys = await deriveVaultKeys('my-secret-passphrase', 'a1b2c3d4')
+
+            assertEqual(
+                bytesToHex(keys.readKeyBytes),
+                'a9cbcf15b4719384a732594405f138a2a42895fe56710dcfbd1324369f735124',
+                'Read key matches Python test vector'
+            )
+            assertEqual(
+                keys.writeKey,
+                '3181d6650958b51fd00f913f6290eca22e6b09da661c8e831fc89fe659df378e',
+                'Write key matches Python test vector'
+            )
+            assertEqual(keys.treeFileId, '4bc7e18f0779', 'Tree file ID matches Python test vector')
+            assertEqual(keys.settingsFileId, '591414eaaa88', 'Settings file ID matches Python test vector')
+            assertEqual(keys.vaultId, 'a1b2c3d4', 'vaultId preserved in result')
+            assert(keys.readKey instanceof CryptoKey, 'readKey is a CryptoKey')
+            assert(keys.readKeyBytes instanceof Uint8Array, 'readKeyBytes is Uint8Array')
+            assert(keys.readKeyBytes.length === 32, 'readKeyBytes is 32 bytes')
+            assert(keys.derivationTimeMs > 0, `Derivation time reported: ${Math.round(keys.derivationTimeMs)}ms`)
+        }
+
+        // =====================================================================
+        // deriveVaultKeys — Test Vector 2
+        // =====================================================================
+        heading('deriveVaultKeys — Test Vector 2 (pass:with:colons:deadbeef)')
+
+        {
+            const keys = await deriveVaultKeys('pass:with:colons', 'deadbeef')
+
+            assertEqual(
+                bytesToHex(keys.readKeyBytes),
+                'a903fc429b2806e6c05ba0d21271d982f451bd3c78e4899a8ee6e0fbed3d9b3f',
+                'Read key matches Python test vector'
+            )
+            assertEqual(
+                keys.writeKey,
+                '3da59de516555d963eaf4c5d3179893acd9045bb0df69f3c89c0bed915a77f96',
+                'Write key matches Python test vector'
+            )
+            assertEqual(keys.treeFileId, '220ae644906a', 'Tree file ID matches Python test vector')
+            assertEqual(keys.settingsFileId, '5398a4d71d8d', 'Settings file ID matches Python test vector')
+        }
+
+        // =====================================================================
+        // deriveFileId — standalone
+        // =====================================================================
+        heading('deriveFileId — standalone HMAC-SHA256')
+
+        {
+            // Use the read key from vector 1 to derive a custom file ID
+            const readKeyBytes = new Uint8Array(
+                'a9cbcf15b4719384a732594405f138a2a42895fe56710dcfbd1324369f735124'
+                    .match(/.{2}/g).map(h => parseInt(h, 16))
+            )
+
+            const treeId = await deriveFileId(readKeyBytes, 'sg-vault-v1:file-id:tree:a1b2c3d4')
+            assertEqual(treeId, '4bc7e18f0779', 'deriveFileId reproduces tree file ID from raw bytes')
+
+            const settingsId = await deriveFileId(readKeyBytes, 'sg-vault-v1:file-id:settings:a1b2c3d4')
+            assertEqual(settingsId, '591414eaaa88', 'deriveFileId reproduces settings file ID from raw bytes')
+
+            // Different inputs produce different IDs
+            const customId = await deriveFileId(readKeyBytes, 'sg-vault-v1:file-id:custom:a1b2c3d4')
+            assert(customId.length === 12, 'Custom file ID is 12 hex chars')
+            assert(customId !== treeId, 'Custom file ID differs from tree ID')
+            assert(customId !== settingsId, 'Custom file ID differs from settings ID')
+            assert(/^[0-9a-f]{12}$/.test(customId), 'Custom file ID is valid hex')
+        }
+
+        // =====================================================================
+        // deriveVaultKeys — Determinism
+        // =====================================================================
+        heading('deriveVaultKeys — Determinism')
+
+        {
+            const keys1 = await deriveVaultKeys('test-determinism', 'aabbccdd')
+            const keys2 = await deriveVaultKeys('test-determinism', 'aabbccdd')
+
+            assertEqual(
+                bytesToHex(keys1.readKeyBytes),
+                bytesToHex(keys2.readKeyBytes),
+                'Same passphrase+vaultId produces identical read keys'
+            )
+            assertEqual(keys1.writeKey, keys2.writeKey, 'Same passphrase+vaultId produces identical write keys')
+            assertEqual(keys1.treeFileId, keys2.treeFileId, 'Same passphrase+vaultId produces identical tree file IDs')
+            assertEqual(keys1.settingsFileId, keys2.settingsFileId, 'Same passphrase+vaultId produces identical settings file IDs')
+        }
+
+        // =====================================================================
+        // deriveVaultKeys — Different inputs produce different outputs
+        // =====================================================================
+        heading('deriveVaultKeys — Uniqueness')
+
+        {
+            const keysA = await deriveVaultKeys('passphrase-a', 'aaaaaaaa')
+            const keysB = await deriveVaultKeys('passphrase-b', 'aaaaaaaa')
+            const keysC = await deriveVaultKeys('passphrase-a', 'bbbbbbbb')
+
+            assert(
+                bytesToHex(keysA.readKeyBytes) !== bytesToHex(keysB.readKeyBytes),
+                'Different passphrases produce different read keys'
+            )
+            assert(keysA.writeKey !== keysB.writeKey, 'Different passphrases produce different write keys')
+            assert(
+                bytesToHex(keysA.readKeyBytes) !== bytesToHex(keysC.readKeyBytes),
+                'Different vault IDs produce different read keys'
+            )
+            assert(keysA.treeFileId !== keysC.treeFileId, 'Different vault IDs produce different tree file IDs')
+        }
+
+        // =====================================================================
+        // Key structure validation
+        // =====================================================================
+        heading('Key structure validation')
+
+        {
+            const keys = await deriveVaultKeys('structure-test', '12345678')
+
+            assert(keys.writeKey.length === 64, 'Write key is 64 hex chars (32 bytes)')
+            assert(/^[0-9a-f]{64}$/.test(keys.writeKey), 'Write key is valid hex')
+            assert(keys.treeFileId.length === 12, 'Tree file ID is 12 hex chars')
+            assert(/^[0-9a-f]{12}$/.test(keys.treeFileId), 'Tree file ID is valid hex')
+            assert(keys.settingsFileId.length === 12, 'Settings file ID is 12 hex chars')
+            assert(/^[0-9a-f]{12}$/.test(keys.settingsFileId), 'Settings file ID is valid hex')
+            assert(keys.treeFileId !== keys.settingsFileId, 'Tree and settings file IDs are different')
+        }
+
+        // =====================================================================
+        // End-to-end: parseVaultKey + deriveVaultKeys
+        // =====================================================================
+        heading('End-to-end: parseVaultKey → deriveVaultKeys')
+
+        {
+            const { passphrase, vaultId } = parseVaultKey('my-secret-passphrase:a1b2c3d4')
+            const keys = await deriveVaultKeys(passphrase, vaultId)
+
+            assertEqual(keys.treeFileId, '4bc7e18f0779', 'Full flow: parse → derive produces correct tree file ID')
+            assertEqual(keys.settingsFileId, '591414eaaa88', 'Full flow: parse → derive produces correct settings file ID')
+        }
+
+        // =====================================================================
+        // Summary
+        // =====================================================================
+        const elapsed = performance.now() - t0
+
+        summary.className = `summary ${failed === 0 ? 'all-pass' : 'has-fail'}`
+        summary.innerHTML = `${passed}/${total} tests passed, ${failed} failed — ${Math.round(elapsed)}ms`
+
+        document.title = `${failed === 0 ? 'PASS' : 'FAIL'} — sg-vault-client.js (${passed}/${total})`
+        console.log(`sg-vault-client tests: ${passed}/${total} passed, ${failed} failed (${Math.round(elapsed)}ms)`)
+    </script>
+</body>
+</html>
