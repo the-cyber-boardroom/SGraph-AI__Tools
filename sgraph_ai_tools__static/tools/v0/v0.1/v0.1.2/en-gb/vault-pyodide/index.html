@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Vault (Pyodide) — tools.sgraph.ai</title>
     <meta name="description" content="Run Python vault operations in the browser via Pyodide (CPython in WebAssembly). Compatibility test for sg-send-cli running without any installation.">
-    <link rel="stylesheet" href="/_common/css/tools.css">
+    <link rel="stylesheet" href="../../_common/css/tools.css">
     <style>
         .main {
             flex: 1;
@@ -210,7 +210,7 @@
     </sg-site-header>
 
     <script type="module">
-        import { buildToolsNav } from '/_common/js/sg-nav.js'
+        import { buildToolsNav } from '../../_common/js/sg-nav.js'
         document.querySelector('sg-site-header').whenReady().then(() => {
             buildToolsNav(document.querySelector('sg-site-header'))
         }).catch(() => {
@@ -334,7 +334,7 @@ print(f'Platform: {sys.platform}')"></textarea>
         columns='[{"title":"Tools","links":[{"label":"Vault Browser (JS)","href":"../vault-browser/"},{"label":"Vault (Pyodide)","href":"./"},{"label":"All Tools","href":"/en-gb/"}]},{"title":"SGraph","links":[{"label":"sgraph.ai","href":"https://sgraph.ai/en-gb/"},{"label":"send.sgraph.ai","href":"https://send.sgraph.ai"},{"label":"GitHub","href":"https://github.com/the-cyber-boardroom/SGraph-AI__Tools"}]}]'>
     </sg-site-footer>
 
-    <script src="/_common/js/build-info.js"></script>
+    <script src="../../_common/js/build-info.js"></script>
     <div id="build-version" style="text-align:center;color:var(--sg-text-dim, #4a5568);font-size:0.7rem;padding:8px 0;opacity:0.6;background:var(--sg-bg-secondary, #16213E);"></div>
     <script>
         (function() {

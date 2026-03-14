@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title data-i18n="file_encryptor.title">File Encryptor — tools.sgraph.ai</title>
     <meta name="description" data-i18n="file_encryptor.meta_description" content="Encrypt or decrypt files with AES-256-GCM entirely in your browser. Same encryption used by SG/Send.">
-    <link rel="stylesheet" href="/_common/css/tools.css">
+    <link rel="stylesheet" href="../../_common/css/tools.css">
     <style>
         .main {
             flex: 1;
@@ -168,7 +168,7 @@
     </sg-site-header>
 
     <script type="module">
-        import { buildToolsNav } from '/_common/js/sg-nav.js'
+        import { buildToolsNav } from '../../_common/js/sg-nav.js'
         document.querySelector('sg-site-header').whenReady().then(() => {
             buildToolsNav(document.querySelector('sg-site-header'))
         }).catch(() => {

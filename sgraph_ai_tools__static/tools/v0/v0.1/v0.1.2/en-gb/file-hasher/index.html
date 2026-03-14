@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title data-i18n="file_hasher.title">File Hasher — tools.sgraph.ai</title>
     <meta name="description" data-i18n="file_hasher.meta_description" content="Calculate SHA-256, SHA-1, or SHA-512 hash of any file entirely in your browser. Verify file integrity without uploading.">
-    <link rel="stylesheet" href="/_common/css/tools.css">
+    <link rel="stylesheet" href="../../_common/css/tools.css">
     <style>
         .main {
             flex: 1;
@@ -148,7 +148,7 @@
     </sg-site-header>
 
     <script type="module">
-        import { buildToolsNav } from '/_common/js/sg-nav.js'
+        import { buildToolsNav } from '../../_common/js/sg-nav.js'
         document.querySelector('sg-site-header').whenReady().then(() => {
             buildToolsNav(document.querySelector('sg-site-header'))
         }).catch(() => {
