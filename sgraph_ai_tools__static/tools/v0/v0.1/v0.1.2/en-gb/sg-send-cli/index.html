@@ -352,11 +352,22 @@
                     }
                 })
 
+                loadBtn.innerHTML = '<span class="spinner"></span>Installing dependencies...'
+                logWrite(loadLog, 'Pre-loading cryptography (Pyodide built-in)...', 'info')
+                loadFill.style.width = '65%'
+
+                // Pre-load cryptography from Pyodide's built-in packages
+                // (micropip can't resolve it as a dependency because there's no pure Python wheel)
+                await pyodide.loadPackage('cryptography')
+                logWrite(loadLog, 'Loaded: cryptography (built-in)', 'output')
+
                 loadBtn.innerHTML = '<span class="spinner"></span>Installing sg-send-cli...'
                 logWrite(loadLog, 'Installing sg-send-cli from PyPI...', 'info')
-                loadFill.style.width = '70%'
+                loadFill.style.width = '75%'
 
-                await installPackages(pyodide, ['sg-send-cli'])
+                // Install with keep_going=True so micropip skips native deps already satisfied
+                const micropip = pyodide.pyimport('micropip')
+                await micropip.install('sg-send-cli', { keep_going: true })
                 loadFill.style.width = '90%'
                 logWrite(loadLog, 'Installed: sg-send-cli', 'output')
 
