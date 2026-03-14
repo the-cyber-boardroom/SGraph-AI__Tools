@@ -204,7 +204,7 @@
     </script>
 
     <div class="main">
-        <h1>SG/Send CLI <span class="badge--pkg">sgraph-ai-app-send</span></h1>
+        <h1>SG/Send CLI <span class="badge--pkg">sg-send-cli</span></h1>
         <p class="subtitle">
             Run sg-send-cli vault operations entirely in your browser.
             Init vaults, add files, commit, push, inspect — all via Pyodide with the real Python package from PyPI.
@@ -214,7 +214,7 @@
         <div class="section" id="section-load">
             <h2>Step 1 — Load Python + Install sg-send-cli</h2>
             <p style="color:var(--sg-text-muted);font-size:0.8125rem;margin-bottom:0.75rem;">
-                Downloads Pyodide (~20 MB) and installs <code style="background:rgba(78,205,196,0.1);padding:0.125rem 0.375rem;border-radius:3px;font-size:0.75rem;">sgraph-ai-app-send</code> from PyPI via micropip.
+                Downloads Pyodide (~20 MB) and installs <code style="background:rgba(78,205,196,0.1);padding:0.125rem 0.375rem;border-radius:3px;font-size:0.75rem;">sg-send-cli</code> from PyPI via micropip.
                 First load may take 30-60 seconds. Subsequent visits use cache.
             </p>
             <button class="btn" id="load-btn">Load &amp; Install</button>
@@ -273,7 +273,7 @@
         <div class="info-box">
             <h3>About sg-send-cli</h3>
             <p>
-                <code>sgraph-ai-app-send</code> is the Python CLI for SG/Send encrypted vaults.
+                <code>sg-send-cli</code> is the Python CLI for SG/Send encrypted vaults.
                 It provides git-like operations (init, commit, push, pull, clone) with client-side encryption.
             </p>
             <ul>
@@ -283,7 +283,7 @@
                 <li>Same code that runs on your machine, now running in WebAssembly</li>
             </ul>
             <p style="margin-top:0.75rem;">
-                PyPI: <a href="https://pypi.org/project/sgraph-ai-app-send/" style="color:var(--sg-accent);">pypi.org/project/sgraph-ai-app-send</a>
+                PyPI: <a href="https://pypi.org/project/sg-send-cli/" style="color:var(--sg-accent);">pypi.org/project/sg-send-cli/</a>
                 &nbsp;|&nbsp;
                 GitHub: <a href="https://github.com/the-cyber-boardroom/SGraph-AI__App__Send" style="color:var(--sg-accent);">SGraph-AI__App__Send</a>
             </p>
@@ -353,12 +353,12 @@
                 })
 
                 loadBtn.innerHTML = '<span class="spinner"></span>Installing sg-send-cli...'
-                logWrite(loadLog, 'Installing sgraph-ai-app-send from PyPI...', 'info')
+                logWrite(loadLog, 'Installing sg-send-cli from PyPI...', 'info')
                 loadFill.style.width = '70%'
 
-                await installPackages(pyodide, ['sgraph-ai-app-send'])
+                await installPackages(pyodide, ['sg-send-cli'])
                 loadFill.style.width = '90%'
-                logWrite(loadLog, 'Installed: sgraph-ai-app-send', 'output')
+                logWrite(loadLog, 'Installed: sg-send-cli', 'output')
 
                 // Verify import
                 await pyodide.runPythonAsync(`
