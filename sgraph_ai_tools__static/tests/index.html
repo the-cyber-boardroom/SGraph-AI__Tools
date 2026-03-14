@@ -1,0 +1,84 @@
+<!DOCTYPE html>
+<html lang="en-GB">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Test Suite — tools.sgraph.ai</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: 'SF Mono', 'Fira Code', 'Consolas', monospace;
+            background: #0a0e1a;
+            color: #e2e8f0;
+            padding: 2rem;
+            line-height: 1.6;
+        }
+        h1 { font-size: 1.25rem; margin-bottom: 0.5rem; color: #4ECDC4; }
+        .subtitle { font-size: 0.8125rem; color: #64748b; margin-bottom: 1.5rem; }
+        .test-list { list-style: none; }
+        .test-list li {
+            padding: 0.75rem 1rem;
+            margin-bottom: 0.5rem;
+            background: #111827;
+            border: 1px solid #1e293b;
+            border-radius: 6px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .test-list a {
+            color: #e2e8f0;
+            text-decoration: none;
+            font-size: 0.875rem;
+        }
+        .test-list a:hover { color: #4ECDC4; }
+        .test-list .badge {
+            font-size: 0.6875rem;
+            padding: 0.125rem 0.5rem;
+            border-radius: 999px;
+            font-weight: 600;
+        }
+        .badge--fast    { background: rgba(78,205,196,0.15); color: #4ECDC4; }
+        .badge--slow    { background: rgba(255,193,7,0.15); color: #ffc107; }
+        .note {
+            margin-top: 1.5rem;
+            padding: 1rem;
+            background: rgba(78,205,196,0.05);
+            border: 1px solid #1e293b;
+            border-radius: 6px;
+            font-size: 0.8125rem;
+            color: #94a3b8;
+            line-height: 1.6;
+        }
+        .note strong { color: #4ECDC4; }
+    </style>
+</head>
+<body>
+    <h1>tests.sgraph.ai</h1>
+    <p class="subtitle">Browser-based test suite for tools.sgraph.ai core modules</p>
+
+    <ul class="test-list">
+        <li>
+            <a href="test-vault-client.html">sg-vault-client.js</a>
+            <span class="badge badge--fast">~3s (PBKDF2)</span>
+        </li>
+        <li>
+            <a href="test-pyodide.html">sg-pyodide.js</a>
+            <span class="badge badge--slow">~30s (downloads Pyodide)</span>
+        </li>
+    </ul>
+
+    <div class="note">
+        <p>
+            <strong>How to run:</strong> Click a test to open it. Each page runs automatically
+            and shows PASS/FAIL results. Tests use the Web Crypto API and require a
+            <strong>secure context</strong> (HTTPS or localhost).
+        </p>
+        <p style="margin-top:0.5rem;">
+            <strong>Pyodide test</strong> downloads ~20 MB of WASM on first run.
+            Subsequent runs use browser cache. The test validates that Python and JavaScript
+            produce identical vault keys — proving sg-send-cli compatibility.
+        </p>
+    </div>
+</body>
+</html>
