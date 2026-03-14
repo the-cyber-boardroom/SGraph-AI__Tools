@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Vault (Pyodide) — tools.sgraph.ai</title>
     <meta name="description" content="Run Python vault operations in the browser via Pyodide (CPython in WebAssembly). Compatibility test for sg-send-cli running without any installation.">
-    <link rel="stylesheet" href="/_common/css/tools.css">
+    <link rel="stylesheet" href="../../_common/css/tools.css">
     <style>
         .main {
             flex: 1;
@@ -210,7 +210,7 @@
     </sg-site-header>
 
     <script type="module">
-        import { buildToolsNav } from '/_common/js/sg-nav.js'
+        import { buildToolsNav } from '../../_common/js/sg-nav.js'
         document.querySelector('sg-site-header').whenReady().then(() => {
             buildToolsNav(document.querySelector('sg-site-header'))
         }).catch(() => {
@@ -297,17 +297,22 @@
             <button class="btn btn--secondary" id="run-python-btn">Run Custom Python</button>
         </div>
 
-        <!-- Custom Python REPL -->
-        <div class="section" id="section-repl" style="display:none;">
-            <h2>Python Console</h2>
-            <textarea id="python-input" style="width:100%;min-height:120px;background:var(--sg-bg-secondary,#16213E);color:var(--sg-text);border:1px solid var(--sg-border);border-radius:var(--sg-radius);padding:0.75rem;font-family:var(--sg-font-mono);font-size:0.8125rem;resize:vertical;outline:none;" placeholder="# Write Python code here...
-import sys
-print(f'Python {sys.version}')
-print(f'Platform: {sys.platform}')"></textarea>
-            <div style="margin-top:0.5rem;">
-                <button class="btn btn--secondary" id="run-code-btn">Run</button>
+        <!-- Step 4: Python REPL -->
+        <div class="section" id="section-repl" style="opacity:0.5;pointer-events:none;">
+            <h2>Step 4 — Python REPL</h2>
+            <p style="color:var(--sg-text-muted);font-size:0.8125rem;margin-bottom:0.75rem;">
+                Interactive Python console running in your browser via Pyodide.
+                All stdlib modules and installed packages (cryptography, httpx, pydantic) are available.
+            </p>
+            <div id="repl-history" class="progress-log" style="min-height:120px;max-height:400px;"></div>
+            <div style="display:flex;gap:0.5rem;margin-top:0.5rem;align-items:flex-end;">
+                <textarea id="python-input" rows="3" style="flex:1;background:var(--sg-bg-secondary,#16213E);color:var(--sg-text);border:1px solid var(--sg-border);border-radius:var(--sg-radius);padding:0.75rem;font-family:var(--sg-font-mono);font-size:0.8125rem;resize:vertical;outline:none;" placeholder=">>> Type Python code here (Shift+Enter to run)"></textarea>
+                <button class="btn" id="run-code-btn" style="height:fit-content;">Run</button>
             </div>
-            <div id="python-output" class="progress-log" style="display:none;"></div>
+            <p style="color:var(--sg-text-dim);font-size:0.6875rem;margin-top:0.375rem;">
+                Shift+Enter to run &nbsp;|&nbsp; Enter for newline &nbsp;|&nbsp;
+                Up arrow to recall last command
+            </p>
         </div>
 
         <div class="info-box">
@@ -334,7 +339,7 @@ print(f'Platform: {sys.platform}')"></textarea>
         columns='[{"title":"Tools","links":[{"label":"Vault Browser (JS)","href":"../vault-browser/"},{"label":"Vault (Pyodide)","href":"./"},{"label":"All Tools","href":"/en-gb/"}]},{"title":"SGraph","links":[{"label":"sgraph.ai","href":"https://sgraph.ai/en-gb/"},{"label":"send.sgraph.ai","href":"https://send.sgraph.ai"},{"label":"GitHub","href":"https://github.com/the-cyber-boardroom/SGraph-AI__Tools"}]}]'>
     </sg-site-footer>
 
-    <script src="/_common/js/build-info.js"></script>
+    <script src="../../_common/js/build-info.js"></script>
     <div id="build-version" style="text-align:center;color:var(--sg-text-dim, #4a5568);font-size:0.7rem;padding:8px 0;opacity:0.6;background:var(--sg-bg-secondary, #16213E);"></div>
     <script>
         (function() {
@@ -377,7 +382,7 @@ print(f'Platform: {sys.platform}')"></textarea>
         const sectionRepl   = document.getElementById('section-repl')
         const runCodeBtn    = document.getElementById('run-code-btn')
         const pythonInput   = document.getElementById('python-input')
-        const pythonOutput  = document.getElementById('python-output')
+        const replHistory   = document.getElementById('repl-history')
 
         let pyodide = null
 
@@ -402,6 +407,8 @@ print(f'Platform: {sys.platform}')"></textarea>
                 loadBtn.textContent = 'Loaded'
                 sectionCompat.style.opacity = '1'
                 sectionCompat.style.pointerEvents = 'auto'
+                sectionRepl.style.opacity = '1'
+                sectionRepl.style.pointerEvents = 'auto'
 
             } catch (err) {
                 appendLog(loadLog, `Error: ${err.message}`, 'fail')
@@ -594,28 +601,76 @@ print(f'Platform: {sys.platform}')"></textarea>
         })
 
         // --- Python REPL ---
-        runPythonBtn.addEventListener('click', () => {
-            sectionRepl.style.display = sectionRepl.style.display === 'none' ? 'block' : 'none'
-        })
+        let replCommandHistory = []
+        let replHistoryIndex   = -1
 
-        runCodeBtn.addEventListener('click', async () => {
+        async function runReplCode() {
             if (!pyodide) return
             const code = pythonInput.value
             if (!code.trim()) return
 
-            pythonOutput.style.display = 'block'
-            pythonOutput.innerHTML = ''
-            appendLog(pythonOutput, '>>> Running...', '')
+            // Show input in history
+            for (const line of code.split('\n')) {
+                appendLog(replHistory, `>>> ${line}`, '')
+            }
+
+            // Store in command history
+            replCommandHistory.push(code)
+            replHistoryIndex = replCommandHistory.length
+
+            pythonInput.value = ''
 
             try {
                 const { stdout, stderr } = await runPythonCapture(pyodide, code)
-                if (stdout) appendLog(pythonOutput, stdout.trimEnd(), 'ok')
-                if (stderr) appendLog(pythonOutput, stderr.trimEnd(), 'warn')
-                if (!stdout && !stderr) appendLog(pythonOutput, '(no output)', '')
+                if (stdout) {
+                    for (const line of stdout.trimEnd().split('\n')) {
+                        appendLog(replHistory, line, 'ok')
+                    }
+                }
+                if (stderr) {
+                    for (const line of stderr.trimEnd().split('\n')) {
+                        appendLog(replHistory, line, 'warn')
+                    }
+                }
             } catch (err) {
-                appendLog(pythonOutput, `Error: ${err.message}`, 'fail')
+                appendLog(replHistory, err.message, 'fail')
+            }
+
+            pythonInput.focus()
+        }
+
+        runCodeBtn.addEventListener('click', runReplCode)
+
+        pythonInput.addEventListener('keydown', (e) => {
+            // Shift+Enter to run
+            if (e.key === 'Enter' && e.shiftKey) {
+                e.preventDefault()
+                runReplCode()
+                return
+            }
+            // Up arrow to recall previous command (when on first line)
+            if (e.key === 'ArrowUp' && pythonInput.selectionStart === 0) {
+                e.preventDefault()
+                if (replHistoryIndex > 0) {
+                    replHistoryIndex--
+                    pythonInput.value = replCommandHistory[replHistoryIndex]
+                }
+            }
+            // Down arrow to go forward in history
+            if (e.key === 'ArrowDown' && pythonInput.selectionEnd === pythonInput.value.length) {
+                e.preventDefault()
+                if (replHistoryIndex < replCommandHistory.length - 1) {
+                    replHistoryIndex++
+                    pythonInput.value = replCommandHistory[replHistoryIndex]
+                } else {
+                    replHistoryIndex = replCommandHistory.length
+                    pythonInput.value = ''
+                }
             }
         })
+
+        // Hide the old toggle button since REPL is now always visible
+        runPythonBtn.style.display = 'none'
 
         // --- Helpers ---
         function appendLog(container, text, cls) {
