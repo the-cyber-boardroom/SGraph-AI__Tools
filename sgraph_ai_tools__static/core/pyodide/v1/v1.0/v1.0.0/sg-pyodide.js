@@ -246,7 +246,20 @@ FILE_ID_LENGTH = 12
 SALT_PREFIX    = 'sg-vault-v1'
 
 def _derive_pbkdf2(passphrase_bytes, salt_bytes):
-    return hashlib.pbkdf2_hmac('sha256', passphrase_bytes, salt_bytes, KDF_ITERATIONS, dklen=KEY_LENGTH)
+    # hashlib.pbkdf2_hmac is not available in Pyodide's emscripten build,
+    # so we use the cryptography library which is installed via micropip.
+    try:
+        return hashlib.pbkdf2_hmac('sha256', passphrase_bytes, salt_bytes, KDF_ITERATIONS, dklen=KEY_LENGTH)
+    except AttributeError:
+        from cryptography.hazmat.primitives.kdf.pbkdf2 import PBKDF2HMAC
+        from cryptography.hazmat.primitives import hashes
+        kdf = PBKDF2HMAC(
+            algorithm=hashes.SHA256(),
+            length=KEY_LENGTH,
+            salt=salt_bytes,
+            iterations=KDF_ITERATIONS,
+        )
+        return kdf.derive(passphrase_bytes)
 
 def _derive_file_id(read_key_bytes, input_string):
     mac = hmac.new(read_key_bytes, input_string.encode(), hashlib.sha256)
