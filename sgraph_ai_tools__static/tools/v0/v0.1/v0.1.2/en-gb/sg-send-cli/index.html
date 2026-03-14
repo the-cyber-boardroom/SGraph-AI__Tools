@@ -361,18 +361,23 @@
                 await pyodide.loadPackage('cryptography')
                 logWrite(loadLog, 'Loaded: cryptography (built-in)', 'output')
 
-                loadBtn.innerHTML = '<span class="spinner"></span>Installing sg-send-cli...'
-                logWrite(loadLog, 'Installing osbot-utils + sg-send-cli from PyPI...', 'info')
-                loadFill.style.width = '75%'
+                loadBtn.innerHTML = '<span class="spinner"></span>Installing osbot-utils...'
+                logWrite(loadLog, 'Installing osbot-utils from PyPI...', 'info')
+                loadFill.style.width = '72%'
 
-                // Install deps manually then sg-send-cli with deps=False
-                // micropip can't resolve cryptography>=43.0.0 even with keep_going
-                // because it's a native package — so we skip dependency resolution entirely
-                await pyodide.runPythonAsync(`
-import micropip
-await micropip.install('osbot-utils')
-await micropip.install('sg-send-cli', deps=False)
-`)
+                // Install deps one at a time via JS API (avoids nested event loop issues
+                // with await micropip.install() inside runPythonAsync)
+                const micropip = pyodide.pyimport('micropip')
+                await micropip.install('osbot-utils')
+                logWrite(loadLog, 'Installed: osbot-utils', 'output')
+
+                loadBtn.innerHTML = '<span class="spinner"></span>Installing sg-send-cli...'
+                logWrite(loadLog, 'Installing sg-send-cli from PyPI (deps=False)...', 'info')
+                loadFill.style.width = '82%'
+
+                // deps=False because cryptography is already loaded from Pyodide built-in
+                // and osbot-utils is already installed above
+                await micropip.install('sg-send-cli', { deps: false })
                 loadFill.style.width = '90%'
                 logWrite(loadLog, 'Installed: sg-send-cli', 'output')
 
