@@ -1,0 +1,547 @@
+<!DOCTYPE html>
+<html lang="en-GB">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Vault Browser — tools.sgraph.ai</title>
+    <meta name="description" content="Open and browse SG/Send vaults entirely in your browser. Derive keys, decrypt files, and view contents — no Python or CLI required.">
+    <link rel="stylesheet" href="/_common/css/tools.css">
+    <style>
+        .main {
+            flex: 1;
+            max-width: 900px;
+            margin: 0 auto;
+            padding: 2rem 1.5rem;
+            width: 100%;
+        }
+
+        h1 { font-size: 1.5rem; margin-bottom: 0.5rem; }
+
+        .subtitle {
+            color: var(--sg-text-muted);
+            font-size: 0.9375rem;
+            margin-bottom: 2rem;
+            line-height: 1.5;
+        }
+
+        .key-section {
+            background: var(--sg-bg-card);
+            border: 1px solid var(--sg-border);
+            border-radius: var(--sg-radius);
+            padding: 1.5rem;
+            margin-bottom: 1.5rem;
+        }
+
+        .key-section label {
+            display: block;
+            font-size: 0.875rem;
+            font-weight: 600;
+            margin-bottom: 0.5rem;
+        }
+
+        .key-section .hint {
+            color: var(--sg-text-dim);
+            font-size: 0.75rem;
+            margin-bottom: 0.75rem;
+        }
+
+        .key-input-wrap {
+            display: flex;
+            gap: 0.5rem;
+        }
+
+        .key-input-wrap input {
+            flex: 1;
+            padding: 0.625rem 0.75rem;
+            background: var(--sg-bg-secondary, #16213E);
+            color: var(--sg-text);
+            border: 1px solid var(--sg-border);
+            border-radius: var(--sg-radius);
+            font-family: var(--sg-font-mono);
+            font-size: 0.8125rem;
+            outline: none;
+        }
+
+        .key-input-wrap input:focus {
+            border-color: var(--sg-accent);
+        }
+
+        .key-input-wrap input::placeholder {
+            color: var(--sg-text-dim);
+        }
+
+        .api-field {
+            margin-top: 1rem;
+        }
+
+        .api-field label {
+            font-size: 0.8125rem;
+            font-weight: 500;
+        }
+
+        .api-field input {
+            width: 100%;
+            padding: 0.5rem 0.75rem;
+            background: var(--sg-bg-secondary, #16213E);
+            color: var(--sg-text-muted);
+            border: 1px solid var(--sg-border);
+            border-radius: var(--sg-radius);
+            font-family: var(--sg-font-mono);
+            font-size: 0.75rem;
+            outline: none;
+            margin-top: 0.25rem;
+        }
+
+        .status-bar {
+            margin-top: 1rem;
+            font-size: 0.8125rem;
+            padding: 0.5rem 0.75rem;
+            border-radius: var(--sg-radius);
+            display: none;
+        }
+
+        .status-bar.visible { display: block; }
+        .status-bar.info    { color: var(--sg-accent); background: rgba(78,205,196,0.1); border: 1px solid rgba(78,205,196,0.2); }
+        .status-bar.error   { color: var(--sg-error); background: rgba(233,69,96,0.1); border: 1px solid rgba(233,69,96,0.2); }
+        .status-bar.success { color: var(--sg-accent); background: rgba(78,205,196,0.1); border: 1px solid rgba(78,205,196,0.2); }
+
+        .derived-keys {
+            display: none;
+            margin-top: 1rem;
+            padding: 1rem;
+            background: rgba(78,205,196,0.05);
+            border: 1px solid var(--sg-border);
+            border-radius: var(--sg-radius);
+            font-size: 0.75rem;
+            font-family: var(--sg-font-mono);
+            line-height: 1.8;
+            word-break: break-all;
+        }
+
+        .derived-keys.visible { display: block; }
+
+        .derived-keys .label {
+            color: var(--sg-text-dim);
+            font-weight: 600;
+            margin-right: 0.5rem;
+        }
+
+        .vault-content {
+            display: none;
+            margin-top: 1.5rem;
+        }
+
+        .vault-content.visible { display: block; }
+
+        .vault-content h2 {
+            font-size: 1.125rem;
+            margin-bottom: 1rem;
+        }
+
+        .tree-view {
+            background: var(--sg-bg-card);
+            border: 1px solid var(--sg-border);
+            border-radius: var(--sg-radius);
+            padding: 1rem;
+            font-family: var(--sg-font-mono);
+            font-size: 0.8125rem;
+            line-height: 1.8;
+            max-height: 500px;
+            overflow-y: auto;
+            white-space: pre;
+        }
+
+        .tree-entry {
+            cursor: pointer;
+            padding: 0.125rem 0.25rem;
+            border-radius: 3px;
+        }
+
+        .tree-entry:hover {
+            background: rgba(78,205,196,0.1);
+            color: var(--sg-accent);
+        }
+
+        .file-preview {
+            display: none;
+            margin-top: 1rem;
+        }
+
+        .file-preview.visible { display: block; }
+
+        .file-preview h3 {
+            font-size: 0.9375rem;
+            margin-bottom: 0.5rem;
+        }
+
+        .file-preview__content {
+            background: var(--sg-bg-card);
+            border: 1px solid var(--sg-border);
+            border-radius: var(--sg-radius);
+            padding: 1rem;
+            font-family: var(--sg-font-mono);
+            font-size: 0.8125rem;
+            line-height: 1.6;
+            max-height: 500px;
+            overflow: auto;
+            white-space: pre-wrap;
+            word-break: break-word;
+        }
+
+        .file-preview__actions {
+            margin-top: 0.5rem;
+            display: flex;
+            gap: 0.5rem;
+        }
+
+        .info-box {
+            margin-top: 2rem;
+            padding: 1rem;
+            background: rgba(78,205,196,0.05);
+            border: 1px solid var(--sg-border);
+            border-radius: var(--sg-radius);
+        }
+
+        .info-box h3 { font-size: 0.875rem; margin-bottom: 0.5rem; color: var(--sg-accent); }
+        .info-box p  { color: var(--sg-text-muted); font-size: 0.8125rem; line-height: 1.6; }
+
+        .spinner {
+            display: inline-block;
+            width: 14px; height: 14px;
+            border: 2px solid var(--sg-border);
+            border-top-color: var(--sg-accent);
+            border-radius: 50%;
+            animation: spin 0.6s linear infinite;
+            vertical-align: middle;
+            margin-right: 0.5rem;
+        }
+
+        @keyframes spin { to { transform: rotate(360deg); } }
+    </style>
+</head>
+<body>
+    <script type="module" src="/components/site-header/v1/v1.0/v1.0.1/sg-site-header.js"></script>
+    <script type="module" src="/components/locale-picker/v1/v1.0/v1.0.1/sg-locale-picker.js"></script>
+    <sg-site-header
+        site="Tools"
+        home-url="/en-gb/">
+        <sg-locale-picker slot="locale" locale="en-gb" base-path="/"></sg-locale-picker>
+    </sg-site-header>
+
+    <script type="module">
+        import { buildToolsNav } from '/_common/js/sg-nav.js'
+        document.querySelector('sg-site-header').whenReady().then(() => {
+            buildToolsNav(document.querySelector('sg-site-header'))
+        }).catch(() => {
+            buildToolsNav(document.querySelector('sg-site-header'))
+        })
+    </script>
+
+    <div class="main">
+        <h1>Vault Browser</h1>
+        <p class="subtitle">
+            Open and browse SG/Send vaults entirely in your browser.
+            Keys are derived locally using PBKDF2. Files are fetched and decrypted client-side.
+            Nothing leaves your device.
+        </p>
+
+        <div class="key-section">
+            <label for="vault-key">Vault Key</label>
+            <p class="hint">Format: passphrase:vault_id (e.g. my-secret-phrase:a1b2c3d4)</p>
+            <div class="key-input-wrap">
+                <input type="password" id="vault-key" placeholder="Enter your vault key..." autocomplete="off">
+                <button class="btn" id="open-btn">Open Vault</button>
+            </div>
+
+            <div class="api-field">
+                <label for="api-url">API Base URL</label>
+                <input type="text" id="api-url" value="https://send.sgraph.ai" placeholder="https://send.sgraph.ai">
+            </div>
+        </div>
+
+        <div id="status" class="status-bar"></div>
+
+        <div id="derived-keys" class="derived-keys">
+            <div><span class="label">Vault ID:</span><span id="dk-vault-id"></span></div>
+            <div><span class="label">Write Key:</span><span id="dk-write-key"></span></div>
+            <div><span class="label">Tree File ID:</span><span id="dk-tree-id"></span></div>
+            <div><span class="label">Settings File ID:</span><span id="dk-settings-id"></span></div>
+            <div><span class="label">Derivation Time:</span><span id="dk-time"></span></div>
+        </div>
+
+        <div id="vault-content" class="vault-content">
+            <h2>Vault Files</h2>
+            <div id="tree-view" class="tree-view">(loading...)</div>
+        </div>
+
+        <div id="file-preview" class="file-preview">
+            <h3 id="preview-title">File Preview</h3>
+            <div id="preview-content" class="file-preview__content"></div>
+            <div class="file-preview__actions">
+                <button class="btn btn--secondary" id="download-btn">Download</button>
+                <button class="btn btn--secondary" id="close-preview-btn">Close</button>
+            </div>
+        </div>
+
+        <div class="info-box">
+            <h3>How It Works</h3>
+            <p>
+                Your vault key is split into a passphrase and vault ID. PBKDF2-SHA256
+                (600,000 iterations) derives read and write keys locally. File IDs are
+                computed via HMAC-SHA256. Encrypted files are fetched from the API and
+                decrypted in your browser using AES-256-GCM. Same crypto as sg-send-cli.
+            </p>
+        </div>
+    </div>
+
+    <script type="module" src="/components/site-footer/v1/v1.0/v1.0.0/sg-site-footer.js"></script>
+    <sg-site-footer
+        brand-desc="Free browser-based tools that run entirely on your device. No uploads, no servers, no tracking."
+        columns='[{"title":"Tools","links":[{"label":"Vault Browser","href":"./"},{"label":"Vault (Pyodide)","href":"../vault-pyodide/"},{"label":"All Tools","href":"/en-gb/"}]},{"title":"SGraph","links":[{"label":"sgraph.ai","href":"https://sgraph.ai/en-gb/"},{"label":"send.sgraph.ai","href":"https://send.sgraph.ai"},{"label":"GitHub","href":"https://github.com/the-cyber-boardroom/SGraph-AI__Tools"}]}]'>
+    </sg-site-footer>
+
+    <script src="/_common/js/build-info.js"></script>
+    <div id="build-version" style="text-align:center;color:var(--sg-text-dim, #4a5568);font-size:0.7rem;padding:8px 0;opacity:0.6;background:var(--sg-bg-secondary, #16213E);"></div>
+    <script>
+        (function() {
+            var b = window.SGRAPH_BUILD || { appVersion: 'v0.1.0', uiVersion: 'v0.1.2' };
+            var el = document.getElementById('build-version');
+            if (el) el.textContent = b.appVersion + '  \u00b7  UI ' + b.uiVersion + (b.buildTime ? '  \u00b7  ' + b.buildTime : '');
+        })();
+    </script>
+
+    <script type="module">
+        import { parseVaultKey, deriveVaultKeys, openVault, fetchTree, readFile } from '/core/vault-client/v1/v1.0/v1.0.0/sg-vault-client.js'
+
+        const vaultKeyInput = document.getElementById('vault-key')
+        const apiUrlInput   = document.getElementById('api-url')
+        const openBtn       = document.getElementById('open-btn')
+        const statusDiv     = document.getElementById('status')
+        const derivedDiv    = document.getElementById('derived-keys')
+        const contentDiv    = document.getElementById('vault-content')
+        const treeView      = document.getElementById('tree-view')
+        const previewDiv    = document.getElementById('file-preview')
+        const previewTitle  = document.getElementById('preview-title')
+        const previewContent = document.getElementById('preview-content')
+        const downloadBtn   = document.getElementById('download-btn')
+        const closePreviewBtn = document.getElementById('close-preview-btn')
+
+        let currentVault    = null
+        let currentFileData = null
+        let currentFileName = null
+
+        // --- Open Vault ---
+        openBtn.addEventListener('click', handleOpen)
+        vaultKeyInput.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter') handleOpen()
+        })
+
+        async function handleOpen() {
+            const rawKey = vaultKeyInput.value.trim()
+            if (!rawKey) return
+
+            openBtn.disabled = true
+            openBtn.textContent = 'Deriving keys...'
+            showStatus('<span class="spinner"></span>Deriving vault keys (PBKDF2, 600K iterations)...', 'info')
+            hidePreview()
+
+            try {
+                const { passphrase, vaultId } = parseVaultKey(rawKey)
+
+                const keys = await deriveVaultKeys(passphrase, vaultId)
+
+                document.getElementById('dk-vault-id').textContent     = keys.vaultId
+                document.getElementById('dk-write-key').textContent    = keys.writeKey
+                document.getElementById('dk-tree-id').textContent      = keys.treeFileId
+                document.getElementById('dk-settings-id').textContent  = keys.settingsFileId
+                document.getElementById('dk-time').textContent         = `${Math.round(keys.derivationTimeMs)} ms`
+                derivedDiv.classList.add('visible')
+
+                showStatus('<span class="spinner"></span>Fetching vault tree...', 'info')
+
+                currentVault = await openVault(keys, { apiBaseUrl: apiUrlInput.value.trim() })
+
+                try {
+                    const tree = await fetchTree(currentVault)
+                    renderTree(tree)
+                    contentDiv.classList.add('visible')
+                    showStatus('Vault opened successfully.', 'success')
+                } catch (fetchErr) {
+                    contentDiv.classList.remove('visible')
+                    showStatus(`Keys derived. Tree fetch failed: ${fetchErr.message}`, 'error')
+                }
+
+            } catch (err) {
+                showStatus(err.message, 'error')
+                derivedDiv.classList.remove('visible')
+                contentDiv.classList.remove('visible')
+            }
+
+            openBtn.disabled = false
+            openBtn.textContent = 'Open Vault'
+        }
+
+        // --- Tree Rendering ---
+        function renderTree(tree) {
+            treeView.innerHTML = ''
+
+            if (!tree || (typeof tree === 'object' && Object.keys(tree).length === 0)) {
+                treeView.textContent = '(vault is empty)'
+                return
+            }
+
+            renderTreeNode(tree, treeView, 0)
+        }
+
+        function renderTreeNode(node, container, depth) {
+            const indent = '  '.repeat(depth)
+
+            if (Array.isArray(node)) {
+                for (const item of node) {
+                    renderTreeNode(item, container, depth)
+                }
+                return
+            }
+
+            if (typeof node === 'object' && node !== null) {
+                if (node.file_id && node.name) {
+                    const entry = document.createElement('div')
+                    entry.className = 'tree-entry'
+                    entry.textContent = `${indent}${node.name}${node.size ? ` (${formatBytes(node.size)})` : ''}`
+                    entry.dataset.fileId = node.file_id
+                    entry.dataset.name   = node.name
+                    entry.addEventListener('click', () => handleFileClick(node.file_id, node.name))
+                    container.appendChild(entry)
+                    return
+                }
+
+                if (node.path && node.file_id) {
+                    const entry = document.createElement('div')
+                    entry.className = 'tree-entry'
+                    entry.textContent = `${indent}${node.path}${node.size ? ` (${formatBytes(node.size)})` : ''}`
+                    entry.dataset.fileId = node.file_id
+                    entry.dataset.name   = node.path
+                    entry.addEventListener('click', () => handleFileClick(node.file_id, node.path))
+                    container.appendChild(entry)
+                    return
+                }
+
+                for (const key of Object.keys(node)) {
+                    const val = node[key]
+                    if (val && typeof val === 'object') {
+                        if (val.file_id) {
+                            const entry = document.createElement('div')
+                            entry.className = 'tree-entry'
+                            entry.textContent = `${indent}${key}${val.size ? ` (${formatBytes(val.size)})` : ''}`
+                            entry.dataset.fileId = val.file_id
+                            entry.dataset.name   = key
+                            entry.addEventListener('click', () => handleFileClick(val.file_id, key))
+                            container.appendChild(entry)
+                        } else if (val.children || Array.isArray(val)) {
+                            const folder = document.createElement('div')
+                            folder.textContent = `${indent}${key}/`
+                            folder.style.color = 'var(--sg-accent)'
+                            folder.style.fontWeight = '600'
+                            container.appendChild(folder)
+                            renderTreeNode(val.children || val, container, depth + 1)
+                        } else {
+                            const folder = document.createElement('div')
+                            folder.textContent = `${indent}${key}/`
+                            folder.style.color = 'var(--sg-accent)'
+                            folder.style.fontWeight = '600'
+                            container.appendChild(folder)
+                            renderTreeNode(val, container, depth + 1)
+                        }
+                    }
+                }
+            }
+        }
+
+        // --- File Click ---
+        async function handleFileClick(fileId, name) {
+            showStatus(`<span class="spinner"></span>Fetching and decrypting ${name}...`, 'info')
+
+            try {
+                const data = await readFile(currentVault, fileId)
+                currentFileData = data
+                currentFileName = name
+
+                previewTitle.textContent = name
+                const bytes = new Uint8Array(data)
+
+                if (isTextFile(name, bytes)) {
+                    previewContent.textContent = new TextDecoder().decode(data)
+                } else if (isImageFile(name)) {
+                    const blob = new Blob([data], { type: guessMimeType(name) })
+                    const url  = URL.createObjectURL(blob)
+                    previewContent.innerHTML = `<img src="${url}" style="max-width:100%;border-radius:4px;" alt="${escapeHtml(name)}">`
+                } else {
+                    previewContent.textContent = `[Binary file — ${formatBytes(data.byteLength)}]\nClick "Download" to save.`
+                }
+
+                previewDiv.classList.add('visible')
+                showStatus(`Decrypted: ${name} (${formatBytes(data.byteLength)})`, 'success')
+            } catch (err) {
+                showStatus(`Failed to read ${name}: ${err.message}`, 'error')
+            }
+        }
+
+        // --- Download ---
+        downloadBtn.addEventListener('click', () => {
+            if (!currentFileData || !currentFileName) return
+            const blob = new Blob([currentFileData])
+            const url  = URL.createObjectURL(blob)
+            const a    = document.createElement('a')
+            a.href     = url
+            a.download = currentFileName
+            a.click()
+            URL.revokeObjectURL(url)
+        })
+
+        closePreviewBtn.addEventListener('click', hidePreview)
+
+        // --- Helpers ---
+        function showStatus(msg, type) {
+            statusDiv.innerHTML   = msg
+            statusDiv.className   = `status-bar visible ${type}`
+        }
+
+        function hidePreview() {
+            previewDiv.classList.remove('visible')
+            currentFileData = null
+            currentFileName = null
+        }
+
+        function formatBytes(bytes) {
+            if (bytes < 1024) return `${bytes} B`
+            if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`
+            return `${(bytes / (1024 * 1024)).toFixed(1)} MB`
+        }
+
+        function isTextFile(name, bytes) {
+            const textExts = ['.txt','.md','.json','.js','.py','.html','.css','.xml','.csv','.yaml','.yml','.toml','.ini','.cfg','.sh','.bat','.log','.rst','.env']
+            const lower = name.toLowerCase()
+            if (textExts.some(ext => lower.endsWith(ext))) return true
+            if (bytes.length > 0 && bytes.length < 500_000) {
+                const sample = bytes.slice(0, Math.min(512, bytes.length))
+                return sample.every(b => b === 9 || b === 10 || b === 13 || (b >= 32 && b <= 126) || b >= 128)
+            }
+            return false
+        }
+
+        function isImageFile(name) {
+            return /\.(png|jpg|jpeg|gif|webp|svg|bmp|ico)$/i.test(name)
+        }
+
+        function guessMimeType(name) {
+            const ext = name.split('.').pop().toLowerCase()
+            const map = { png:'image/png', jpg:'image/jpeg', jpeg:'image/jpeg', gif:'image/gif', webp:'image/webp', svg:'image/svg+xml', bmp:'image/bmp', ico:'image/x-icon' }
+            return map[ext] || 'application/octet-stream'
+        }
+
+        function escapeHtml(str) {
+            return str.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;')
+        }
+    </script>
+</body>
+</html>
