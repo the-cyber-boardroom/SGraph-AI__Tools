@@ -1756,26 +1756,55 @@ optional arguments:
         except (AttributeError, TypeError):
             pass  # clone() not available, fall back
 
-        # Fallback: init + pull from the shared API
+        # Fallback: init vault, copy data objects, update refs, check out working tree
         api_store = self.api._store
         if not api_store:
             return 'clone: nothing to clone (shared server is empty — push from another terminal first)'
 
         try:
-            # Init the vault locally (creates structure + empty init commit)
+            # Init the vault locally (creates bare dir structure + empty init commit)
             result = self.sync.init(vault_dir, vault_key=vault_key)
             self.vault_dir = vault_dir
             builtins._sg_vault_dir = vault_dir
             builtins._sg_sync      = self.sync
 
-            # Pull from the shared API server to get all pushed objects and update refs
-            pull_result = self.sync.pull(vault_dir)
-            objects_pulled = pull_result.get('objects_downloaded', 0)
-            commits_pulled = pull_result.get('commits_pulled', 0)
-
             bare_dir = os.path.join(vault_dir, '.sg_vault', 'bare')
+            refs_dir = os.path.join(bare_dir, 'refs')
 
-            # Check out the working tree from the latest commit
+            # Step 1: Copy all data objects from the API store into the local bare dir
+            copied = 0
+            remote_refs = {}  # track refs from the API: ref_name -> commit_id
+            for key, data in api_store.items():
+                # API keys are like 'data/obj-xxx', 'refs/branch-xxx', 'keys/xxx'
+                target_path = os.path.join(bare_dir, key)
+                target_dir  = os.path.dirname(target_path)
+                os.makedirs(target_dir, exist_ok=True)
+                if isinstance(data, bytes):
+                    with open(target_path, 'wb') as f:
+                        f.write(data)
+                else:
+                    with open(target_path, 'w') as f:
+                        f.write(str(data))
+                    # Track refs so we can update local branch pointers
+                    if key.startswith('refs/'):
+                        remote_refs[key] = str(data)
+                copied += 1
+
+            # Step 2: Update LOCAL refs to point to the remote commit
+            # sync.init() created a local branch ref pointing to its own init commit.
+            # We need to update it to point to the pushed commit from Terminal 1.
+            if remote_refs:
+                # Find the commit ID from any remote ref (they should all point to HEAD)
+                remote_commit_id = list(remote_refs.values())[0]
+                # Update ALL local refs to point to this commit
+                if os.path.isdir(refs_dir):
+                    for ref_file in os.listdir(refs_dir):
+                        ref_path = os.path.join(refs_dir, ref_file)
+                        if os.path.isfile(ref_path):
+                            with open(ref_path, 'w') as f:
+                                f.write(remote_commit_id)
+
+            # Step 3: Check out working tree from latest commit
             checked_out = 0
             try:
                 tree = self.inspector.inspect_tree(vault_dir, read_key=self.keys['read_key_bytes'])
@@ -1794,19 +1823,20 @@ optional arguments:
                                 f.write(decrypted)
                             checked_out += 1
                         except Exception:
-                            pass  # Skip files we can't decrypt
+                            pass
                 checkout_info = f'\\n  Files:        {checked_out} checked out'
             except Exception as e:
-                checkout_info = f'\\n  Files:        (could not check out working tree: {e})'
+                checkout_info = f'\\n  Files:        (checkout error: {e})'
 
             chain = self.inspector.inspect_commit_chain(vault_dir, read_key=self.keys['read_key_bytes'])
 
             return f"""Cloned vault into {vault_dir}
-  Objects:      {objects_pulled} pulled from shared server
+  Objects:      {copied} copied from shared server
   Commits:      {len(chain)}{checkout_info}
   Vault key:    {vault_key}"""
         except Exception as e:
-            return f'clone: {e}'
+            import traceback
+            return f'clone: {e}\\n{traceback.format_exc()}'
 
     def cmd_cat_object(self, args):
         if not args or args[0] in ('-h', '--help'):
