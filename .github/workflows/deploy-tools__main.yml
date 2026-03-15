@@ -32,7 +32,7 @@ concurrency:
 
 env:
   AWS_REGION  : eu-west-2
-  UI_VERSION  : v0.1.0
+  UI_VERSION  : v0.1.2
   SOURCE_DIR  : sgraph_ai_tools__static
 
 jobs:

@@ -1100,6 +1100,8 @@ optional arguments:
   Vault key:    {vault_key}"""
 
     def cmd_status(self, args):
+        if '-h' in args or '--help' in args:
+            return 'usage: sg-send-cli status [directory]'
         vd = self._need_vault()
         status = self.sync.status(vd)
         lines = ['On branch clone']
@@ -1143,6 +1145,8 @@ optional arguments:
         return f'[clone {commit_id[:8]}] {message}\\n{summary}'.strip()
 
     def cmd_push(self, args):
+        if '-h' in args or '--help' in args:
+            return 'usage: sg-send-cli push [directory]'
         vd = self._need_vault()
         result = self.sync.push(vd)
         return f"""Pushing to in-memory server...
@@ -1151,6 +1155,8 @@ optional arguments:
   Commits pushed:  {result.get('commits_pushed', 0)}"""
 
     def cmd_inspect(self, args):
+        if '-h' in args or '--help' in args:
+            return 'usage: sg-send-cli inspect [directory]'
         vd = self._need_vault()
         keys = self.keys
         chain = self.inspector.inspect_commit_chain(vd, read_key=keys['read_key_bytes'])
@@ -1165,6 +1171,8 @@ optional arguments:
   Clean:     {status.get('clean', False)}"""
 
     def cmd_inspect_tree(self, args):
+        if '-h' in args or '--help' in args:
+            return 'usage: sg-send-cli inspect-tree [directory]'
         vd = self._need_vault()
         tree = self.inspector.inspect_tree(vd, read_key=self.keys['read_key_bytes'])
         lines = [f'=== Tree ({tree["file_count"]} files) ===']
@@ -1175,14 +1183,31 @@ optional arguments:
         return '\\n'.join(lines)
 
     def cmd_inspect_log(self, args):
+        if '-h' in args or '--help' in args:
+            return 'usage: sg-send-cli log [--oneline] [--graph] [directory]'
         vd = self._need_vault()
         chain = self.inspector.inspect_commit_chain(vd, read_key=self.keys['read_key_bytes'])
+        oneline = '--oneline' in args
+        graph   = '--graph'   in args
+        if oneline:
+            lines = []
+            for c in chain:
+                lines.append(f'{c["commit_id"][:8]} {c["message"]}')
+            return '\\n'.join(lines)
+        if graph:
+            lines = []
+            for i, c in enumerate(chain):
+                prefix = '* ' if i == 0 else '| * ' if i < len(chain) - 1 else '  * '
+                lines.append(f'{prefix}{c["commit_id"][:8]} {c["message"]}')
+            return '\\n'.join(lines)
         lines = [f'=== Commit Log ({len(chain)} commits) ===']
         for c in chain:
             lines.append(f'  {c["commit_id"][:12]}  {c["message"]}')
         return '\\n'.join(lines)
 
     def cmd_inspect_stats(self, args):
+        if '-h' in args or '--help' in args:
+            return 'usage: sg-send-cli inspect-stats [directory]'
         vd = self._need_vault()
         stats = self.inspector.object_store_stats(vd)
         sg_dir = os.path.join(vd, '.sg_vault', 'bare')
@@ -1212,6 +1237,8 @@ optional arguments:
         return '\\n'.join(lines)
 
     def cmd_derive_keys(self, args):
+        if '-h' in args or '--help' in args:
+            return 'usage: sg-send-cli derive-keys'
         if not self.vault_key:
             return 'No vault key set. Run init first.'
         keys = self.keys
@@ -1224,6 +1251,8 @@ optional arguments:
         return '\\n'.join(lines)
 
     def cmd_branches(self, args):
+        if '-h' in args or '--help' in args:
+            return 'usage: sg-send-cli branches [directory]'
         vd = self._need_vault()
         refs_dir = os.path.join(vd, '.sg_vault', 'bare', 'refs')
         lines = ['=== Branches ===']
