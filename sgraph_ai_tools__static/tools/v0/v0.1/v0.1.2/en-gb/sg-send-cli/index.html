@@ -57,7 +57,7 @@
             min-height: 200px;
             max-height: 500px;
             overflow-y: auto;
-            background: var(--sg-bg-secondary, #16213E);
+            background: #000;
             border: 1px solid var(--sg-border);
             border-radius: var(--sg-radius);
             padding: 0.75rem;
@@ -80,7 +80,7 @@
 
         .input-area textarea {
             flex: 1;
-            background: var(--sg-bg-secondary, #16213E);
+            background: #000;
             color: var(--sg-text);
             border: 1px solid var(--sg-border);
             border-radius: var(--sg-radius);
@@ -116,7 +116,7 @@
         .scenario-btn {
             text-align: left;
             padding: 0.75rem 1rem;
-            background: var(--sg-bg-secondary, #16213E);
+            background: rgba(0,0,0,0.3);
             border: 1px solid var(--sg-border);
             border-radius: var(--sg-radius);
             color: var(--sg-text);
@@ -189,6 +189,7 @@
             cursor: text;
             min-height: 300px;
             max-height: 600px;
+            background: #000;
         }
 
         .cli-prompt-line {
@@ -231,6 +232,147 @@
         }
 
         .cli-busy.visible { display: flex; align-items: center; gap: 0.5rem; }
+
+        /* ---------- Fullscreen mode ---------- */
+        .section.fullscreen {
+            position: fixed;
+            inset: 0;
+            z-index: 9999;
+            margin: 0;
+            border-radius: 0;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
+
+        .section.fullscreen .cli-terminal {
+            flex: 1;
+            max-height: none;
+            min-height: 0;
+            border-radius: 0;
+        }
+
+        .section.fullscreen .section-toolbar { margin-bottom: 0; }
+
+        .section-toolbar {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 0.75rem;
+        }
+
+        .section-toolbar h2 { margin-bottom: 0; }
+
+        .toolbar-btns {
+            display: flex;
+            gap: 0.375rem;
+        }
+
+        .toolbar-btn {
+            background: var(--sg-bg-secondary, #16213E);
+            border: 1px solid var(--sg-border);
+            border-radius: var(--sg-radius);
+            color: var(--sg-text-muted);
+            cursor: pointer;
+            font-size: 0.75rem;
+            padding: 0.25rem 0.625rem;
+            transition: border-color 150ms, color 150ms;
+        }
+
+        .toolbar-btn:hover { border-color: var(--sg-accent); color: var(--sg-accent); }
+
+        /* ---------- Tab bar ---------- */
+        .tab-bar {
+            display: flex;
+            gap: 2px;
+            margin-bottom: -1px;
+            position: relative;
+            z-index: 1;
+            overflow-x: auto;
+            padding-bottom: 1px;
+        }
+
+        .tab-btn {
+            background: var(--sg-bg-secondary, #16213E);
+            border: 1px solid var(--sg-border);
+            border-bottom: 1px solid var(--sg-border);
+            border-radius: var(--sg-radius) var(--sg-radius) 0 0;
+            color: var(--sg-text-muted);
+            cursor: pointer;
+            font-family: var(--sg-font-mono);
+            font-size: 0.6875rem;
+            padding: 0.375rem 0.75rem;
+            white-space: nowrap;
+            transition: border-color 150ms, color 150ms;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .tab-btn:hover { color: var(--sg-accent); }
+
+        .tab-btn.active {
+            border-bottom-color: #000;
+            background: #000;
+            color: var(--sg-accent);
+            font-weight: 600;
+        }
+
+        .tab-btn .tab-close {
+            font-size: 0.625rem;
+            opacity: 0.5;
+            cursor: pointer;
+            padding: 0 2px;
+        }
+
+        .tab-btn .tab-close:hover { opacity: 1; color: var(--sg-error); }
+
+        .tab-add {
+            background: transparent;
+            border: 1px dashed var(--sg-border);
+            border-bottom: 1px solid var(--sg-border);
+            border-radius: var(--sg-radius) var(--sg-radius) 0 0;
+            color: var(--sg-text-dim);
+            cursor: pointer;
+            font-size: 0.75rem;
+            padding: 0.375rem 0.625rem;
+        }
+
+        .tab-add:hover { border-color: var(--sg-accent); color: var(--sg-accent); }
+
+        .tab-pane { display: none; }
+        .tab-pane.active { display: block; }
+
+        /* ---------- Guide buttons ---------- */
+        .guide-bar {
+            display: flex;
+            gap: 0.375rem;
+            flex-wrap: wrap;
+            margin-bottom: 0.5rem;
+        }
+
+        .guide-btn {
+            background: rgba(78,205,196,0.08);
+            border: 1px solid rgba(78,205,196,0.2);
+            border-radius: var(--sg-radius-pill, 999px);
+            color: var(--sg-accent);
+            cursor: pointer;
+            font-family: var(--sg-font-mono);
+            font-size: 0.6875rem;
+            padding: 0.25rem 0.625rem;
+            transition: background 150ms, border-color 150ms;
+            white-space: nowrap;
+        }
+
+        .guide-btn:hover { background: rgba(78,205,196,0.15); border-color: var(--sg-accent); }
+        .guide-btn:disabled { opacity: 0.4; pointer-events: none; }
+
+        .guide-btn.done {
+            background: rgba(78,205,196,0.03);
+            border-color: var(--sg-border);
+            color: var(--sg-text-dim);
+            text-decoration: line-through;
+        }
     </style>
 </head>
 <body>
@@ -299,26 +441,50 @@
 
         <!-- Step 3: CLI Terminal -->
         <div class="section" id="section-cli" style="opacity:0.5;pointer-events:none;">
-            <h2>CLI Terminal</h2>
-            <p style="color:var(--sg-text-muted);font-size:0.8125rem;margin-bottom:0.75rem;">
-                Type <code style="background:rgba(78,205,196,0.1);padding:0.125rem 0.375rem;border-radius:3px;font-size:0.75rem;">sg-send-cli</code> commands just like you would in a local terminal.
-                All operations run in-browser against an in-memory vault API.
-            </p>
-            <div id="cli-terminal" class="terminal cli-terminal">
-                <div id="cli-output"></div>
-                <div class="cli-prompt-line" id="cli-prompt-line">
-                    <span class="cli-prompt">$ </span>
-                    <input type="text" id="cli-input" class="cli-input"
-                           placeholder="sg-send-cli --help"
-                           autocomplete="off" spellcheck="false" disabled>
+            <div class="section-toolbar">
+                <h2>CLI Terminal</h2>
+                <div class="toolbar-btns">
+                    <button class="toolbar-btn" id="btn-clear" title="Clear terminal">Clear</button>
+                    <button class="toolbar-btn" id="btn-maximize" title="Maximize terminal">Maximize</button>
                 </div>
-                <div class="cli-busy" id="cli-busy">
-                    <span class="spinner"></span> Running...
+            </div>
+            <p style="color:var(--sg-text-muted);font-size:0.8125rem;margin-bottom:0.75rem;">
+                Type vault commands directly — no <code style="background:rgba(78,205,196,0.1);padding:0.125rem 0.375rem;border-radius:3px;font-size:0.75rem;">sg-send-cli</code> prefix needed.
+                All terminals share one in-memory server.
+            </p>
+            <div class="guide-bar" id="guide-bar">
+                <button class="guide-btn" data-cmd="init --vault-key demo-key" title="Initialise a new vault">1. init</button>
+                <button class="guide-btn" data-cmd="write README.md '# Hello World'" title="Create a file">2. write file</button>
+                <button class="guide-btn" data-cmd="status" title="Check working tree status">3. status</button>
+                <button class="guide-btn" data-cmd="commit -m 'initial commit'" title="Commit changes">4. commit</button>
+                <button class="guide-btn" data-cmd="push" title="Push to in-memory server">5. push</button>
+                <button class="guide-btn" data-cmd="log --oneline" title="View commit history">6. log</button>
+                <button class="guide-btn" data-cmd="inspect-tree" title="View file tree with blob IDs">7. tree</button>
+                <button class="guide-btn" data-cmd="inspect-stats" title="Object store statistics">8. stats</button>
+            </div>
+            <div class="tab-bar" id="tab-bar">
+                <button class="tab-btn active" data-tab="0">Terminal 1</button>
+                <button class="tab-add" id="tab-add" title="Open new terminal tab">+</button>
+            </div>
+            <div id="tab-panes">
+                <div class="tab-pane active" data-tab="0">
+                    <div id="cli-terminal-0" class="terminal cli-terminal">
+                        <div id="cli-output-0"></div>
+                        <div class="cli-prompt-line" id="cli-prompt-line-0">
+                            <span class="cli-prompt">$ </span>
+                            <input type="text" id="cli-input-0" class="cli-input"
+                                   placeholder="--help  |  init --vault-key my-secret"
+                                   autocomplete="off" spellcheck="false" disabled>
+                        </div>
+                        <div class="cli-busy" id="cli-busy-0">
+                            <span class="spinner"></span> Running...
+                        </div>
+                    </div>
                 </div>
             </div>
             <p class="input-hint">
                 Enter to run &nbsp;|&nbsp; Up/Down for history &nbsp;|&nbsp;
-                Try: <code style="background:rgba(78,205,196,0.1);padding:0.125rem 0.375rem;border-radius:3px;font-size:0.6875rem;">sg-send-cli init --vault-key my-secret</code>
+                Prefix <code style="background:rgba(78,205,196,0.1);padding:0.125rem 0.375rem;border-radius:3px;font-size:0.6875rem;">sg-send-cli</code> is optional
             </p>
         </div>
 
@@ -372,16 +538,30 @@
         const loadFill       = document.getElementById('load-progress-fill')
         const sectionScenarios = document.getElementById('section-scenarios')
         const sectionCli       = document.getElementById('section-cli')
-        const cliTerminal    = document.getElementById('cli-terminal')
-        const cliOutput      = document.getElementById('cli-output')
-        const cliInput       = document.getElementById('cli-input')
-        const cliPromptLine  = document.getElementById('cli-prompt-line')
-        const cliBusy        = document.getElementById('cli-busy')
+        const tabBar         = document.getElementById('tab-bar')
+        const tabPanes       = document.getElementById('tab-panes')
+        const tabAddBtn      = document.getElementById('tab-add')
+        const guideBar       = document.getElementById('guide-bar')
 
         let pyodide = null
-        let cmdHistory = []
-        let historyIdx = -1
         let cliRunning = false
+
+        // --- Multi-tab state ---
+        let activeTab = 0
+        let tabCount = 1
+        const tabs = {
+            0: { history: [], historyIdx: -1 }
+        }
+
+        function getTabEls(idx) {
+            return {
+                terminal:   document.getElementById(`cli-terminal-${idx}`),
+                output:     document.getElementById(`cli-output-${idx}`),
+                input:      document.getElementById(`cli-input-${idx}`),
+                promptLine: document.getElementById(`cli-prompt-line-${idx}`),
+                busy:       document.getElementById(`cli-busy-${idx}`)
+            }
+        }
 
         // --- Step 1: Load + Install ---
         loadBtn.addEventListener('click', async () => {
@@ -478,12 +658,13 @@ import sys
                 sectionScenarios.style.pointerEvents = 'auto'
                 sectionCli.style.opacity = '1'
                 sectionCli.style.pointerEvents = 'auto'
-                cliInput.disabled = false
-                cliInput.focus()
 
-                cliWrite('sg-send-cli loaded. Type commands below.', 'output')
-                cliWrite('Try: sg-send-cli --help  or  sg-send-cli init --vault-key my-secret', 'info')
-                cliWrite('', '')
+                const t0 = getTabEls(0)
+                t0.input.disabled = false
+                t0.input.focus()
+
+                cliWrite(0, 'Ready. Type --help or use the guide buttons above.', 'output')
+                cliWrite(0, '', '')
 
             } catch (err) {
                 logWrite(loadLog, `Error: ${err.message}`, 'error')
@@ -770,142 +951,254 @@ print(f'\\nVault stored in _sg_vault_dir for interactive use.')
             const code = scenarioCode[name]
             if (!code) return
 
-            // Disable all scenario buttons during run
             const btns = document.querySelectorAll('.scenario-btn')
             btns.forEach(b => b.disabled = true)
 
-            termWrite(`=== Running scenario: ${name} ===`, 'heading')
+            cliWrite(activeTab, `=== Running scenario: ${name} ===`, 'heading')
 
             try {
                 const { stdout, stderr, error } = await runPythonCapture(pyodide, code)
 
                 if (stdout) {
                     for (const line of stdout.trimEnd().split('\n')) {
-                        termWrite(line, 'output')
+                        cliWrite(activeTab, line, 'output')
                     }
                 }
                 if (stderr) {
                     for (const line of stderr.trimEnd().split('\n')) {
-                        termWrite(line, 'warn')
+                        cliWrite(activeTab, line, 'warn')
                     }
                 }
                 if (error) {
                     for (const line of error.split('\n')) {
-                        termWrite(line, 'error')
+                        cliWrite(activeTab, line, 'error')
                     }
                 }
-
-                // Scenario completed successfully
             } catch (err) {
                 const msg = err.message || String(err)
                 const lines = msg.split('\n').filter(l => l.trim())
-                termWrite(lines[lines.length - 1] || msg, 'error')
+                cliWrite(activeTab, lines[lines.length - 1] || msg, 'error')
             }
 
-            termWrite('', '')
+            cliWrite(activeTab, '', '')
             btns.forEach(b => b.disabled = false)
         }
 
         // --- CLI Command Handler ---
-        async function runCliCommand() {
+        async function runCliCommand(tabIdx) {
             if (!pyodide || cliRunning) return
-            const cmd = cliInput.value.trim()
+            const els = getTabEls(tabIdx)
+            const cmd = els.input.value.trim()
             if (!cmd) return
 
-            // Echo command to terminal
-            cliWrite(`$ ${cmd}`, 'input')
+            cliWrite(tabIdx, `$ ${cmd}`, 'input')
 
-            cmdHistory.push(cmd)
-            historyIdx = cmdHistory.length
-            cliInput.value = ''
+            const tab = tabs[tabIdx]
+            tab.history.push(cmd)
+            tab.historyIdx = tab.history.length
+            els.input.value = ''
 
-            // Handle 'clear' locally
             if (cmd === 'clear') {
-                cliOutput.innerHTML = ''
-                cliInput.focus()
+                els.output.innerHTML = ''
+                els.input.focus()
                 return
             }
 
             cliRunning = true
-            cliInput.disabled = true
-            cliPromptLine.style.display = 'none'
-            cliBusy.classList.add('visible')
+            els.input.disabled = true
+            els.promptLine.style.display = 'none'
+            els.busy.classList.add('visible')
 
             try {
                 pyodide.globals.set('_cli_cmd', cmd)
+                pyodide.globals.set('_cli_tab', tabIdx)
                 const { stdout, stderr, error } = await runPythonCapture(pyodide, `
-_cli_result = _sg_cli.run(_cli_cmd)
+_cli_result = _sg_cli_tabs[_cli_tab].run(_cli_cmd)
 if _cli_result:
     print(_cli_result)
 `)
                 if (stdout && stdout.trim()) {
                     for (const line of stdout.trimEnd().split('\n')) {
-                        cliWrite(line, 'output')
+                        cliWrite(tabIdx, line, 'output')
                     }
                 }
                 if (stderr && stderr.trim()) {
                     for (const line of stderr.trimEnd().split('\n')) {
-                        cliWrite(line, 'warn')
+                        cliWrite(tabIdx, line, 'warn')
                     }
                 }
                 if (error) {
                     const errLines = error.split('\n').filter(l => l.trim())
-                    cliWrite(errLines[errLines.length - 1] || error, 'error')
+                    cliWrite(tabIdx, errLines[errLines.length - 1] || error, 'error')
                 }
             } catch (err) {
-                cliWrite(`Error: ${err.message}`, 'error')
+                cliWrite(tabIdx, `Error: ${err.message}`, 'error')
             }
 
             cliRunning = false
-            cliBusy.classList.remove('visible')
-            cliPromptLine.style.display = 'flex'
-            cliInput.disabled = false
-            cliInput.focus()
+            els.busy.classList.remove('visible')
+            els.promptLine.style.display = 'flex'
+            els.input.disabled = false
+            els.input.focus()
         }
 
-        // Click terminal to focus input
-        cliTerminal.addEventListener('click', (e) => {
-            if (e.target === cliTerminal || e.target === cliOutput) {
-                cliInput.focus()
-            }
+        // --- Terminal click: focus input only if no text selected ---
+        document.getElementById('tab-panes').addEventListener('mouseup', (e) => {
+            const sel = window.getSelection()
+            if (sel && !sel.isCollapsed) return  // user is selecting text, don't steal focus
+            const els = getTabEls(activeTab)
+            if (els.input && !els.input.disabled) els.input.focus()
         })
 
-        cliInput.addEventListener('keydown', (e) => {
+        // --- Keyboard handler (delegated) ---
+        document.getElementById('tab-panes').addEventListener('keydown', (e) => {
+            if (!e.target.classList.contains('cli-input')) return
+            const tabIdx = activeTab
+            const tab = tabs[tabIdx]
+
             if (e.key === 'Enter') {
                 e.preventDefault()
-                runCliCommand()
+                runCliCommand(tabIdx)
                 return
             }
             if (e.key === 'ArrowUp') {
                 e.preventDefault()
-                if (historyIdx > 0) {
-                    historyIdx--
-                    cliInput.value = cmdHistory[historyIdx]
+                if (tab.historyIdx > 0) {
+                    tab.historyIdx--
+                    e.target.value = tab.history[tab.historyIdx]
                 }
             }
             if (e.key === 'ArrowDown') {
                 e.preventDefault()
-                if (historyIdx < cmdHistory.length - 1) {
-                    historyIdx++
-                    cliInput.value = cmdHistory[historyIdx]
+                if (tab.historyIdx < tab.history.length - 1) {
+                    tab.historyIdx++
+                    e.target.value = tab.history[tab.historyIdx]
                 } else {
-                    historyIdx = cmdHistory.length
-                    cliInput.value = ''
+                    tab.historyIdx = tab.history.length
+                    e.target.value = ''
                 }
             }
         })
 
+        // --- Guide buttons ---
+        guideBar.addEventListener('click', (e) => {
+            const btn = e.target.closest('.guide-btn')
+            if (!btn || btn.disabled) return
+            const cmd = btn.dataset.cmd
+            const els = getTabEls(activeTab)
+            if (els.input && !els.input.disabled) {
+                els.input.value = cmd
+                els.input.focus()
+            }
+        })
+
+        // --- Maximize / Restore ---
+        const btnMaximize = document.getElementById('btn-maximize')
+        btnMaximize.addEventListener('click', () => {
+            const isFs = sectionCli.classList.toggle('fullscreen')
+            btnMaximize.textContent = isFs ? 'Restore' : 'Maximize'
+            // In fullscreen, remove max-height constraint
+            document.querySelectorAll('.cli-terminal').forEach(t => {
+                t.style.maxHeight = isFs ? 'none' : ''
+            })
+        })
+
+        // Escape to exit fullscreen
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'Escape' && sectionCli.classList.contains('fullscreen')) {
+                sectionCli.classList.remove('fullscreen')
+                btnMaximize.textContent = 'Maximize'
+                document.querySelectorAll('.cli-terminal').forEach(t => { t.style.maxHeight = '' })
+            }
+        })
+
+        // --- Clear button ---
+        document.getElementById('btn-clear').addEventListener('click', () => {
+            const els = getTabEls(activeTab)
+            if (els.output) els.output.innerHTML = ''
+        })
+
+        // --- Tab management ---
+        function switchTab(idx) {
+            activeTab = idx
+            tabBar.querySelectorAll('.tab-btn').forEach(b => b.classList.toggle('active', Number(b.dataset.tab) === idx))
+            tabPanes.querySelectorAll('.tab-pane').forEach(p => p.classList.toggle('active', Number(p.dataset.tab) === idx))
+            const els = getTabEls(idx)
+            if (els.input && !els.input.disabled) els.input.focus()
+        }
+
+        tabBar.addEventListener('click', (e) => {
+            const tabBtn = e.target.closest('.tab-btn')
+            if (tabBtn) {
+                const close = e.target.closest('.tab-close')
+                const idx = Number(tabBtn.dataset.tab)
+                if (close) {
+                    // Remove tab (but keep at least one)
+                    if (Object.keys(tabs).length <= 1) return
+                    delete tabs[idx]
+                    tabBtn.remove()
+                    tabPanes.querySelector(`.tab-pane[data-tab="${idx}"]`).remove()
+                    // Destroy Python CLI instance
+                    if (pyodide) pyodide.runPythonAsync(`_sg_cli_tabs.pop(${idx}, None)`)
+                    // Switch to first remaining tab
+                    const remaining = Object.keys(tabs).map(Number)
+                    switchTab(remaining[0])
+                } else {
+                    switchTab(idx)
+                }
+            }
+        })
+
+        tabAddBtn.addEventListener('click', async () => {
+            if (!pyodide) return
+            const idx = tabCount++
+            tabs[idx] = { history: [], historyIdx: -1 }
+
+            // Create tab button
+            const btn = document.createElement('button')
+            btn.className = 'tab-btn'
+            btn.dataset.tab = idx
+            btn.innerHTML = `Terminal ${idx + 1} <span class="tab-close" title="Close tab">\u00d7</span>`
+            tabBar.insertBefore(btn, tabAddBtn)
+
+            // Create tab pane
+            const pane = document.createElement('div')
+            pane.className = 'tab-pane'
+            pane.dataset.tab = idx
+            pane.innerHTML = `
+                <div id="cli-terminal-${idx}" class="terminal cli-terminal">
+                    <div id="cli-output-${idx}"></div>
+                    <div class="cli-prompt-line" id="cli-prompt-line-${idx}">
+                        <span class="cli-prompt">$ </span>
+                        <input type="text" id="cli-input-${idx}" class="cli-input"
+                               placeholder="--help  |  init --vault-key my-secret"
+                               autocomplete="off" spellcheck="false">
+                    </div>
+                    <div class="cli-busy" id="cli-busy-${idx}">
+                        <span class="spinner"></span> Running...
+                    </div>
+                </div>`
+            tabPanes.appendChild(pane)
+
+            // Create new Python BrowserCLI instance sharing the same API
+            await pyodide.runPythonAsync(`_sg_cli_tabs[${idx}] = BrowserCLI(shared_api=_sg_shared_api)`)
+
+            switchTab(idx)
+            cliWrite(idx, `Terminal ${idx + 1} — new session (shared in-memory server)`, 'info')
+            cliWrite(idx, 'Run: init --vault-key my-key my-vault', 'info')
+            cliWrite(idx, '', '')
+        })
+
         // --- Helpers ---
-        function cliWrite(text, cls) {
+        function cliWrite(tabIdx, text, cls) {
+            const els = getTabEls(tabIdx)
+            if (!els.output) return
             const div = document.createElement('div')
             div.className = `term-line ${cls || ''}`
             div.textContent = text
-            cliOutput.appendChild(div)
-            cliTerminal.scrollTop = cliTerminal.scrollHeight
+            els.output.appendChild(div)
+            els.terminal.scrollTop = els.terminal.scrollHeight
         }
-
-        // Alias for scenarios
-        function termWrite(text, cls) { cliWrite(text, cls) }
 
         function logWrite(container, text, cls) {
             const div = document.createElement('div')
@@ -920,13 +1213,13 @@ if _cli_result:
 import sys, os, shlex, tempfile, importlib.metadata
 
 class BrowserCLI:
-    def __init__(self):
+    def __init__(self, shared_api=None):
         from sg_send_cli.api.Vault__API__In_Memory import Vault__API__In_Memory
         from sg_send_cli.crypto.Vault__Crypto      import Vault__Crypto
         from sg_send_cli.sync.Vault__Sync          import Vault__Sync
         from sg_send_cli.objects.Vault__Inspector   import Vault__Inspector
 
-        self.api       = Vault__API__In_Memory().setup()
+        self.api       = shared_api if shared_api else Vault__API__In_Memory().setup()
         self.crypto    = Vault__Crypto()
         self.sync      = Vault__Sync(crypto=self.crypto, api=self.api)
         self.inspector = Vault__Inspector(crypto=self.crypto)
@@ -999,6 +1292,7 @@ class BrowserCLI:
             'status': 'cmd_status',
             'commit': 'cmd_commit',
             'push': 'cmd_push',
+            'pull': 'cmd_pull',
             'inspect': 'cmd_inspect',
             'inspect-tree': 'cmd_inspect_tree',
             'inspect-log': 'cmd_inspect_log',
@@ -1034,13 +1328,14 @@ class BrowserCLI:
 CLI tool for syncing encrypted vaults with SG/Send  (v{self.version}, browser mode)
 
 positional arguments:
-  {{init,commit,status,push,inspect,inspect-tree,inspect-log,inspect-stats,derive-keys,branches}}
+  {{init,commit,status,push,pull,inspect,inspect-tree,inspect-log,inspect-stats,derive-keys,branches}}
 
                         Available commands
   init                  Create a new empty vault (in-memory)
   commit                Commit local changes to the clone branch
   status                Show uncommitted changes in working directory
   push                  Push clone branch to the in-memory server
+  pull                  Pull latest changes from the in-memory server
   inspect               Show vault state overview (dev tool)
   inspect-tree          Show current tree entries (dev tool)
   inspect-log           Show commit chain (dev tool)
@@ -1074,7 +1369,7 @@ optional arguments:
         vault_key, args = self._parse_flag(args, '--vault-key')
         if not vault_key:
             vault_key = 'browser-demo:vault-key'
-        vault_dir = args[0] if args else os.path.join(os.getcwd(), 'my-vault')
+        vault_dir = args[0] if args else os.getcwd()
         os.makedirs(vault_dir, exist_ok=True)
 
         self.vault_key = vault_key
@@ -1263,6 +1558,19 @@ optional arguments:
             lines.append('  (no branches)')
         return '\\n'.join(lines)
 
+    def cmd_pull(self, args):
+        if '-h' in args or '--help' in args:
+            return 'usage: sg-send-cli pull [directory]'
+        vd = self._need_vault()
+        try:
+            result = self.sync.pull(vd)
+            return f"""Pulling from in-memory server...
+  Status:          {result.get('status', 'done')}
+  Objects pulled:  {result.get('objects_downloaded', 0)}
+  Commits pulled:  {result.get('commits_pulled', 0)}"""
+        except Exception as e:
+            return f'pull: {e}'
+
     def cmd_cat_object(self, args):
         if not args or args[0] in ('-h', '--help'):
             return 'usage: sg-send-cli cat-object OBJECT_ID'
@@ -1372,7 +1680,18 @@ optional arguments:
                 lines.append(f'{prefix}{connector}{entry}')
 
 import builtins
-builtins._sg_cli = BrowserCLI()
+from sg_send_cli.api.Vault__API__In_Memory import Vault__API__In_Memory as _VAPI
+
+# Shared in-memory server — all tabs push/pull to this same store
+_sg_shared_api = _VAPI().setup()
+builtins._sg_shared_api = _sg_shared_api
+
+# Tab-indexed CLI instances (all share the same API)
+_sg_cli_tabs = { 0: BrowserCLI(shared_api=_sg_shared_api) }
+builtins._sg_cli_tabs = _sg_cli_tabs
+
+# Legacy alias
+builtins._sg_cli = _sg_cli_tabs[0]
 `
     </script>
 </body>
