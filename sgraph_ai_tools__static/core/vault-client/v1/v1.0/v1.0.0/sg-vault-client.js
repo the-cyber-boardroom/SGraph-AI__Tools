@@ -180,7 +180,7 @@ export async function openVault(keys, options = {}) {
  */
 export async function fetchTree(vault) {
     const { keys, apiBaseUrl } = vault
-    const url = `${apiBaseUrl}/vault/read/${keys.vaultId}/${keys.treeFileId}`
+    const url = `${apiBaseUrl}/api/vault/read/${keys.vaultId}/${keys.treeFileId}`
 
     const response = await fetch(url)
     if (!response.ok) {
@@ -202,7 +202,7 @@ export async function fetchTree(vault) {
  */
 export async function readFile(vault, fileId) {
     const { keys, apiBaseUrl } = vault
-    const url = `${apiBaseUrl}/vault/read/${keys.vaultId}/${fileId}`
+    const url = `${apiBaseUrl}/api/vault/read/${keys.vaultId}/${fileId}`
 
     const response = await fetch(url)
     if (!response.ok) {
@@ -236,7 +236,7 @@ export async function deriveFileIdForPath(vault, filePath) {
  */
 export async function fetchSettings(vault) {
     const { keys, apiBaseUrl } = vault
-    const url = `${apiBaseUrl}/vault/read/${keys.vaultId}/${keys.settingsFileId}`
+    const url = `${apiBaseUrl}/api/vault/read/${keys.vaultId}/${keys.settingsFileId}`
 
     const response = await fetch(url)
     if (!response.ok) {
@@ -258,7 +258,7 @@ export async function fetchSettings(vault) {
  */
 export async function listFileIds(vault, prefix = '') {
     const { keys, apiBaseUrl } = vault
-    const url = `${apiBaseUrl}/vault/read/${keys.vaultId}/${keys.treeFileId}`
+    const url = `${apiBaseUrl}/api/vault/read/${keys.vaultId}/${keys.treeFileId}`
 
     const response = await fetch(url)
     if (!response.ok) {
