@@ -56,35 +56,15 @@
                 await micropip.install('osbot-utils')
                 write('PASS: osbot-utils installed', 'pass')
 
-                // Step 5: Install sg-send-cli with deps=false
-                write('Step 5: Installing sg-send-cli (deps=false)...', 'info')
-                try {
-                    await micropip.install('sg-send-cli', { deps: false })
-                    write('PASS: sg-send-cli installed via JS API { deps: false }', 'pass')
-                } catch (err) {
-                    write('FAIL: JS { deps: false } did not work: ' + err.message, 'fail')
-                    write('Step 5b: Trying Python deps=False...', 'info')
-                    try {
-                        await pyodide.runPythonAsync(`
+                // Step 5: Install sg-send-cli with deps=False via Python API
+                // JS { deps: false } does NOT translate to Python kwargs,
+                // so we must use runPythonAsync to pass deps=False properly.
+                write('Step 5: Installing sg-send-cli (deps=False via Python)...', 'info')
+                await pyodide.runPythonAsync(`
 import micropip
 await micropip.install('sg-send-cli', deps=False)
 `)
-                        write('PASS: sg-send-cli installed via Python deps=False', 'pass')
-                    } catch (err2) {
-                        write('FAIL: Python deps=False: ' + err2.message, 'fail')
-                        write('Step 5c: Trying keep_going=True...', 'info')
-                        try {
-                            await pyodide.runPythonAsync(`
-import micropip
-await micropip.install('sg-send-cli', keep_going=True)
-`)
-                            write('PASS: sg-send-cli installed via keep_going=True', 'pass')
-                        } catch (err3) {
-                            write('FAIL: keep_going=True: ' + err3.message, 'fail')
-                            throw new Error('All install methods failed')
-                        }
-                    }
-                }
+                write('PASS: sg-send-cli installed via Python deps=False', 'pass')
 
                 // Step 6: Verify imports
                 write('Step 6: Verifying imports...', 'info')
