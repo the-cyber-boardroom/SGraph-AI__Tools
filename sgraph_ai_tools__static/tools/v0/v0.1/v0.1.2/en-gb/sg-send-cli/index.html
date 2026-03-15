@@ -1173,6 +1173,7 @@ import sys, os, shlex, tempfile, importlib.metadata
 class BrowserCLI:
     def __init__(self, shared_api=None):
         from sg_send_cli.api.Vault__API__In_Memory import Vault__API__In_Memory
+        from sg_send_cli.api.Vault__API            import Vault__API
         from sg_send_cli.crypto.Vault__Crypto      import Vault__Crypto
         from sg_send_cli.sync.Vault__Sync          import Vault__Sync
         from sg_send_cli.objects.Vault__Inspector   import Vault__Inspector
@@ -1188,6 +1189,11 @@ class BrowserCLI:
         self.cwd       = self.home
         os.chdir(self.home)
         self.version   = importlib.metadata.version('sg-send-cli')
+
+        # Store classes for later use
+        self._Vault__API     = Vault__API
+        self._Vault__Sync    = Vault__Sync
+        self._Vault__Crypto  = Vault__Crypto
 
     def _enter_cwd(self):
         """Switch to this tab's working directory. Returns old cwd to restore later."""
@@ -1218,6 +1224,13 @@ class BrowserCLI:
                 rest.append(args[i])
                 i += 1
         return value, rest
+
+    def _connect_remote(self, base_url=None, token=None):
+        """Create a Vault__API with HTTP backend and rebuild sync."""
+        api = self._Vault__API(base_url=base_url or '', access_token=token or '')
+        api.setup()
+        self.api  = api
+        self.sync = self._Vault__Sync(crypto=self.crypto, api=api)
 
     def run(self, cmd_string):
         # Save/restore working directory per-tab
@@ -1256,10 +1269,15 @@ class BrowserCLI:
         cmd = args[0]
         rest = args[1:]
 
-        # Strip sg-send-cli prefix
+        # Strip sg-send-cli prefix and extract global flags
         if cmd in ('sg-send-cli', 'sg_send_cli'):
             if not rest:
                 return self.cmd_help()
+            # Extract --base-url and --token before command
+            base_url, rest = self._parse_flag(rest, '--base-url')
+            token, rest    = self._parse_flag(rest, '--token')
+            if base_url or token:
+                self._connect_remote(base_url, token)
             cmd = rest[0]
             rest = rest[1:]
 
@@ -1303,7 +1321,7 @@ class BrowserCLI:
             return f'Error: {e}'
 
     def cmd_help(self):
-        return f"""usage: sg-send-cli [-h] [--version] COMMAND [OPTIONS]
+        return f"""usage: sg-send-cli [--base-url URL] [--token TOKEN] [-h] [--version] COMMAND [OPTIONS]
 
 CLI tool for syncing encrypted vaults with SG/Send  (v{self.version}, browser mode)
 
@@ -1314,10 +1332,11 @@ positional arguments:
   init                  Create a new empty vault in DIRECTORY
   commit                Commit local changes to the clone branch
   status                Show uncommitted changes in working directory
-  push                  Push clone branch to server
+  push                  Push to server (in-memory or remote)
   pull                  Pull latest changes from server
   clone                 Clone a vault from a server
   remote                Manage remote server connections
+
   inspect               Show vault state overview (dev tool)
   inspect-tree          Show current tree entries (dev tool)
   inspect-log           Show commit chain (dev tool)
@@ -1338,9 +1357,16 @@ shell commands:
   cd [DIR]              Change directory
   clear                 Clear terminal
 
-optional arguments:
+global options:
+  --base-url URL        SG/Send API base URL (e.g. https://dev.send.sgraph.ai)
+  --token TOKEN         Access token for the API
   -h, --help            Show this help message and exit
-  --version             Show version number and exit"""
+  --version             Show version number and exit
+
+examples:
+  sg-send-cli --base-url https://dev.send.sgraph.ai --token owasp clone passphrase:vault_id
+  clone passphrase:vault_id                      (uses in-memory server)
+  push --base-url https://dev.send.sgraph.ai --token owasp"""
 
     def cmd_version(self):
         return f'sg-send-cli {self.version}'
@@ -1425,13 +1451,20 @@ optional arguments:
 
     def cmd_push(self, args):
         if '-h' in args or '--help' in args:
-            return 'usage: sg-send-cli push [directory]'
+            return 'usage: sg-send-cli push [--base-url URL] [--token TOKEN] [directory]'
+        base_url, args = self._parse_flag(args, '--base-url')
+        token, args    = self._parse_flag(args, '--token')
+        if base_url or token:
+            self._connect_remote(base_url, token)
         vd = self._need_vault()
-        result = self.sync.push(vd)
-        return f"""Pushing to in-memory server...
-  Status:          {result['status']}
-  Objects uploaded: {result.get('objects_uploaded', 0)}
-  Commits pushed:  {result.get('commits_pushed', 0)}"""
+        try:
+            result = self.sync.push(vd)
+            lines = ['Push complete.']
+            for k, v in result.items():
+                lines.append(f'  {k:20s}: {v}')
+            return '\\n'.join(lines)
+        except Exception as e:
+            return f'push: {e}'
 
     def cmd_inspect(self, args):
         if '-h' in args or '--help' in args:
@@ -1559,219 +1592,110 @@ options:
         subcmd = args[0]
         sub_args = args[1:]
 
-        # Store remotes in .sg_vault/remotes.json
-        import json
-        remotes_path = os.path.join(vd, '.sg_vault', 'remotes.json')
-
-        def _load_remotes():
-            if os.path.exists(remotes_path):
-                with open(remotes_path, 'r') as f:
-                    return json.loads(f.read())
-            return {}
-
-        def _save_remotes(remotes):
-            with open(remotes_path, 'w') as f:
-                f.write(json.dumps(remotes, indent=2))
-
         if subcmd == 'list':
-            remotes = _load_remotes()
-            if not remotes:
-                return '(no remotes configured)'
-            lines = []
-            for name, url in remotes.items():
-                lines.append(f'  {name}\\t{url}')
-            return '\\n'.join(lines)
+            try:
+                remotes = self.sync.remote_list(vd)
+                if not remotes:
+                    return '(no remotes configured)'
+                lines = []
+                for r in remotes:
+                    lines.append(f"  {r.get('name', '?')}\\t{r.get('url', '?')}\\tvault_id={r.get('vault_id', '-')}")
+                return '\\n'.join(lines)
+            except Exception as e:
+                return f'remote list: {e}'
 
         elif subcmd == 'add':
             if len(sub_args) < 2:
-                return 'usage: remote add NAME URL\\n  e.g. remote add origin https://dev.send.sgraph.ai'
-            name, url = sub_args[0], sub_args[1]
-            remotes = _load_remotes()
-            remotes[name] = url
-            _save_remotes(remotes)
-
-            # Test connectivity (requests works in Pyodide via browser fetch)
+                return 'usage: remote add NAME URL [VAULT_ID]\\n  e.g. remote add origin https://dev.send.sgraph.ai'
+            name     = sub_args[0]
+            url      = sub_args[1]
+            vault_id = sub_args[2] if len(sub_args) > 2 else ''
             try:
-                import requests
-                resp = requests.get(url.rstrip('/') + '/api/docs', timeout=10)
-                return f'Remote \\'{name}\\' added: {url}\\n  Server reachable (HTTP {resp.status_code})'
+                self.sync.remote_add(vd, name=name, url=url, vault_id=vault_id)
+                return f"Remote '{name}' added: {url}"
             except Exception as e:
-                return f'Remote \\'{name}\\' added: {url}\\n  Warning: could not reach server ({e})'
+                return f'remote add: {e}'
 
         elif subcmd == 'remove':
             if not sub_args:
                 return 'usage: remote remove NAME'
-            name = sub_args[0]
-            remotes = _load_remotes()
-            if name in remotes:
-                del remotes[name]
-                _save_remotes(remotes)
-                return f'Remote \\'{name}\\' removed'
-            return f'remote \\'{name}\\' not found'
+            try:
+                self.sync.remote_remove(vd, name=sub_args[0])
+                return f"Remote '{sub_args[0]}' removed"
+            except Exception as e:
+                return f'remote remove: {e}'
 
         else:
             return f"remote: unknown subcommand '{subcmd}'. Use add, remove, or list."
 
     def cmd_pull(self, args):
         if '-h' in args or '--help' in args:
-            return 'usage: sg-send-cli pull [directory]'
+            return 'usage: sg-send-cli pull [--base-url URL] [--token TOKEN] [directory]'
+        base_url, args = self._parse_flag(args, '--base-url')
+        token, args    = self._parse_flag(args, '--token')
+        if base_url or token:
+            self._connect_remote(base_url, token)
         vd = self._need_vault()
         try:
             result = self.sync.pull(vd)
-            objects_pulled = result.get('objects_downloaded', 0)
-            commits_pulled = result.get('commits_pulled', 0)
-
-            # Check out updated working tree files
-            checked_out = 0
-            bare_dir = os.path.join(vd, '.sg_vault', 'bare')
-            try:
-                tree = self.inspector.inspect_tree(vd, read_key=self.keys['read_key_bytes'])
-                for entry in tree.get('entries', []):
-                    file_path = os.path.join(vd, entry['path'])
-                    file_dir  = os.path.dirname(file_path)
-                    if file_dir:
-                        os.makedirs(file_dir, exist_ok=True)
-                    blob_path = os.path.join(bare_dir, 'data', entry['blob_id'])
-                    if os.path.exists(blob_path):
-                        with open(blob_path, 'rb') as f:
-                            encrypted = f.read()
-                        try:
-                            decrypted = self.crypto.decrypt(encrypted, self.keys['read_key_bytes'])
-                            with open(file_path, 'wb') as f:
-                                f.write(decrypted)
-                            checked_out += 1
-                        except Exception:
-                            pass
-            except Exception:
-                pass
-
-            return f"""Pulling from in-memory server...
-  Status:          {result.get('status', 'done')}
-  Objects pulled:  {objects_pulled}
-  Commits pulled:  {commits_pulled}
-  Files updated:   {checked_out}"""
+            lines = ['Pull complete.']
+            for k, v in result.items():
+                lines.append(f'  {k:20s}: {v}')
+            return '\\n'.join(lines)
         except Exception as e:
             return f'pull: {e}'
 
     def cmd_clone(self, args):
         if '-h' in args or '--help' in args:
-            return 'usage: clone --vault-key PASSPHRASE:VAULT_ID [DIRECTORY]\\n\\nClone a vault from the shared in-memory server.'
+            return """usage: sg-send-cli [--base-url URL] [--token TOKEN] clone VAULT_KEY [DIRECTORY]
+
+Clone a vault from a server (remote or in-memory).
+
+examples:
+  clone passphrase:vault_id
+  sg-send-cli --base-url https://dev.send.sgraph.ai --token owasp clone passphrase:vault_id"""
+
+        # Extract optional per-command flags
+        base_url, args = self._parse_flag(args, '--base-url')
+        token, args    = self._parse_flag(args, '--token')
         vault_key, args = self._parse_flag(args, '--vault-key')
+
+        if base_url or token:
+            self._connect_remote(base_url, token)
+
         if not vault_key:
-            # Treat first arg as vault_key if no flag
             if args:
                 vault_key = args[0]
                 args = args[1:]
             else:
-                return 'Error: vault key required. Usage: clone --vault-key passphrase:vault_id [DIR]'
+                return 'Error: vault key required. Usage: clone PASSPHRASE:VAULT_ID [DIR]'
+
         vault_dir = os.path.abspath(args[0]) if args else os.path.join(os.getcwd(), 'cloned-vault')
         os.makedirs(vault_dir, exist_ok=True)
 
         self.vault_key = vault_key
         self.keys = self.crypto.derive_keys_from_vault_key(vault_key)
 
-        # Store on builtins for compatibility
         import builtins
         builtins._sg_crypto    = self.crypto
         builtins._sg_api       = self.api
         builtins._sg_inspector = self.inspector
         builtins._sg_keys      = self.keys
 
-        # Try real clone() method first
         try:
             result = self.sync.clone(vault_dir, vault_key=vault_key)
             self.vault_dir = vault_dir
             builtins._sg_vault_dir = vault_dir
             builtins._sg_sync      = self.sync
-            return f"""Cloned vault into {vault_dir}
-  Vault ID:     {result.get('vault_id', 'n/a')}
-  Named branch: {result.get('named_branch', 'n/a')}
-  Clone branch: {result.get('branch_id', 'n/a')}
-  Vault key:    {vault_key}"""
-        except (AttributeError, TypeError):
-            pass  # clone() not available, fall back
-
-        # Fallback: init vault, copy data objects, update refs, check out working tree
-        api_store = self.api._store
-        if not api_store:
-            return 'clone: nothing to clone (shared server is empty — push from another terminal first)'
-
-        try:
-            # Init the vault locally (creates bare dir structure + empty init commit)
-            result = self.sync.init(vault_dir, vault_key=vault_key)
-            self.vault_dir = vault_dir
-            builtins._sg_vault_dir = vault_dir
-            builtins._sg_sync      = self.sync
-
-            bare_dir = os.path.join(vault_dir, '.sg_vault', 'bare')
-            refs_dir = os.path.join(bare_dir, 'refs')
-
-            # Step 1: Copy all data objects from the API store into the local bare dir
-            copied = 0
-            remote_refs = {}  # track refs from the API: ref_name -> commit_id
-            for key, data in api_store.items():
-                # API keys are like 'data/obj-xxx', 'refs/branch-xxx', 'keys/xxx'
-                target_path = os.path.join(bare_dir, key)
-                target_dir  = os.path.dirname(target_path)
-                os.makedirs(target_dir, exist_ok=True)
-                if isinstance(data, bytes):
-                    with open(target_path, 'wb') as f:
-                        f.write(data)
-                else:
-                    with open(target_path, 'w') as f:
-                        f.write(str(data))
-                    # Track refs so we can update local branch pointers
-                    if key.startswith('refs/'):
-                        remote_refs[key] = str(data)
-                copied += 1
-
-            # Step 2: Update LOCAL refs to point to the remote commit
-            # sync.init() created a local branch ref pointing to its own init commit.
-            # We need to update it to point to the pushed commit from Terminal 1.
-            if remote_refs:
-                # Find the commit ID from any remote ref (they should all point to HEAD)
-                remote_commit_id = list(remote_refs.values())[0]
-                # Update ALL local refs to point to this commit
-                if os.path.isdir(refs_dir):
-                    for ref_file in os.listdir(refs_dir):
-                        ref_path = os.path.join(refs_dir, ref_file)
-                        if os.path.isfile(ref_path):
-                            with open(ref_path, 'w') as f:
-                                f.write(remote_commit_id)
-
-            # Step 3: Check out working tree from latest commit
-            checked_out = 0
-            try:
-                tree = self.inspector.inspect_tree(vault_dir, read_key=self.keys['read_key_bytes'])
-                for entry in tree.get('entries', []):
-                    file_path = os.path.join(vault_dir, entry['path'])
-                    file_dir  = os.path.dirname(file_path)
-                    if file_dir:
-                        os.makedirs(file_dir, exist_ok=True)
-                    blob_path = os.path.join(bare_dir, 'data', entry['blob_id'])
-                    if os.path.exists(blob_path):
-                        with open(blob_path, 'rb') as f:
-                            encrypted = f.read()
-                        try:
-                            decrypted = self.crypto.decrypt(encrypted, self.keys['read_key_bytes'])
-                            with open(file_path, 'wb') as f:
-                                f.write(decrypted)
-                            checked_out += 1
-                        except Exception:
-                            pass
-                checkout_info = f'\\n  Files:        {checked_out} checked out'
-            except Exception as e:
-                checkout_info = f'\\n  Files:        (checkout error: {e})'
-
-            chain = self.inspector.inspect_commit_chain(vault_dir, read_key=self.keys['read_key_bytes'])
-
-            return f"""Cloned vault into {vault_dir}
-  Objects:      {copied} copied from shared server
-  Commits:      {len(chain)}{checkout_info}
-  Vault key:    {vault_key}"""
+            lines = [f'Cloned vault into {vault_dir}']
+            for k in ['vault_id', 'named_branch', 'branch_id', 'commit_id', 'files_checked_out', 'objects_downloaded']:
+                v = result.get(k)
+                if v is not None:
+                    lines.append(f'  {k:20s}: {v}')
+            lines.append(f'  {"vault_key":20s}: {vault_key}')
+            return '\\n'.join(lines)
         except Exception as e:
-            import traceback
-            return f'clone: {e}\\n{traceback.format_exc()}'
+            return f'clone: {e}'
 
     def cmd_cat_object(self, args):
         if not args or args[0] in ('-h', '--help'):
