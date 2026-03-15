@@ -1,0 +1,146 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>Test: sg-send-cli Install</title>
+    <style>
+        body { font-family: monospace; background: #1a1a2e; color: #e0e0e0; padding: 2rem; }
+        .pass { color: #4ecdc4; }
+        .fail { color: #e94560; }
+        .info { color: #888; }
+        #log { white-space: pre-wrap; line-height: 1.6; }
+    </style>
+</head>
+<body>
+    <h2>Test: sg-send-cli Pyodide Install</h2>
+    <div id="log"></div>
+
+    <script type="module">
+        const log = document.getElementById('log')
+        function write(msg, cls) {
+            const div = document.createElement('div')
+            div.className = cls || ''
+            div.textContent = msg
+            log.appendChild(div)
+        }
+
+        async function runTest() {
+            try {
+                // Step 1: Load Pyodide
+                write('Step 1: Loading Pyodide...', 'info')
+                const script = document.createElement('script')
+                script.src = 'https://cdn.jsdelivr.net/pyodide/v0.27.4/full/pyodide.js'
+                document.head.appendChild(script)
+                await new Promise((resolve, reject) => {
+                    script.onload = resolve
+                    script.onerror = reject
+                })
+                const pyodide = await globalThis.loadPyodide({
+                    indexURL: 'https://cdn.jsdelivr.net/pyodide/v0.27.4/full/'
+                })
+                write('PASS: Pyodide loaded', 'pass')
+
+                // Step 2: Load micropip
+                write('Step 2: Loading micropip...', 'info')
+                await pyodide.loadPackage('micropip')
+                write('PASS: micropip loaded', 'pass')
+
+                // Step 3: Pre-load cryptography
+                write('Step 3: Loading cryptography (Pyodide built-in)...', 'info')
+                await pyodide.loadPackage('cryptography')
+                write('PASS: cryptography loaded', 'pass')
+
+                // Step 4: Install osbot-utils
+                write('Step 4: Installing osbot-utils...', 'info')
+                const micropip = pyodide.pyimport('micropip')
+                await micropip.install('osbot-utils')
+                write('PASS: osbot-utils installed', 'pass')
+
+                // Step 5: Install sg-send-cli with deps=false
+                write('Step 5: Installing sg-send-cli (deps=false)...', 'info')
+                try {
+                    await micropip.install('sg-send-cli', { deps: false })
+                    write('PASS: sg-send-cli installed via JS API { deps: false }', 'pass')
+                } catch (err) {
+                    write('FAIL: JS { deps: false } did not work: ' + err.message, 'fail')
+                    write('Step 5b: Trying Python deps=False...', 'info')
+                    try {
+                        await pyodide.runPythonAsync(`
+import micropip
+await micropip.install('sg-send-cli', deps=False)
+`)
+                        write('PASS: sg-send-cli installed via Python deps=False', 'pass')
+                    } catch (err2) {
+                        write('FAIL: Python deps=False: ' + err2.message, 'fail')
+                        write('Step 5c: Trying keep_going=True...', 'info')
+                        try {
+                            await pyodide.runPythonAsync(`
+import micropip
+await micropip.install('sg-send-cli', keep_going=True)
+`)
+                            write('PASS: sg-send-cli installed via keep_going=True', 'pass')
+                        } catch (err3) {
+                            write('FAIL: keep_going=True: ' + err3.message, 'fail')
+                            throw new Error('All install methods failed')
+                        }
+                    }
+                }
+
+                // Step 6: Verify imports
+                write('Step 6: Verifying imports...', 'info')
+                await pyodide.runPythonAsync(`
+from sg_send_cli.crypto.Vault__Crypto      import Vault__Crypto
+from sg_send_cli.sync.Vault__Sync          import Vault__Sync
+from sg_send_cli.objects.Vault__Inspector   import Vault__Inspector
+from sg_send_cli.api.Vault__API__In_Memory import Vault__API__In_Memory
+`)
+                write('PASS: All vault modules imported', 'pass')
+
+                // Step 7: Run vault init
+                write('Step 7: Running vault init scenario...', 'info')
+                const output = await pyodide.runPythonAsync(`
+import os, tempfile, json, sys
+
+VAULT_KEY = 'solo-qa-passphrase:solo-qa-vault'
+
+api    = Vault__API__In_Memory().setup()
+crypto = Vault__Crypto()
+sync   = Vault__Sync(crypto=crypto, api=api)
+
+vault_dir = tempfile.mkdtemp(prefix='sg_vault_test_')
+result    = sync.init(vault_dir, vault_key=VAULT_KEY)
+
+lines = []
+lines.append(f'Vault ID:     {result["vault_id"]}')
+lines.append(f'Init commit:  {result["commit_id"]}')
+
+sg_dir = os.path.join(vault_dir, '.sg_vault', 'bare')
+counts = {}
+for sub in ['data', 'refs', 'keys', 'indexes']:
+    sub_dir = os.path.join(sg_dir, sub)
+    if os.path.isdir(sub_dir):
+        counts[sub] = len([f for f in os.listdir(sub_dir) if os.path.isfile(os.path.join(sub_dir, f))])
+counts['total'] = sum(counts.values())
+lines.append(f'Bare files: {json.dumps(counts)}')
+
+status = sync.status(vault_dir)
+lines.append(f'Clean: {status["clean"]}')
+
+'\\n'.join(lines)
+`)
+                for (const line of output.split('\n')) {
+                    write('  ' + line, 'pass')
+                }
+                write('PASS: Vault init completed', 'pass')
+
+                write('\n=== ALL TESTS PASSED ===', 'pass')
+
+            } catch (err) {
+                write('FATAL: ' + (err.message || err), 'fail')
+            }
+        }
+
+        runTest()
+    </script>
+</body>
+</html>

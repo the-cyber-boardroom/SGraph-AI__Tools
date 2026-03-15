@@ -372,14 +372,26 @@
                 logWrite(loadLog, 'Installed: osbot-utils', 'output')
 
                 loadBtn.innerHTML = '<span class="spinner"></span>Installing sg-send-cli...'
-                logWrite(loadLog, 'Installing sg-send-cli from PyPI (deps=False)...', 'info')
+                logWrite(loadLog, 'Installing sg-send-cli from PyPI...', 'info')
                 loadFill.style.width = '82%'
 
-                // deps=False because cryptography is already loaded from Pyodide built-in
-                // and osbot-utils is already installed above
-                await micropip.install('sg-send-cli', { deps: false })
+                // Install sg-send-cli directly from wheel URL to bypass micropip's
+                // dependency resolution (which fails on the cryptography>=43.0.0 dep).
+                // We've already installed cryptography (built-in) and osbot-utils above.
+                const sgSendWheelUrl = 'https://files.pythonhosted.org/packages/b6/88/3e0ea84a2717f2316958a5253373253a0f2e9a2d82b65ef231c3799ad7d2/sg_send_cli-0.5.0-py3-none-any.whl'
+                try {
+                    await micropip.install(sgSendWheelUrl)
+                    logWrite(loadLog, 'Installed: sg-send-cli (from wheel)', 'output')
+                } catch {
+                    // Fallback: try via Python with deps=False (kwarg not available from JS)
+                    logWrite(loadLog, 'Wheel URL failed, trying Python install...', 'info')
+                    await pyodide.runPythonAsync(`
+import micropip
+await micropip.install('sg-send-cli', deps=False)
+`)
+                    logWrite(loadLog, 'Installed: sg-send-cli (deps=False)', 'output')
+                }
                 loadFill.style.width = '90%'
-                logWrite(loadLog, 'Installed: sg-send-cli', 'output')
 
                 // Verify import
                 await pyodide.runPythonAsync(`
