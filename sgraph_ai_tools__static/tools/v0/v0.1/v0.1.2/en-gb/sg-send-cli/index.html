@@ -388,6 +388,20 @@
         .guide-btn:hover { background: rgba(78,205,196,0.15); border-color: var(--sg-accent); }
         .guide-btn:disabled { opacity: 0.4; pointer-events: none; }
 
+        .guide-auto {
+            display: flex;
+            align-items: center;
+            gap: 0.25rem;
+            color: var(--sg-text-dim);
+            font-size: 0.6875rem;
+            cursor: pointer;
+            margin-left: 0.25rem;
+            white-space: nowrap;
+            user-select: none;
+        }
+
+        .guide-auto input { accent-color: var(--sg-accent); cursor: pointer; }
+
         .guide-btn.done {
             background: rgba(78,205,196,0.03);
             border-color: var(--sg-border);
@@ -474,14 +488,19 @@
                 All terminals share one in-memory server.
             </p>
             <div class="guide-bar" id="guide-bar">
-                <button class="guide-btn" data-cmd="init --vault-key demo-passphrase:my-vault" title="Initialise a new vault">1. init</button>
-                <button class="guide-btn" data-cmd="write README.md '# Hello World'" title="Create a file">2. write file</button>
-                <button class="guide-btn" data-cmd="status" title="Check working tree status">3. status</button>
-                <button class="guide-btn" data-cmd="commit -m 'initial commit'" title="Commit changes">4. commit</button>
-                <button class="guide-btn" data-cmd="push" title="Push to in-memory server">5. push</button>
-                <button class="guide-btn" data-cmd="log --oneline" title="View commit history">6. log</button>
-                <button class="guide-btn" data-cmd="inspect-tree" title="View file tree with blob IDs">7. tree</button>
-                <button class="guide-btn" data-cmd="inspect-stats" title="Object store statistics">8. stats</button>
+                <button class="guide-btn" data-cmd="init --vault-key demo-passphrase:my-vault my-vault" title="Initialise a new vault">1. init</button>
+                <button class="guide-btn" data-cmd="cd my-vault" title="Enter the vault directory">2. cd</button>
+                <button class="guide-btn" data-cmd="write README.md '# Hello World'" title="Create a file">3. write file</button>
+                <button class="guide-btn" data-cmd="status" title="Check working tree status">4. status</button>
+                <button class="guide-btn" data-cmd="commit -m 'initial commit'" title="Commit changes">5. commit</button>
+                <button class="guide-btn" data-cmd="push" title="Push to in-memory server">6. push</button>
+                <button class="guide-btn" data-cmd="log --oneline" title="View commit history">7. log</button>
+                <button class="guide-btn" data-cmd="inspect-tree" title="View file tree with blob IDs">8. tree</button>
+                <button class="guide-btn" data-cmd="inspect-stats" title="Object store statistics">9. stats</button>
+                <label class="guide-auto" title="When checked, clicking a guide button runs the command immediately">
+                    <input type="checkbox" id="guide-auto-exec" checked>
+                    <span>auto-run</span>
+                </label>
             </div>
             <div class="tab-bar" id="tab-bar">
                 <button class="tab-btn active" data-tab="0">Terminal 1</button>
@@ -1102,14 +1121,20 @@ if _cli_result:
         })
 
         // --- Guide buttons ---
+        const guideAutoExec = document.getElementById('guide-auto-exec')
+
         guideBar.addEventListener('click', (e) => {
             const btn = e.target.closest('.guide-btn')
             if (!btn || btn.disabled) return
             const cmd = btn.dataset.cmd
             const els = getTabEls(activeTab)
-            if (els.input && !els.input.disabled) {
-                els.input.value = cmd
-                els.input.focus()
+            if (!els.input || els.input.disabled) return
+
+            els.input.value = cmd
+            els.input.focus()
+
+            if (guideAutoExec.checked) {
+                runCliCommand(activeTab)
             }
         })
 
@@ -1373,7 +1398,7 @@ positional arguments:
   {{init,commit,status,push,pull,clone,inspect,inspect-tree,inspect-log,inspect-stats,derive-keys,branches}}
 
                         Available commands
-  init                  Create a new empty vault (in-memory)
+  init                  Create a new empty vault in DIRECTORY
   commit                Commit local changes to the clone branch
   status                Show uncommitted changes in working directory
   push                  Push clone branch to the in-memory server
@@ -1408,11 +1433,13 @@ optional arguments:
 
     def cmd_init(self, args):
         if '-h' in args or '--help' in args:
-            return 'usage: sg-send-cli init [--vault-key KEY] [DIRECTORY]\\n\\nCreate a new empty vault.'
+            return 'usage: sg-send-cli init [--vault-key KEY] DIRECTORY\\n\\nCreate a new empty vault in DIRECTORY.'
         vault_key, args = self._parse_flag(args, '--vault-key')
         if not vault_key:
             vault_key = 'browser-demo:vault-key'
-        vault_dir = args[0] if args else os.getcwd()
+        if not args:
+            return 'Error: directory required. Usage: init --vault-key passphrase:vault_id DIRECTORY'
+        vault_dir = args[0]
         os.makedirs(vault_dir, exist_ok=True)
 
         self.vault_key = vault_key
