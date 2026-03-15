@@ -351,6 +351,7 @@
                         if (stages[stage]) loadFill.style.width = stages[stage] + '%'
                     }
                 })
+                window._pyodide = pyodide  // expose for console debugging
 
                 loadBtn.innerHTML = '<span class="spinner"></span>Installing dependencies...'
                 logWrite(loadLog, 'Pre-loading cryptography (Pyodide built-in)...', 'info')
