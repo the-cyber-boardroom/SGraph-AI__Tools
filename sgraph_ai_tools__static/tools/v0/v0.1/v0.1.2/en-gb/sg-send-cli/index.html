@@ -245,6 +245,27 @@
             overflow: hidden;
         }
 
+        .section.fullscreen .section-toolbar,
+        .section.fullscreen .guide-bar,
+        .section.fullscreen .tab-bar,
+        .section.fullscreen .input-hint { flex-shrink: 0; }
+
+        .section.fullscreen > p { flex-shrink: 0; }
+
+        .section.fullscreen #tab-panes {
+            flex: 1;
+            min-height: 0;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .section.fullscreen .tab-pane.active {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            min-height: 0;
+        }
+
         .section.fullscreen .cli-terminal {
             flex: 1;
             max-height: none;
@@ -453,7 +474,7 @@
                 All terminals share one in-memory server.
             </p>
             <div class="guide-bar" id="guide-bar">
-                <button class="guide-btn" data-cmd="init --vault-key demo-key" title="Initialise a new vault">1. init</button>
+                <button class="guide-btn" data-cmd="init --vault-key demo-passphrase:my-vault" title="Initialise a new vault">1. init</button>
                 <button class="guide-btn" data-cmd="write README.md '# Hello World'" title="Create a file">2. write file</button>
                 <button class="guide-btn" data-cmd="status" title="Check working tree status">3. status</button>
                 <button class="guide-btn" data-cmd="commit -m 'initial commit'" title="Commit changes">4. commit</button>
@@ -1293,6 +1314,7 @@ class BrowserCLI:
             'commit': 'cmd_commit',
             'push': 'cmd_push',
             'pull': 'cmd_pull',
+            'clone': 'cmd_clone',
             'inspect': 'cmd_inspect',
             'inspect-tree': 'cmd_inspect_tree',
             'inspect-log': 'cmd_inspect_log',
@@ -1328,7 +1350,7 @@ class BrowserCLI:
 CLI tool for syncing encrypted vaults with SG/Send  (v{self.version}, browser mode)
 
 positional arguments:
-  {{init,commit,status,push,pull,inspect,inspect-tree,inspect-log,inspect-stats,derive-keys,branches}}
+  {{init,commit,status,push,pull,clone,inspect,inspect-tree,inspect-log,inspect-stats,derive-keys,branches}}
 
                         Available commands
   init                  Create a new empty vault (in-memory)
@@ -1336,6 +1358,7 @@ positional arguments:
   status                Show uncommitted changes in working directory
   push                  Push clone branch to the in-memory server
   pull                  Pull latest changes from the in-memory server
+  clone                 Clone a vault from the shared in-memory server
   inspect               Show vault state overview (dev tool)
   inspect-tree          Show current tree entries (dev tool)
   inspect-log           Show commit chain (dev tool)
@@ -1570,6 +1593,60 @@ optional arguments:
   Commits pulled:  {result.get('commits_pulled', 0)}"""
         except Exception as e:
             return f'pull: {e}'
+
+    def cmd_clone(self, args):
+        if '-h' in args or '--help' in args:
+            return 'usage: clone --vault-key PASSPHRASE:VAULT_ID [DIRECTORY]\\n\\nClone a vault from the shared in-memory server.'
+        vault_key, args = self._parse_flag(args, '--vault-key')
+        if not vault_key:
+            # Treat first arg as vault_key if no flag
+            if args:
+                vault_key = args[0]
+                args = args[1:]
+            else:
+                return 'Error: vault key required. Usage: clone --vault-key passphrase:vault_id [DIR]'
+        vault_dir = args[0] if args else os.path.join(os.getcwd(), 'cloned-vault')
+        os.makedirs(vault_dir, exist_ok=True)
+
+        self.vault_key = vault_key
+        self.vault_dir = vault_dir
+        self.keys = self.crypto.derive_keys_from_vault_key(vault_key)
+
+        # Store on builtins for compatibility
+        import builtins
+        builtins._sg_vault_dir = vault_dir
+        builtins._sg_sync      = self.sync
+        builtins._sg_crypto    = self.crypto
+        builtins._sg_api       = self.api
+        builtins._sg_inspector = self.inspector
+        builtins._sg_keys      = self.keys
+
+        # Try real clone() method first
+        try:
+            result = self.sync.clone(vault_dir, vault_key=vault_key)
+            return f"""Cloned vault into {vault_dir}
+  Vault ID:     {result.get('vault_id', 'n/a')}
+  Named branch: {result.get('named_branch', 'n/a')}
+  Clone branch: {result.get('branch_id', 'n/a')}
+  Vault key:    {vault_key}"""
+        except (AttributeError, TypeError):
+            pass  # clone() not available, fall back to init + pull
+
+        # Fallback: init + pull
+        try:
+            result = self.sync.init(vault_dir, vault_key=vault_key)
+            lines = [f'Initialised vault in {vault_dir} (clone fallback: init + pull)']
+            lines.append(f'  Vault ID:     {result.get("vault_id", "n/a")}')
+            lines.append(f'  Vault key:    {vault_key}')
+            try:
+                pull_result = self.sync.pull(vault_dir)
+                lines.append(f'  Pull status:  {pull_result.get("status", "done")}')
+                lines.append(f'  Objects:      {pull_result.get("objects_downloaded", 0)}')
+            except Exception as pe:
+                lines.append(f'  Pull:         (no remote data yet or error: {pe})')
+            return '\\n'.join(lines)
+        except Exception as e:
+            return f'clone: {e}'
 
     def cmd_cat_object(self, args):
         if not args or args[0] in ('-h', '--help'):
