@@ -372,18 +372,41 @@
                 await micropip.install('osbot-utils')
                 logWrite(loadLog, 'Installed: osbot-utils', 'output')
 
+//                 loadBtn.innerHTML = '<span class="spinner"></span>Installing sg-send-cli...'
+//                 logWrite(loadLog, 'Installing sg-send-cli from PyPI...', 'info')
+//                 loadFill.style.width = '82%'
+//
+//                 // Install sg-send-cli with deps=False via Python API.
+//                 // deps=False skips dependency resolution which would fail on
+//                 // cryptography>=43.0.0 (no pure Python wheel on PyPI).
+//                 // We've already loaded cryptography (built-in) and osbot-utils above.
+//                 await pyodide.runPythonAsync(`
+// import micropip
+// await micropip.install('sg-send-cli', deps=False)
+// `)
+
                 loadBtn.innerHTML = '<span class="spinner"></span>Installing sg-send-cli...'
                 logWrite(loadLog, 'Installing sg-send-cli from PyPI...', 'info')
                 loadFill.style.width = '82%'
 
-                // Install sg-send-cli with deps=False via Python API.
-                // deps=False skips dependency resolution which would fail on
-                // cryptography>=43.0.0 (no pure Python wheel on PyPI).
-                // We've already loaded cryptography (built-in) and osbot-utils above.
-                await pyodide.runPythonAsync(`
-import micropip
-await micropip.install('sg-send-cli', deps=False)
-`)
+                // Fetch wheel URL from PyPI JSON API
+                const pypiMeta  = await (await fetch('https://pypi.org/pypi/sg-send-cli/json')).json()
+                const wheelInfo = pypiMeta.urls.find(u => u.filename.endsWith('.whl'))
+                logWrite(loadLog, `Downloading ${wheelInfo.filename}...`, 'info')
+
+                // Download wheel via JS fetch (reliable, no Pyodide async bridge)
+                const wheelBytes = new Uint8Array(await (await fetch(wheelInfo.url)).arrayBuffer())
+
+                // Write to Pyodide's virtual filesystem
+                pyodide.FS.writeFile('/tmp/' + wheelInfo.filename, wheelBytes)
+
+                // Install from emfs:// — micropip reads bytes synchronously via Path.read_bytes(),
+                // completely bypassing the pyfetch/JS-Promise/create_task bug
+                await micropip.install.callKwargs(
+                    'emfs:///tmp/' + wheelInfo.filename,
+                    { deps: false }
+                )
+
                 const sgSendVersion = await pyodide.runPythonAsync(`
 import importlib.metadata
 importlib.metadata.version('sg-send-cli')
