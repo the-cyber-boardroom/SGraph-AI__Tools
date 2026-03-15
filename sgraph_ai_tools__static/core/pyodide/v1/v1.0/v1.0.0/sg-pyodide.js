@@ -250,7 +250,7 @@ export async function checkVaultCompatibility(pyodide, onProgress) {
  *
  * @param {object} pyodide - The Pyodide instance
  * @param {string} passphrase - Vault passphrase
- * @param {string} vaultId - 8-char hex vault ID
+ * @param {string} vaultId - 8-char lowercase alphanumeric vault ID
  * @returns {Promise<{
  *   read_key_hex:     string,
  *   write_key:        string,
