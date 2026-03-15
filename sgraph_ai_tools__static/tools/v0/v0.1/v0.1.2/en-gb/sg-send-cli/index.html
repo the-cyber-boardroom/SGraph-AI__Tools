@@ -1683,7 +1683,7 @@ examples:
         builtins._sg_keys      = self.keys
 
         try:
-            result = self.sync.clone(vault_dir, vault_key=vault_key)
+            result = self.sync.clone(vault_key=vault_key, directory=vault_dir)
             self.vault_dir = vault_dir
             builtins._sg_vault_dir = vault_dir
             builtins._sg_sync      = self.sync
