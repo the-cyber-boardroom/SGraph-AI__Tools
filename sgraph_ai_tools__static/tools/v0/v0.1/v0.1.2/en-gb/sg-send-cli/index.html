@@ -1416,6 +1416,7 @@ class BrowserCLI:
             'inspect-stats': 'cmd_inspect_stats',
             'derive-keys': 'cmd_derive_keys',
             'branches': 'cmd_branches',
+            'remote': 'cmd_remote',
             'cat-object': 'cmd_cat_object',
             'ls': 'cmd_ls',
             'cat': 'cmd_cat',
@@ -1444,15 +1445,16 @@ class BrowserCLI:
 CLI tool for syncing encrypted vaults with SG/Send  (v{self.version}, browser mode)
 
 positional arguments:
-  {{init,commit,status,push,pull,clone,inspect,inspect-tree,inspect-log,inspect-stats,derive-keys,branches}}
+  {{init,commit,status,push,pull,clone,remote,inspect,inspect-tree,inspect-log,inspect-stats,derive-keys,branches}}
 
                         Available commands
   init                  Create a new empty vault in DIRECTORY
   commit                Commit local changes to the clone branch
   status                Show uncommitted changes in working directory
-  push                  Push clone branch to the in-memory server
-  pull                  Pull latest changes from the in-memory server
-  clone                 Clone a vault from the shared in-memory server
+  push                  Push clone branch to server
+  pull                  Pull latest changes from server
+  clone                 Clone a vault from a server
+  remote                Manage remote server connections
   inspect               Show vault state overview (dev tool)
   inspect-tree          Show current tree entries (dev tool)
   inspect-log           Show commit chain (dev tool)
@@ -1676,6 +1678,99 @@ optional arguments:
         else:
             lines.append('  (no branches)')
         return '\\n'.join(lines)
+
+    def cmd_remote(self, args):
+        if not args or args[0] in ('-h', '--help'):
+            return """usage: sg-send-cli remote [-h] {add,remove,list} ...
+
+positional arguments:
+  {add,remove,list}  Remote subcommands
+    add              Add a remote (e.g. remote add origin https://dev.send.sgraph.ai)
+    remove           Remove a remote
+    list             List configured remotes
+
+options:
+  -h, --help         show this help message and exit"""
+
+        vd = self._need_vault()
+        subcmd = args[0]
+        sub_args = args[1:]
+
+        # Store remotes in .sg_vault/remotes.json
+        import json
+        remotes_path = os.path.join(vd, '.sg_vault', 'remotes.json')
+
+        def _load_remotes():
+            if os.path.exists(remotes_path):
+                with open(remotes_path, 'r') as f:
+                    return json.loads(f.read())
+            return {}
+
+        def _save_remotes(remotes):
+            with open(remotes_path, 'w') as f:
+                f.write(json.dumps(remotes, indent=2))
+
+        if subcmd == 'list':
+            remotes = _load_remotes()
+            if not remotes:
+                return '(no remotes configured)'
+            lines = []
+            for name, url in remotes.items():
+                lines.append(f'  {name}\\t{url}')
+            return '\\n'.join(lines)
+
+        elif subcmd == 'add':
+            if len(sub_args) < 2:
+                return 'usage: remote add NAME URL\\n  e.g. remote add origin https://dev.send.sgraph.ai'
+            name, url = sub_args[0], sub_args[1]
+            remotes = _load_remotes()
+            remotes[name] = url
+            _save_remotes(remotes)
+
+            # Try to create an HTTP API for this remote
+            try:
+                self._setup_http_api(url)
+                return f'Remote \\'{name}\\' added: {url}\\n  HTTP API configured — push/pull will use this remote'
+            except Exception as e:
+                return f'Remote \\'{name}\\' added: {url}\\n  Note: HTTP transport not yet available in browser ({e})'
+
+        elif subcmd == 'remove':
+            if not sub_args:
+                return 'usage: remote remove NAME'
+            name = sub_args[0]
+            remotes = _load_remotes()
+            if name in remotes:
+                del remotes[name]
+                _save_remotes(remotes)
+                return f'Remote \\'{name}\\' removed'
+            return f'remote \\'{name}\\' not found'
+
+        else:
+            return f"remote: unknown subcommand '{subcmd}'. Use add, remove, or list."
+
+    def _setup_http_api(self, server_url):
+        """Try to configure an HTTP API backend for remote push/pull."""
+        # Try to import the HTTP API from sg-send-cli
+        try:
+            from sg_send_cli.api.Vault__API import Vault__API
+            self.api = Vault__API(server_url=server_url).setup()
+            self.sync = self.__class__.__mro__[0].__init__  # force re-init sync
+            raise Exception('Vault__API found but needs Pyodide HTTP adapter')
+        except ImportError:
+            pass
+
+        # Try other possible class names
+        for cls_name in ['Vault__API__Http', 'Vault__API__REST', 'Vault__API__Server']:
+            try:
+                mod = __import__(f'sg_send_cli.api.{cls_name}', fromlist=[cls_name])
+                ApiClass = getattr(mod, cls_name)
+                self.api = ApiClass(server_url=server_url).setup()
+                self.sync = type(self.sync)(crypto=self.crypto, api=self.api)
+                return  # Success
+            except (ImportError, AttributeError):
+                continue
+
+        raise Exception('no HTTP API class found in sg-send-cli package')
 
     def cmd_pull(self, args):
         if '-h' in args or '--help' in args:
