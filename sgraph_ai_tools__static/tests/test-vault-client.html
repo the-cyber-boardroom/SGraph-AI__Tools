@@ -141,16 +141,22 @@
             assertEqual(vaultId, 'abcdef01', 'Valid hex vault_id')
         }
 
+        {
+            const { passphrase, vaultId } = parseVaultKey('ditg7au7rr0rsw4ont6qlzcw:98a3heec')
+            assertEqual(passphrase, 'ditg7au7rr0rsw4ont6qlzcw', 'Parses alphanumeric passphrase')
+            assertEqual(vaultId, '98a3heec', 'Accepts alphanumeric vault_id (not just hex)')
+        }
+
         heading('parseVaultKey — invalid keys')
 
         const invalidKeys = [
             { input: '',              desc: 'Empty string' },
             { input: 'nodelimiter',   desc: 'No colon separator' },
             { input: ':a1b2c3d4',     desc: 'Empty passphrase (leading colon)' },
-            { input: 'pass:ABCDEF01', desc: 'Uppercase hex (must be lowercase)' },
+            { input: 'pass:ABCDEF01', desc: 'Uppercase (must be lowercase)' },
             { input: 'pass:a1b2c3',   desc: 'Too short vault_id (6 chars)' },
             { input: 'pass:a1b2c3d4e', desc: 'Too long vault_id (9 chars)' },
-            { input: 'pass:a1b2g3d4', desc: 'Non-hex character in vault_id' },
+            { input: 'pass:a1b2g!d4', desc: 'Special character in vault_id' },
         ]
 
         for (const { input, desc } of invalidKeys) {

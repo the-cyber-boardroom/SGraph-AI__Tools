@@ -33,8 +33,8 @@ export const SALT_PREFIX = 'sg-vault-v1'
 
 /**
  * Parse a full vault key into passphrase and vault_id.
- * Format: "{passphrase}:{vault_id}" where vault_id is exactly 8 hex chars.
- * The passphrase itself may contain colons.
+ * Format: "{passphrase}:{vault_id}" where vault_id is exactly 8 lowercase
+ * alphanumeric characters. The passphrase itself may contain colons.
  *
  * @param {string} fullVaultKey - The complete vault key string
  * @returns {{ passphrase: string, vaultId: string }}
@@ -51,8 +51,8 @@ export function parseVaultKey(fullVaultKey) {
     const vaultId    = fullVaultKey.slice(lastColon + 1)
     const passphrase = fullVaultKey.slice(0, lastColon)
 
-    if (!/^[0-9a-f]{8}$/.test(vaultId)) {
-        throw new Error(`Invalid vault_id "${vaultId}". Must be exactly 8 lowercase hex characters.`)
+    if (!/^[0-9a-z]{8}$/.test(vaultId)) {
+        throw new Error(`Invalid vault_id "${vaultId}". Must be exactly 8 lowercase alphanumeric characters.`)
     }
     if (!passphrase) {
         throw new Error('Passphrase cannot be empty')
@@ -66,7 +66,7 @@ export function parseVaultKey(fullVaultKey) {
  * Also derives deterministic file IDs for the tree and settings files.
  *
  * @param {string} passphrase - The vault passphrase
- * @param {string} vaultId - The 8-char hex vault ID
+ * @param {string} vaultId - The 8-char lowercase alphanumeric vault ID
  * @returns {Promise<{
  *   readKey:        CryptoKey,
  *   readKeyBytes:   Uint8Array,
