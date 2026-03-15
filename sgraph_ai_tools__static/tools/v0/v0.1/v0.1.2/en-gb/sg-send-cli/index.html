@@ -1226,9 +1226,63 @@ class BrowserCLI:
         return value, rest
 
     def _connect_remote(self, base_url=None, token=None):
-        """Create a Vault__API with HTTP backend and rebuild sync."""
+        """Create a Vault__API with HTTP backend and rebuild sync.
+        Monkey-patches _request/_request_bytes to use JS XMLHttpRequest
+        since urllib doesn't support HTTPS in Pyodide (no socket/SSL)."""
         api = self._Vault__API(base_url=base_url or '', access_token=token or '')
         api.setup()
+
+        # Patch HTTP transport for Pyodide
+        import json as _json
+        from js import XMLHttpRequest
+
+        def _pyodide_request_json(method, url, headers=None, data=None):
+            """Synchronous HTTP request returning parsed JSON."""
+            xhr = XMLHttpRequest.new()
+            xhr.open(method, url, False)  # False = synchronous
+            if headers:
+                for k, v in headers.items():
+                    xhr.setRequestHeader(k, str(v))
+            if data:
+                from pyodide.ffi import to_js
+                import js
+                js_data = to_js(data)
+                xhr.send(js_data)
+            else:
+                xhr.send()
+            if xhr.status >= 400:
+                raise Exception(f'HTTP {xhr.status} {method} {url}: {xhr.responseText[:200]}')
+            body = xhr.responseText
+            if body:
+                return _json.loads(body)
+            return {}
+
+        def _pyodide_request_bytes(method, url, headers=None):
+            """Synchronous HTTP request returning raw bytes."""
+            xhr = XMLHttpRequest.new()
+            # Use overrideMimeType to prevent text decoding of binary data
+            xhr.open(method, url, False)
+            xhr.overrideMimeType('text/plain; charset=x-user-defined')
+            if headers:
+                for k, v in headers.items():
+                    xhr.setRequestHeader(k, str(v))
+            xhr.send()
+            if xhr.status >= 400:
+                raise Exception(f'HTTP {xhr.status} {method} {url}: {xhr.responseText[:200]}')
+            # Convert response text to bytes (each char's code point = byte value)
+            text = xhr.responseText or ''
+            return bytes(ord(c) & 0xFF for c in text)
+
+        def patched_request(self_api, method, url, headers=None, data=None):
+            return _pyodide_request_json(method, url, headers, data)
+
+        def patched_request_bytes(self_api, method, url, headers=None):
+            return _pyodide_request_bytes(method, url, headers)
+
+        import types
+        api._request       = types.MethodType(patched_request, api)
+        api._request_bytes = types.MethodType(patched_request_bytes, api)
+
         self.api  = api
         self.sync = self._Vault__Sync(crypto=self.crypto, api=api)
 
