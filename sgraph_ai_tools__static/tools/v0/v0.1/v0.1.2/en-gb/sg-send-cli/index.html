@@ -101,44 +101,6 @@
             margin-top: 0.375rem;
         }
 
-        /* ---------- Scenario buttons ---------- */
-        .scenario-grid {
-            display: grid;
-            grid-template-columns: 1fr 1fr;
-            gap: 0.75rem;
-            margin-top: 0.75rem;
-        }
-
-        @media (max-width: 600px) {
-            .scenario-grid { grid-template-columns: 1fr; }
-        }
-
-        .scenario-btn {
-            text-align: left;
-            padding: 0.75rem 1rem;
-            background: rgba(0,0,0,0.3);
-            border: 1px solid var(--sg-border);
-            border-radius: var(--sg-radius);
-            color: var(--sg-text);
-            cursor: pointer;
-            transition: border-color 150ms;
-        }
-
-        .scenario-btn:hover { border-color: var(--sg-accent); }
-        .scenario-btn:disabled { opacity: 0.5; pointer-events: none; }
-
-        .scenario-btn__title {
-            font-weight: 600;
-            font-size: 0.875rem;
-            margin-bottom: 0.25rem;
-        }
-
-        .scenario-btn__desc {
-            font-size: 0.75rem;
-            color: var(--sg-text-muted);
-            line-height: 1.4;
-        }
-
         .progress-bar {
             height: 4px;
             background: var(--sg-border);
@@ -425,6 +387,79 @@
             color: var(--sg-text-dim);
             text-decoration: line-through;
         }
+
+        /* ---------- Setup status bar ---------- */
+        .setup-status {
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+            flex-wrap: wrap;
+        }
+
+        .setup-status .version-info {
+            color: var(--sg-text-muted);
+            font-size: 0.75rem;
+            font-family: var(--sg-font-mono);
+        }
+
+        .setup-status .btn-small {
+            background: transparent;
+            border: 1px solid var(--sg-border);
+            border-radius: var(--sg-radius);
+            color: var(--sg-text-muted);
+            cursor: pointer;
+            font-size: 0.6875rem;
+            padding: 0.2rem 0.5rem;
+            transition: border-color 150ms, color 150ms;
+        }
+
+        .setup-status .btn-small:hover { border-color: var(--sg-accent); color: var(--sg-accent); }
+
+        .btn-cancel {
+            background: transparent;
+            border: 1px solid var(--sg-error, #e53e3e);
+            border-radius: var(--sg-radius);
+            color: var(--sg-error, #e53e3e);
+            cursor: pointer;
+            font-size: 0.75rem;
+            padding: 0.375rem 0.75rem;
+            margin-left: 0.5rem;
+            transition: background 150ms;
+        }
+
+        .btn-cancel:hover { background: rgba(229,62,62,0.1); }
+
+        /* ---------- Run All button ---------- */
+        .guide-run-all {
+            background: rgba(78,205,196,0.12);
+            border: 1px solid rgba(78,205,196,0.3);
+            border-radius: var(--sg-radius-pill, 999px);
+            color: var(--sg-accent);
+            cursor: pointer;
+            font-family: var(--sg-font-mono);
+            font-size: 0.625rem;
+            font-weight: 600;
+            padding: 0.25rem 0.625rem;
+            transition: background 150ms, border-color 150ms;
+            white-space: nowrap;
+            text-transform: uppercase;
+            letter-spacing: 0.04em;
+        }
+
+        .guide-run-all:hover { background: rgba(78,205,196,0.2); border-color: var(--sg-accent); }
+        .guide-run-all:disabled { opacity: 0.4; pointer-events: none; }
+
+        .guide-run-all.running {
+            background: rgba(255,193,7,0.12);
+            border-color: rgba(255,193,7,0.4);
+            color: #ffc107;
+        }
+
+        .guide-btn.active-step {
+            background: rgba(78,205,196,0.25);
+            border-color: var(--sg-accent);
+            box-shadow: 0 0 6px rgba(78,205,196,0.3);
+        }
     </style>
 </head>
 <body>
@@ -452,46 +487,27 @@
             Init vaults, add files, commit, push, inspect — all via Pyodide with the real Python package from PyPI.
         </p>
 
-        <!-- Step 1: Load Pyodide + Install sg-send-cli -->
+        <!-- Setup: Load Pyodide + Install sg-send-cli (auto-starts) -->
         <div class="section" id="section-load">
-            <h2>Step 1 — Load Python + Install sg-send-cli</h2>
+            <h2>Setup — Load Python + Install sg-send-cli</h2>
             <p style="color:var(--sg-text-muted);font-size:0.8125rem;margin-bottom:0.75rem;">
                 Downloads Pyodide (~20 MB) and installs <code style="background:rgba(78,205,196,0.1);padding:0.125rem 0.375rem;border-radius:3px;font-size:0.75rem;">sg-send-cli</code> from PyPI via micropip.
-                First load may take 30-60 seconds. Subsequent visits use cache.
+                First load may take 30-60 seconds. Wheel files are cached in IndexedDB for fast reload.
             </p>
-            <button class="btn" id="load-btn">Load &amp; Install</button>
+            <div id="load-actions">
+                <button class="btn" id="load-btn" style="display:none;">Load &amp; Install</button>
+                <button class="btn-cancel" id="cancel-btn" style="display:none;">Cancel</button>
+            </div>
             <div class="progress-bar" id="load-progress"><div class="progress-bar__fill" id="load-progress-fill"></div></div>
             <div id="load-log" class="terminal" style="display:none;"></div>
-        </div>
-
-        <!-- Step 2: Scenarios -->
-        <div class="section" id="section-scenarios" style="opacity:0.5;pointer-events:none;">
-            <h2>Step 2 — Run Vault Scenarios</h2>
-            <p style="color:var(--sg-text-muted);font-size:0.8125rem;margin-bottom:0.5rem;">
-                Pre-built scenarios that exercise the full vault lifecycle.
-                Each runs against an in-memory API (no server required).
-            </p>
-            <div class="scenario-grid">
-                <button class="scenario-btn" id="scenario-init">
-                    <div class="scenario-btn__title">Init Vault</div>
-                    <div class="scenario-btn__desc">Create an empty vault, inspect the bare structure (data, refs, keys, indexes).</div>
-                </button>
-                <button class="scenario-btn" id="scenario-commit">
-                    <div class="scenario-btn__title">Add Files + Commit</div>
-                    <div class="scenario-btn__desc">Add README.md and configs/EC2.json, commit, inspect the commit chain and tree.</div>
-                </button>
-                <button class="scenario-btn" id="scenario-push">
-                    <div class="scenario-btn__title">Push to Server</div>
-                    <div class="scenario-btn__desc">Push to in-memory API, verify objects uploaded, check delta sync.</div>
-                </button>
-                <button class="scenario-btn" id="scenario-full">
-                    <div class="scenario-btn__title">Full Solo Workflow</div>
-                    <div class="scenario-btn__desc">Init → add files → commit → push → modify → delete → commit → push. Complete lifecycle.</div>
-                </button>
+            <div class="setup-status" id="setup-status" style="display:none;">
+                <span class="version-info" id="version-info"></span>
+                <button class="btn-small" id="btn-reinstall" title="Re-download and install latest from PyPI">Reinstall</button>
+                <button class="btn-small" id="btn-clear-cache" title="Clear cached wheels from IndexedDB">Clear Cache</button>
             </div>
         </div>
 
-        <!-- Step 3: CLI Terminal -->
+        <!-- CLI Terminal -->
         <div class="section" id="section-cli" style="opacity:0.5;pointer-events:none;">
             <div class="section-toolbar">
                 <h2>CLI Terminal</h2>
@@ -507,6 +523,7 @@
             <div class="guide-bar" id="guide-bar">
                 <div class="guide-row" data-target-tab="0">
                     <span class="guide-row-label">Terminal 1</span>
+                    <button class="guide-run-all" title="Run all commands in this row sequentially">Run All</button>
                     <button class="guide-btn" data-cmd="init --vault-key demo-passphrase:my-vault my-vault" title="Initialise a new vault">init</button>
                     <button class="guide-btn" data-cmd="cd my-vault" title="Enter the vault directory">cd</button>
                     <button class="guide-btn" data-cmd="write README.md '# Hello World'" title="Create a file">write</button>
@@ -516,6 +533,7 @@
                 </div>
                 <div class="guide-row" data-target-tab="1">
                     <span class="guide-row-label">Terminal 2</span>
+                    <button class="guide-run-all" title="Run all commands in this row sequentially">Run All</button>
                     <button class="guide-btn" data-cmd="clone --vault-key demo-passphrase:my-vault cloned-vault" title="Clone from shared server">clone</button>
                     <button class="guide-btn" data-cmd="cd cloned-vault" title="Enter the cloned vault">cd</button>
                     <button class="guide-btn" data-cmd="ls" title="List files">ls</button>
@@ -526,6 +544,7 @@
                 </div>
                 <div class="guide-row" data-target-tab="0">
                     <span class="guide-row-label">Terminal 1</span>
+                    <button class="guide-run-all" title="Run all commands in this row sequentially">Run All</button>
                     <button class="guide-btn" data-cmd="pull" title="Pull changes from shared server">pull</button>
                     <button class="guide-btn" data-cmd="ls" title="List files after pull">ls</button>
                     <button class="guide-btn" data-cmd="cat NOTES.md" title="See file from Terminal 2">cat</button>
@@ -606,11 +625,13 @@
 
         // --- Elements ---
         const loadBtn        = document.getElementById('load-btn')
+        const cancelBtn      = document.getElementById('cancel-btn')
         const loadLog        = document.getElementById('load-log')
         const loadProgress   = document.getElementById('load-progress')
         const loadFill       = document.getElementById('load-progress-fill')
-        const sectionScenarios = document.getElementById('section-scenarios')
-        const sectionCli       = document.getElementById('section-cli')
+        const setupStatus    = document.getElementById('setup-status')
+        const versionInfo    = document.getElementById('version-info')
+        const sectionCli     = document.getElementById('section-cli')
         const tabBar         = document.getElementById('tab-bar')
         const tabPanes       = document.getElementById('tab-panes')
         const tabAddBtn      = document.getElementById('tab-add')
@@ -618,6 +639,48 @@
 
         let pyodide = null
         let cliRunning = false
+        let installCancelled = false
+
+        // --- IndexedDB wheel cache ---
+        const CACHE_DB_NAME = 'sg-send-cli-cache'
+        const CACHE_STORE   = 'wheels'
+
+        function openCacheDB() {
+            return new Promise((resolve, reject) => {
+                const req = indexedDB.open(CACHE_DB_NAME, 1)
+                req.onupgradeneeded = () => req.result.createObjectStore(CACHE_STORE)
+                req.onsuccess = () => resolve(req.result)
+                req.onerror = () => reject(req.error)
+            })
+        }
+
+        async function getCachedWheel(name) {
+            try {
+                const db = await openCacheDB()
+                return new Promise((resolve) => {
+                    const tx = db.transaction(CACHE_STORE, 'readonly')
+                    const req = tx.objectStore(CACHE_STORE).get(name)
+                    req.onsuccess = () => resolve(req.result || null)
+                    req.onerror = () => resolve(null)
+                })
+            } catch { return null }
+        }
+
+        async function setCachedWheel(name, data) {
+            try {
+                const db = await openCacheDB()
+                const tx = db.transaction(CACHE_STORE, 'readwrite')
+                tx.objectStore(CACHE_STORE).put(data, name)
+            } catch { /* ignore cache write failure */ }
+        }
+
+        async function clearWheelCache() {
+            try {
+                const db = await openCacheDB()
+                const tx = db.transaction(CACHE_STORE, 'readwrite')
+                tx.objectStore(CACHE_STORE).clear()
+            } catch { /* ignore */ }
+        }
 
         // --- Multi-tab state ---
         let activeTab = 0
@@ -636,12 +699,15 @@
             }
         }
 
-        // --- Step 1: Load + Install ---
-        loadBtn.addEventListener('click', async () => {
-            loadBtn.disabled = true
-            loadBtn.innerHTML = '<span class="spinner"></span>Loading Pyodide...'
+        // --- Install (auto-starts on page load) ---
+        async function runInstall({ forceReinstall = false } = {}) {
+            installCancelled = false
+            loadBtn.style.display = 'none'
+            cancelBtn.style.display = 'inline-block'
+            setupStatus.style.display = 'none'
             loadLog.style.display = 'block'
             loadProgress.classList.add('visible')
+            loadFill.style.width = '5%'
 
             const stages = {
                 'loading-script': 10,
@@ -652,52 +718,64 @@
             }
 
             try {
+                logWrite(loadLog, 'Loading Pyodide runtime...', 'info')
                 pyodide = await loadPyodideRuntime({
                     onProgress: ({ stage, detail }) => {
                         logWrite(loadLog, detail, 'info')
                         if (stages[stage]) loadFill.style.width = stages[stage] + '%'
                     }
                 })
-                window._pyodide = pyodide  // expose for console debugging
+                if (installCancelled) throw new Error('Cancelled')
+                window._pyodide = pyodide
 
-                loadBtn.innerHTML = '<span class="spinner"></span>Installing dependencies...'
                 logWrite(loadLog, 'Pre-loading cryptography (Pyodide built-in)...', 'info')
                 loadFill.style.width = '65%'
-
-                // Pre-load cryptography from Pyodide's built-in packages
-                // (micropip can't resolve it as a dependency because there's no pure Python wheel)
                 await pyodide.loadPackage('cryptography')
                 logWrite(loadLog, 'Loaded: cryptography (built-in)', 'output')
+                if (installCancelled) throw new Error('Cancelled')
 
-                loadBtn.innerHTML = '<span class="spinner"></span>Installing osbot-utils...'
+                const micropip = pyodide.pyimport('micropip')
+
+                // --- osbot-utils ---
                 logWrite(loadLog, 'Installing osbot-utils from PyPI...', 'info')
                 loadFill.style.width = '72%'
-
-                // Install deps one at a time via JS API (avoids nested event loop issues
-                // with await micropip.install() inside runPythonAsync)
-                const micropip = pyodide.pyimport('micropip')
                 await micropip.install('osbot-utils')
                 logWrite(loadLog, 'Installed: osbot-utils', 'output')
+                if (installCancelled) throw new Error('Cancelled')
 
-                loadBtn.innerHTML = '<span class="spinner"></span>Installing sg-send-cli...'
+                // --- sg-send-cli (with IndexedDB cache) ---
                 logWrite(loadLog, 'Installing sg-send-cli from PyPI...', 'info')
-                loadFill.style.width = '82%'
+                loadFill.style.width = '78%'
 
-                // Fetch wheel URL from PyPI JSON API
                 const pypiMeta  = await (await fetch('https://pypi.org/pypi/sg-send-cli/json')).json()
                 const wheelInfo = pypiMeta.urls.find(u => u.filename.endsWith('.whl'))
-                logWrite(loadLog, `Downloading ${wheelInfo.filename}...`, 'info')
+                const wheelName = wheelInfo.filename
+                if (installCancelled) throw new Error('Cancelled')
 
-                // Download wheel via JS fetch (reliable, no Pyodide async bridge)
-                const wheelBytes = new Uint8Array(await (await fetch(wheelInfo.url)).arrayBuffer())
+                let wheelBytes = null
 
-                // Write to Pyodide's virtual filesystem
-                pyodide.FS.writeFile('/tmp/' + wheelInfo.filename, wheelBytes)
+                // Check IndexedDB cache first (unless force reinstall)
+                if (!forceReinstall) {
+                    const cached = await getCachedWheel(wheelName)
+                    if (cached) {
+                        logWrite(loadLog, `Using cached wheel: ${wheelName}`, 'output')
+                        wheelBytes = cached
+                    }
+                }
 
-                // Install from emfs:// — micropip reads bytes synchronously via Path.read_bytes(),
-                // completely bypassing the pyfetch/JS-Promise/create_task bug
+                if (!wheelBytes) {
+                    logWrite(loadLog, `Downloading ${wheelName}...`, 'info')
+                    wheelBytes = new Uint8Array(await (await fetch(wheelInfo.url)).arrayBuffer())
+                    // Cache for next time
+                    await setCachedWheel(wheelName, wheelBytes)
+                    logWrite(loadLog, `Cached ${wheelName} in IndexedDB (${(wheelBytes.byteLength / 1024).toFixed(0)} KB)`, 'info')
+                }
+                if (installCancelled) throw new Error('Cancelled')
+                loadFill.style.width = '85%'
+
+                pyodide.FS.writeFile('/tmp/' + wheelName, wheelBytes)
                 await micropip.install.callKwargs(
-                    'emfs:///tmp/' + wheelInfo.filename,
+                    'emfs:///tmp/' + wheelName,
                     { deps: false }
                 )
 
@@ -708,7 +786,6 @@ importlib.metadata.version('sg-send-cli')
                 logWrite(loadLog, `Installed: sg-send-cli ${sgSendVersion}`, 'output')
                 loadFill.style.width = '90%'
 
-                // Verify import
                 await pyodide.runPythonAsync(`
 from sg_send_cli.crypto.Vault__Crypto      import Vault__Crypto
 from sg_send_cli.sync.Vault__Sync          import Vault__Sync
@@ -719,399 +796,86 @@ import sys
                 const pyVersion = await pyodide.runPythonAsync('sys.version')
                 logWrite(loadLog, `Python ${pyVersion}`, 'output')
                 logWrite(loadLog, 'All vault modules imported successfully.', 'output')
-                loadFill.style.width = '100%'
+                loadFill.style.width = '95%'
 
-                // Set up CLI dispatcher in Python
                 logWrite(loadLog, 'Setting up CLI dispatcher...', 'info')
                 await pyodide.runPythonAsync(CLI_DISPATCHER_CODE)
                 logWrite(loadLog, 'CLI ready.', 'output')
+                loadFill.style.width = '100%'
 
-                loadBtn.style.display = 'none'
-                sectionScenarios.style.opacity = '1'
-                sectionScenarios.style.pointerEvents = 'auto'
+                // Show version + reinstall bar
+                cancelBtn.style.display = 'none'
+                versionInfo.textContent = `sg-send-cli ${sgSendVersion} | Python ${pyVersion.split(' ')[0]}`
+                setupStatus.style.display = 'flex'
+
                 sectionCli.style.opacity = '1'
                 sectionCli.style.pointerEvents = 'auto'
 
                 const t0 = getTabEls(0)
                 t0.input.disabled = false
                 t0.input.focus()
-
-                cliWrite(0, 'Ready. Type --help or use the guide buttons above.', 'output')
+                cliWrite(0, `Ready — sg-send-cli ${sgSendVersion}. Type --help or use the guide buttons.`, 'output')
                 cliWrite(0, '', '')
 
             } catch (err) {
-                logWrite(loadLog, `Error: ${err.message}`, 'error')
-                loadBtn.innerHTML = 'Retry'
-                loadBtn.disabled = false
-                loadFill.style.width = '0%'
+                if (installCancelled || err.message === 'Cancelled') {
+                    logWrite(loadLog, 'Installation cancelled.', 'warn')
+                    loadBtn.textContent = 'Load & Install'
+                    loadBtn.style.display = 'inline-block'
+                    cancelBtn.style.display = 'none'
+                    loadFill.style.width = '0%'
+                    pyodide = null
+                } else {
+                    logWrite(loadLog, `Error: ${err.message}`, 'error')
+                    loadBtn.textContent = 'Retry'
+                    loadBtn.style.display = 'inline-block'
+                    cancelBtn.style.display = 'none'
+                    loadFill.style.width = '0%'
+                }
             }
+        }
+
+        // Cancel button
+        cancelBtn.addEventListener('click', () => { installCancelled = true })
+
+        // Manual load button (shown after cancel or error)
+        loadBtn.addEventListener('click', () => runInstall())
+
+        // Reinstall button
+        document.getElementById('btn-reinstall').addEventListener('click', async () => {
+            setupStatus.style.display = 'none'
+            sectionCli.style.opacity = '0.5'
+            sectionCli.style.pointerEvents = 'none'
+            loadLog.innerHTML = ''
+            pyodide = null
+            await runInstall({ forceReinstall: true })
         })
 
-        // --- Scenarios ---
-        const VAULT_KEY = 'solo-qa-passphrase:solo-qa-vault'
+        // Clear cache button
+        document.getElementById('btn-clear-cache').addEventListener('click', async () => {
+            await clearWheelCache()
+            logWrite(loadLog, 'IndexedDB wheel cache cleared.', 'info')
+        })
 
-        const scenarioCode = {
-            init: `
-import json, os, tempfile
-from sg_send_cli.crypto.Vault__Crypto      import Vault__Crypto
-from sg_send_cli.sync.Vault__Sync          import Vault__Sync
-from sg_send_cli.objects.Vault__Inspector   import Vault__Inspector
-from sg_send_cli.api.Vault__API__In_Memory import Vault__API__In_Memory
+        // Auto-start on page load
+        runInstall()
 
-VAULT_KEY = '${VAULT_KEY}'
-
-# Setup
-api    = Vault__API__In_Memory().setup()
-crypto = Vault__Crypto()
-sync   = Vault__Sync(crypto=crypto, api=api)
-
-# Init vault
-vault_dir = tempfile.mkdtemp(prefix='sg_vault_browser_')
-result    = sync.init(vault_dir, vault_key=VAULT_KEY)
-
-print(f'=== Vault Initialised ===')
-print(f'  Directory:    {result["directory"]}')
-print(f'  Vault ID:     {result["vault_id"]}')
-print(f'  Vault key:    {result["vault_key"]}')
-print(f'  Named branch: {result["named_branch"]}')
-print(f'  Clone branch: {result["branch_id"]}')
-print(f'  Init commit:  {result["commit_id"]}')
-
-# Count bare files
-sg_dir = os.path.join(vault_dir, '.sg_vault', 'bare')
-counts = {}
-for sub in ['data', 'refs', 'keys', 'indexes']:
-    sub_dir = os.path.join(sg_dir, sub)
-    if os.path.isdir(sub_dir):
-        counts[sub] = len([f for f in os.listdir(sub_dir) if os.path.isfile(os.path.join(sub_dir, f))])
-    else:
-        counts[sub] = 0
-counts['total'] = sum(counts.values())
-
-print(f'\\n=== Bare Structure ===')
-for k, v in sorted(counts.items()):
-    print(f'  {k:10s}: {v}')
-
-# Status
-status = sync.status(vault_dir)
-print(f'\\n=== Status ===')
-print(f'  Clean: {status["clean"]}')
-
-# Inspect
-inspector = Vault__Inspector(crypto=crypto)
-keys = crypto.derive_keys_from_vault_key(VAULT_KEY)
-chain = inspector.inspect_commit_chain(vault_dir, read_key=keys['read_key_bytes'])
-print(f'\\n=== Commit Chain ({len(chain)} commits) ===')
-for c in chain:
-    print(f'  {c["commit_id"][:12]}  {c["message"]}')
-
-# Store for next scenarios
-import builtins
-builtins._sg_vault_dir = vault_dir
-builtins._sg_sync      = sync
-builtins._sg_crypto    = crypto
-builtins._sg_api       = api
-builtins._sg_inspector = inspector
-builtins._sg_keys      = keys
-print(f'\\nVault stored in _sg_vault_dir for subsequent scenarios.')
-`,
-
-            commit: `
-import os, json
-
-vault_dir = _sg_vault_dir
-sync      = _sg_sync
-inspector = _sg_inspector
-keys      = _sg_keys
-crypto    = _sg_crypto
-
-# Create files
-with open(os.path.join(vault_dir, 'README.md'), 'w') as f:
-    f.write('# My Project\\n')
-
-os.makedirs(os.path.join(vault_dir, 'configs'), exist_ok=True)
-with open(os.path.join(vault_dir, 'configs', 'EC2.json'), 'w') as f:
-    f.write('{"region": "eu-west-2"}\\n')
-
-# Status before commit
-status = sync.status(vault_dir)
-print(f'=== Status Before Commit ===')
-print(f'  Added: {status.get("added", [])}')
-
-# Commit
-result = sync.commit(vault_dir, message='add initial files')
-print(f'\\n=== Commit Result ===')
-print(f'  Commit ID: {result.get("commit_id", "n/a")}')
-
-# Count bare files
-sg_dir = os.path.join(vault_dir, '.sg_vault', 'bare')
-counts = {}
-for sub in ['data', 'refs', 'keys', 'indexes']:
-    sub_dir = os.path.join(sg_dir, sub)
-    if os.path.isdir(sub_dir):
-        counts[sub] = len([f for f in os.listdir(sub_dir) if os.path.isfile(os.path.join(sub_dir, f))])
-    else:
-        counts[sub] = 0
-counts['total'] = sum(counts.values())
-print(f'\\n=== Bare Structure After Commit ===')
-for k, v in sorted(counts.items()):
-    print(f'  {k:10s}: {v}')
-
-# Inspect commit chain
-chain = inspector.inspect_commit_chain(vault_dir, read_key=keys['read_key_bytes'])
-print(f'\\n=== Commit Chain ({len(chain)} commits) ===')
-for c in chain:
-    print(f'  {c["commit_id"][:12]}  {c["message"]}')
-
-# Inspect tree
-tree_info = inspector.inspect_tree(vault_dir, read_key=keys['read_key_bytes'])
-print(f'\\n=== Tree ({tree_info["file_count"]} files) ===')
-for entry in tree_info.get('entries', []):
-    print(f'  {entry["path"]:30s}  blob={entry["blob_id"][:12]}  size={entry["size"]}')
-
-# Status after commit
-status = sync.status(vault_dir)
-print(f'\\n=== Status After Commit ===')
-print(f'  Clean: {status["clean"]}')
-`,
-
-            push: `
-import json
-
-vault_dir = _sg_vault_dir
-sync      = _sg_sync
-api       = _sg_api
-
-# Push
-result = sync.push(vault_dir)
-print(f'=== Push Result ===')
-print(f'  Status:           {result["status"]}')
-print(f'  Objects uploaded:  {result.get("objects_uploaded", "n/a")}')
-print(f'  Commits pushed:   {result.get("commits_pushed", "n/a")}')
-
-print(f'\\n=== API Store ===')
-print(f'  Entries:      {len(api._store)}')
-print(f'  Total writes: {api._write_count}')
-
-# Status
-status = sync.status(vault_dir)
-print(f'\\n=== Status After Push ===')
-print(f'  Clean: {status["clean"]}')
-`,
-
-            full: `
-import os, json, tempfile
-from sg_send_cli.crypto.Vault__Crypto      import Vault__Crypto
-from sg_send_cli.sync.Vault__Sync          import Vault__Sync
-from sg_send_cli.objects.Vault__Inspector   import Vault__Inspector
-from sg_send_cli.api.Vault__API__In_Memory import Vault__API__In_Memory
-
-VAULT_KEY = '${VAULT_KEY}'
-
-# Fresh setup
-api    = Vault__API__In_Memory().setup()
-crypto = Vault__Crypto()
-sync   = Vault__Sync(crypto=crypto, api=api)
-inspector = Vault__Inspector(crypto=crypto)
-keys   = crypto.derive_keys_from_vault_key(VAULT_KEY)
-
-vault_dir = tempfile.mkdtemp(prefix='sg_vault_full_')
-
-# --- Step 1: Init ---
-print('=' * 50)
-print('STEP 1: Init Vault')
-print('=' * 50)
-result = sync.init(vault_dir, vault_key=VAULT_KEY)
-print(f'  Vault ID:     {result["vault_id"]}')
-print(f'  Init commit:  {result["commit_id"]}')
-
-# --- Step 2: Add files + Commit ---
-print(f'\\n{"=" * 50}')
-print('STEP 2: Add Files + Commit')
-print('=' * 50)
-with open(os.path.join(vault_dir, 'README.md'), 'w') as f:
-    f.write('# My Project\\n')
-os.makedirs(os.path.join(vault_dir, 'configs'), exist_ok=True)
-with open(os.path.join(vault_dir, 'configs', 'EC2.json'), 'w') as f:
-    f.write('{"region": "eu-west-2"}\\n')
-result = sync.commit(vault_dir, message='add initial files')
-print(f'  Committed: {result.get("commit_id", "n/a")}')
-
-chain = inspector.inspect_commit_chain(vault_dir, read_key=keys['read_key_bytes'])
-print(f'  Commits: {len(chain)}')
-tree = inspector.inspect_tree(vault_dir, read_key=keys['read_key_bytes'])
-print(f'  Files in tree: {tree["file_count"]}')
-
-# --- Step 3: Push ---
-print(f'\\n{"=" * 50}')
-print('STEP 3: Push to Server')
-print('=' * 50)
-result = sync.push(vault_dir)
-print(f'  Status: {result["status"]}')
-print(f'  Objects uploaded: {result.get("objects_uploaded", "n/a")}')
-
-# --- Step 4: Modify + Delete + Commit ---
-print(f'\\n{"=" * 50}')
-print('STEP 4: Modify README, Delete EC2.json, Commit')
-print('=' * 50)
-with open(os.path.join(vault_dir, 'README.md'), 'w') as f:
-    f.write('# My Project v2\\nUpdated with new info.\\n')
-os.remove(os.path.join(vault_dir, 'configs', 'EC2.json'))
-os.rmdir(os.path.join(vault_dir, 'configs'))
-
-status = sync.status(vault_dir)
-print(f'  Modified: {status.get("modified", [])}')
-print(f'  Deleted:  {status.get("deleted", [])}')
-
-result = sync.commit(vault_dir, message='update readme, remove EC2 config')
-print(f'  Committed: {result.get("commit_id", "n/a")}')
-
-# --- Step 5: Add more files + Commit ---
-print(f'\\n{"=" * 50}')
-print('STEP 5: Add notes.txt + Commit')
-print('=' * 50)
-with open(os.path.join(vault_dir, 'notes.txt'), 'w') as f:
-    f.write('- Buy milk\\n- Ship it\\n')
-result = sync.commit(vault_dir, message='add notes.txt')
-print(f'  Committed: {result.get("commit_id", "n/a")}')
-
-# --- Step 6: Second Push ---
-print(f'\\n{"=" * 50}')
-print('STEP 6: Second Push (delta)')
-print('=' * 50)
-result = sync.push(vault_dir)
-print(f'  Status: {result["status"]}')
-print(f'  Commits pushed: {result.get("commits_pushed", "n/a")}')
-
-# --- Final Summary ---
-print(f'\\n{"=" * 50}')
-print('FINAL SUMMARY')
-print('=' * 50)
-chain = inspector.inspect_commit_chain(vault_dir, read_key=keys['read_key_bytes'])
-print(f'  Total commits: {len(chain)}')
-for c in chain:
-    print(f'    {c["commit_id"][:12]}  {c["message"]}')
-
-tree = inspector.inspect_tree(vault_dir, read_key=keys['read_key_bytes'])
-print(f'\\n  Files in tree: {tree["file_count"]}')
-for entry in tree.get('entries', []):
-    print(f'    {entry["path"]:30s}  size={entry["size"]}')
-
-stats = inspector.object_store_stats(vault_dir)
-print(f'\\n  Object store: {stats["total_objects"]} objects, {stats["total_bytes"]} bytes')
-print(f'  API store: {len(api._store)} entries, {api._write_count} total writes')
-print(f'\\n  Working files: {len([f for f in os.listdir(vault_dir) if not f.startswith(".")])}')
-
-# Store for console
-import builtins
-builtins._sg_vault_dir = vault_dir
-builtins._sg_sync      = sync
-builtins._sg_crypto    = crypto
-builtins._sg_api       = api
-builtins._sg_inspector = inspector
-builtins._sg_keys      = keys
-print(f'\\nVault stored in _sg_vault_dir for interactive use.')
-`
-        }
-
-        document.getElementById('scenario-init').addEventListener('click',   () => runScenario('init'))
-        document.getElementById('scenario-commit').addEventListener('click', () => runScenario('commit'))
-        document.getElementById('scenario-push').addEventListener('click',   () => runScenario('push'))
-        document.getElementById('scenario-full').addEventListener('click',   () => runScenario('full'))
-
-        async function runScenario(name) {
-            if (!pyodide) return
-            const code = scenarioCode[name]
-            if (!code) return
-
-            const btns = document.querySelectorAll('.scenario-btn')
-            btns.forEach(b => b.disabled = true)
-
-            cliWrite(activeTab, `=== Running scenario: ${name} ===`, 'heading')
-
-            try {
-                const { stdout, stderr, error } = await runPythonCapture(pyodide, code)
-
-                if (stdout) {
-                    for (const line of stdout.trimEnd().split('\n')) {
-                        cliWrite(activeTab, line, 'output')
-                    }
-                }
-                if (stderr) {
-                    for (const line of stderr.trimEnd().split('\n')) {
-                        cliWrite(activeTab, line, 'warn')
-                    }
-                }
-                if (error) {
-                    for (const line of error.split('\n')) {
-                        cliWrite(activeTab, line, 'error')
-                    }
-                }
-            } catch (err) {
-                const msg = err.message || String(err)
-                const lines = msg.split('\n').filter(l => l.trim())
-                cliWrite(activeTab, lines[lines.length - 1] || msg, 'error')
-            }
-
-            cliWrite(activeTab, '', '')
-            btns.forEach(b => b.disabled = false)
-        }
-
-        // --- CLI Command Handler ---
+        // --- CLI Command Handler (from keyboard input) ---
         async function runCliCommand(tabIdx) {
             if (!pyodide || cliRunning) return
             const els = getTabEls(tabIdx)
             const cmd = els.input.value.trim()
             if (!cmd) return
-
-            cliWrite(tabIdx, `$ ${cmd}`, 'input')
-
-            const tab = tabs[tabIdx]
-            tab.history.push(cmd)
-            tab.historyIdx = tab.history.length
             els.input.value = ''
 
             if (cmd === 'clear') {
+                cliWrite(tabIdx, `$ ${cmd}`, 'input')
                 els.output.innerHTML = ''
                 els.input.focus()
                 return
             }
 
-            cliRunning = true
-            els.input.disabled = true
-            els.promptLine.style.display = 'none'
-            els.busy.classList.add('visible')
-
-            try {
-                pyodide.globals.set('_cli_cmd', cmd)
-                pyodide.globals.set('_cli_tab', tabIdx)
-                const { stdout, stderr, error } = await runPythonCapture(pyodide, `
-_cli_result = _sg_cli_tabs[_cli_tab].run(_cli_cmd)
-if _cli_result:
-    print(_cli_result)
-`)
-                if (stdout && stdout.trim()) {
-                    for (const line of stdout.trimEnd().split('\n')) {
-                        cliWrite(tabIdx, line, 'output')
-                    }
-                }
-                if (stderr && stderr.trim()) {
-                    for (const line of stderr.trimEnd().split('\n')) {
-                        cliWrite(tabIdx, line, 'warn')
-                    }
-                }
-                if (error) {
-                    const errLines = error.split('\n').filter(l => l.trim())
-                    cliWrite(tabIdx, errLines[errLines.length - 1] || error, 'error')
-                }
-            } catch (err) {
-                cliWrite(tabIdx, `Error: ${err.message}`, 'error')
-            }
-
-            cliRunning = false
-            els.busy.classList.remove('visible')
-            els.promptLine.style.display = 'flex'
-            els.input.disabled = false
+            await runSingleCommand(tabIdx, cmd)
             els.input.focus()
         }
 
@@ -1155,25 +919,77 @@ if _cli_result:
 
         // --- Guide buttons ---
         const guideAutoExec = document.getElementById('guide-auto-exec')
+        let runAllCancelled = false
 
+        // Helper: ensure a target tab exists and is active
+        async function ensureTab(targetTab) {
+            if (!tabs[targetTab]) {
+                tabAddBtn.click()
+                await new Promise(r => setTimeout(r, 150))
+            }
+            if (activeTab !== targetTab) switchTab(targetTab)
+        }
+
+        // Helper: run a single command on a specific tab (returns a promise)
+        function runSingleCommand(tabIdx, cmd) {
+            return new Promise(async (resolve) => {
+                if (!pyodide) return resolve()
+                const els = getTabEls(tabIdx)
+                if (!els.input) return resolve()
+
+                cliWrite(tabIdx, `$ ${cmd}`, 'input')
+                const tab = tabs[tabIdx]
+                tab.history.push(cmd)
+                tab.historyIdx = tab.history.length
+
+                cliRunning = true
+                els.input.disabled = true
+                els.promptLine.style.display = 'none'
+                els.busy.classList.add('visible')
+
+                try {
+                    pyodide.globals.set('_cli_cmd', cmd)
+                    pyodide.globals.set('_cli_tab', tabIdx)
+                    const { stdout, stderr, error } = await runPythonCapture(pyodide, `
+_cli_result = _sg_cli_tabs[_cli_tab].run(_cli_cmd)
+if _cli_result:
+    print(_cli_result)
+`)
+                    if (stdout && stdout.trim()) {
+                        for (const line of stdout.trimEnd().split('\n')) {
+                            cliWrite(tabIdx, line, 'output')
+                        }
+                    }
+                    if (stderr && stderr.trim()) {
+                        for (const line of stderr.trimEnd().split('\n')) {
+                            cliWrite(tabIdx, line, 'warn')
+                        }
+                    }
+                    if (error) {
+                        const errLines = error.split('\n').filter(l => l.trim())
+                        cliWrite(tabIdx, errLines[errLines.length - 1] || error, 'error')
+                    }
+                } catch (err) {
+                    cliWrite(tabIdx, `Error: ${err.message}`, 'error')
+                }
+
+                cliRunning = false
+                els.busy.classList.remove('visible')
+                els.promptLine.style.display = 'flex'
+                els.input.disabled = false
+                resolve()
+            })
+        }
+
+        // Individual guide button click
         guideBar.addEventListener('click', async (e) => {
             const btn = e.target.closest('.guide-btn')
             if (!btn || btn.disabled) return
             const cmd = btn.dataset.cmd
 
-            // Auto-switch to the target tab specified by the row
             const row = btn.closest('.guide-row')
             if (row && row.dataset.targetTab !== undefined) {
-                const targetTab = Number(row.dataset.targetTab)
-                // Create tab if it doesn't exist yet
-                if (!tabs[targetTab]) {
-                    tabAddBtn.click()
-                    // Wait for the async tab creation to complete
-                    await new Promise(r => setTimeout(r, 100))
-                }
-                if (activeTab !== targetTab) {
-                    switchTab(targetTab)
-                }
+                await ensureTab(Number(row.dataset.targetTab))
             }
 
             const els = getTabEls(activeTab)
@@ -1185,6 +1001,53 @@ if _cli_result:
             if (guideAutoExec.checked) {
                 runCliCommand(activeTab)
             }
+        })
+
+        // Run All button click
+        guideBar.addEventListener('click', async (e) => {
+            const runAllBtn = e.target.closest('.guide-run-all')
+            if (!runAllBtn || runAllBtn.disabled) return
+
+            const row = runAllBtn.closest('.guide-row')
+            const targetTab = Number(row.dataset.targetTab)
+            const buttons = Array.from(row.querySelectorAll('.guide-btn'))
+            if (!buttons.length) return
+
+            // Disable all Run All buttons during execution
+            runAllCancelled = false
+            const allRunBtns = guideBar.querySelectorAll('.guide-run-all')
+            allRunBtns.forEach(b => b.disabled = true)
+            runAllBtn.classList.add('running')
+            runAllBtn.textContent = 'Cancel'
+            runAllBtn.disabled = false
+            // Temporarily make cancel work
+            const cancelHandler = () => { runAllCancelled = true }
+            runAllBtn.addEventListener('click', cancelHandler, { once: true })
+
+            await ensureTab(targetTab)
+
+            for (const btn of buttons) {
+                if (runAllCancelled) break
+
+                // Visual: highlight the current step
+                btn.classList.add('active-step')
+                await runSingleCommand(targetTab, btn.dataset.cmd)
+                btn.classList.remove('active-step')
+                btn.classList.add('done')
+            }
+
+            // Reset state
+            runAllBtn.removeEventListener('click', cancelHandler)
+            runAllBtn.classList.remove('running')
+            runAllBtn.textContent = 'Run All'
+            allRunBtns.forEach(b => b.disabled = false)
+
+            if (runAllCancelled) {
+                cliWrite(targetTab, '(Run All cancelled)', 'warn')
+            }
+
+            const els = getTabEls(targetTab)
+            if (els.input) els.input.focus()
         })
 
         // --- Maximize / Restore ---
@@ -1727,12 +1590,13 @@ options:
             remotes[name] = url
             _save_remotes(remotes)
 
-            # Try to create an HTTP API for this remote
+            # Test connectivity (requests works in Pyodide via browser fetch)
             try:
-                self._setup_http_api(url)
-                return f'Remote \\'{name}\\' added: {url}\\n  HTTP API configured — push/pull will use this remote'
+                import requests
+                resp = requests.get(url.rstrip('/') + '/api/docs', timeout=10)
+                return f'Remote \\'{name}\\' added: {url}\\n  Server reachable (HTTP {resp.status_code})'
             except Exception as e:
-                return f'Remote \\'{name}\\' added: {url}\\n  Note: HTTP transport not yet available in browser ({e})'
+                return f'Remote \\'{name}\\' added: {url}\\n  Warning: could not reach server ({e})'
 
         elif subcmd == 'remove':
             if not sub_args:
@@ -1747,30 +1611,6 @@ options:
 
         else:
             return f"remote: unknown subcommand '{subcmd}'. Use add, remove, or list."
-
-    def _setup_http_api(self, server_url):
-        """Try to configure an HTTP API backend for remote push/pull."""
-        # Try to import the HTTP API from sg-send-cli
-        try:
-            from sg_send_cli.api.Vault__API import Vault__API
-            self.api = Vault__API(server_url=server_url).setup()
-            self.sync = self.__class__.__mro__[0].__init__  # force re-init sync
-            raise Exception('Vault__API found but needs Pyodide HTTP adapter')
-        except ImportError:
-            pass
-
-        # Try other possible class names
-        for cls_name in ['Vault__API__Http', 'Vault__API__REST', 'Vault__API__Server']:
-            try:
-                mod = __import__(f'sg_send_cli.api.{cls_name}', fromlist=[cls_name])
-                ApiClass = getattr(mod, cls_name)
-                self.api = ApiClass(server_url=server_url).setup()
-                self.sync = type(self.sync)(crypto=self.crypto, api=self.api)
-                return  # Success
-            except (ImportError, AttributeError):
-                continue
-
-        raise Exception('no HTTP API class found in sg-send-cli package')
 
     def cmd_pull(self, args):
         if '-h' in args or '--help' in args:
