@@ -183,6 +183,54 @@
         .info-box p  { color: var(--sg-text-muted); font-size: 0.8125rem; line-height: 1.6; }
         .info-box ul { color: var(--sg-text-muted); font-size: 0.8125rem; line-height: 1.8; padding-left: 1.25rem; margin-top: 0.5rem; }
         .info-box code { background: rgba(78,205,196,0.1); padding: 0.125rem 0.375rem; border-radius: 3px; font-size: 0.75rem; }
+
+        /* ---------- CLI Terminal ---------- */
+        .cli-terminal {
+            cursor: text;
+            min-height: 300px;
+            max-height: 600px;
+        }
+
+        .cli-prompt-line {
+            display: flex;
+            align-items: center;
+            padding: 0.0625rem 0;
+        }
+
+        .cli-prompt {
+            color: var(--sg-accent);
+            font-family: var(--sg-font-mono);
+            font-size: 0.8125rem;
+            white-space: pre;
+            user-select: none;
+            flex-shrink: 0;
+        }
+
+        .cli-input {
+            flex: 1;
+            background: transparent;
+            border: none;
+            color: var(--sg-text);
+            font-family: var(--sg-font-mono);
+            font-size: 0.8125rem;
+            line-height: 1.8;
+            outline: none;
+            padding: 0;
+            caret-color: var(--sg-accent);
+        }
+
+        .cli-input::placeholder { color: var(--sg-text-dim); }
+        .cli-input:disabled { opacity: 0.5; cursor: default; }
+
+        .cli-busy {
+            color: var(--sg-text-dim);
+            font-family: var(--sg-font-mono);
+            font-size: 0.8125rem;
+            padding: 0.0625rem 0;
+            display: none;
+        }
+
+        .cli-busy.visible { display: flex; align-items: center; gap: 0.5rem; }
     </style>
 </head>
 <body>
@@ -249,24 +297,28 @@
             </div>
         </div>
 
-        <!-- Step 3: Console -->
-        <div class="section" id="section-console" style="opacity:0.5;pointer-events:none;">
-            <h2>Console</h2>
+        <!-- Step 3: CLI Terminal -->
+        <div class="section" id="section-cli" style="opacity:0.5;pointer-events:none;">
+            <h2>CLI Terminal</h2>
             <p style="color:var(--sg-text-muted);font-size:0.8125rem;margin-bottom:0.75rem;">
-                Interactive Python console with sg-send-cli pre-loaded.
-                All vault modules are available: <code style="background:rgba(78,205,196,0.1);padding:0.125rem 0.375rem;border-radius:3px;font-size:0.75rem;">Vault__Crypto</code>,
-                <code style="background:rgba(78,205,196,0.1);padding:0.125rem 0.375rem;border-radius:3px;font-size:0.75rem;">Vault__Sync</code>,
-                <code style="background:rgba(78,205,196,0.1);padding:0.125rem 0.375rem;border-radius:3px;font-size:0.75rem;">Vault__Inspector</code>,
-                <code style="background:rgba(78,205,196,0.1);padding:0.125rem 0.375rem;border-radius:3px;font-size:0.75rem;">Vault__API__In_Memory</code>.
+                Type <code style="background:rgba(78,205,196,0.1);padding:0.125rem 0.375rem;border-radius:3px;font-size:0.75rem;">sg-send-cli</code> commands just like you would in a local terminal.
+                All operations run in-browser against an in-memory vault API.
             </p>
-            <div id="terminal" class="terminal"></div>
-            <div class="input-area">
-                <textarea id="code-input" rows="3" placeholder=">>> Type Python code here (Shift+Enter to run)"></textarea>
-                <button class="btn" id="run-btn" style="height:fit-content;">Run</button>
+            <div id="cli-terminal" class="terminal cli-terminal">
+                <div id="cli-output"></div>
+                <div class="cli-prompt-line" id="cli-prompt-line">
+                    <span class="cli-prompt">$ </span>
+                    <input type="text" id="cli-input" class="cli-input"
+                           placeholder="sg-send-cli --help"
+                           autocomplete="off" spellcheck="false" disabled>
+                </div>
+                <div class="cli-busy" id="cli-busy">
+                    <span class="spinner"></span> Running...
+                </div>
             </div>
             <p class="input-hint">
-                Shift+Enter to run &nbsp;|&nbsp; Enter for newline &nbsp;|&nbsp;
-                Up/Down arrows to recall history
+                Enter to run &nbsp;|&nbsp; Up/Down for history &nbsp;|&nbsp;
+                Try: <code style="background:rgba(78,205,196,0.1);padding:0.125rem 0.375rem;border-radius:3px;font-size:0.6875rem;">sg-send-cli init --vault-key my-secret</code>
             </p>
         </div>
 
@@ -319,15 +371,17 @@
         const loadProgress   = document.getElementById('load-progress')
         const loadFill       = document.getElementById('load-progress-fill')
         const sectionScenarios = document.getElementById('section-scenarios')
-        const sectionConsole   = document.getElementById('section-console')
-        const terminal       = document.getElementById('terminal')
-        const codeInput      = document.getElementById('code-input')
-        const runBtn         = document.getElementById('run-btn')
+        const sectionCli       = document.getElementById('section-cli')
+        const cliTerminal    = document.getElementById('cli-terminal')
+        const cliOutput      = document.getElementById('cli-output')
+        const cliInput       = document.getElementById('cli-input')
+        const cliPromptLine  = document.getElementById('cli-prompt-line')
+        const cliBusy        = document.getElementById('cli-busy')
 
         let pyodide = null
         let cmdHistory = []
         let historyIdx = -1
-        let vaultReady = false  // true after scenario setup
+        let cliRunning = false
 
         // --- Step 1: Load + Install ---
         loadBtn.addEventListener('click', async () => {
@@ -372,19 +426,6 @@
                 await micropip.install('osbot-utils')
                 logWrite(loadLog, 'Installed: osbot-utils', 'output')
 
-//                 loadBtn.innerHTML = '<span class="spinner"></span>Installing sg-send-cli...'
-//                 logWrite(loadLog, 'Installing sg-send-cli from PyPI...', 'info')
-//                 loadFill.style.width = '82%'
-//
-//                 // Install sg-send-cli with deps=False via Python API.
-//                 // deps=False skips dependency resolution which would fail on
-//                 // cryptography>=43.0.0 (no pure Python wheel on PyPI).
-//                 // We've already loaded cryptography (built-in) and osbot-utils above.
-//                 await pyodide.runPythonAsync(`
-// import micropip
-// await micropip.install('sg-send-cli', deps=False)
-// `)
-
                 loadBtn.innerHTML = '<span class="spinner"></span>Installing sg-send-cli...'
                 logWrite(loadLog, 'Installing sg-send-cli from PyPI...', 'info')
                 loadFill.style.width = '82%'
@@ -427,15 +468,22 @@ import sys
                 logWrite(loadLog, 'All vault modules imported successfully.', 'output')
                 loadFill.style.width = '100%'
 
+                // Set up CLI dispatcher in Python
+                logWrite(loadLog, 'Setting up CLI dispatcher...', 'info')
+                await pyodide.runPythonAsync(CLI_DISPATCHER_CODE)
+                logWrite(loadLog, 'CLI ready.', 'output')
+
                 loadBtn.style.display = 'none'
                 sectionScenarios.style.opacity = '1'
                 sectionScenarios.style.pointerEvents = 'auto'
-                sectionConsole.style.opacity = '1'
-                sectionConsole.style.pointerEvents = 'auto'
+                sectionCli.style.opacity = '1'
+                sectionCli.style.pointerEvents = 'auto'
+                cliInput.disabled = false
+                cliInput.focus()
 
-                termWrite('sg-send-cli loaded. Ready for vault operations.', 'output')
-                termWrite('Available: Vault__Crypto, Vault__Sync, Vault__Inspector, Vault__API__In_Memory', 'info')
-                termWrite('', '')
+                cliWrite('sg-send-cli loaded. Type commands below.', 'output')
+                cliWrite('Try: sg-send-cli --help  or  sg-send-cli init --vault-key my-secret', 'info')
+                cliWrite('', '')
 
             } catch (err) {
                 logWrite(loadLog, `Error: ${err.message}`, 'error')
@@ -747,7 +795,7 @@ print(f'\\nVault stored in _sg_vault_dir for interactive use.')
                     }
                 }
 
-                vaultReady = true
+                // Scenario completed successfully
             } catch (err) {
                 const msg = err.message || String(err)
                 const lines = msg.split('\n').filter(l => l.trim())
@@ -758,86 +806,106 @@ print(f'\\nVault stored in _sg_vault_dir for interactive use.')
             btns.forEach(b => b.disabled = false)
         }
 
-        // --- Console (REPL) ---
-        async function runCode() {
-            if (!pyodide) return
-            const code = codeInput.value
-            if (!code.trim()) return
+        // --- CLI Command Handler ---
+        async function runCliCommand() {
+            if (!pyodide || cliRunning) return
+            const cmd = cliInput.value.trim()
+            if (!cmd) return
 
-            const lines = code.split('\n')
-            for (let i = 0; i < lines.length; i++) {
-                termWrite(`${i === 0 ? '>>>' : '...'} ${lines[i]}`, 'input')
+            // Echo command to terminal
+            cliWrite(`$ ${cmd}`, 'input')
+
+            cmdHistory.push(cmd)
+            historyIdx = cmdHistory.length
+            cliInput.value = ''
+
+            // Handle 'clear' locally
+            if (cmd === 'clear') {
+                cliOutput.innerHTML = ''
+                cliInput.focus()
+                return
             }
 
-            cmdHistory.push(code)
-            historyIdx = cmdHistory.length
-            codeInput.value = ''
+            cliRunning = true
+            cliInput.disabled = true
+            cliPromptLine.style.display = 'none'
+            cliBusy.classList.add('visible')
 
             try {
-                const { result, stdout, stderr, error } = await runPythonCapture(pyodide, code)
-
-                if (stdout) {
+                pyodide.globals.set('_cli_cmd', cmd)
+                const { stdout, stderr, error } = await runPythonCapture(pyodide, `
+_cli_result = _sg_cli.run(_cli_cmd)
+if _cli_result:
+    print(_cli_result)
+`)
+                if (stdout && stdout.trim()) {
                     for (const line of stdout.trimEnd().split('\n')) {
-                        termWrite(line, 'output')
+                        cliWrite(line, 'output')
                     }
                 }
-                if (result !== undefined && result !== null) {
-                    termWrite(String(result), 'output')
-                }
-                if (stderr) {
+                if (stderr && stderr.trim()) {
                     for (const line of stderr.trimEnd().split('\n')) {
-                        termWrite(line, 'warn')
+                        cliWrite(line, 'warn')
                     }
                 }
                 if (error) {
-                    for (const line of error.split('\n')) {
-                        termWrite(line, 'error')
-                    }
+                    const errLines = error.split('\n').filter(l => l.trim())
+                    cliWrite(errLines[errLines.length - 1] || error, 'error')
                 }
             } catch (err) {
-                const msg = err.message || String(err)
-                const lines = msg.split('\n').filter(l => l.trim())
-                termWrite(lines[lines.length - 1] || msg, 'error')
+                cliWrite(`Error: ${err.message}`, 'error')
             }
 
-            codeInput.focus()
+            cliRunning = false
+            cliBusy.classList.remove('visible')
+            cliPromptLine.style.display = 'flex'
+            cliInput.disabled = false
+            cliInput.focus()
         }
 
-        runBtn.addEventListener('click', runCode)
+        // Click terminal to focus input
+        cliTerminal.addEventListener('click', (e) => {
+            if (e.target === cliTerminal || e.target === cliOutput) {
+                cliInput.focus()
+            }
+        })
 
-        codeInput.addEventListener('keydown', (e) => {
-            if (e.key === 'Enter' && e.shiftKey) {
+        cliInput.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter') {
                 e.preventDefault()
-                runCode()
+                runCliCommand()
                 return
             }
-            if (e.key === 'ArrowUp' && codeInput.selectionStart === 0) {
+            if (e.key === 'ArrowUp') {
                 e.preventDefault()
                 if (historyIdx > 0) {
                     historyIdx--
-                    codeInput.value = cmdHistory[historyIdx]
+                    cliInput.value = cmdHistory[historyIdx]
                 }
             }
-            if (e.key === 'ArrowDown' && codeInput.selectionEnd === codeInput.value.length) {
+            if (e.key === 'ArrowDown') {
                 e.preventDefault()
                 if (historyIdx < cmdHistory.length - 1) {
                     historyIdx++
-                    codeInput.value = cmdHistory[historyIdx]
+                    cliInput.value = cmdHistory[historyIdx]
                 } else {
                     historyIdx = cmdHistory.length
-                    codeInput.value = ''
+                    cliInput.value = ''
                 }
             }
         })
 
         // --- Helpers ---
-        function termWrite(text, cls) {
+        function cliWrite(text, cls) {
             const div = document.createElement('div')
             div.className = `term-line ${cls || ''}`
             div.textContent = text
-            terminal.appendChild(div)
-            terminal.scrollTop = terminal.scrollHeight
+            cliOutput.appendChild(div)
+            cliTerminal.scrollTop = cliTerminal.scrollHeight
         }
+
+        // Alias for scenarios
+        function termWrite(text, cls) { cliWrite(text, cls) }
 
         function logWrite(container, text, cls) {
             const div = document.createElement('div')
@@ -846,6 +914,437 @@ print(f'\\nVault stored in _sg_vault_dir for interactive use.')
             container.appendChild(div)
             container.scrollTop = container.scrollHeight
         }
+
+        // --- Python CLI Dispatcher ---
+        const CLI_DISPATCHER_CODE = `
+import sys, os, shlex, tempfile, importlib.metadata
+
+class BrowserCLI:
+    def __init__(self):
+        from sg_send_cli.api.Vault__API__In_Memory import Vault__API__In_Memory
+        from sg_send_cli.crypto.Vault__Crypto      import Vault__Crypto
+        from sg_send_cli.sync.Vault__Sync          import Vault__Sync
+        from sg_send_cli.objects.Vault__Inspector   import Vault__Inspector
+
+        self.api       = Vault__API__In_Memory().setup()
+        self.crypto    = Vault__Crypto()
+        self.sync      = Vault__Sync(crypto=self.crypto, api=self.api)
+        self.inspector = Vault__Inspector(crypto=self.crypto)
+        self.vault_dir = None
+        self.vault_key = None
+        self.keys      = None
+        self.home      = tempfile.mkdtemp(prefix='sg_cli_')
+        os.chdir(self.home)
+        self.version   = importlib.metadata.version('sg-send-cli')
+
+    def _need_vault(self):
+        if not self.vault_dir:
+            raise RuntimeError("No vault initialised. Run: sg-send-cli init --vault-key <KEY>")
+        return self.vault_dir
+
+    def _parse_flag(self, args, flag):
+        """Extract --flag VALUE from args, return (value, remaining_args)."""
+        rest = []
+        value = None
+        i = 0
+        while i < len(args):
+            if args[i] == flag and i + 1 < len(args):
+                value = args[i + 1]
+                i += 2
+            else:
+                rest.append(args[i])
+                i += 1
+        return value, rest
+
+    def run(self, cmd_string):
+        cmd_string = cmd_string.strip()
+        if not cmd_string:
+            return ''
+
+        # Handle echo TEXT > FILE
+        if '>' in cmd_string and not cmd_string.startswith('sg-send-cli'):
+            parts = cmd_string.split('>', 1)
+            if len(parts) == 2:
+                text_part = parts[0].strip()
+                file_path = parts[1].strip()
+                if text_part.startswith('echo '):
+                    text_part = text_part[5:].strip().strip('"').strip("'")
+                    os.makedirs(os.path.dirname(file_path) if os.path.dirname(file_path) else '.', exist_ok=True)
+                    with open(file_path, 'w') as f:
+                        f.write(text_part + '\\n')
+                    return ''
+
+        try:
+            args = shlex.split(cmd_string)
+        except ValueError as e:
+            return f'Error: {e}'
+
+        if not args:
+            return ''
+
+        cmd = args[0]
+        rest = args[1:]
+
+        # Strip sg-send-cli prefix
+        if cmd in ('sg-send-cli', 'sg_send_cli'):
+            if not rest:
+                return self.cmd_help()
+            cmd = rest[0]
+            rest = rest[1:]
+
+        handlers = {
+            'help': 'cmd_help', '--help': 'cmd_help', '-h': 'cmd_help',
+            '--version': 'cmd_version', 'version': 'cmd_version',
+            'init': 'cmd_init',
+            'status': 'cmd_status',
+            'commit': 'cmd_commit',
+            'push': 'cmd_push',
+            'inspect': 'cmd_inspect',
+            'inspect-tree': 'cmd_inspect_tree',
+            'inspect-log': 'cmd_inspect_log',
+            'log': 'cmd_inspect_log',
+            'inspect-stats': 'cmd_inspect_stats',
+            'derive-keys': 'cmd_derive_keys',
+            'branches': 'cmd_branches',
+            'cat-object': 'cmd_cat_object',
+            'ls': 'cmd_ls',
+            'cat': 'cmd_cat',
+            'pwd': 'cmd_pwd',
+            'cd': 'cmd_cd',
+            'mkdir': 'cmd_mkdir',
+            'rm': 'cmd_rm',
+            'tree': 'cmd_tree',
+            'touch': 'cmd_touch',
+            'write': 'cmd_write',
+        }
+
+        handler_name = handlers.get(cmd)
+        if not handler_name:
+            return f"sg-send-cli: '{cmd}' is not a command. See 'sg-send-cli --help'."
+
+        try:
+            handler = getattr(self, handler_name)
+            return handler(rest) if handler_name not in ('cmd_help', 'cmd_version', 'cmd_pwd') else handler()
+        except Exception as e:
+            return f'Error: {e}'
+
+    def cmd_help(self):
+        return f"""usage: sg-send-cli [-h] [--version] COMMAND [OPTIONS]
+
+CLI tool for syncing encrypted vaults with SG/Send  (v{self.version}, browser mode)
+
+positional arguments:
+  {{init,commit,status,push,inspect,inspect-tree,inspect-log,inspect-stats,derive-keys,branches}}
+
+                        Available commands
+  init                  Create a new empty vault (in-memory)
+  commit                Commit local changes to the clone branch
+  status                Show uncommitted changes in working directory
+  push                  Push clone branch to the in-memory server
+  inspect               Show vault state overview (dev tool)
+  inspect-tree          Show current tree entries (dev tool)
+  inspect-log           Show commit chain (dev tool)
+  log                   Alias for inspect-log
+  inspect-stats         Show object store statistics (dev tool)
+  derive-keys           Derive and display vault keys (debug)
+  branches              List all branches in the vault
+
+shell commands:
+  ls [PATH]             List directory contents
+  cat FILE              Display file contents
+  write FILE TEXT       Write text to a file
+  touch FILE            Create empty file
+  mkdir DIR             Create directory
+  rm FILE               Remove a file
+  tree [DIR]            Show directory tree
+  pwd                   Print working directory
+  cd [DIR]              Change directory
+  clear                 Clear terminal
+
+optional arguments:
+  -h, --help            Show this help message and exit
+  --version             Show version number and exit"""
+
+    def cmd_version(self):
+        return f'sg-send-cli {self.version}'
+
+    def cmd_init(self, args):
+        if '-h' in args or '--help' in args:
+            return 'usage: sg-send-cli init [--vault-key KEY] [DIRECTORY]\\n\\nCreate a new empty vault.'
+        vault_key, args = self._parse_flag(args, '--vault-key')
+        if not vault_key:
+            vault_key = 'browser-demo:vault-key'
+        vault_dir = args[0] if args else os.path.join(os.getcwd(), 'my-vault')
+        os.makedirs(vault_dir, exist_ok=True)
+
+        self.vault_key = vault_key
+        self.vault_dir = vault_dir
+        self.keys = self.crypto.derive_keys_from_vault_key(vault_key)
+
+        result = self.sync.init(vault_dir, vault_key=vault_key)
+
+        # Also store on builtins for scenario compatibility
+        import builtins
+        builtins._sg_vault_dir = vault_dir
+        builtins._sg_sync      = self.sync
+        builtins._sg_crypto    = self.crypto
+        builtins._sg_api       = self.api
+        builtins._sg_inspector = self.inspector
+        builtins._sg_keys      = self.keys
+
+        return f"""Initialised empty vault in {vault_dir}
+  Vault ID:     {result['vault_id']}
+  Named branch: {result['named_branch']}
+  Clone branch: {result['branch_id']}
+  Init commit:  {result['commit_id']}
+  Vault key:    {vault_key}"""
+
+    def cmd_status(self, args):
+        vd = self._need_vault()
+        status = self.sync.status(vd)
+        lines = ['On branch clone']
+        if status.get('clean'):
+            lines.append('nothing to commit, working tree clean')
+        else:
+            if status.get('added'):
+                lines.append('\\nNew files:')
+                for f in status['added']:
+                    lines.append(f'  new file:   {f}')
+            if status.get('modified'):
+                lines.append('\\nModified files:')
+                for f in status['modified']:
+                    lines.append(f'  modified:   {f}')
+            if status.get('deleted'):
+                lines.append('\\nDeleted files:')
+                for f in status['deleted']:
+                    lines.append(f'  deleted:    {f}')
+        return '\\n'.join(lines)
+
+    def cmd_commit(self, args):
+        vd = self._need_vault()
+        if '-h' in args or '--help' in args:
+            return 'usage: sg-send-cli commit [-m MESSAGE]'
+        message, args = self._parse_flag(args, '-m')
+        if not message:
+            message = 'update'
+        status = self.sync.status(vd)
+        if status.get('clean'):
+            return 'nothing to commit, working tree clean'
+        result = self.sync.commit(vd, message=message)
+        commit_id = result.get('commit_id', 'unknown')
+        added    = len(status.get('added', []))
+        modified = len(status.get('modified', []))
+        deleted  = len(status.get('deleted', []))
+        parts = []
+        if added:    parts.append(f'{added} new file(s)')
+        if modified: parts.append(f'{modified} modified')
+        if deleted:  parts.append(f'{deleted} deleted')
+        summary = f' {", ".join(parts)}' if parts else ''
+        return f'[clone {commit_id[:8]}] {message}\\n{summary}'.strip()
+
+    def cmd_push(self, args):
+        vd = self._need_vault()
+        result = self.sync.push(vd)
+        return f"""Pushing to in-memory server...
+  Status:          {result['status']}
+  Objects uploaded: {result.get('objects_uploaded', 0)}
+  Commits pushed:  {result.get('commits_pushed', 0)}"""
+
+    def cmd_inspect(self, args):
+        vd = self._need_vault()
+        keys = self.keys
+        chain = self.inspector.inspect_commit_chain(vd, read_key=keys['read_key_bytes'])
+        tree  = self.inspector.inspect_tree(vd, read_key=keys['read_key_bytes'])
+        status = self.sync.status(vd)
+        stats = self.inspector.object_store_stats(vd)
+        return f"""=== Vault Overview ===
+  Directory: {vd}
+  Commits:   {len(chain)}
+  Files:     {tree['file_count']}
+  Objects:   {stats['total_objects']}
+  Clean:     {status.get('clean', False)}"""
+
+    def cmd_inspect_tree(self, args):
+        vd = self._need_vault()
+        tree = self.inspector.inspect_tree(vd, read_key=self.keys['read_key_bytes'])
+        lines = [f'=== Tree ({tree["file_count"]} files) ===']
+        for entry in tree.get('entries', []):
+            lines.append(f'  {entry["path"]:30s}  blob={entry["blob_id"][:12]}  size={entry["size"]}')
+        if not tree.get('entries'):
+            lines.append('  (empty tree)')
+        return '\\n'.join(lines)
+
+    def cmd_inspect_log(self, args):
+        vd = self._need_vault()
+        chain = self.inspector.inspect_commit_chain(vd, read_key=self.keys['read_key_bytes'])
+        lines = [f'=== Commit Log ({len(chain)} commits) ===']
+        for c in chain:
+            lines.append(f'  {c["commit_id"][:12]}  {c["message"]}')
+        return '\\n'.join(lines)
+
+    def cmd_inspect_stats(self, args):
+        vd = self._need_vault()
+        stats = self.inspector.object_store_stats(vd)
+        sg_dir = os.path.join(vd, '.sg_vault', 'bare')
+        counts = {}
+        for sub in ['data', 'refs', 'keys', 'indexes']:
+            sub_dir = os.path.join(sg_dir, sub)
+            if os.path.isdir(sub_dir):
+                counts[sub] = len([f for f in os.listdir(sub_dir) if os.path.isfile(os.path.join(sub_dir, f))])
+            else:
+                counts[sub] = 0
+        lines = [
+            '=== Object Store ===',
+            f'  Total objects: {stats["total_objects"]}',
+            f'  Total bytes:   {stats["total_bytes"]}',
+            '',
+            '=== Bare Structure ===',
+        ]
+        for k, v in sorted(counts.items()):
+            lines.append(f'  {k:10s}: {v}')
+        lines.append(f'  {"total":10s}: {sum(counts.values())}')
+        lines.extend([
+            '',
+            '=== In-Memory API ===',
+            f'  Entries:      {len(self.api._store)}',
+            f'  Total writes: {self.api._write_count}',
+        ])
+        return '\\n'.join(lines)
+
+    def cmd_derive_keys(self, args):
+        if not self.vault_key:
+            return 'No vault key set. Run init first.'
+        keys = self.keys
+        lines = ['=== Derived Keys ===', f'  Vault key: {self.vault_key}']
+        for k, v in keys.items():
+            if isinstance(v, bytes):
+                lines.append(f'  {k}: {v.hex()[:32]}...')
+            else:
+                lines.append(f'  {k}: {v}')
+        return '\\n'.join(lines)
+
+    def cmd_branches(self, args):
+        vd = self._need_vault()
+        refs_dir = os.path.join(vd, '.sg_vault', 'bare', 'refs')
+        lines = ['=== Branches ===']
+        if os.path.isdir(refs_dir):
+            for f in sorted(os.listdir(refs_dir)):
+                lines.append(f'  {f}')
+        else:
+            lines.append('  (no branches)')
+        return '\\n'.join(lines)
+
+    def cmd_cat_object(self, args):
+        if not args or args[0] in ('-h', '--help'):
+            return 'usage: sg-send-cli cat-object OBJECT_ID'
+        return 'cat-object: not yet implemented in browser mode'
+
+    # --- Shell commands ---
+
+    def cmd_ls(self, args):
+        target = args[0] if args else '.'
+        try:
+            entries = sorted(os.listdir(target))
+        except Exception as e:
+            return f'ls: {e}'
+        if not entries:
+            return '(empty directory)'
+        result = []
+        for e in entries:
+            full = os.path.join(target, e)
+            if os.path.isdir(full):
+                result.append(f'{e}/')
+            else:
+                size = os.path.getsize(full)
+                result.append(f'{e}  ({size} bytes)')
+        return '\\n'.join(result)
+
+    def cmd_cat(self, args):
+        if not args:
+            return 'Usage: cat <file>'
+        try:
+            with open(args[0]) as f:
+                return f.read()
+        except Exception as e:
+            return f'cat: {e}'
+
+    def cmd_pwd(self):
+        return os.getcwd()
+
+    def cmd_cd(self, args):
+        target = args[0] if args else self.home
+        try:
+            os.chdir(target)
+            return os.getcwd()
+        except Exception as e:
+            return f'cd: {e}'
+
+    def cmd_mkdir(self, args):
+        if not args:
+            return 'Usage: mkdir <directory>'
+        try:
+            os.makedirs(args[0], exist_ok=True)
+            return ''
+        except Exception as e:
+            return f'mkdir: {e}'
+
+    def cmd_rm(self, args):
+        if not args:
+            return 'Usage: rm <file>'
+        try:
+            os.remove(args[0])
+            return ''
+        except Exception as e:
+            return f'rm: {e}'
+
+    def cmd_touch(self, args):
+        if not args:
+            return 'Usage: touch <file>'
+        try:
+            with open(args[0], 'a'):
+                pass
+            return ''
+        except Exception as e:
+            return f'touch: {e}'
+
+    def cmd_write(self, args):
+        if len(args) < 2:
+            return 'Usage: write <file> <text...>'
+        filepath = args[0]
+        text = ' '.join(args[1:])
+        try:
+            os.makedirs(os.path.dirname(filepath) if os.path.dirname(filepath) else '.', exist_ok=True)
+            with open(filepath, 'w') as f:
+                f.write(text + '\\n')
+            return ''
+        except Exception as e:
+            return f'write: {e}'
+
+    def cmd_tree(self, args):
+        target = args[0] if args else '.'
+        lines = [target]
+        self._tree_walk(target, '', lines)
+        return '\\n'.join(lines)
+
+    def _tree_walk(self, path, prefix, lines):
+        try:
+            entries = sorted(e for e in os.listdir(path) if not e.startswith('.'))
+        except PermissionError:
+            return
+        for i, entry in enumerate(entries):
+            is_last = (i == len(entries) - 1)
+            connector = '\\u2514\\u2500\\u2500 ' if is_last else '\\u251c\\u2500\\u2500 '
+            full = os.path.join(path, entry)
+            if os.path.isdir(full):
+                lines.append(f'{prefix}{connector}{entry}/')
+                ext = '    ' if is_last else '\\u2502   '
+                self._tree_walk(full, prefix + ext, lines)
+            else:
+                lines.append(f'{prefix}{connector}{entry}')
+
+import builtins
+builtins._sg_cli = BrowserCLI()
+`
     </script>
 </body>
 </html>
