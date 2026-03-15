@@ -1590,13 +1590,14 @@ options:
             remotes[name] = url
             _save_remotes(remotes)
 
-            # Test connectivity (requests works in Pyodide via browser fetch)
+            # Test connectivity using Pyodide's fetch bridge
             try:
-                import requests
-                resp = requests.get(url.rstrip('/') + '/api/docs', timeout=10)
-                return f'Remote \\'{name}\\' added: {url}\\n  Server reachable (HTTP {resp.status_code})'
+                from pyodide.http import open_url
+                resp = open_url(url.rstrip('/') + '/')
+                body = resp.read()[:200]
+                return f"Remote '{name}' added: {url}\\n  Server reachable ({len(body)} bytes)"
             except Exception as e:
-                return f'Remote \\'{name}\\' added: {url}\\n  Warning: could not reach server ({e})'
+                return f"Remote '{name}' added: {url}\\n  Warning: could not reach server ({e})"
 
         elif subcmd == 'remove':
             if not sub_args:
@@ -1680,21 +1681,40 @@ options:
         # Try real clone() method first
         try:
             result = self.sync.clone(vault_dir, vault_key=vault_key)
-            self.vault_dir = vault_dir
-            builtins._sg_vault_dir = vault_dir
-            builtins._sg_sync      = self.sync
-            return f"""Cloned vault into {vault_dir}
+            if result and result.get('vault_id'):
+                self.vault_dir = vault_dir
+                builtins._sg_vault_dir = vault_dir
+                builtins._sg_sync      = self.sync
+                return f"""Cloned vault into {vault_dir}
   Vault ID:     {result.get('vault_id', 'n/a')}
   Named branch: {result.get('named_branch', 'n/a')}
   Clone branch: {result.get('branch_id', 'n/a')}
   Vault key:    {vault_key}"""
         except (AttributeError, TypeError):
             pass  # clone() not available, fall back
+        except Exception as e:
+            return f'clone: {e}'
 
         # Fallback: init vault, copy data objects, update refs, check out working tree
         api_store = self.api._store
         if not api_store:
             return 'clone: nothing to clone (shared server is empty — push from another terminal first)'
+
+        # Validate: check that the derived keys produce refs/branch IDs
+        # that actually exist on the server
+        server_refs = [k for k in api_store if k.startswith('refs/')]
+        if not server_refs:
+            return f"clone: no refs found on server — nothing has been pushed yet"
+
+        # Check if any derived key value matches a server ref
+        derived_values = set()
+        for v in self.keys.values():
+            if isinstance(v, str):
+                derived_values.add(v)
+                derived_values.add(f'refs/{v}')
+        matching = [r for r in server_refs if r in derived_values or r.split('/')[-1] in derived_values]
+        if not matching:
+            return f"clone: vault key '{vault_key}' does not match any vault on the server.\\n  Server refs: {', '.join(server_refs)}\\n  Hint: check your passphrase and vault ID"
 
         try:
             # Init the vault locally (creates bare dir structure + empty init commit)
