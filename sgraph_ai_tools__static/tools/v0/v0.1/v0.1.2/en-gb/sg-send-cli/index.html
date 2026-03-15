@@ -1683,10 +1683,38 @@ optional arguments:
         vd = self._need_vault()
         try:
             result = self.sync.pull(vd)
+            objects_pulled = result.get('objects_downloaded', 0)
+            commits_pulled = result.get('commits_pulled', 0)
+
+            # Check out updated working tree files
+            checked_out = 0
+            bare_dir = os.path.join(vd, '.sg_vault', 'bare')
+            try:
+                tree = self.inspector.inspect_tree(vd, read_key=self.keys['read_key_bytes'])
+                for entry in tree.get('entries', []):
+                    file_path = os.path.join(vd, entry['path'])
+                    file_dir  = os.path.dirname(file_path)
+                    if file_dir:
+                        os.makedirs(file_dir, exist_ok=True)
+                    blob_path = os.path.join(bare_dir, 'data', entry['blob_id'])
+                    if os.path.exists(blob_path):
+                        with open(blob_path, 'rb') as f:
+                            encrypted = f.read()
+                        try:
+                            decrypted = self.crypto.decrypt(encrypted, self.keys['read_key_bytes'])
+                            with open(file_path, 'wb') as f:
+                                f.write(decrypted)
+                            checked_out += 1
+                        except Exception:
+                            pass
+            except Exception:
+                pass
+
             return f"""Pulling from in-memory server...
   Status:          {result.get('status', 'done')}
-  Objects pulled:  {result.get('objects_downloaded', 0)}
-  Commits pulled:  {result.get('commits_pulled', 0)}"""
+  Objects pulled:  {objects_pulled}
+  Commits pulled:  {commits_pulled}
+  Files updated:   {checked_out}"""
         except Exception as e:
             return f'pull: {e}'
 
@@ -1728,37 +1756,27 @@ optional arguments:
         except (AttributeError, TypeError):
             pass  # clone() not available, fall back
 
-        # Fallback: copy all objects from API into a fresh vault
+        # Fallback: init + pull from the shared API
         api_store = self.api._store
         if not api_store:
             return 'clone: nothing to clone (shared server is empty — push from another terminal first)'
 
         try:
-            # Init the vault locally
+            # Init the vault locally (creates structure + empty init commit)
             result = self.sync.init(vault_dir, vault_key=vault_key)
             self.vault_dir = vault_dir
             builtins._sg_vault_dir = vault_dir
             builtins._sg_sync      = self.sync
 
+            # Pull from the shared API server to get all pushed objects and update refs
+            pull_result = self.sync.pull(vault_dir)
+            objects_pulled = pull_result.get('objects_downloaded', 0)
+            commits_pulled = pull_result.get('commits_pulled', 0)
+
             bare_dir = os.path.join(vault_dir, '.sg_vault', 'bare')
 
-            # Copy every object from the shared API store into this vault's bare dir
-            copied = 0
-            for key, data in api_store.items():
-                # Keys look like 'data/obj-xxx', 'refs/branch-xxx', 'keys/xxx', etc.
-                target_path = os.path.join(bare_dir, key)
-                target_dir  = os.path.dirname(target_path)
-                os.makedirs(target_dir, exist_ok=True)
-                if isinstance(data, bytes):
-                    with open(target_path, 'wb') as f:
-                        f.write(data)
-                else:
-                    with open(target_path, 'w') as f:
-                        f.write(str(data))
-                copied += 1
-
-            # Now try to check out the working tree from the latest commit
-            checkout_info = ''
+            # Check out the working tree from the latest commit
+            checked_out = 0
             try:
                 tree = self.inspector.inspect_tree(vault_dir, read_key=self.keys['read_key_bytes'])
                 for entry in tree.get('entries', []):
@@ -1768,23 +1786,23 @@ optional arguments:
                         os.makedirs(file_dir, exist_ok=True)
                     blob_path = os.path.join(bare_dir, 'data', entry['blob_id'])
                     if os.path.exists(blob_path):
-                        # Decrypt the blob to get file contents
                         with open(blob_path, 'rb') as f:
                             encrypted = f.read()
                         try:
                             decrypted = self.crypto.decrypt(encrypted, self.keys['read_key_bytes'])
                             with open(file_path, 'wb') as f:
                                 f.write(decrypted)
+                            checked_out += 1
                         except Exception:
                             pass  # Skip files we can't decrypt
-                checkout_info = f'\\n  Files:        {tree.get("file_count", 0)} checked out'
-            except Exception:
-                checkout_info = '\\n  Files:        (could not check out working tree)'
+                checkout_info = f'\\n  Files:        {checked_out} checked out'
+            except Exception as e:
+                checkout_info = f'\\n  Files:        (could not check out working tree: {e})'
 
             chain = self.inspector.inspect_commit_chain(vault_dir, read_key=self.keys['read_key_bytes'])
 
             return f"""Cloned vault into {vault_dir}
-  Objects:      {copied} copied from shared server
+  Objects:      {objects_pulled} pulled from shared server
   Commits:      {len(chain)}{checkout_info}
   Vault key:    {vault_key}"""
         except Exception as e:
