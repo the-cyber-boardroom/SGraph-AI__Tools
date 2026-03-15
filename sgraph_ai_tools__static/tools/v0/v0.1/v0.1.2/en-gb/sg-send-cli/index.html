@@ -1756,7 +1756,7 @@ optional arguments:
         except (AttributeError, TypeError):
             pass  # clone() not available, fall back
 
-        # Fallback: init + pull from the shared API
+        # Fallback: init vault, then copy objects from API store into bare dir
         api_store = self.api._store
         if not api_store:
             return 'clone: nothing to clone (shared server is empty — push from another terminal first)'
@@ -1768,12 +1768,35 @@ optional arguments:
             builtins._sg_vault_dir = vault_dir
             builtins._sg_sync      = self.sync
 
-            # Pull from the shared API server to get all pushed objects and update refs
-            pull_result = self.sync.pull(vault_dir)
-            objects_pulled = pull_result.get('objects_downloaded', 0)
-            commits_pulled = pull_result.get('commits_pulled', 0)
-
             bare_dir = os.path.join(vault_dir, '.sg_vault', 'bare')
+
+            # Figure out the API key format by inspecting the store
+            # Keys might be like 'data/obj-xxx' or 'vaults/{id}/data/obj-xxx'
+            # We need to map them to bare dir paths: bare/{data,refs,keys,indexes}/xxx
+            bare_subdirs = {'data', 'refs', 'keys', 'indexes'}
+            copied = 0
+            for key, data in api_store.items():
+                # Determine the bare-relative path
+                # Try to find the first bare subdir in the key path
+                parts = key.replace('\\\\', '/').split('/')
+                bare_rel = None
+                for i, part in enumerate(parts):
+                    if part in bare_subdirs:
+                        bare_rel = '/'.join(parts[i:])
+                        break
+                if not bare_rel:
+                    continue  # Skip keys we can't map
+
+                target_path = os.path.join(bare_dir, bare_rel)
+                target_dir  = os.path.dirname(target_path)
+                os.makedirs(target_dir, exist_ok=True)
+                if isinstance(data, bytes):
+                    with open(target_path, 'wb') as f:
+                        f.write(data)
+                else:
+                    with open(target_path, 'w') as f:
+                        f.write(str(data))
+                copied += 1
 
             # Check out the working tree from the latest commit
             checked_out = 0
@@ -1797,16 +1820,21 @@ optional arguments:
                             pass  # Skip files we can't decrypt
                 checkout_info = f'\\n  Files:        {checked_out} checked out'
             except Exception as e:
-                checkout_info = f'\\n  Files:        (could not check out working tree: {e})'
+                checkout_info = f'\\n  Files:        (checkout error: {e})'
 
             chain = self.inspector.inspect_commit_chain(vault_dir, read_key=self.keys['read_key_bytes'])
 
+            # Debug: show API store keys to diagnose issues
+            store_keys = ', '.join(list(api_store.keys())[:8])
+            debug_info = f'\\n  [debug] API keys: {store_keys}'
+
             return f"""Cloned vault into {vault_dir}
-  Objects:      {objects_pulled} pulled from shared server
+  Objects:      {copied} copied from shared server
   Commits:      {len(chain)}{checkout_info}
-  Vault key:    {vault_key}"""
+  Vault key:    {vault_key}{debug_info}"""
         except Exception as e:
-            return f'clone: {e}'
+            import traceback
+            return f'clone: {e}\\n{traceback.format_exc()}'
 
     def cmd_cat_object(self, args):
         if not args or args[0] in ('-h', '--help'):
