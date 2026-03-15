@@ -1248,8 +1248,20 @@ class BrowserCLI:
         self.vault_key = None
         self.keys      = None
         self.home      = tempfile.mkdtemp(prefix='sg_cli_')
+        self.cwd       = self.home
         os.chdir(self.home)
         self.version   = importlib.metadata.version('sg-send-cli')
+
+    def _enter_cwd(self):
+        """Switch to this tab's working directory. Returns old cwd to restore later."""
+        old = os.getcwd()
+        if os.path.isdir(self.cwd):
+            os.chdir(self.cwd)
+        return old
+
+    def _leave_cwd(self):
+        """Save current directory as this tab's cwd."""
+        self.cwd = os.getcwd()
 
     def _need_vault(self):
         if not self.vault_dir:
@@ -1271,6 +1283,14 @@ class BrowserCLI:
         return value, rest
 
     def run(self, cmd_string):
+        # Save/restore working directory per-tab
+        self._enter_cwd()
+        try:
+            return self._run_inner(cmd_string)
+        finally:
+            self._leave_cwd()
+
+    def _run_inner(self, cmd_string):
         cmd_string = cmd_string.strip()
         if not cmd_string:
             return ''
@@ -1609,13 +1629,10 @@ optional arguments:
         os.makedirs(vault_dir, exist_ok=True)
 
         self.vault_key = vault_key
-        self.vault_dir = vault_dir
         self.keys = self.crypto.derive_keys_from_vault_key(vault_key)
 
         # Store on builtins for compatibility
         import builtins
-        builtins._sg_vault_dir = vault_dir
-        builtins._sg_sync      = self.sync
         builtins._sg_crypto    = self.crypto
         builtins._sg_api       = self.api
         builtins._sg_inspector = self.inspector
@@ -1624,27 +1641,76 @@ optional arguments:
         # Try real clone() method first
         try:
             result = self.sync.clone(vault_dir, vault_key=vault_key)
+            self.vault_dir = vault_dir
+            builtins._sg_vault_dir = vault_dir
+            builtins._sg_sync      = self.sync
             return f"""Cloned vault into {vault_dir}
   Vault ID:     {result.get('vault_id', 'n/a')}
   Named branch: {result.get('named_branch', 'n/a')}
   Clone branch: {result.get('branch_id', 'n/a')}
   Vault key:    {vault_key}"""
         except (AttributeError, TypeError):
-            pass  # clone() not available, fall back to init + pull
+            pass  # clone() not available, fall back
 
-        # Fallback: init + pull
+        # Fallback: copy all objects from API into a fresh vault
+        api_store = self.api._store
+        if not api_store:
+            return 'clone: nothing to clone (shared server is empty — push from another terminal first)'
+
         try:
+            # Init the vault locally
             result = self.sync.init(vault_dir, vault_key=vault_key)
-            lines = [f'Initialised vault in {vault_dir} (clone fallback: init + pull)']
-            lines.append(f'  Vault ID:     {result.get("vault_id", "n/a")}')
-            lines.append(f'  Vault key:    {vault_key}')
+            self.vault_dir = vault_dir
+            builtins._sg_vault_dir = vault_dir
+            builtins._sg_sync      = self.sync
+
+            bare_dir = os.path.join(vault_dir, '.sg_vault', 'bare')
+
+            # Copy every object from the shared API store into this vault's bare dir
+            copied = 0
+            for key, data in api_store.items():
+                # Keys look like 'data/obj-xxx', 'refs/branch-xxx', 'keys/xxx', etc.
+                target_path = os.path.join(bare_dir, key)
+                target_dir  = os.path.dirname(target_path)
+                os.makedirs(target_dir, exist_ok=True)
+                if isinstance(data, bytes):
+                    with open(target_path, 'wb') as f:
+                        f.write(data)
+                else:
+                    with open(target_path, 'w') as f:
+                        f.write(str(data))
+                copied += 1
+
+            # Now try to check out the working tree from the latest commit
+            checkout_info = ''
             try:
-                pull_result = self.sync.pull(vault_dir)
-                lines.append(f'  Pull status:  {pull_result.get("status", "done")}')
-                lines.append(f'  Objects:      {pull_result.get("objects_downloaded", 0)}')
-            except Exception as pe:
-                lines.append(f'  Pull:         (no remote data yet or error: {pe})')
-            return '\\n'.join(lines)
+                tree = self.inspector.inspect_tree(vault_dir, read_key=self.keys['read_key_bytes'])
+                for entry in tree.get('entries', []):
+                    file_path = os.path.join(vault_dir, entry['path'])
+                    file_dir  = os.path.dirname(file_path)
+                    if file_dir:
+                        os.makedirs(file_dir, exist_ok=True)
+                    blob_path = os.path.join(bare_dir, 'data', entry['blob_id'])
+                    if os.path.exists(blob_path):
+                        # Decrypt the blob to get file contents
+                        with open(blob_path, 'rb') as f:
+                            encrypted = f.read()
+                        try:
+                            decrypted = self.crypto.decrypt(encrypted, self.keys['read_key_bytes'])
+                            with open(file_path, 'wb') as f:
+                                f.write(decrypted)
+                        except Exception:
+                            pass  # Skip files we can't decrypt
+                checkout_info = f'\\n  Files:        {tree.get("file_count", 0)} checked out'
+            except Exception:
+                checkout_info = '\\n  Files:        (could not check out working tree)'
+
+            chain = self.inspector.inspect_commit_chain(vault_dir, read_key=self.keys['read_key_bytes'])
+
+            return f"""Cloned vault into {vault_dir}
+  Objects:      {copied} copied from shared server
+  Commits:      {len(chain)}{checkout_info}
+  Vault key:    {vault_key}"""
         except Exception as e:
             return f'clone: {e}'
 
