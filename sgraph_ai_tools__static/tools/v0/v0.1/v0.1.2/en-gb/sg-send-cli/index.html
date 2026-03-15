@@ -372,14 +372,21 @@
                 logWrite(loadLog, 'Installed: osbot-utils', 'output')
 
                 loadBtn.innerHTML = '<span class="spinner"></span>Installing sg-send-cli...'
-                logWrite(loadLog, 'Installing sg-send-cli from PyPI (deps=False)...', 'info')
+                logWrite(loadLog, 'Installing sg-send-cli from PyPI...', 'info')
                 loadFill.style.width = '82%'
 
-                // deps=False because cryptography is already loaded from Pyodide built-in
-                // and osbot-utils is already installed above
-                await micropip.install('sg-send-cli', { deps: false })
+                // Install sg-send-cli with deps=False via Python API.
+                // Must use Python (not JS) because JS objects like { deps: false }
+                // are not converted to Python kwargs by Pyodide's proxy.
+                // deps=False skips dependency resolution which would fail on
+                // cryptography>=43.0.0 (no pure Python wheel on PyPI).
+                // We've already loaded cryptography (built-in) and osbot-utils above.
+                await pyodide.runPythonAsync(`
+import micropip
+await micropip.install('sg-send-cli', deps=False)
+`)
+                logWrite(loadLog, 'Installed: sg-send-cli 0.5.0', 'output')
                 loadFill.style.width = '90%'
-                logWrite(loadLog, 'Installed: sg-send-cli', 'output')
 
                 // Verify import
                 await pyodide.runPythonAsync(`
