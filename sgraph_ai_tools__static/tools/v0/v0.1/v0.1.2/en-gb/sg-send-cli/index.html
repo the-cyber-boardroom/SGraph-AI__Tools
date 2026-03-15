@@ -1756,38 +1756,27 @@ optional arguments:
         except (AttributeError, TypeError):
             pass  # clone() not available, fall back
 
-        # Fallback: init vault, then copy objects from API store into bare dir
+        # Fallback: init vault, copy data objects, update refs, check out working tree
         api_store = self.api._store
         if not api_store:
             return 'clone: nothing to clone (shared server is empty — push from another terminal first)'
 
         try:
-            # Init the vault locally (creates structure + empty init commit)
+            # Init the vault locally (creates bare dir structure + empty init commit)
             result = self.sync.init(vault_dir, vault_key=vault_key)
             self.vault_dir = vault_dir
             builtins._sg_vault_dir = vault_dir
             builtins._sg_sync      = self.sync
 
             bare_dir = os.path.join(vault_dir, '.sg_vault', 'bare')
+            refs_dir = os.path.join(bare_dir, 'refs')
 
-            # Figure out the API key format by inspecting the store
-            # Keys might be like 'data/obj-xxx' or 'vaults/{id}/data/obj-xxx'
-            # We need to map them to bare dir paths: bare/{data,refs,keys,indexes}/xxx
-            bare_subdirs = {'data', 'refs', 'keys', 'indexes'}
+            # Step 1: Copy all data objects from the API store into the local bare dir
             copied = 0
+            remote_refs = {}  # track refs from the API: ref_name -> commit_id
             for key, data in api_store.items():
-                # Determine the bare-relative path
-                # Try to find the first bare subdir in the key path
-                parts = key.replace('\\\\', '/').split('/')
-                bare_rel = None
-                for i, part in enumerate(parts):
-                    if part in bare_subdirs:
-                        bare_rel = '/'.join(parts[i:])
-                        break
-                if not bare_rel:
-                    continue  # Skip keys we can't map
-
-                target_path = os.path.join(bare_dir, bare_rel)
+                # API keys are like 'data/obj-xxx', 'refs/branch-xxx', 'keys/xxx'
+                target_path = os.path.join(bare_dir, key)
                 target_dir  = os.path.dirname(target_path)
                 os.makedirs(target_dir, exist_ok=True)
                 if isinstance(data, bytes):
@@ -1796,9 +1785,26 @@ optional arguments:
                 else:
                     with open(target_path, 'w') as f:
                         f.write(str(data))
+                    # Track refs so we can update local branch pointers
+                    if key.startswith('refs/'):
+                        remote_refs[key] = str(data)
                 copied += 1
 
-            # Check out the working tree from the latest commit
+            # Step 2: Update LOCAL refs to point to the remote commit
+            # sync.init() created a local branch ref pointing to its own init commit.
+            # We need to update it to point to the pushed commit from Terminal 1.
+            if remote_refs:
+                # Find the commit ID from any remote ref (they should all point to HEAD)
+                remote_commit_id = list(remote_refs.values())[0]
+                # Update ALL local refs to point to this commit
+                if os.path.isdir(refs_dir):
+                    for ref_file in os.listdir(refs_dir):
+                        ref_path = os.path.join(refs_dir, ref_file)
+                        if os.path.isfile(ref_path):
+                            with open(ref_path, 'w') as f:
+                                f.write(remote_commit_id)
+
+            # Step 3: Check out working tree from latest commit
             checked_out = 0
             try:
                 tree = self.inspector.inspect_tree(vault_dir, read_key=self.keys['read_key_bytes'])
@@ -1817,21 +1823,17 @@ optional arguments:
                                 f.write(decrypted)
                             checked_out += 1
                         except Exception:
-                            pass  # Skip files we can't decrypt
+                            pass
                 checkout_info = f'\\n  Files:        {checked_out} checked out'
             except Exception as e:
                 checkout_info = f'\\n  Files:        (checkout error: {e})'
 
             chain = self.inspector.inspect_commit_chain(vault_dir, read_key=self.keys['read_key_bytes'])
 
-            # Debug: show API store keys to diagnose issues
-            store_keys = ', '.join(list(api_store.keys())[:8])
-            debug_info = f'\\n  [debug] API keys: {store_keys}'
-
             return f"""Cloned vault into {vault_dir}
   Objects:      {copied} copied from shared server
   Commits:      {len(chain)}{checkout_info}
-  Vault key:    {vault_key}{debug_info}"""
+  Vault key:    {vault_key}"""
         except Exception as e:
             import traceback
             return f'clone: {e}\\n{traceback.format_exc()}'
