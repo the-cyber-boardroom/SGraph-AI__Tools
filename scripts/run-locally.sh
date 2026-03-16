@@ -3,8 +3,8 @@
 # Local dev server for tools.sgraph.ai
 #
 # In production, the CI deploy script flattens the versioned IFD structure:
-#   tools/v0/v0.1/v0.1.2/en-gb/   →  latest/en-gb/
-#   tools/v0/v0.1/v0.1.2/_common/  →  latest/_common/
+#   tools/v0/v0.1/v0.1.3/en-gb/   →  latest/en-gb/
+#   tools/v0/v0.1/v0.1.3/_common/  →  latest/_common/
 #   core/                           →  latest/core/
 #   components/                     →  latest/components/
 #

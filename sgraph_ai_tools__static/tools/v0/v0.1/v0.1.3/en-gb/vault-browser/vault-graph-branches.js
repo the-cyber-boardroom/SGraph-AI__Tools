@@ -4,6 +4,11 @@
  * Shows branches and their creator relationships in a clean vertical layout.
  * Ref and key IDs are embedded in branch nodes and shown as clickable links below.
  *
+ * Styling:
+ *   - Branch names: bold, prominent
+ *   - Branch type (NAMED/CLONE): dim label
+ *   - Ref IDs: monospace, purple tint
+ *
  * Methods:
  *   render(branchIndexData)  — Generate and display the diagram
  *
@@ -129,9 +134,44 @@ export class VaultGraphBranches extends HTMLElement {
         lines.push(`    classDef namedBranch fill:#1a3a5c,stroke:#4ecdc4,color:#4ecdc4,stroke-width:2px`)
         lines.push(`    classDef cloneBranch fill:#1a3a5c,stroke:#82aaff,color:#82aaff,stroke-width:1px`)
 
-        await this._mermaid.render(lines.join('\n'))
+        await this._mermaid.render(lines.join('\n'), { cache: true })
         this._wireClicks(data)
         this._renderRefLinks(branches)
+        this._styleNodeText()
+    }
+
+    /**
+     * Post-render: style individual tspan lines inside SVG nodes.
+     * Line 1 = branch name (bold, bright), Line 2 = type (dim), Line 3 = ref (purple)
+     */
+    _styleNodeText() {
+        requestAnimationFrame(() => {
+            const svg = this._mermaid.querySelector('svg')
+            if (!svg) return
+
+            for (const node of svg.querySelectorAll('.node')) {
+                const tspans = node.querySelectorAll('tspan')
+                if (tspans.length >= 1) {
+                    // Branch name — bold, bright
+                    tspans[0].style.fontWeight = '700'
+                    tspans[0].style.fontSize = '0.85rem'
+                }
+                if (tspans.length >= 2) {
+                    // Type label (NAMED/CLONE) — dim, uppercase already
+                    tspans[1].style.fontWeight = '400'
+                    tspans[1].style.fontSize = '0.65rem'
+                    tspans[1].style.opacity = '0.6'
+                    tspans[1].style.letterSpacing = '0.05em'
+                }
+                if (tspans.length >= 3) {
+                    // Ref ID — purple, smaller
+                    tspans[2].style.fontWeight = '400'
+                    tspans[2].style.fill = '#c792ea'
+                    tspans[2].style.fontSize = '0.65rem'
+                    tspans[2].style.opacity = '0.7'
+                }
+            }
+        })
     }
 
     /** Render clickable ref/key links below the diagram */
