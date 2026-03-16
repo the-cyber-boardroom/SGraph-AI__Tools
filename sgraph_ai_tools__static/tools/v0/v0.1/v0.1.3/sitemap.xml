@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9"
+        xmlns:xhtml="http://www.w3.org/1999/xhtml">
+    <!-- Landing page — all locales -->
+    <url>
+        <loc>https://tools.sgraph.ai/tools/v0/v0.1/v0.1.0/en-gb/</loc>
+        <xhtml:link rel="alternate" hreflang="en-GB" href="https://tools.sgraph.ai/tools/v0/v0.1/v0.1.0/en-gb/" />
+        <xhtml:link rel="alternate" hreflang="en-US" href="https://tools.sgraph.ai/tools/v0/v0.1/v0.1.0/en-us/" />
+        <xhtml:link rel="alternate" hreflang="fr-FR" href="https://tools.sgraph.ai/tools/v0/v0.1/v0.1.0/fr-fr/" />
+        <xhtml:link rel="alternate" hreflang="de-DE" href="https://tools.sgraph.ai/tools/v0/v0.1/v0.1.0/de-de/" />
+        <xhtml:link rel="alternate" hreflang="es-ES" href="https://tools.sgraph.ai/tools/v0/v0.1/v0.1.0/es-es/" />
+    </url>
+    <!-- SSH Key Generator — all locales -->
+    <url>
+        <loc>https://tools.sgraph.ai/tools/v0/v0.1/v0.1.0/en-gb/ssh-keygen/</loc>
+        <xhtml:link rel="alternate" hreflang="en-GB" href="https://tools.sgraph.ai/tools/v0/v0.1/v0.1.0/en-gb/ssh-keygen/" />
+        <xhtml:link rel="alternate" hreflang="en-US" href="https://tools.sgraph.ai/tools/v0/v0.1/v0.1.0/en-us/ssh-keygen/" />
+        <xhtml:link rel="alternate" hreflang="fr-FR" href="https://tools.sgraph.ai/tools/v0/v0.1/v0.1.0/fr-fr/ssh-keygen/" />
+        <xhtml:link rel="alternate" hreflang="de-DE" href="https://tools.sgraph.ai/tools/v0/v0.1/v0.1.0/de-de/ssh-keygen/" />
+        <xhtml:link rel="alternate" hreflang="es-ES" href="https://tools.sgraph.ai/tools/v0/v0.1/v0.1.0/es-es/ssh-keygen/" />
+    </url>
+</urlset>
