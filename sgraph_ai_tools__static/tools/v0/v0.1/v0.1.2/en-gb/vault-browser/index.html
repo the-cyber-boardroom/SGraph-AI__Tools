@@ -9,7 +9,7 @@
     <style>
         .main {
             flex: 1;
-            max-width: 900px;
+            max-width: 1280px;
             margin: 0 auto;
             padding: 2rem 1.5rem;
             width: 100%;
@@ -24,74 +24,7 @@
             line-height: 1.5;
         }
 
-        .key-section {
-            background: var(--sg-bg-card);
-            border: 1px solid var(--sg-border);
-            border-radius: var(--sg-radius);
-            padding: 1.5rem;
-            margin-bottom: 1.5rem;
-        }
-
-        .key-section label {
-            display: block;
-            font-size: 0.875rem;
-            font-weight: 600;
-            margin-bottom: 0.5rem;
-        }
-
-        .key-section .hint {
-            color: var(--sg-text-dim);
-            font-size: 0.75rem;
-            margin-bottom: 0.75rem;
-        }
-
-        .key-input-wrap {
-            display: flex;
-            gap: 0.5rem;
-        }
-
-        .key-input-wrap input {
-            flex: 1;
-            padding: 0.625rem 0.75rem;
-            background: var(--sg-bg-secondary, #16213E);
-            color: var(--sg-text);
-            border: 1px solid var(--sg-border);
-            border-radius: var(--sg-radius);
-            font-family: var(--sg-font-mono);
-            font-size: 0.8125rem;
-            outline: none;
-        }
-
-        .key-input-wrap input:focus {
-            border-color: var(--sg-accent);
-        }
-
-        .key-input-wrap input::placeholder {
-            color: var(--sg-text-dim);
-        }
-
-        .api-field {
-            margin-top: 1rem;
-        }
-
-        .api-field label {
-            font-size: 0.8125rem;
-            font-weight: 500;
-        }
-
-        .api-field input {
-            width: 100%;
-            padding: 0.5rem 0.75rem;
-            background: var(--sg-bg-secondary, #16213E);
-            color: var(--sg-text-muted);
-            border: 1px solid var(--sg-border);
-            border-radius: var(--sg-radius);
-            font-family: var(--sg-font-mono);
-            font-size: 0.75rem;
-            outline: none;
-            margin-top: 0.25rem;
-        }
-
+        /* --- Status bar --- */
         .status-bar {
             margin-top: 1rem;
             font-size: 0.8125rem;
@@ -99,111 +32,10 @@
             border-radius: var(--sg-radius);
             display: none;
         }
-
         .status-bar.visible { display: block; }
         .status-bar.info    { color: var(--sg-accent); background: rgba(78,205,196,0.1); border: 1px solid rgba(78,205,196,0.2); }
-        .status-bar.error   { color: var(--sg-error); background: rgba(233,69,96,0.1); border: 1px solid rgba(233,69,96,0.2); }
+        .status-bar.error   { color: var(--sg-error);  background: rgba(233,69,96,0.1);  border: 1px solid rgba(233,69,96,0.2); }
         .status-bar.success { color: var(--sg-accent); background: rgba(78,205,196,0.1); border: 1px solid rgba(78,205,196,0.2); }
-
-        .derived-keys {
-            display: none;
-            margin-top: 1rem;
-            padding: 1rem;
-            background: rgba(78,205,196,0.05);
-            border: 1px solid var(--sg-border);
-            border-radius: var(--sg-radius);
-            font-size: 0.75rem;
-            font-family: var(--sg-font-mono);
-            line-height: 1.8;
-            word-break: break-all;
-        }
-
-        .derived-keys.visible { display: block; }
-
-        .derived-keys .label {
-            color: var(--sg-text-dim);
-            font-weight: 600;
-            margin-right: 0.5rem;
-        }
-
-        .vault-content {
-            display: none;
-            margin-top: 1.5rem;
-        }
-
-        .vault-content.visible { display: block; }
-
-        .vault-content h2 {
-            font-size: 1.125rem;
-            margin-bottom: 1rem;
-        }
-
-        .tree-view {
-            background: var(--sg-bg-card);
-            border: 1px solid var(--sg-border);
-            border-radius: var(--sg-radius);
-            padding: 1rem;
-            font-family: var(--sg-font-mono);
-            font-size: 0.8125rem;
-            line-height: 1.8;
-            max-height: 500px;
-            overflow-y: auto;
-            white-space: pre;
-        }
-
-        .tree-entry {
-            cursor: pointer;
-            padding: 0.125rem 0.25rem;
-            border-radius: 3px;
-        }
-
-        .tree-entry:hover {
-            background: rgba(78,205,196,0.1);
-            color: var(--sg-accent);
-        }
-
-        .file-preview {
-            display: none;
-            margin-top: 1rem;
-        }
-
-        .file-preview.visible { display: block; }
-
-        .file-preview h3 {
-            font-size: 0.9375rem;
-            margin-bottom: 0.5rem;
-        }
-
-        .file-preview__content {
-            background: var(--sg-bg-card);
-            border: 1px solid var(--sg-border);
-            border-radius: var(--sg-radius);
-            padding: 1rem;
-            font-family: var(--sg-font-mono);
-            font-size: 0.8125rem;
-            line-height: 1.6;
-            max-height: 500px;
-            overflow: auto;
-            white-space: pre-wrap;
-            word-break: break-word;
-        }
-
-        .file-preview__actions {
-            margin-top: 0.5rem;
-            display: flex;
-            gap: 0.5rem;
-        }
-
-        .info-box {
-            margin-top: 2rem;
-            padding: 1rem;
-            background: rgba(78,205,196,0.05);
-            border: 1px solid var(--sg-border);
-            border-radius: var(--sg-radius);
-        }
-
-        .info-box h3 { font-size: 0.875rem; margin-bottom: 0.5rem; color: var(--sg-accent); }
-        .info-box p  { color: var(--sg-text-muted); font-size: 0.8125rem; line-height: 1.6; }
 
         .spinner {
             display: inline-block;
@@ -215,8 +47,34 @@
             vertical-align: middle;
             margin-right: 0.5rem;
         }
-
         @keyframes spin { to { transform: rotate(360deg); } }
+
+        /* --- Two-column browse area --- */
+        .browse-area {
+            display: none;
+            gap: 1.5rem;
+            margin-top: 1.5rem;
+        }
+        .browse-area.visible {
+            display: grid;
+            grid-template-columns: minmax(280px, 1fr) 2fr;
+        }
+        @media (max-width: 768px) {
+            .browse-area.visible {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        /* --- Info box --- */
+        .info-box {
+            margin-top: 2rem;
+            padding: 1rem;
+            background: rgba(78,205,196,0.05);
+            border: 1px solid var(--sg-border);
+            border-radius: var(--sg-radius);
+        }
+        .info-box h3 { font-size: 0.875rem; margin-bottom: 0.5rem; color: var(--sg-accent); }
+        .info-box p  { color: var(--sg-text-muted); font-size: 0.8125rem; line-height: 1.6; }
     </style>
 </head>
 <body>
@@ -237,6 +95,12 @@
         })
     </script>
 
+    <!-- Load vault-browser components -->
+    <script type="module" src="./vault-key-input.js"></script>
+    <script type="module" src="./vault-derived-keys.js"></script>
+    <script type="module" src="./vault-file-list.js"></script>
+    <script type="module" src="./vault-file-preview.js"></script>
+
     <div class="main">
         <h1>Vault Browser</h1>
         <p class="subtitle">
@@ -245,43 +109,13 @@
             Nothing leaves your device.
         </p>
 
-        <div class="key-section">
-            <label for="vault-key">Vault Key</label>
-            <p class="hint">Format: passphrase:vault_id (e.g. my-secret-phrase:a1b2c3d4 or ditg7au7rr0rsw4ont6qlzcw:98a3heec)</p>
-            <div class="key-input-wrap">
-                <input type="password" id="vault-key" placeholder="Enter your vault key..." autocomplete="off">
-                <button class="btn" id="open-btn">Open Vault</button>
-            </div>
-
-            <div class="api-field">
-                <label for="api-url">API Base URL</label>
-                <input type="text" id="api-url" value="https://send.sgraph.ai" placeholder="https://send.sgraph.ai">
-            </div>
-        </div>
-
+        <vault-key-input id="key-input" api-url="https://send.sgraph.ai"></vault-key-input>
         <div id="status" class="status-bar"></div>
+        <vault-derived-keys id="derived-keys"></vault-derived-keys>
 
-        <div id="derived-keys" class="derived-keys">
-            <div><span class="label">Vault ID:</span><span id="dk-vault-id"></span></div>
-            <div><span class="label">Write Key:</span><span id="dk-write-key"></span></div>
-            <div><span class="label">Tree File ID:</span><span id="dk-tree-id"></span></div>
-            <div><span class="label">Settings File ID:</span><span id="dk-settings-id"></span></div>
-            <div><span class="label">Ref File ID:</span><span id="dk-ref-id"></span></div>
-            <div><span class="label">Derivation Time:</span><span id="dk-time"></span></div>
-        </div>
-
-        <div id="vault-content" class="vault-content">
-            <h2>Vault Files</h2>
-            <div id="tree-view" class="tree-view">(loading...)</div>
-        </div>
-
-        <div id="file-preview" class="file-preview">
-            <h3 id="preview-title">File Preview</h3>
-            <div id="preview-content" class="file-preview__content"></div>
-            <div class="file-preview__actions">
-                <button class="btn btn--secondary" id="download-btn">Download</button>
-                <button class="btn btn--secondary" id="close-preview-btn">Close</button>
-            </div>
+        <div id="browse-area" class="browse-area">
+            <vault-file-list id="file-list"></vault-file-list>
+            <vault-file-preview id="file-preview"></vault-file-preview>
         </div>
 
         <div class="info-box">
@@ -311,202 +145,78 @@
         })();
     </script>
 
+    <!-- Orchestrator: wires components together via events -->
     <script type="module">
         import { parseVaultKey, deriveVaultKeys, openVault, listFileIds, readFile } from '/core/vault-client/v1/v1.0/v1.0.0/sg-vault-client.js'
 
-        const vaultKeyInput = document.getElementById('vault-key')
-        const apiUrlInput   = document.getElementById('api-url')
-        const openBtn       = document.getElementById('open-btn')
-        const statusDiv     = document.getElementById('status')
-        const derivedDiv    = document.getElementById('derived-keys')
-        const contentDiv    = document.getElementById('vault-content')
-        const treeView      = document.getElementById('tree-view')
-        const previewDiv    = document.getElementById('file-preview')
-        const previewTitle  = document.getElementById('preview-title')
-        const previewContent = document.getElementById('preview-content')
-        const downloadBtn   = document.getElementById('download-btn')
-        const closePreviewBtn = document.getElementById('close-preview-btn')
+        const keyInput    = document.getElementById('key-input')
+        const derivedKeys = document.getElementById('derived-keys')
+        const fileList    = document.getElementById('file-list')
+        const filePreview = document.getElementById('file-preview')
+        const statusDiv   = document.getElementById('status')
+        const browseArea  = document.getElementById('browse-area')
 
-        let currentVault    = null
-        let currentFileData = null
-        let currentFileName = null
+        let currentVault = null
 
-        // --- Open Vault ---
-        openBtn.addEventListener('click', handleOpen)
-        vaultKeyInput.addEventListener('keydown', (e) => {
-            if (e.key === 'Enter') handleOpen()
-        })
+        // --- vault-open-request from <vault-key-input> ---
+        document.addEventListener('vault-open-request', async (e) => {
+            const { vaultKey, apiBaseUrl } = e.detail
 
-        async function handleOpen() {
-            const rawKey = vaultKeyInput.value.trim()
-            if (!rawKey) return
-
-            openBtn.disabled = true
-            openBtn.textContent = 'Deriving keys...'
-            showStatus('<span class="spinner"></span>Deriving vault keys (PBKDF2, 600K iterations)...', 'info')
-            hidePreview()
+            keyInput.setLoading(true)
+            showStatus('<span class="spinner"></span>Deriving vault keys (PBKDF2, 600K iterations)…', 'info')
+            filePreview.hide()
+            browseArea.classList.remove('visible')
+            derivedKeys.hide()
 
             try {
-                const { passphrase, vaultId } = parseVaultKey(rawKey)
-
+                const { passphrase, vaultId } = parseVaultKey(vaultKey)
                 const keys = await deriveVaultKeys(passphrase, vaultId)
 
-                document.getElementById('dk-vault-id').textContent     = keys.vaultId
-                document.getElementById('dk-write-key').textContent    = keys.writeKey
-                document.getElementById('dk-tree-id').textContent      = keys.treeFileId
-                document.getElementById('dk-settings-id').textContent  = keys.settingsFileId
-                document.getElementById('dk-ref-id').textContent       = keys.refFileId
-                document.getElementById('dk-time').textContent         = `${Math.round(keys.derivationTimeMs)} ms`
-                derivedDiv.classList.add('visible')
+                derivedKeys.show(keys)
+                showStatus('<span class="spinner"></span>Listing vault files…', 'info')
 
-                showStatus('<span class="spinner"></span>Listing vault files...', 'info')
+                currentVault = await openVault(keys, { apiBaseUrl })
 
-                currentVault = await openVault(keys, { apiBaseUrl: apiUrlInput.value.trim() })
-
-                try {
-                    const fileIds = await listFileIds(currentVault, 'bare/')
-                    renderFileList(fileIds)
-                    contentDiv.classList.add('visible')
-                    showStatus(`Vault opened — ${fileIds.length} file(s) found.`, 'success')
-                } catch (fetchErr) {
-                    contentDiv.classList.remove('visible')
-                    showStatus(`Keys derived. File listing failed: ${fetchErr.message}`, 'error')
-                }
+                const fileIds = await listFileIds(currentVault, 'bare/')
+                fileList.render(fileIds)
+                fileList.show()
+                browseArea.classList.add('visible')
+                showStatus(`Vault opened — ${fileIds.length} file(s) found.`, 'success')
 
             } catch (err) {
+                derivedKeys.hide()
+                browseArea.classList.remove('visible')
                 showStatus(err.message, 'error')
-                derivedDiv.classList.remove('visible')
-                contentDiv.classList.remove('visible')
             }
 
-            openBtn.disabled = false
-            openBtn.textContent = 'Open Vault'
-        }
+            keyInput.setLoading(false)
+        })
 
-        // --- File List Rendering ---
-        function renderFileList(fileIds) {
-            treeView.innerHTML = ''
+        // --- vault-file-select from <vault-file-list> ---
+        document.addEventListener('vault-file-select', async (e) => {
+            const { fileId } = e.detail
+            if (!currentVault) return
 
-            if (!fileIds || fileIds.length === 0) {
-                treeView.textContent = '(vault is empty)'
-                return
-            }
-
-            // Group by path prefix for readability (e.g. bare/data/, bare/refs/)
-            const groups = {}
-            for (const id of fileIds) {
-                const parts   = id.split('/')
-                const group   = parts.length > 2 ? parts.slice(0, 2).join('/') + '/' : ''
-                const display = parts.length > 2 ? parts.slice(2).join('/') : id
-                if (!groups[group]) groups[group] = []
-                groups[group].push({ fileId: id, display })
-            }
-
-            for (const [group, items] of Object.entries(groups).sort()) {
-                if (group) {
-                    const header = document.createElement('div')
-                    header.textContent = group
-                    header.style.color      = 'var(--sg-accent)'
-                    header.style.fontWeight = '600'
-                    header.style.marginTop  = '0.5rem'
-                    treeView.appendChild(header)
-                }
-
-                for (const { fileId, display } of items) {
-                    const entry = document.createElement('div')
-                    entry.className   = 'tree-entry'
-                    entry.textContent = group ? `  ${display}` : display
-                    entry.dataset.fileId = fileId
-                    entry.addEventListener('click', () => handleFileClick(fileId, fileId))
-                    treeView.appendChild(entry)
-                }
-            }
-        }
-
-        // --- File Click ---
-        async function handleFileClick(fileId, name) {
-            showStatus(`<span class="spinner"></span>Fetching and decrypting ${name}...`, 'info')
+            showStatus(`<span class="spinner"></span>Fetching and decrypting ${fileId}…`, 'info')
 
             try {
                 const data = await readFile(currentVault, fileId)
-                currentFileData = data
-                currentFileName = name
-
-                previewTitle.textContent = name
-                const bytes = new Uint8Array(data)
-
-                if (isTextFile(name, bytes)) {
-                    previewContent.textContent = new TextDecoder().decode(data)
-                } else if (isImageFile(name)) {
-                    const blob = new Blob([data], { type: guessMimeType(name) })
-                    const url  = URL.createObjectURL(blob)
-                    previewContent.innerHTML = `<img src="${url}" style="max-width:100%;border-radius:4px;" alt="${escapeHtml(name)}">`
-                } else {
-                    previewContent.textContent = `[Binary file — ${formatBytes(data.byteLength)}]\nClick "Download" to save.`
-                }
-
-                previewDiv.classList.add('visible')
-                showStatus(`Decrypted: ${name} (${formatBytes(data.byteLength)})`, 'success')
+                filePreview.showFile(fileId, data)
+                showStatus(`Decrypted: ${fileId} (${formatBytes(data.byteLength)})`, 'success')
             } catch (err) {
-                showStatus(`Failed to read ${name}: ${err.message}`, 'error')
+                showStatus(`Failed to read ${fileId}: ${err.message}`, 'error')
             }
-        }
-
-        // --- Download ---
-        downloadBtn.addEventListener('click', () => {
-            if (!currentFileData || !currentFileName) return
-            const blob = new Blob([currentFileData])
-            const url  = URL.createObjectURL(blob)
-            const a    = document.createElement('a')
-            a.href     = url
-            a.download = currentFileName
-            a.click()
-            URL.revokeObjectURL(url)
         })
 
-        closePreviewBtn.addEventListener('click', hidePreview)
-
-        // --- Helpers ---
         function showStatus(msg, type) {
-            statusDiv.innerHTML   = msg
-            statusDiv.className   = `status-bar visible ${type}`
+            statusDiv.innerHTML = msg
+            statusDiv.className = `status-bar visible ${type}`
         }
 
-        function hidePreview() {
-            previewDiv.classList.remove('visible')
-            currentFileData = null
-            currentFileName = null
-        }
-
-        function formatBytes(bytes) {
-            if (bytes < 1024) return `${bytes} B`
-            if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`
-            return `${(bytes / (1024 * 1024)).toFixed(1)} MB`
-        }
-
-        function isTextFile(name, bytes) {
-            const textExts = ['.txt','.md','.json','.js','.py','.html','.css','.xml','.csv','.yaml','.yml','.toml','.ini','.cfg','.sh','.bat','.log','.rst','.env']
-            const lower = name.toLowerCase()
-            if (textExts.some(ext => lower.endsWith(ext))) return true
-            if (bytes.length > 0 && bytes.length < 500_000) {
-                const sample = bytes.slice(0, Math.min(512, bytes.length))
-                return sample.every(b => b === 9 || b === 10 || b === 13 || (b >= 32 && b <= 126) || b >= 128)
-            }
-            return false
-        }
-
-        function isImageFile(name) {
-            return /\.(png|jpg|jpeg|gif|webp|svg|bmp|ico)$/i.test(name)
-        }
-
-        function guessMimeType(name) {
-            const ext = name.split('.').pop().toLowerCase()
-            const map = { png:'image/png', jpg:'image/jpeg', jpeg:'image/jpeg', gif:'image/gif', webp:'image/webp', svg:'image/svg+xml', bmp:'image/bmp', ico:'image/x-icon' }
-            return map[ext] || 'application/octet-stream'
-        }
-
-        function escapeHtml(str) {
-            return str.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;')
+        function formatBytes(n) {
+            if (n < 1024) return `${n} B`
+            if (n < 1024 * 1024) return `${(n / 1024).toFixed(1)} KB`
+            return `${(n / (1024 * 1024)).toFixed(1)} MB`
         }
     </script>
 </body>
