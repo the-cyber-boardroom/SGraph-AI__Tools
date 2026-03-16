@@ -1,14 +1,15 @@
 /**
  * <vault-graph-branches> — Mermaid diagram of branch index relationships.
  *
- * Shows branches, their refs, keys, and creator relationships.
+ * Shows branches and their creator relationships in a clean vertical layout.
+ * Ref and key IDs are embedded in branch nodes and shown as clickable links below.
  *
  * Methods:
  *   render(branchIndexData)  — Generate and display the diagram
  *
  * Events emitted:
  *   vault-object-navigate  — { detail: { fileId } }
- *     Fired when the user clicks a node in the diagram.
+ *     Fired when the user clicks a node or link.
  */
 export class VaultGraphBranches extends HTMLElement {
 
@@ -24,13 +25,47 @@ export class VaultGraphBranches extends HTMLElement {
                 vault-graph-branches .vgb-diagram .node:hover circle {
                     filter: brightness(1.3);
                 }
+                vault-graph-branches .vgb-ref-links {
+                    display: flex;
+                    flex-wrap: wrap;
+                    gap: 0.25rem 0.75rem;
+                    margin-top: 0.5rem;
+                    font-size: 0.75rem;
+                    font-family: var(--sg-font-mono);
+                }
+                vault-graph-branches .vgb-ref-link {
+                    cursor: pointer;
+                    padding: 0.15rem 0.4rem;
+                    border: 1px solid rgba(255,255,255,0.15);
+                    border-radius: 3px;
+                    background: #16213E;
+                    transition: background 0.15s, border-color 0.15s;
+                }
+                vault-graph-branches .vgb-ref-link:hover {
+                    background: #1a3a5c;
+                    border-color: rgba(255,255,255,0.4);
+                }
+                vault-graph-branches .vgb-ref-link .vgb-label {
+                    color: var(--sg-text-dim);
+                    margin-right: 0.25rem;
+                }
+                vault-graph-branches .vgb-ref-link .vgb-ref-val {
+                    color: #c792ea;
+                }
+                vault-graph-branches .vgb-ref-link .vgb-key-val {
+                    color: #f78c6c;
+                }
             </style>
-            <vault-mermaid id="vgb-mermaid"></vault-mermaid>`
+            <vault-mermaid id="vgb-mermaid"></vault-mermaid>
+            <div class="vgb-ref-links" id="vgb-ref-links"></div>`
 
-        this._mermaid = this.querySelector('#vgb-mermaid')
+        this._mermaid  = this.querySelector('#vgb-mermaid')
+        this._refLinks = this.querySelector('#vgb-ref-links')
     }
 
     async render(data) {
+        this._data = data
+        this._refLinks.innerHTML = ''
         const branches = data.branches || []
         if (branches.length === 0) {
             this._mermaid.clear()
@@ -38,66 +73,99 @@ export class VaultGraphBranches extends HTMLElement {
         }
 
         const lines = [
-            '%%{ init: { "flowchart": { "curve": "monotoneY", "nodeSpacing": 30, "rankSpacing": 40 } } }%%',
+            '%%{ init: { "flowchart": { "curve": "monotoneY", "nodeSpacing": 40, "rankSpacing": 50 } } }%%',
             'flowchart TD'
         ]
 
         // Index node
-        const indexId = this._safe(data.index_id || 'index')
-        lines.push(`    ${indexId}["Branch Index"]:::indexNode`)
+        lines.push(`    IDX(["Branch Index"]):::indexNode`)
 
         // Track branch nodes for creator links
         const branchIds = new Map()
 
-        for (let i = 0; i < branches.length; i++) {
-            const b = branches[i]
-            const bid = this._safe(b.branch_id || `branch-${i}`)
+        // Separate named vs clone branches
+        const named  = branches.filter(b => b.branch_type === 'named')
+        const clones = branches.filter(b => b.branch_type !== 'named')
+
+        // Named branches first
+        for (const b of named) {
+            const bid = this._safe(b.branch_id || `branch-${branchIds.size}`)
             branchIds.set(b.branch_id, bid)
 
-            const typeLabel = b.branch_type === 'named' ? 'NAMED' : 'CLONE'
-            const name = b.name || '(unnamed)'
-
-            // Branch node
-            lines.push(`    ${bid}["${this._esc(name)}\\n${typeLabel}"]:::${b.branch_type === 'named' ? 'namedBranch' : 'cloneBranch'}`)
-            lines.push(`    ${indexId} --> ${bid}`)
-
-            // Ref node
-            if (b.head_ref_id) {
-                const refId = this._safe(b.head_ref_id)
-                lines.push(`    ${refId}(("${this._shortId(b.head_ref_id)}")):::refNode`)
-                lines.push(`    ${bid} -->|head_ref| ${refId}`)
-            }
-
-            // Key node
-            if (b.public_key_id) {
-                const keyId = this._safe(b.public_key_id)
-                lines.push(`    ${keyId}["${this._shortId(b.public_key_id)}"]:::keyNode`)
-                lines.push(`    ${bid} -.->|pub_key| ${keyId}`)
-            }
+            const name = this._esc(b.name || '(unnamed)')
+            const refShort = b.head_ref_id ? `ref: ${this._shortId(b.head_ref_id)}` : ''
+            const parts = [name, 'NAMED']
+            if (refShort) parts.push(refShort)
+            lines.push(`    ${bid}["${parts.join('\\n')}"]:::namedBranch`)
+            lines.push(`    IDX --> ${bid}`)
         }
 
-        // Creator branch links
-        for (const b of branches) {
+        // Clone branches
+        for (const b of clones) {
+            const bid = this._safe(b.branch_id || `branch-${branchIds.size}`)
+            branchIds.set(b.branch_id, bid)
+
+            const name = this._esc(b.name || '(unnamed)')
+            const refShort = b.head_ref_id ? `ref: ${this._shortId(b.head_ref_id)}` : ''
+            const parts = [name, 'CLONE']
+            if (refShort) parts.push(refShort)
+            lines.push(`    ${bid}["${parts.join('\\n')}"]:::cloneBranch`)
+        }
+
+        // Creator branch links (these provide the structure, no need for index→clone edges)
+        for (const b of clones) {
+            const to = branchIds.get(b.branch_id)
             if (b.creator_branch && branchIds.has(b.creator_branch)) {
                 const from = branchIds.get(b.creator_branch)
-                const to   = branchIds.get(b.branch_id)
-                if (from && to) {
-                    lines.push(`    ${from} ==>|created| ${to}`)
-                }
+                lines.push(`    ${from} -->|created| ${to}`)
+            } else {
+                // No known creator — link from index
+                lines.push(`    IDX --> ${to}`)
             }
         }
 
         // Styles
-        lines.push(`    classDef indexNode fill:#0f3460,stroke:#4ecdc4,color:#e0e0e0,stroke-width:2px`)
+        lines.push(`    classDef indexNode fill:#0f3460,stroke:#4ecdc4,color:#e0e0e0,stroke-width:2px,font-weight:bold`)
         lines.push(`    classDef namedBranch fill:#1a3a5c,stroke:#4ecdc4,color:#4ecdc4,stroke-width:2px`)
         lines.push(`    classDef cloneBranch fill:#1a3a5c,stroke:#82aaff,color:#82aaff,stroke-width:1px`)
-        lines.push(`    classDef refNode fill:#16213E,stroke:#c792ea,color:#c792ea`)
-        lines.push(`    classDef keyNode fill:#16213E,stroke:#f78c6c,color:#f78c6c`)
 
         await this._mermaid.render(lines.join('\n'))
-
-        // Wire click handlers on nodes
         this._wireClicks(data)
+        this._renderRefLinks(branches)
+    }
+
+    /** Render clickable ref/key links below the diagram */
+    _renderRefLinks(branches) {
+        this._refLinks.innerHTML = ''
+
+        for (const b of branches) {
+            const name = b.name || '(unnamed)'
+
+            if (b.head_ref_id) {
+                const el = document.createElement('span')
+                el.className = 'vgb-ref-link'
+                el.innerHTML = `<span class="vgb-label">${this._esc(name)} →</span> <span class="vgb-ref-val">${this._shortId(b.head_ref_id)}</span>`
+                el.title = `Open ref: ${b.head_ref_id}`
+                el.addEventListener('click', () => this._navigate(`bare/refs/${b.head_ref_id}`))
+                this._refLinks.appendChild(el)
+            }
+
+            if (b.public_key_id) {
+                const el = document.createElement('span')
+                el.className = 'vgb-ref-link'
+                el.innerHTML = `<span class="vgb-label">${this._esc(name)} key →</span> <span class="vgb-key-val">${this._shortId(b.public_key_id)}</span>`
+                el.title = `Open key: ${b.public_key_id}`
+                el.addEventListener('click', () => this._navigate(`bare/keys/${b.public_key_id}`))
+                this._refLinks.appendChild(el)
+            }
+        }
+    }
+
+    _navigate(fileId) {
+        this.dispatchEvent(new CustomEvent('vault-object-navigate', {
+            bubbles: true,
+            detail: { fileId }
+        }))
     }
 
     _wireClicks(data) {
@@ -109,36 +177,29 @@ export class VaultGraphBranches extends HTMLElement {
 
             for (const node of svg.querySelectorAll('.node')) {
                 const id = node.id || ''
-                // Extract the original ID from the mermaid node ID
-                const text = node.textContent || ''
                 node.style.cursor = 'pointer'
                 node.addEventListener('click', () => {
-                    const fileId = this._nodeToFileId(id, text, data)
-                    if (fileId) {
-                        this.dispatchEvent(new CustomEvent('vault-object-navigate', {
-                            bubbles: true,
-                            detail: { fileId }
-                        }))
-                    }
+                    const fileId = this._nodeToFileId(id, data)
+                    if (fileId) this._navigate(fileId)
                 })
             }
         })
     }
 
-    _nodeToFileId(nodeId, text, data) {
-        // Try to match node text against known IDs
+    _nodeToFileId(nodeId, data) {
         const clean = nodeId.replace(/^flowchart-/, '').replace(/-\d+$/, '')
 
-        if (clean.startsWith('ref-'))  return `bare/refs/${clean}`
-        if (clean.startsWith('key-'))  return `bare/keys/${clean}`
-        if (clean.startsWith('idx-'))  return `bare/indexes/${clean}`
-
-        // Check if it's a branch - navigate to its ref
+        // Check if it's a branch — navigate to its head ref
         for (const b of (data.branches || [])) {
             const safeBid = this._safe(b.branch_id)
             if (clean === safeBid && b.head_ref_id) {
                 return `bare/refs/${b.head_ref_id}`
             }
+        }
+
+        // Index node — navigate to the index itself
+        if (clean === 'IDX' && data.index_id) {
+            return `bare/indexes/${data.index_id}`
         }
 
         return null
@@ -150,7 +211,7 @@ export class VaultGraphBranches extends HTMLElement {
 
     _shortId(s) {
         if (!s) return ''
-        return s.length > 18 ? s.slice(0, 16) + '...' : s
+        return s.length > 18 ? s.slice(0, 16) + '..' : s
     }
 
     _esc(s) {
