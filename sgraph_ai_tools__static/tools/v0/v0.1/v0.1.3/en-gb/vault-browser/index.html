@@ -98,6 +98,9 @@
     <script type="module" src="./vault-nav-history.js"></script>
     <script type="module" src="./vault-file-list.js"></script>
     <script type="module" src="./vault-json-view.js"></script>
+    <script type="module" src="./vault-mermaid.js"></script>
+    <script type="module" src="./vault-graph-branches.js"></script>
+    <script type="module" src="./vault-graph-commits.js"></script>
     <script type="module" src="./vault-file-preview.js"></script>
     <!-- Schema viewers (self-register via vault-schema-registry) -->
     <script type="module" src="./schema/vault-schema-branch-index.js"></script>
@@ -156,6 +159,13 @@
         let currentVault = null
         let _navFromHistory = false   // flag to avoid double-push in history
 
+        /** Fetch + decrypt + parse a vault object as JSON. Used by graph components. */
+        async function fetchVaultObject(fileId) {
+            const data = await readFile(currentVault, fileId)
+            const text = new TextDecoder().decode(data)
+            return JSON.parse(text)
+        }
+
         // --- vault-open-request from <vault-manager> ---
         document.addEventListener('vault-open-request', async (e) => {
             const { vaultKey, apiBaseUrl } = e.detail
@@ -175,6 +185,9 @@
                 showStatus('<span class="spinner"></span>Listing vault files…', 'info')
 
                 currentVault = await openVault(keys, { apiBaseUrl })
+
+                // Give the preview component access to fetch for graph traversal
+                filePreview.setFetchFn(fetchVaultObject)
 
                 const fileIds = await listFileIds(currentVault, 'bare/')
                 fileList.render(fileIds)

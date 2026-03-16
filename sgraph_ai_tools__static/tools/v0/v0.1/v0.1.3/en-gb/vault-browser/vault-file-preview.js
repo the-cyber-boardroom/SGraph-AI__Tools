@@ -1,11 +1,14 @@
 /**
- * <vault-file-preview> — Displays decrypted file content with Raw/Schema tabs.
+ * <vault-file-preview> — Displays decrypted file content with Schema/Graph/Raw tabs.
  *
  * Methods:
- *   showFile(name, data)  — Display file content (data = ArrayBuffer)
- *   hide()                — Close the preview
+ *   showFile(name, data)        — Display file content (data = ArrayBuffer)
+ *   setFetchFn(fn)              — Set async fetch function for graph traversal: fn(fileId) => parsed JSON
+ *   hide()                      — Close the preview
  */
 import { detectSchema, getSchemaViewer } from './schema/vault-schema-registry.js'
+
+const GRAPH_SCHEMAS = new Set(['branch_index_v1', 'commit_v1', 'ref_v1'])
 
 export class VaultFilePreview extends HTMLElement {
 
@@ -13,6 +16,7 @@ export class VaultFilePreview extends HTMLElement {
         this._fileData   = null
         this._fileName   = null
         this._parsedJson = null
+        this._fetchFn    = null
 
         this.innerHTML = `
             <style>
@@ -122,10 +126,14 @@ export class VaultFilePreview extends HTMLElement {
             </div>
             <div class="vfp-tabs" id="vfp-tabs" style="display:none;">
                 <button class="vfp-tab active" data-tab="schema">Schema</button>
+                <button class="vfp-tab"        data-tab="graph" id="vfp-tab-graph" style="display:none;">Graph</button>
                 <button class="vfp-tab"        data-tab="raw">Raw</button>
             </div>
             <div class="vfp-tab-panel active" id="vfp-panel-schema">
                 <div class="vfp-schema-wrap" id="vfp-schema-wrap"></div>
+            </div>
+            <div class="vfp-tab-panel" id="vfp-panel-graph">
+                <div id="vfp-graph-container"></div>
             </div>
             <div class="vfp-tab-panel" id="vfp-panel-raw">
                 <div id="vfp-raw-container"></div>
@@ -138,10 +146,12 @@ export class VaultFilePreview extends HTMLElement {
                 <button class="btn btn--secondary" id="vfp-close">Close</button>
             </div>`
 
-        this._tabs         = this.querySelector('#vfp-tabs')
-        this._schemaWrap   = this.querySelector('#vfp-schema-wrap')
-        this._rawContainer = this.querySelector('#vfp-raw-container')
-        this._content      = this.querySelector('#vfp-content')
+        this._tabs           = this.querySelector('#vfp-tabs')
+        this._schemaWrap     = this.querySelector('#vfp-schema-wrap')
+        this._graphContainer = this.querySelector('#vfp-graph-container')
+        this._graphTab       = this.querySelector('#vfp-tab-graph')
+        this._rawContainer   = this.querySelector('#vfp-raw-container')
+        this._content        = this.querySelector('#vfp-content')
 
         for (const btn of this.querySelectorAll('.vfp-tab')) {
             btn.addEventListener('click', () => this._switchTab(btn.dataset.tab))
@@ -184,6 +194,10 @@ export class VaultFilePreview extends HTMLElement {
         this.classList.add('visible')
     }
 
+    setFetchFn(fn) {
+        this._fetchFn = fn
+    }
+
     _renderJsonViews(json) {
         // --- Schema view ---
         const schemaId = detectSchema(json)
@@ -209,6 +223,15 @@ export class VaultFilePreview extends HTMLElement {
             this._switchTab('raw')
         }
 
+        // --- Graph view (for graph-capable schemas) ---
+        this._graphContainer.innerHTML = ''
+        if (GRAPH_SCHEMAS.has(schemaId) && this._fetchFn) {
+            this._graphTab.style.display = ''
+            this._prepareGraph(schemaId, json)
+        } else {
+            this._graphTab.style.display = 'none'
+        }
+
         // --- Raw JSON view ---
         this._rawContainer.innerHTML = ''
         const jsonView = document.createElement('vault-json-view')
@@ -216,6 +239,48 @@ export class VaultFilePreview extends HTMLElement {
 
         const refFields = this._refFieldsForSchema()
         requestAnimationFrame(() => jsonView.render(json, refFields))
+    }
+
+    _prepareGraph(schemaId, json) {
+        // Lazy-render: only build graph when tab is clicked
+        this._pendingGraph = { schemaId, json, rendered: false }
+    }
+
+    async _renderGraph() {
+        if (!this._pendingGraph || this._pendingGraph.rendered) return
+        this._pendingGraph.rendered = true
+
+        const { schemaId, json } = this._pendingGraph
+
+        if (schemaId === 'branch_index_v1') {
+            const graph = document.createElement('vault-graph-branches')
+            this._graphContainer.appendChild(graph)
+            requestAnimationFrame(() => graph.render(json))
+
+        } else if (schemaId === 'commit_v1') {
+            const graph = document.createElement('vault-graph-commits')
+            this._graphContainer.appendChild(graph)
+            // Walk the commit chain using the fetch function
+            requestAnimationFrame(() =>
+                graph.render(json, this._fetchFn, json.branch_id || 'commit')
+            )
+
+        } else if (schemaId === 'ref_v1' && json.commit_id) {
+            // For a ref, load the commit first, then show its graph
+            try {
+                const fileId = `bare/data/${json.commit_id}`
+                const commit = await this._fetchFn(fileId)
+                if (commit) {
+                    commit._objId  = json.commit_id
+                    commit._fileId = fileId
+                    const graph = document.createElement('vault-graph-commits')
+                    this._graphContainer.appendChild(graph)
+                    graph.render(commit, this._fetchFn, 'ref')
+                }
+            } catch {
+                this._graphContainer.textContent = 'Failed to load commit for graph.'
+            }
+        }
     }
 
     _showPlainText(text) {
@@ -241,8 +306,14 @@ export class VaultFilePreview extends HTMLElement {
             btn.classList.toggle('active', btn.dataset.tab === tab)
         }
         this.querySelector('#vfp-panel-schema').classList.toggle('active', tab === 'schema')
+        this.querySelector('#vfp-panel-graph').classList.toggle('active', tab === 'graph')
         this.querySelector('#vfp-panel-raw').classList.toggle('active', tab === 'raw')
         this.querySelector('#vfp-panel-plain').classList.toggle('active', tab === 'plain')
+
+        // Lazy-render graph on first tab switch
+        if (tab === 'graph') {
+            this._renderGraph()
+        }
     }
 
     hide() {
