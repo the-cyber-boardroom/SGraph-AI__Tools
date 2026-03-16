@@ -37,7 +37,10 @@ export class VaultGraphBranches extends HTMLElement {
             return
         }
 
-        const lines = ['flowchart TD']
+        const lines = [
+            '%%{ init: { "flowchart": { "curve": "monotoneY", "nodeSpacing": 30, "rankSpacing": 40 } } }%%',
+            'flowchart TD'
+        ]
 
         // Index node
         const indexId = this._safe(data.index_id || 'index')

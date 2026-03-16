@@ -1,7 +1,9 @@
 /**
  * <vault-graph-commits> — Mermaid diagram of commit history.
  *
- * Walks the commit chain via parent links and renders a gitGraph or flowchart.
+ * Walks the commit chain via parent links and renders a clean vertical flowchart.
+ * Tree IDs are shown inline within commit nodes (not as separate nodes) to avoid
+ * edge crossings and visual clutter.
  *
  * Methods:
  *   render(startCommit, fetchFn, branchName)
@@ -24,16 +26,44 @@ export class VaultGraphCommits extends HTMLElement {
                     margin-bottom: 0.5rem;
                     font-family: var(--sg-font-mono);
                 }
+                vault-graph-commits .vgc-tree-links {
+                    display: flex;
+                    flex-wrap: wrap;
+                    gap: 0.25rem 0.75rem;
+                    margin-top: 0.5rem;
+                    font-size: 0.75rem;
+                    font-family: var(--sg-font-mono);
+                }
+                vault-graph-commits .vgc-tree-link {
+                    color: #c3e88d;
+                    cursor: pointer;
+                    padding: 0.15rem 0.4rem;
+                    border: 1px solid #c3e88d44;
+                    border-radius: 3px;
+                    background: #16213E;
+                    transition: background 0.15s;
+                }
+                vault-graph-commits .vgc-tree-link:hover {
+                    background: #1a3a5c;
+                    border-color: #c3e88d;
+                }
+                vault-graph-commits .vgc-tree-link .vgc-tree-label {
+                    color: var(--sg-text-dim);
+                    margin-right: 0.25rem;
+                }
             </style>
             <div class="vgc-stats" id="vgc-stats"></div>
-            <vault-mermaid id="vgc-mermaid"></vault-mermaid>`
+            <vault-mermaid id="vgc-mermaid"></vault-mermaid>
+            <div class="vgc-tree-links" id="vgc-tree-links"></div>`
 
-        this._mermaid = this.querySelector('#vgc-mermaid')
-        this._stats   = this.querySelector('#vgc-stats')
+        this._mermaid   = this.querySelector('#vgc-mermaid')
+        this._stats     = this.querySelector('#vgc-stats')
+        this._treeLinks = this.querySelector('#vgc-tree-links')
     }
 
     async render(startCommit, fetchFn, branchName) {
         this._stats.textContent = 'Walking commit chain…'
+        this._treeLinks.innerHTML = ''
         this._commits = new Map()  // objId -> commit data
         this._fetchFn = fetchFn
 
@@ -52,12 +82,12 @@ export class VaultGraphCommits extends HTMLElement {
         const markup = this._buildFlowchart(branchName)
         await this._mermaid.render(markup)
         this._wireClicks()
+        this._renderTreeLinks()
     }
 
     async _walkChain(commit, maxDepth) {
         if (maxDepth <= 0) return
 
-        // Need a stable ID for this commit — find it from tree_id or use a counter
         const commitId = this._commitId(commit)
         if (this._commits.has(commitId)) return
         this._commits.set(commitId, commit)
@@ -80,12 +110,14 @@ export class VaultGraphCommits extends HTMLElement {
     }
 
     _commitId(commit) {
-        // Use the object ID if available, otherwise hash key fields
         return commit._objId || commit.tree_id || `commit-${this._commits.size}`
     }
 
     _buildFlowchart(branchName) {
-        const lines = ['flowchart TD']
+        const lines = [
+            '%%{ init: { "flowchart": { "curve": "monotoneY", "nodeSpacing": 30, "rankSpacing": 40 } } }%%',
+            'flowchart TD'
+        ]
         const commits = [...this._commits.entries()]
 
         // Sort by timestamp (newest first)
@@ -93,7 +125,7 @@ export class VaultGraphCommits extends HTMLElement {
 
         // Add branch label
         if (branchName) {
-            lines.push(`    branch_label["${this._esc(branchName)}"]:::branchLabel`)
+            lines.push(`    branch_label(["${this._esc(branchName)}"]):::branchLabel`)
             if (commits.length > 0) {
                 lines.push(`    branch_label --> ${this._safe(commits[0][0])}`)
             }
@@ -105,36 +137,57 @@ export class VaultGraphCommits extends HTMLElement {
             const time   = commit.timestamp_ms
                 ? new Date(commit.timestamp_ms).toISOString().slice(0, 16).replace('T', ' ')
                 : ''
+            const treeTag = commit.tree_id ? `tree: ${this._shortId(commit.tree_id)}` : ''
 
-            const label = time ? `${msg}\\n${time}` : msg
+            // Build multi-line label: message, timestamp, tree ref
+            const parts = [msg]
+            if (time) parts.push(time)
+            if (treeTag) parts.push(treeTag)
+
+            const label = parts.join('\\n')
             lines.push(`    ${safeId}["${label}"]:::commitNode`)
 
-            // Tree link
-            if (commit.tree_id) {
-                const treeId = this._safe(commit.tree_id)
-                lines.push(`    ${safeId} -.->|tree| ${treeId}(["${this._shortId(commit.tree_id)}"]):::treeNode`)
-            }
-
-            // Parent links
+            // Parent links — only draw edges, no separate tree nodes
             const parents = commit.parents || (commit.parent ? [commit.parent] : [])
             for (const p of parents) {
                 const parentSafe = this._safe(p)
                 if (this._commits.has(p)) {
-                    lines.push(`    ${safeId} -->|parent| ${parentSafe}`)
+                    lines.push(`    ${safeId} --> ${parentSafe}`)
                 } else {
-                    // Orphan parent
                     lines.push(`    ${parentSafe}["${this._shortId(p)}\\n(not loaded)"]:::orphanNode`)
-                    lines.push(`    ${safeId} -->|parent| ${parentSafe}`)
+                    lines.push(`    ${safeId} --> ${parentSafe}`)
                 }
             }
         }
 
         lines.push(`    classDef branchLabel fill:#0f3460,stroke:#4ecdc4,color:#4ecdc4,stroke-width:2px,font-weight:bold`)
         lines.push(`    classDef commitNode fill:#1a3a5c,stroke:#82aaff,color:#e0e0e0,stroke-width:1px`)
-        lines.push(`    classDef treeNode fill:#16213E,stroke:#c3e88d,color:#c3e88d`)
         lines.push(`    classDef orphanNode fill:#16213E,stroke:#89ddff,color:#89ddff,stroke-dasharray:5 5`)
 
         return lines.join('\n')
+    }
+
+    /** Render clickable tree links below the diagram */
+    _renderTreeLinks() {
+        this._treeLinks.innerHTML = ''
+        const commits = [...this._commits.entries()]
+        commits.sort((a, b) => (b[1].timestamp_ms || 0) - (a[1].timestamp_ms || 0))
+
+        for (const [, commit] of commits) {
+            if (!commit.tree_id) continue
+            const msg = this._truncMsg(commit.message || '(no message)')
+            const el  = document.createElement('span')
+            el.className = 'vgc-tree-link'
+            el.innerHTML = `<span class="vgc-tree-label">${msg} →</span> ${this._shortId(commit.tree_id)}`
+            el.title = `Open tree: ${commit.tree_id}`
+            el.addEventListener('click', () => {
+                this.dispatchEvent(new CustomEvent('vault-object-navigate', {
+                    bubbles: true,
+                    detail: { fileId: `bare/data/${commit.tree_id}` }
+                }))
+            })
+            this._treeLinks.appendChild(el)
+        }
     }
 
     _wireClicks() {
@@ -163,15 +216,7 @@ export class VaultGraphCommits extends HTMLElement {
         // Check if it matches a commit
         for (const [id, commit] of this._commits) {
             if (this._safe(id) === clean) {
-                const fid = commit._fileId || `bare/data/${id}`
-                return fid
-            }
-        }
-
-        // Check tree refs
-        for (const [, commit] of this._commits) {
-            if (commit.tree_id && this._safe(commit.tree_id) === clean) {
-                return `bare/data/${commit.tree_id}`
+                return commit._fileId || `bare/data/${id}`
             }
         }
 
