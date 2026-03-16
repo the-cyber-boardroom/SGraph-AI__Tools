@@ -16,7 +16,7 @@ PORT=10063
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 REPO_ROOT="$(dirname "$SCRIPT_DIR")"
 STATIC_DIR="$REPO_ROOT/sgraph_ai_tools__static"
-UI_VERSION="v0.1.2"
+UI_VERSION="v0.1.3"
 IFD_PATH="tools/v0/v0.1/$UI_VERSION"
 SERVE_DIR="$REPO_ROOT/.local-server"
 
