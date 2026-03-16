@@ -1,15 +1,21 @@
 /**
- * <vault-mermaid> — Renders Mermaid diagrams with fullscreen support.
+ * <vault-mermaid> — Renders Mermaid diagrams with fullscreen support and zoom.
  *
  * Loads Mermaid from CDN on first use, then renders markup into SVG.
- * Includes a maximize button that opens the diagram in a fullscreen overlay.
+ * Includes a toolbar with zoom controls and fullscreen button.
+ * Supports caching rendered SVGs keyed by markup hash.
  *
  * Methods:
- *   render(markup)  — Render a Mermaid diagram string
- *   clear()         — Remove the diagram
+ *   render(markup)             — Render a Mermaid diagram string
+ *   render(markup, { cache })  — Render with caching (cache key = markup)
+ *   clear()                    — Remove the diagram
+ *   clearCache()               — Clear all cached diagrams
  */
 
 let _mermaidReady = null
+
+/** @type {Map<string, string>} markup hash → SVG string */
+const _svgCache = new Map()
 
 function loadMermaid() {
     if (_mermaidReady) return _mermaidReady
@@ -82,6 +88,15 @@ function loadMermaid() {
     return _mermaidReady
 }
 
+/** Simple string hash for cache key */
+function _hashMarkup(s) {
+    let h = 0
+    for (let i = 0; i < s.length; i++) {
+        h = ((h << 5) - h + s.charCodeAt(i)) | 0
+    }
+    return 'mc_' + (h >>> 0).toString(36)
+}
+
 export class VaultMermaid extends HTMLElement {
 
     connectedCallback() {
@@ -99,6 +114,8 @@ export class VaultMermaid extends HTMLElement {
                 vault-mermaid .vm-container svg {
                     max-width: 100%;
                     height: auto;
+                    transform-origin: top left;
+                    transition: transform 0.2s ease;
                 }
                 vault-mermaid .vm-loading {
                     color: var(--sg-text-dim);
@@ -113,10 +130,22 @@ export class VaultMermaid extends HTMLElement {
                 }
                 vault-mermaid .vm-toolbar {
                     display: none;
-                    justify-content: flex-end;
+                    align-items: center;
+                    justify-content: space-between;
                     margin-bottom: 0.25rem;
+                    gap: 0.5rem;
                 }
-                vault-mermaid .vm-maximize-btn {
+                vault-mermaid .vm-toolbar-left {
+                    display: flex;
+                    align-items: center;
+                    gap: 0.25rem;
+                }
+                vault-mermaid .vm-toolbar-right {
+                    display: flex;
+                    align-items: center;
+                    gap: 0.25rem;
+                }
+                vault-mermaid .vm-btn {
                     background: rgba(15, 52, 96, 0.85);
                     border: 1px solid var(--sg-border);
                     color: var(--sg-text-dim);
@@ -126,11 +155,30 @@ export class VaultMermaid extends HTMLElement {
                     font-size: 0.75rem;
                     font-family: var(--sg-font-mono);
                     transition: color 0.15s, border-color 0.15s, background 0.15s;
+                    line-height: 1;
                 }
-                vault-mermaid .vm-maximize-btn:hover {
+                vault-mermaid .vm-btn:hover {
                     color: var(--sg-accent);
                     border-color: var(--sg-accent);
                     background: rgba(15, 52, 96, 1);
+                }
+                vault-mermaid .vm-btn.vm-active {
+                    color: var(--sg-accent);
+                    border-color: var(--sg-accent);
+                }
+                vault-mermaid .vm-zoom-level {
+                    font-size: 0.7rem;
+                    color: var(--sg-text-dim);
+                    font-family: var(--sg-font-mono);
+                    min-width: 2.5rem;
+                    text-align: center;
+                }
+                vault-mermaid .vm-cache-badge {
+                    font-size: 0.65rem;
+                    color: #c3e88d;
+                    font-family: var(--sg-font-mono);
+                    opacity: 0.7;
+                    margin-left: 0.25rem;
                 }
 
                 /* Fullscreen overlay */
@@ -150,6 +198,11 @@ export class VaultMermaid extends HTMLElement {
                     background: rgba(15, 52, 96, 0.5);
                     border-bottom: 1px solid var(--sg-border);
                     flex-shrink: 0;
+                }
+                .vm-fullscreen-toolbar .vm-fs-left {
+                    display: flex;
+                    align-items: center;
+                    gap: 0.5rem;
                 }
                 .vm-fullscreen-toolbar .vm-fs-title {
                     color: var(--sg-text-dim);
@@ -174,33 +227,71 @@ export class VaultMermaid extends HTMLElement {
                     flex: 1;
                     overflow: auto;
                     display: flex;
-                    align-items: center;
+                    align-items: flex-start;
                     justify-content: center;
                     padding: 1rem;
                 }
                 .vm-fullscreen-body svg {
                     max-width: 95vw;
-                    max-height: 90vh;
+                    max-height: none;
                     height: auto;
                     width: auto;
+                    transform-origin: top center;
+                    transition: transform 0.2s ease;
                 }
             </style>
             <div class="vm-toolbar" id="vm-toolbar">
-                <button class="vm-maximize-btn" id="vm-maximize" title="Open in fullscreen">Fullscreen</button>
+                <div class="vm-toolbar-left">
+                    <button class="vm-btn" id="vm-zoom-out" title="Zoom out">−</button>
+                    <span class="vm-zoom-level" id="vm-zoom-level">100%</span>
+                    <button class="vm-btn" id="vm-zoom-in" title="Zoom in">+</button>
+                    <button class="vm-btn" id="vm-zoom-fit" title="Fit to view">Fit</button>
+                    <span class="vm-cache-badge" id="vm-cache-badge"></span>
+                </div>
+                <div class="vm-toolbar-right">
+                    <button class="vm-btn" id="vm-maximize" title="Open in fullscreen">Fullscreen</button>
+                </div>
             </div>
             <div class="vm-container" id="vm-container"></div>`
 
-        this._container   = this.querySelector('#vm-container')
-        this._toolbar     = this.querySelector('#vm-toolbar')
-        this._svgMarkup   = null
+        this._container  = this.querySelector('#vm-container')
+        this._toolbar    = this.querySelector('#vm-toolbar')
+        this._zoomLabel  = this.querySelector('#vm-zoom-level')
+        this._cacheBadge = this.querySelector('#vm-cache-badge')
+        this._svgMarkup  = null
+        this._zoom       = 1.0
+        this._fsZoom     = 1.0
 
         this.querySelector('#vm-maximize').addEventListener('click', () => this._openFullscreen())
+        this.querySelector('#vm-zoom-in').addEventListener('click', () => this._setZoom(this._zoom + 0.15))
+        this.querySelector('#vm-zoom-out').addEventListener('click', () => this._setZoom(this._zoom - 0.15))
+        this.querySelector('#vm-zoom-fit').addEventListener('click', () => this._setZoom(1.0))
     }
 
-    async render(markup) {
+    /**
+     * @param {string} markup — Mermaid diagram markup
+     * @param {object} [opts]
+     * @param {boolean} [opts.cache=false] — Use cache if available
+     */
+    async render(markup, opts = {}) {
+        const useCache = opts.cache !== false
+        const cacheKey = _hashMarkup(markup)
+
         this._container.innerHTML = '<div class="vm-loading">Loading diagram…</div>'
         this._toolbar.style.display = 'none'
+        this._cacheBadge.textContent = ''
         this._svgMarkup = null
+        this._zoom = 1.0
+
+        // Check cache first
+        if (useCache && _svgCache.has(cacheKey)) {
+            this._container.innerHTML = _svgCache.get(cacheKey)
+            this._svgMarkup = _svgCache.get(cacheKey)
+            this._toolbar.style.display = 'flex'
+            this._cacheBadge.textContent = 'cached'
+            this._updateZoomLabel()
+            return
+        }
 
         try {
             await loadMermaid()
@@ -209,6 +300,12 @@ export class VaultMermaid extends HTMLElement {
             this._container.innerHTML = svg
             this._svgMarkup = svg
             this._toolbar.style.display = 'flex'
+            this._updateZoomLabel()
+
+            // Store in cache
+            if (useCache) {
+                _svgCache.set(cacheKey, svg)
+            }
         } catch (err) {
             this._container.innerHTML = `<div class="vm-error">Diagram error: ${this._esc(err.message)}</div>`
         }
@@ -218,17 +315,43 @@ export class VaultMermaid extends HTMLElement {
         this._container.innerHTML = ''
         this._toolbar.style.display = 'none'
         this._svgMarkup = null
+        this._zoom = 1.0
+    }
+
+    /** Clear all cached SVGs */
+    clearCache() {
+        _svgCache.clear()
+    }
+
+    _setZoom(level) {
+        this._zoom = Math.max(0.25, Math.min(3.0, level))
+        const svg = this._container.querySelector('svg')
+        if (svg) {
+            svg.style.transform = `scale(${this._zoom})`
+        }
+        this._updateZoomLabel()
+    }
+
+    _updateZoomLabel() {
+        this._zoomLabel.textContent = `${Math.round(this._zoom * 100)}%`
     }
 
     _openFullscreen() {
         if (!this._svgMarkup) return
+        this._fsZoom = 1.0
 
         const overlay = document.createElement('div')
         overlay.className = 'vm-fullscreen-overlay'
 
         overlay.innerHTML = `
             <div class="vm-fullscreen-toolbar">
-                <span class="vm-fs-title">Diagram — press Esc to close</span>
+                <div class="vm-fs-left">
+                    <span class="vm-fs-title">Diagram — press Esc to close</span>
+                    <button class="vm-btn vm-fs-zoom-out" title="Zoom out">−</button>
+                    <span class="vm-zoom-level vm-fs-zoom-level">100%</span>
+                    <button class="vm-btn vm-fs-zoom-in" title="Zoom in">+</button>
+                    <button class="vm-btn vm-fs-zoom-fit" title="Fit to view">Fit</button>
+                </div>
                 <button class="vm-fs-close">Close</button>
             </div>
             <div class="vm-fullscreen-body">${this._svgMarkup}</div>`
@@ -238,10 +361,22 @@ export class VaultMermaid extends HTMLElement {
         if (svg) {
             svg.removeAttribute('width')
             svg.style.maxWidth  = '95vw'
-            svg.style.maxHeight = '88vh'
+            svg.style.maxHeight = 'none'
             svg.style.width     = 'auto'
             svg.style.height    = 'auto'
         }
+
+        const fsZoomLabel = overlay.querySelector('.vm-fs-zoom-level')
+
+        const setFsZoom = (level) => {
+            this._fsZoom = Math.max(0.25, Math.min(3.0, level))
+            if (svg) svg.style.transform = `scale(${this._fsZoom})`
+            fsZoomLabel.textContent = `${Math.round(this._fsZoom * 100)}%`
+        }
+
+        overlay.querySelector('.vm-fs-zoom-in').addEventListener('click', () => setFsZoom(this._fsZoom + 0.15))
+        overlay.querySelector('.vm-fs-zoom-out').addEventListener('click', () => setFsZoom(this._fsZoom - 0.15))
+        overlay.querySelector('.vm-fs-zoom-fit').addEventListener('click', () => setFsZoom(1.0))
 
         // Clone click handlers from original SVG nodes
         this._wireFullscreenClicks(overlay)

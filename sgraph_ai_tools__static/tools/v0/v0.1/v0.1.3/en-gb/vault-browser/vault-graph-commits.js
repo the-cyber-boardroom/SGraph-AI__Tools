@@ -5,6 +5,12 @@
  * Tree IDs are shown inline within commit nodes (not as separate nodes) to avoid
  * edge crossings and visual clutter.
  *
+ * Styling:
+ *   - Commit messages: bold, bright text
+ *   - Timestamps: dim, smaller
+ *   - Tree refs: monospace, green tint
+ *   - Merge commits: distinct border style
+ *
  * Methods:
  *   render(startCommit, fetchFn, branchName)
  *     startCommit — parsed commit object to start from
@@ -26,6 +32,21 @@ export class VaultGraphCommits extends HTMLElement {
                     margin-bottom: 0.5rem;
                     font-family: var(--sg-font-mono);
                 }
+
+                /* ── Node text styling ─────────────────────────────── */
+                /* First line = commit message (bold, bright) */
+                vault-graph-commits .node .nodeLabel span[class=""] tspan:first-child,
+                vault-graph-commits .node .label foreignObject div span tspan:first-child,
+                vault-graph-commits .commitNode .nodeLabel tspan:first-child,
+                vault-graph-commits .node foreignObject div tspan:first-child {
+                    font-weight: 600;
+                }
+                /* Target tspan elements inside nodes for visual hierarchy */
+                vault-graph-commits .node .nodeLabel {
+                    line-height: 1.4;
+                }
+
+                /* ── Tree links below diagram ────────────────────── */
                 vault-graph-commits .vgc-tree-links {
                     display: flex;
                     flex-wrap: wrap;
@@ -80,9 +101,10 @@ export class VaultGraphCommits extends HTMLElement {
 
         // Build the diagram
         const markup = this._buildFlowchart(branchName)
-        await this._mermaid.render(markup)
+        await this._mermaid.render(markup, { cache: true })
         this._wireClicks()
         this._renderTreeLinks()
+        this._styleNodeText()
     }
 
     async _walkChain(commit, maxDepth) {
@@ -145,10 +167,14 @@ export class VaultGraphCommits extends HTMLElement {
             if (treeTag) parts.push(treeTag)
 
             const label = parts.join('\\n')
-            lines.push(`    ${safeId}["${label}"]:::commitNode`)
+
+            // Merge commits get a distinct style
+            const parents = commit.parents || (commit.parent ? [commit.parent] : [])
+            const isMerge = parents.length > 1
+            const cls = isMerge ? 'mergeNode' : 'commitNode'
+            lines.push(`    ${safeId}["${label}"]:::${cls}`)
 
             // Parent links — only draw edges, no separate tree nodes
-            const parents = commit.parents || (commit.parent ? [commit.parent] : [])
             for (const p of parents) {
                 const parentSafe = this._safe(p)
                 if (this._commits.has(p)) {
@@ -162,9 +188,45 @@ export class VaultGraphCommits extends HTMLElement {
 
         lines.push(`    classDef branchLabel fill:#0f3460,stroke:#4ecdc4,color:#4ecdc4,stroke-width:2px,font-weight:bold`)
         lines.push(`    classDef commitNode fill:#1a3a5c,stroke:#82aaff,color:#e0e0e0,stroke-width:1px`)
+        lines.push(`    classDef mergeNode fill:#1a3a5c,stroke:#c792ea,color:#e0e0e0,stroke-width:2px,stroke-dasharray:4 2`)
         lines.push(`    classDef orphanNode fill:#16213E,stroke:#89ddff,color:#89ddff,stroke-dasharray:5 5`)
 
         return lines.join('\n')
+    }
+
+    /**
+     * Post-render: style individual tspan lines inside SVG nodes.
+     * Line 1 = message (bold, bright), Line 2 = timestamp (dim), Line 3 = tree (green)
+     */
+    _styleNodeText() {
+        requestAnimationFrame(() => {
+            const svg = this._mermaid.querySelector('svg')
+            if (!svg) return
+
+            for (const node of svg.querySelectorAll('.node')) {
+                const tspans = node.querySelectorAll('tspan')
+                if (tspans.length >= 1) {
+                    // Message line — bold, bright
+                    tspans[0].style.fontWeight = '600'
+                    tspans[0].style.fill = '#e0e0e0'
+                    tspans[0].style.fontSize = '0.85rem'
+                }
+                if (tspans.length >= 2) {
+                    // Timestamp line — dim, smaller
+                    tspans[1].style.fontWeight = '400'
+                    tspans[1].style.fill = '#82aaff'
+                    tspans[1].style.fontSize = '0.7rem'
+                    tspans[1].style.opacity = '0.8'
+                }
+                if (tspans.length >= 3) {
+                    // Tree ref line — green, mono
+                    tspans[2].style.fontWeight = '400'
+                    tspans[2].style.fill = '#c3e88d'
+                    tspans[2].style.fontSize = '0.65rem'
+                    tspans[2].style.opacity = '0.7'
+                }
+            }
+        })
     }
 
     /** Render clickable tree links below the diagram */
