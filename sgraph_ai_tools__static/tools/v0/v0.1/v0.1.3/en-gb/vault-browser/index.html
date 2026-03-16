@@ -15,20 +15,23 @@
             width: 100%;
         }
 
-        h1 { font-size: 1.5rem; margin-bottom: 0.5rem; }
-
-        .subtitle {
+        .page-header {
+            display: flex;
+            align-items: baseline;
+            gap: 1rem;
+            margin-bottom: 0.5rem;
+        }
+        .page-header h1 { font-size: 1.5rem; margin: 0; }
+        .page-header .subtitle {
             color: var(--sg-text-muted);
-            font-size: 0.9375rem;
-            margin-bottom: 2rem;
-            line-height: 1.5;
+            font-size: 0.8125rem;
         }
 
         /* --- Status bar --- */
         .status-bar {
-            margin-top: 1rem;
+            margin-top: 0.75rem;
             font-size: 0.8125rem;
-            padding: 0.5rem 0.75rem;
+            padding: 0.375rem 0.75rem;
             border-radius: var(--sg-radius);
             display: none;
         }
@@ -53,28 +56,22 @@
         .browse-area {
             display: none;
             gap: 1.5rem;
-            margin-top: 1.5rem;
+            margin-top: 1rem;
         }
         .browse-area.visible {
             display: grid;
             grid-template-columns: minmax(280px, 1fr) 2fr;
+        }
+        .browse-preview-col {
+            display: flex;
+            flex-direction: column;
+            gap: 0;
         }
         @media (max-width: 768px) {
             .browse-area.visible {
                 grid-template-columns: 1fr;
             }
         }
-
-        /* --- Info box --- */
-        .info-box {
-            margin-top: 2rem;
-            padding: 1rem;
-            background: rgba(78,205,196,0.05);
-            border: 1px solid var(--sg-border);
-            border-radius: var(--sg-radius);
-        }
-        .info-box h3 { font-size: 0.875rem; margin-bottom: 0.5rem; color: var(--sg-accent); }
-        .info-box p  { color: var(--sg-text-muted); font-size: 0.8125rem; line-height: 1.6; }
     </style>
 </head>
 <body>
@@ -96,8 +93,9 @@
     </script>
 
     <!-- Load vault-browser components -->
-    <script type="module" src="./vault-key-input.js"></script>
+    <script type="module" src="./vault-manager.js"></script>
     <script type="module" src="./vault-derived-keys.js"></script>
+    <script type="module" src="./vault-nav-history.js"></script>
     <script type="module" src="./vault-file-list.js"></script>
     <script type="module" src="./vault-json-view.js"></script>
     <script type="module" src="./vault-file-preview.js"></script>
@@ -109,30 +107,21 @@
     <script type="module" src="./schema/vault-schema-pki-key.js"></script>
 
     <div class="main">
-        <h1>Vault Browser</h1>
-        <p class="subtitle">
-            Open and browse SG/Send vaults entirely in your browser.
-            Keys are derived locally using PBKDF2. Files are fetched and decrypted client-side.
-            Nothing leaves your device.
-        </p>
+        <div class="page-header">
+            <h1>Vault Browser</h1>
+            <span class="subtitle">Client-side vault decryption — nothing leaves your device</span>
+        </div>
 
-        <vault-key-input id="key-input" api-url="https://send.sgraph.ai"></vault-key-input>
+        <vault-manager id="vault-mgr" api-url="https://send.sgraph.ai"></vault-manager>
         <div id="status" class="status-bar"></div>
         <vault-derived-keys id="derived-keys"></vault-derived-keys>
 
         <div id="browse-area" class="browse-area">
             <vault-file-list id="file-list"></vault-file-list>
-            <vault-file-preview id="file-preview"></vault-file-preview>
-        </div>
-
-        <div class="info-box">
-            <h3>How It Works</h3>
-            <p>
-                Your vault key is split into a passphrase and vault ID. PBKDF2-SHA256
-                (600,000 iterations) derives read and write keys locally. File IDs are
-                computed via HMAC-SHA256. Encrypted files are fetched from the API and
-                decrypted in your browser using AES-256-GCM. Same crypto as sg-send-cli.
-            </p>
+            <div class="browse-preview-col">
+                <vault-nav-history id="nav-history"></vault-nav-history>
+                <vault-file-preview id="file-preview"></vault-file-preview>
+            </div>
         </div>
     </div>
 
@@ -156,22 +145,25 @@
     <script type="module">
         import { parseVaultKey, deriveVaultKeys, openVault, listFileIds, readFile } from '/core/vault-client/v1/v1.0/v1.0.0/sg-vault-client.js'
 
-        const keyInput    = document.getElementById('key-input')
+        const vaultMgr    = document.getElementById('vault-mgr')
         const derivedKeys = document.getElementById('derived-keys')
         const fileList    = document.getElementById('file-list')
         const filePreview = document.getElementById('file-preview')
+        const navHistory  = document.getElementById('nav-history')
         const statusDiv   = document.getElementById('status')
         const browseArea  = document.getElementById('browse-area')
 
         let currentVault = null
+        let _navFromHistory = false   // flag to avoid double-push in history
 
-        // --- vault-open-request from <vault-key-input> ---
+        // --- vault-open-request from <vault-manager> ---
         document.addEventListener('vault-open-request', async (e) => {
             const { vaultKey, apiBaseUrl } = e.detail
 
-            keyInput.setLoading(true)
+            vaultMgr.setLoading(true)
             showStatus('<span class="spinner"></span>Deriving vault keys (PBKDF2, 600K iterations)…', 'info')
             filePreview.hide()
+            navHistory.clear()
             browseArea.classList.remove('visible')
             derivedKeys.hide()
 
@@ -188,24 +180,33 @@
                 fileList.render(fileIds)
                 fileList.show()
                 browseArea.classList.add('visible')
+                vaultMgr.setConnected(vaultId)
                 showStatus(`Vault opened — ${fileIds.length} file(s) found.`, 'success')
 
             } catch (err) {
                 derivedKeys.hide()
                 browseArea.classList.remove('visible')
+                vaultMgr.setDisconnected()
                 showStatus(err.message, 'error')
             }
 
-            keyInput.setLoading(false)
+            vaultMgr.setLoading(false)
         })
 
-        // --- vault-file-select from <vault-file-list> ---
+        // --- vault-file-select from <vault-file-list> (user click) ---
         document.addEventListener('vault-file-select', (e) => {
+            _navFromHistory = false
             navigateToFile(e.detail.fileId)
         })
 
-        // --- vault-object-navigate from schema viewers / JSON view ---
+        // --- vault-object-navigate from schema viewers / JSON view / nav-history ---
         document.addEventListener('vault-object-navigate', (e) => {
+            // If the event came from nav-history back/forward, don't push again
+            if (e.target === navHistory || e.target.closest('vault-nav-history')) {
+                _navFromHistory = true
+            } else {
+                _navFromHistory = false
+            }
             navigateToFile(e.detail.fileId)
         })
 
@@ -217,6 +218,12 @@
 
             try {
                 const data = await readFile(currentVault, fileId)
+
+                // Push to history unless navigating via back/forward
+                if (!_navFromHistory) {
+                    navHistory.push(fileId)
+                }
+
                 filePreview.showFile(fileId, data)
                 showStatus(`Decrypted: ${fileId} (${formatBytes(data.byteLength)})`, 'success')
             } catch (err) {
