@@ -111,10 +111,12 @@ export class VaultMermaid extends HTMLElement {
                     font-family: var(--sg-font-mono);
                     white-space: pre-wrap;
                 }
+                vault-mermaid .vm-toolbar {
+                    display: none;
+                    justify-content: flex-end;
+                    margin-bottom: 0.25rem;
+                }
                 vault-mermaid .vm-maximize-btn {
-                    position: absolute;
-                    top: 0.5rem;
-                    right: 0.5rem;
                     background: rgba(15, 52, 96, 0.85);
                     border: 1px solid var(--sg-border);
                     color: var(--sg-text-dim);
@@ -123,9 +125,7 @@ export class VaultMermaid extends HTMLElement {
                     padding: 0.25rem 0.5rem;
                     font-size: 0.75rem;
                     font-family: var(--sg-font-mono);
-                    z-index: 2;
                     transition: color 0.15s, border-color 0.15s, background 0.15s;
-                    display: none;
                 }
                 vault-mermaid .vm-maximize-btn:hover {
                     color: var(--sg-accent);
@@ -185,19 +185,21 @@ export class VaultMermaid extends HTMLElement {
                     width: auto;
                 }
             </style>
-            <button class="vm-maximize-btn" id="vm-maximize" title="Fullscreen">Fullscreen</button>
+            <div class="vm-toolbar" id="vm-toolbar">
+                <button class="vm-maximize-btn" id="vm-maximize" title="Open in fullscreen">Fullscreen</button>
+            </div>
             <div class="vm-container" id="vm-container"></div>`
 
         this._container   = this.querySelector('#vm-container')
-        this._maximizeBtn = this.querySelector('#vm-maximize')
+        this._toolbar     = this.querySelector('#vm-toolbar')
         this._svgMarkup   = null
 
-        this._maximizeBtn.addEventListener('click', () => this._openFullscreen())
+        this.querySelector('#vm-maximize').addEventListener('click', () => this._openFullscreen())
     }
 
     async render(markup) {
         this._container.innerHTML = '<div class="vm-loading">Loading diagram…</div>'
-        this._maximizeBtn.style.display = 'none'
+        this._toolbar.style.display = 'none'
         this._svgMarkup = null
 
         try {
@@ -206,7 +208,7 @@ export class VaultMermaid extends HTMLElement {
             const { svg } = await window.mermaid.render(id, markup)
             this._container.innerHTML = svg
             this._svgMarkup = svg
-            this._maximizeBtn.style.display = ''
+            this._toolbar.style.display = 'flex'
         } catch (err) {
             this._container.innerHTML = `<div class="vm-error">Diagram error: ${this._esc(err.message)}</div>`
         }
@@ -214,7 +216,7 @@ export class VaultMermaid extends HTMLElement {
 
     clear() {
         this._container.innerHTML = ''
-        this._maximizeBtn.style.display = 'none'
+        this._toolbar.style.display = 'none'
         this._svgMarkup = null
     }
 
