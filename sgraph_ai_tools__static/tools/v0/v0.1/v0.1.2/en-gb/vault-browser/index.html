@@ -266,6 +266,7 @@
             <div><span class="label">Write Key:</span><span id="dk-write-key"></span></div>
             <div><span class="label">Tree File ID:</span><span id="dk-tree-id"></span></div>
             <div><span class="label">Settings File ID:</span><span id="dk-settings-id"></span></div>
+            <div><span class="label">Ref File ID:</span><span id="dk-ref-id"></span></div>
             <div><span class="label">Derivation Time:</span><span id="dk-time"></span></div>
         </div>
 
@@ -311,7 +312,7 @@
     </script>
 
     <script type="module">
-        import { parseVaultKey, deriveVaultKeys, openVault, fetchTree, readFile } from '/core/vault-client/v1/v1.0/v1.0.0/sg-vault-client.js'
+        import { parseVaultKey, deriveVaultKeys, openVault, listFileIds, readFile } from '/core/vault-client/v1/v1.0/v1.0.0/sg-vault-client.js'
 
         const vaultKeyInput = document.getElementById('vault-key')
         const apiUrlInput   = document.getElementById('api-url')
@@ -354,21 +355,22 @@
                 document.getElementById('dk-write-key').textContent    = keys.writeKey
                 document.getElementById('dk-tree-id').textContent      = keys.treeFileId
                 document.getElementById('dk-settings-id').textContent  = keys.settingsFileId
+                document.getElementById('dk-ref-id').textContent       = keys.refFileId
                 document.getElementById('dk-time').textContent         = `${Math.round(keys.derivationTimeMs)} ms`
                 derivedDiv.classList.add('visible')
 
-                showStatus('<span class="spinner"></span>Fetching vault tree...', 'info')
+                showStatus('<span class="spinner"></span>Listing vault files...', 'info')
 
                 currentVault = await openVault(keys, { apiBaseUrl: apiUrlInput.value.trim() })
 
                 try {
-                    const tree = await fetchTree(currentVault)
-                    renderTree(tree)
+                    const fileIds = await listFileIds(currentVault, 'bare/')
+                    renderFileList(fileIds)
                     contentDiv.classList.add('visible')
-                    showStatus('Vault opened successfully.', 'success')
+                    showStatus(`Vault opened — ${fileIds.length} file(s) found.`, 'success')
                 } catch (fetchErr) {
                     contentDiv.classList.remove('visible')
-                    showStatus(`Keys derived. Tree fetch failed: ${fetchErr.message}`, 'error')
+                    showStatus(`Keys derived. File listing failed: ${fetchErr.message}`, 'error')
                 }
 
             } catch (err) {
@@ -381,78 +383,42 @@
             openBtn.textContent = 'Open Vault'
         }
 
-        // --- Tree Rendering ---
-        function renderTree(tree) {
+        // --- File List Rendering ---
+        function renderFileList(fileIds) {
             treeView.innerHTML = ''
 
-            if (!tree || (typeof tree === 'object' && Object.keys(tree).length === 0)) {
+            if (!fileIds || fileIds.length === 0) {
                 treeView.textContent = '(vault is empty)'
                 return
             }
 
-            renderTreeNode(tree, treeView, 0)
-        }
-
-        function renderTreeNode(node, container, depth) {
-            const indent = '  '.repeat(depth)
-
-            if (Array.isArray(node)) {
-                for (const item of node) {
-                    renderTreeNode(item, container, depth)
-                }
-                return
+            // Group by path prefix for readability (e.g. bare/data/, bare/refs/)
+            const groups = {}
+            for (const id of fileIds) {
+                const parts   = id.split('/')
+                const group   = parts.length > 2 ? parts.slice(0, 2).join('/') + '/' : ''
+                const display = parts.length > 2 ? parts.slice(2).join('/') : id
+                if (!groups[group]) groups[group] = []
+                groups[group].push({ fileId: id, display })
             }
 
-            if (typeof node === 'object' && node !== null) {
-                if (node.file_id && node.name) {
-                    const entry = document.createElement('div')
-                    entry.className = 'tree-entry'
-                    entry.textContent = `${indent}${node.name}${node.size ? ` (${formatBytes(node.size)})` : ''}`
-                    entry.dataset.fileId = node.file_id
-                    entry.dataset.name   = node.name
-                    entry.addEventListener('click', () => handleFileClick(node.file_id, node.name))
-                    container.appendChild(entry)
-                    return
+            for (const [group, items] of Object.entries(groups).sort()) {
+                if (group) {
+                    const header = document.createElement('div')
+                    header.textContent = group
+                    header.style.color      = 'var(--sg-accent)'
+                    header.style.fontWeight = '600'
+                    header.style.marginTop  = '0.5rem'
+                    treeView.appendChild(header)
                 }
 
-                if (node.path && node.file_id) {
+                for (const { fileId, display } of items) {
                     const entry = document.createElement('div')
-                    entry.className = 'tree-entry'
-                    entry.textContent = `${indent}${node.path}${node.size ? ` (${formatBytes(node.size)})` : ''}`
-                    entry.dataset.fileId = node.file_id
-                    entry.dataset.name   = node.path
-                    entry.addEventListener('click', () => handleFileClick(node.file_id, node.path))
-                    container.appendChild(entry)
-                    return
-                }
-
-                for (const key of Object.keys(node)) {
-                    const val = node[key]
-                    if (val && typeof val === 'object') {
-                        if (val.file_id) {
-                            const entry = document.createElement('div')
-                            entry.className = 'tree-entry'
-                            entry.textContent = `${indent}${key}${val.size ? ` (${formatBytes(val.size)})` : ''}`
-                            entry.dataset.fileId = val.file_id
-                            entry.dataset.name   = key
-                            entry.addEventListener('click', () => handleFileClick(val.file_id, key))
-                            container.appendChild(entry)
-                        } else if (val.children || Array.isArray(val)) {
-                            const folder = document.createElement('div')
-                            folder.textContent = `${indent}${key}/`
-                            folder.style.color = 'var(--sg-accent)'
-                            folder.style.fontWeight = '600'
-                            container.appendChild(folder)
-                            renderTreeNode(val.children || val, container, depth + 1)
-                        } else {
-                            const folder = document.createElement('div')
-                            folder.textContent = `${indent}${key}/`
-                            folder.style.color = 'var(--sg-accent)'
-                            folder.style.fontWeight = '600'
-                            container.appendChild(folder)
-                            renderTreeNode(val, container, depth + 1)
-                        }
-                    }
+                    entry.className   = 'tree-entry'
+                    entry.textContent = group ? `  ${display}` : display
+                    entry.dataset.fileId = fileId
+                    entry.addEventListener('click', () => handleFileClick(fileId, fileId))
+                    treeView.appendChild(entry)
                 }
             }
         }
