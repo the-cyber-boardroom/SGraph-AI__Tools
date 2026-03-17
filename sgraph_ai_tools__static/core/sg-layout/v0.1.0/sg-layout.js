@@ -164,7 +164,7 @@ const SHADOW_STYLES = `
     min-height: 0;
 }
 
-/* Collapsed state */
+/* Collapsed state — shared */
 .sgl-stack--collapsed {
     min-width: 0;
     min-height: 0;
@@ -173,31 +173,54 @@ const SHADOW_STYLES = `
 .sgl-stack--collapsed .sgl-slot-wrapper {
     display: none;
 }
-.sgl-stack--collapsed .sgl-stack-header {
+.sgl-stack--collapsed .sgl-collapse-btn {
+    flex-shrink: 0;
+}
+
+/* Collapsed in a ROW → vertical strip (column-collapse) */
+.sgl-stack--collapsed-col .sgl-stack-header {
     writing-mode: vertical-lr;
     text-orientation: mixed;
     height: 100%;
     width: var(--sgl-tab-height);
     min-height: unset;
     min-width: var(--sgl-tab-height);
-    padding: 4px;
+    padding: 4px 2px;
     border-bottom: none;
     border-right: 1px solid var(--sgl-border);
     flex-direction: column;
     align-items: center;
-    gap: 8px;
+    gap: 4px;
+    overflow: hidden;
 }
-.sgl-stack--collapsed .sgl-collapse-btn {
+.sgl-stack--collapsed-col .sgl-collapse-btn {
     writing-mode: horizontal-tb;
-    flex-shrink: 0;
     order: -1;
 }
-.sgl-stack--collapsed .sgl-stack-title {
+.sgl-stack--collapsed-col .sgl-stack-title {
+    flex: 0 1 auto;
     writing-mode: vertical-lr;
     text-orientation: mixed;
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
+    font-size: 11px;
+}
+
+/* Collapsed in a COLUMN → horizontal strip (row-collapse) */
+.sgl-stack--collapsed-row .sgl-stack-header {
+    height: var(--sgl-tab-height);
+    min-height: var(--sgl-tab-height);
+    padding: 0 8px;
+    border-bottom: none;
+    border-bottom: 1px solid var(--sgl-border);
+}
+.sgl-stack--collapsed-row .sgl-stack-title {
+    flex: 1;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    font-size: 11px;
 }
 
 /* Resize handles */
@@ -445,12 +468,12 @@ class SgLayout extends HTMLElement {
      * @param {object} node
      * @returns {HTMLElement}
      */
-    _renderNode(node) {
+    _renderNode(node, parentType) {
         if (node.type === 'row' || node.type === 'column') {
             return this._renderContainer(node);
         }
         if (node.type === 'stack') {
-            return this._renderStack(node);
+            return this._renderStack(node, parentType);
         }
         console.warn('[sg-layout] Unknown node type:', node.type);
         return document.createElement('div');
@@ -470,7 +493,7 @@ class SgLayout extends HTMLElement {
         // Build grid template and append children with resize handles
         const fragments = [];
         node.children.forEach((child, i) => {
-            const childEl = this._renderNode(child);
+            const childEl = this._renderNode(child, node.type);
             el.appendChild(childEl);
 
             if (i < node.children.length - 1) {
@@ -488,14 +511,15 @@ class SgLayout extends HTMLElement {
      * @param {object} node
      * @returns {HTMLElement}
      */
-    _renderStack(node) {
+    _renderStack(node, parentType) {
         const el = document.createElement('div');
         el.className = 'sgl-stack';
         el.dataset.nodeId = node.id;
         this._nodeElements.set(node.id, el);
 
         if (this._collapsedStacks.has(node.id)) {
-            el.classList.add('sgl-stack--collapsed');
+            const axis = parentType === 'column' ? 'row' : 'col';
+            el.classList.add('sgl-stack--collapsed', `sgl-stack--collapsed-${axis}`);
         }
 
         // Header
@@ -587,14 +611,18 @@ class SgLayout extends HTMLElement {
         const el = this._nodeElements.get(node.id);
         if (!el) return;
 
+        // Determine collapse axis from parent type
+        const parentNode = this._findParentNode(this._tree, node.id);
+        const collapseAxis = parentNode?.type === 'column' ? 'row' : 'col';
+
         if (this._collapsedStacks.has(node.id)) {
             this._collapsedStacks.delete(node.id);
-            el.classList.remove('sgl-stack--collapsed');
+            el.classList.remove('sgl-stack--collapsed', 'sgl-stack--collapsed-col', 'sgl-stack--collapsed-row');
             el.querySelector('.sgl-collapse-btn').textContent = '\u2013';
             this._events.emit(SGL_EVENTS.PANEL_SHOWN, { id: node.tabs[node.activeTab]?.id });
         } else {
             this._collapsedStacks.add(node.id);
-            el.classList.add('sgl-stack--collapsed');
+            el.classList.add('sgl-stack--collapsed', `sgl-stack--collapsed-${collapseAxis}`);
             el.querySelector('.sgl-collapse-btn').textContent = '+';
             this._events.emit(SGL_EVENTS.PANEL_HIDDEN, { id: node.tabs[node.activeTab]?.id });
         }
