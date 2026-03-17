@@ -107,6 +107,14 @@
     <div class="demo-container" id="demo5"></div>
 </div>
 
+<!-- ============================================================ -->
+<!-- DEMO 6: 5 levels deep — fractal inception                   -->
+<!-- ============================================================ -->
+<div class="demo-section">
+    <h2>Demo 6 — Inception: 5 levels of nesting (depth 0 → 1 → 2 → 3 → 4)</h2>
+    <div class="demo-container" id="demo6" style="height:500px;"></div>
+</div>
+
 <script type="module">
 import { SGL_EVENTS } from '../../core/sg-layout/v0.1.0/sg-layout-events.js';
 import { SgLayout }   from '../../core/sg-layout/v0.1.0/sg-layout.js';
@@ -435,13 +443,78 @@ await styleNested(d5, 'd5-nested', {
 });
 
 // ===================================================================
+// DEMO 6: 5 levels deep — fractal inception
+// ===================================================================
+
+// Build the tree from the inside out: depth 4 → 3 → 2 → 1 → 0
+const depthColours = ['#0D47A1', '#2E7D32', '#E65100', '#6A1B9A', '#C62828'];
+const depthLabels  = ['Ocean',   'Forest',  'Ember',   'Amethyst', 'Crimson'];
+
+function makeLevel(depth, maxDepth) {
+    const prefix = `d6-L${depth}`;
+    const isLeaf = depth >= maxDepth;
+
+    if (isLeaf) {
+        // Leaf level: two plain panels in a row
+        return {
+            type: 'row', id: `${prefix}-r`, sizes: [0.5, 0.5],
+            children: [
+                { type: 'stack', id: `${prefix}-sA`, activeTab: 0,
+                  tabs: [{ type: 'tab', id: `${prefix}-tA`, tag: 'div', title: `${depthLabels[depth]} A`, state: {} }] },
+                { type: 'stack', id: `${prefix}-sB`, activeTab: 0,
+                  tabs: [{ type: 'tab', id: `${prefix}-tB`, tag: 'div', title: `${depthLabels[depth]} B`, state: {} }] },
+            ]
+        };
+    }
+
+    // Non-leaf: a plain panel on the left, nested sg-layout on the right
+    const childLayout = makeLevel(depth + 1, maxDepth);
+    return {
+        type: 'row', id: `${prefix}-r`, sizes: [0.3, 0.7],
+        children: [
+            { type: 'stack', id: `${prefix}-s1`, activeTab: 0,
+              tabs: [{ type: 'tab', id: `${prefix}-t1`, tag: 'div', title: `${depthLabels[depth]}`, state: {} }] },
+            { type: 'stack', id: `${prefix}-s2`, activeTab: 0,
+              tabs: [{ type: 'tab', id: `${prefix}-nested`, tag: 'sg-layout', title: `Level ${depth + 1}`,
+                        state: { layout: childLayout } }] },
+        ]
+    };
+}
+
+const d6 = document.createElement('sg-layout');
+d6.style.cssText = 'width:100%;height:100%;';
+d6.setAttribute('layout', JSON.stringify(makeLevel(0, 4)));
+document.getElementById('demo6').appendChild(d6);
+await settle(8); // extra frames for 5 levels of nesting
+
+// Walk all levels and style the plain panels
+async function styleLevels(layout, depth) {
+    const prefix = `d6-L${depth}`;
+    const bg = depthColours[depth] || '#333';
+    const label = depthLabels[depth] || `Level ${depth}`;
+
+    // Style the plain panel(s) at this level
+    stylePanel(layout, `${prefix}-t1`, bg, label, `Depth ${depth}`);
+    stylePanel(layout, `${prefix}-tA`, bg, `${label} A`, `Depth ${depth} — leaf`);
+    stylePanel(layout, `${prefix}-tB`, bg, `${label} B`, `Depth ${depth} — leaf`);
+
+    // Recurse into nested layout
+    const nested = layout.getPanelElement(`${prefix}-nested`);
+    if (nested && typeof nested.getPanelElement === 'function') {
+        await settle(2);
+        await styleLevels(nested, depth + 1);
+    }
+}
+await styleLevels(d6, 0);
+
+// ===================================================================
 // INFO BAR: report layout stats
 // ===================================================================
 await settle(2);
 
 let totalLayouts = 0;
 let maxDepth = 0;
-const layouts = [d1, d2, d3, d4, d5];
+const layouts = [d1, d2, d3, d4, d5, d6];
 
 for (const root of layouts) {
     root.walkLayouts((layout, depth) => {
