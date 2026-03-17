@@ -1,0 +1,33 @@
+/**
+ * sg-layout.css
+ * Default theme for sg-layout — CSS custom properties only.
+ * Consumers override these on <sg-layout> or any ancestor.
+ * v0.1.0
+ */
+
+:host {
+    /* Geometry */
+    --sgl-handle-size: 4px;
+    --sgl-tab-height: 28px;
+    --sgl-panel-header-height: 32px;
+    --sgl-min-panel-size: 80px;
+
+    /* Colours */
+    --sgl-bg: #1A1A2E;
+    --sgl-surface: #162040;
+    --sgl-surface-hover: #253254;
+    --sgl-border: #222d4d;
+    --sgl-accent: #4ECDC4;
+    --sgl-text: #e2e8f0;
+    --sgl-text-muted: #5a6478;
+
+    /* Motion */
+    --sgl-transition-speed: 150ms;
+    --sgl-reveal-transition: opacity 120ms ease;
+
+    display: block;
+    width: 100%;
+    height: 100%;
+    box-sizing: border-box;
+    overflow: hidden;
+}
