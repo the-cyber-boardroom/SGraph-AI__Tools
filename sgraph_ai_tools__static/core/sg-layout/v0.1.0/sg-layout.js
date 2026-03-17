@@ -394,37 +394,78 @@ const SHADOW_STYLES = `
     white-space: nowrap;
 }
 
-/* Dock overlay — covers the target stack */
+/* Dock overlay — covers the target stack, shows cross indicator */
 .sgl-dock-overlay {
     position: absolute;
     z-index: 100;
     pointer-events: none;
     display: grid;
-    grid-template-columns: 1fr 1fr 1fr;
-    grid-template-rows: 1fr 1fr 1fr;
-    gap: 2px;
-    padding: 2px;
+    grid-template-columns: 1fr auto 1fr;
+    grid-template-rows: 1fr auto 1fr;
+    place-items: center;
+    padding: 8px;
 }
 
-/* Each dock zone */
+/* The cross container sits in the center of the overlay */
+.sgl-dock-cross {
+    grid-column: 2;
+    grid-row: 2;
+    display: grid;
+    grid-template-columns: 40px 40px 40px;
+    grid-template-rows: 40px 40px 40px;
+    gap: 3px;
+}
+
+/* Each dock zone indicator */
 .sgl-dock-zone {
-    border-radius: 3px;
-    border: 2px solid transparent;
+    border-radius: 4px;
+    border: 2px solid rgba(78, 205, 196, 0.35);
+    background: rgba(78, 205, 196, 0.08);
     transition: background var(--sgl-transition-speed) ease,
-                border-color var(--sgl-transition-speed) ease;
+                border-color var(--sgl-transition-speed) ease,
+                transform var(--sgl-transition-speed) ease;
+    display: flex;
+    align-items: center;
+    justify-content: center;
 }
 
-/* Zone positions in the 3x3 grid */
-.sgl-dock-zone--top    { grid-column: 1 / 4; grid-row: 1; }
-.sgl-dock-zone--left   { grid-column: 1;     grid-row: 2; }
-.sgl-dock-zone--center { grid-column: 2;     grid-row: 2; }
-.sgl-dock-zone--right  { grid-column: 3;     grid-row: 2; }
-.sgl-dock-zone--bottom { grid-column: 1 / 4; grid-row: 3; }
+/* Zone icon labels */
+.sgl-dock-zone::after {
+    font-size: 14px;
+    line-height: 1;
+    opacity: 0.7;
+}
+.sgl-dock-zone--top::after    { content: '\25B2'; }  /* ▲ */
+.sgl-dock-zone--left::after   { content: '\25C0'; }  /* ◀ */
+.sgl-dock-zone--center::after { content: '\25CF'; }  /* ● */
+.sgl-dock-zone--right::after  { content: '\25B6'; }  /* ▶ */
+.sgl-dock-zone--bottom::after { content: '\25BC'; }  /* ▼ */
+
+/* Cross layout: top/bottom in center column, left/right on sides */
+.sgl-dock-zone--top    { grid-column: 2; grid-row: 1; }
+.sgl-dock-zone--left   { grid-column: 1; grid-row: 2; }
+.sgl-dock-zone--center { grid-column: 2; grid-row: 2; }
+.sgl-dock-zone--right  { grid-column: 3; grid-row: 2; }
+.sgl-dock-zone--bottom { grid-column: 2; grid-row: 3; }
 
 /* Active (hovered) zone highlight */
 .sgl-dock-zone--active {
-    background: rgba(78, 205, 196, 0.2);
+    background: rgba(78, 205, 196, 0.35);
     border-color: var(--sgl-accent);
+    transform: scale(1.1);
+}
+.sgl-dock-zone--active::after {
+    opacity: 1;
+}
+
+/* Full-panel highlight showing where the drop will go */
+.sgl-dock-preview {
+    position: absolute;
+    background: rgba(78, 205, 196, 0.1);
+    border: 2px dashed rgba(78, 205, 196, 0.4);
+    border-radius: 4px;
+    transition: all var(--sgl-transition-speed) ease;
+    pointer-events: none;
 }
 `;
 
@@ -1233,16 +1274,29 @@ class SgLayout extends HTMLElement {
         overlay.style.width  = rect.width  + 'px';
         overlay.style.height = rect.height + 'px';
 
+        // Cross container holds the 5 zone indicators
+        const cross = document.createElement('div');
+        cross.className = 'sgl-dock-cross';
+
         const zones = ['top', 'left', 'center', 'right', 'bottom'];
         for (const z of zones) {
             const zoneEl = document.createElement('div');
             zoneEl.className = `sgl-dock-zone sgl-dock-zone--${z}`;
             zoneEl.dataset.zone = z;
-            overlay.appendChild(zoneEl);
+            cross.appendChild(zoneEl);
         }
 
+        // Preview element shows where the panel will land
+        const preview = document.createElement('div');
+        preview.className = 'sgl-dock-preview';
+        overlay.appendChild(preview);
+
+        overlay.appendChild(cross);
         this._rootEl.appendChild(overlay);
-        if (this._dragState) this._dragState.overlayEl = overlay;
+        if (this._dragState) {
+            this._dragState.overlayEl = overlay;
+            this._dragState.previewEl = preview;
+        }
     }
 
     /**
@@ -1268,6 +1322,31 @@ class SgLayout extends HTMLElement {
             zoneEls.forEach(el => {
                 el.classList.toggle('sgl-dock-zone--active', el.dataset.zone === zone);
             });
+
+            // Update preview highlight to show where the panel will land
+            const preview = ds.previewEl;
+            if (preview) {
+                const w = rect.width;
+                const h = rect.height;
+                const inset = 4;
+                switch (zone) {
+                    case 'top':
+                        preview.style.cssText = `left:${inset}px; top:${inset}px; width:${w - inset*2}px; height:${h/2 - inset}px;`;
+                        break;
+                    case 'bottom':
+                        preview.style.cssText = `left:${inset}px; top:${h/2}px; width:${w - inset*2}px; height:${h/2 - inset}px;`;
+                        break;
+                    case 'left':
+                        preview.style.cssText = `left:${inset}px; top:${inset}px; width:${w/2 - inset}px; height:${h - inset*2}px;`;
+                        break;
+                    case 'right':
+                        preview.style.cssText = `left:${w/2}px; top:${inset}px; width:${w/2 - inset}px; height:${h - inset*2}px;`;
+                        break;
+                    case 'center':
+                        preview.style.cssText = `left:${inset}px; top:${inset}px; width:${w - inset*2}px; height:${h - inset*2}px;`;
+                        break;
+                }
+            }
         }
     }
 
@@ -1279,6 +1358,7 @@ class SgLayout extends HTMLElement {
         if (ds?.overlayEl?.parentNode) {
             ds.overlayEl.parentNode.removeChild(ds.overlayEl);
             ds.overlayEl = null;
+            ds.previewEl = null;
         }
     }
 
