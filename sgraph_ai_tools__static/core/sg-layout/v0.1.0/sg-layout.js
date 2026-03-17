@@ -97,6 +97,12 @@ const SHADOW_STYLES = `
 .sgl-row    { grid-auto-flow: column; }
 .sgl-column { grid-auto-flow: row;    }
 
+/* All grid children must allow shrinking below content size */
+.sgl-row > *, .sgl-column > * {
+    min-width: 0;
+    min-height: 0;
+}
+
 /* Stack container (single panel, or tabs in future) */
 .sgl-stack {
     display: flex;
@@ -159,6 +165,8 @@ const SHADOW_STYLES = `
 .sgl-stack--collapsed {
     min-width: 0;
     min-height: 0;
+    max-width: var(--sgl-tab-height);
+    overflow: hidden;
 }
 .sgl-stack--collapsed .sgl-slot-wrapper {
     display: none;
@@ -173,9 +181,20 @@ const SHADOW_STYLES = `
     padding: 8px 4px;
     border-bottom: none;
     border-right: 1px solid var(--sgl-border);
+    flex-direction: column;
+    align-items: center;
+    gap: 8px;
+}
+.sgl-stack--collapsed .sgl-stack-title {
+    writing-mode: vertical-lr;
+    text-orientation: mixed;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
 }
 .sgl-stack--collapsed .sgl-collapse-btn {
     writing-mode: horizontal-tb;
+    flex-shrink: 0;
 }
 
 /* Resize handles */
