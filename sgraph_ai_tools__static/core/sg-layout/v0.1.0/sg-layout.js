@@ -77,6 +77,7 @@ const SHADOW_STYLES = `
 }
 
 .sgl-root {
+    display: flex;
     width: 100%;
     height: 100%;
     background: var(--sgl-bg);
@@ -90,9 +91,11 @@ const SHADOW_STYLES = `
 /* Row / Column containers */
 .sgl-row, .sgl-column {
     display: grid;
+    flex: 1;
     width: 100%;
     height: 100%;
     overflow: hidden;
+    box-sizing: border-box;
 }
 .sgl-row    { grid-auto-flow: column; }
 .sgl-column { grid-auto-flow: row;    }
@@ -165,7 +168,6 @@ const SHADOW_STYLES = `
 .sgl-stack--collapsed {
     min-width: 0;
     min-height: 0;
-    max-width: var(--sgl-tab-height);
     overflow: hidden;
 }
 .sgl-stack--collapsed .sgl-slot-wrapper {
@@ -178,12 +180,17 @@ const SHADOW_STYLES = `
     width: var(--sgl-tab-height);
     min-height: unset;
     min-width: var(--sgl-tab-height);
-    padding: 8px 4px;
+    padding: 4px;
     border-bottom: none;
     border-right: 1px solid var(--sgl-border);
     flex-direction: column;
     align-items: center;
     gap: 8px;
+}
+.sgl-stack--collapsed .sgl-collapse-btn {
+    writing-mode: horizontal-tb;
+    flex-shrink: 0;
+    order: -1;
 }
 .sgl-stack--collapsed .sgl-stack-title {
     writing-mode: vertical-lr;
@@ -191,10 +198,6 @@ const SHADOW_STYLES = `
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
-}
-.sgl-stack--collapsed .sgl-collapse-btn {
-    writing-mode: horizontal-tb;
-    flex-shrink: 0;
 }
 
 /* Resize handles */
@@ -543,17 +546,20 @@ class SgLayout extends HTMLElement {
         if (!el) return;
 
         const prop = node.type === 'row' ? 'gridTemplateColumns' : 'gridTemplateRows';
+        const styles = getComputedStyle(this);
+        const tabH   = styles.getPropertyValue('--sgl-tab-height').trim()  || '28px';
+        const handleS = styles.getPropertyValue('--sgl-handle-size').trim() || '4px';
         const parts = [];
 
         node.children.forEach((child, i) => {
             const isCollapsed = child.type === 'stack' && this._collapsedStacks.has(child.id);
             if (isCollapsed) {
-                parts.push('var(--sgl-tab-height)');
+                parts.push(tabH);
             } else {
                 parts.push(`${node.sizes[i]}fr`);
             }
             if (i < node.children.length - 1) {
-                parts.push('var(--sgl-handle-size)');
+                parts.push(handleS);
             }
         });
 
