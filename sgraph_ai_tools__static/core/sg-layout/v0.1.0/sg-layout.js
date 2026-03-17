@@ -195,7 +195,6 @@ const SHADOW_STYLES = `
 }
 .sgl-stack--collapsed-col .sgl-collapse-btn {
     writing-mode: horizontal-tb;
-    order: -1;
 }
 .sgl-stack--collapsed-col .sgl-stack-title {
     flex: 0 1 auto;
