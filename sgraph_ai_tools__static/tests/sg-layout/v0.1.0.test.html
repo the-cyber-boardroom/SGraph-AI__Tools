@@ -1,0 +1,334 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>sg-layout v0.1.0 — Tests + Demo</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: #0d0d1a;
+            color: #e2e8f0;
+        }
+
+        /* --- Test Results Panel --- */
+        #test-results {
+            padding: 16px 20px;
+            background: #111122;
+            border-bottom: 1px solid #222d4d;
+            font-size: 13px;
+            max-height: 240px;
+            overflow-y: auto;
+        }
+        #test-results h2 { font-size: 15px; margin-bottom: 10px; }
+        .test-pass { color: #4ECDC4; }
+        .test-fail { color: #ff6b6b; font-weight: 600; }
+        .test-summary { margin-top: 10px; font-weight: 600; font-size: 14px; }
+
+        /* --- Demo Layout --- */
+        #demo-container {
+            width: 100vw;
+            height: calc(100vh - 240px);
+            min-height: 400px;
+        }
+
+        /* Sample hosted components */
+        .demo-panel {
+            width: 100%; height: 100%;
+            display: flex; align-items: center; justify-content: center;
+            flex-direction: column;
+            gap: 8px;
+            font-size: 14px;
+        }
+        .demo-panel code {
+            background: rgba(255,255,255,0.1);
+            padding: 2px 6px;
+            border-radius: 3px;
+            font-size: 12px;
+        }
+    </style>
+</head>
+<body>
+
+<div id="test-results">
+    <h2>sg-layout v0.1.0 — Test Results</h2>
+    <div id="results"></div>
+</div>
+
+<div id="demo-container"></div>
+
+<script type="module">
+import { SGL_EVENTS } from '../../core/sg-layout/v0.1.0/sg-layout-events.js';
+import { SgLayout }   from '../../core/sg-layout/v0.1.0/sg-layout.js';
+
+const resultsEl = document.getElementById('results');
+let passed = 0, failed = 0;
+
+function assert(condition, label) {
+    const line = document.createElement('div');
+    if (condition) {
+        line.className = 'test-pass';
+        line.textContent = `PASS  ${label}`;
+        passed++;
+    } else {
+        line.className = 'test-fail';
+        line.textContent = `FAIL  ${label}`;
+        failed++;
+    }
+    resultsEl.appendChild(line);
+}
+
+function showSummary() {
+    const line = document.createElement('div');
+    line.className = 'test-summary';
+    line.textContent = `${passed} passed, ${failed} failed`;
+    line.style.color = failed === 0 ? '#4ECDC4' : '#ff6b6b';
+    resultsEl.appendChild(line);
+}
+
+// -----------------------------------------------------------------------
+// Test 1: SGL_EVENTS is frozen and has expected keys
+// -----------------------------------------------------------------------
+assert(Object.isFrozen(SGL_EVENTS), 'SGL_EVENTS is frozen');
+assert(SGL_EVENTS.REGISTER === 'sg-layout:register', 'REGISTER event name correct');
+assert(SGL_EVENTS.LAYOUT_READY === 'layout:ready', 'LAYOUT_READY event name correct');
+assert(SGL_EVENTS.PANEL_RESIZED === 'panel:resized', 'PANEL_RESIZED event name correct');
+
+// -----------------------------------------------------------------------
+// Test 2: sg-layout is a registered custom element
+// -----------------------------------------------------------------------
+assert(customElements.get('sg-layout') !== undefined, 'sg-layout custom element registered');
+
+// -----------------------------------------------------------------------
+// Test 3: Create layout with child elements — automatic tree construction
+// -----------------------------------------------------------------------
+const layout1 = document.createElement('sg-layout');
+layout1.style.width  = '600px';
+layout1.style.height = '400px';
+layout1.style.position = 'absolute';
+layout1.style.left = '-9999px'; // off-screen for test
+
+const panelA = document.createElement('div');
+panelA.dataset.panelTitle = 'Panel A';
+panelA.style.cssText = 'width:100%;height:100%;background:#1a3a5c;';
+
+const panelB = document.createElement('div');
+panelB.dataset.panelTitle = 'Panel B';
+panelB.style.cssText = 'width:100%;height:100%;background:#3a1a5c;';
+
+layout1.appendChild(panelA);
+layout1.appendChild(panelB);
+document.body.appendChild(layout1);
+
+// Wait one frame for layout to render
+await new Promise(r => requestAnimationFrame(r));
+
+const tree1 = layout1.getLayout();
+assert(tree1 !== null, 'getLayout() returns non-null after child elements parsed');
+assert(tree1.type === 'row', 'Two children produce a row');
+assert(tree1.children.length === 2, 'Row has 2 children');
+assert(tree1.children[0].type === 'stack', 'First child is a stack');
+assert(tree1.children[0].tabs[0].title === 'Panel A', 'First tab title is Panel A');
+assert(tree1.children[1].tabs[0].title === 'Panel B', 'Second tab title is Panel B');
+
+// -----------------------------------------------------------------------
+// Test 4: Serialisation round-trip
+// -----------------------------------------------------------------------
+const json1 = layout1.getLayout();
+layout1.setLayout(json1);
+const json2 = layout1.getLayout();
+assert(JSON.stringify(json1) === JSON.stringify(json2), 'Serialise/restore is idempotent');
+
+// -----------------------------------------------------------------------
+// Test 5: Registration protocol — respond() called synchronously
+// -----------------------------------------------------------------------
+const layout2 = document.createElement('sg-layout');
+layout2.style.width  = '400px';
+layout2.style.height = '300px';
+layout2.style.position = 'absolute';
+layout2.style.left = '-9999px';
+document.body.appendChild(layout2);
+
+// Define a simple custom element that uses the registration protocol
+class TestComponent extends HTMLElement {
+    connectedCallback() {
+        let config = null;
+        this.dispatchEvent(new CustomEvent(SGL_EVENTS.REGISTER, {
+            bubbles: true,
+            composed: true,
+            detail: { respond: c => { config = c; } }
+        }));
+        this._registrationConfig = config;
+    }
+}
+if (!customElements.get('test-component')) {
+    customElements.define('test-component', TestComponent);
+}
+
+const panelId = layout2.addPanel({ tag: 'test-component', title: 'Test' });
+
+await new Promise(r => requestAnimationFrame(r));
+
+const testEl = layout2.getPanelElement(panelId);
+assert(testEl !== null, 'getPanelElement returns the hosted element');
+assert(testEl._registrationConfig !== null, 'Registration respond() was called');
+assert(testEl._registrationConfig?.panelId === panelId, 'panelId injected correctly');
+assert(testEl._registrationConfig?.layoutRef === layout2, 'layoutRef is the sg-layout instance');
+assert(testEl._registrationConfig?.depth === 0, 'Root layout depth is 0');
+
+// -----------------------------------------------------------------------
+// Test 6: Standalone component — no layout present, no error
+// -----------------------------------------------------------------------
+const standalone = document.createElement('test-component');
+document.body.appendChild(standalone);
+assert(standalone._registrationConfig === null, 'Standalone: respond() not called (no layout ancestor)');
+document.body.removeChild(standalone);
+
+// -----------------------------------------------------------------------
+// Test 7: addPanel / removePanel
+// -----------------------------------------------------------------------
+const layout3 = document.createElement('sg-layout');
+layout3.style.cssText = 'width:400px;height:300px;position:absolute;left:-9999px;';
+document.body.appendChild(layout3);
+
+const id1 = layout3.addPanel({ tag: 'div', title: 'First' });
+assert(layout3.getLayout().type === 'stack', 'Single panel creates a stack');
+
+const id2 = layout3.addPanel({ tag: 'div', title: 'Second' });
+assert(layout3.getLayout().type === 'row', 'Second panel promotes to row');
+assert(layout3.getLayout().children.length === 2, 'Row has 2 children after second addPanel');
+
+layout3.removePanel(id1);
+await new Promise(r => requestAnimationFrame(r));
+const afterRemove = layout3.getLayout();
+assert(afterRemove !== null, 'Layout exists after removePanel');
+
+// -----------------------------------------------------------------------
+// Test 8: Layout from JSON attribute
+// -----------------------------------------------------------------------
+const layout4 = document.createElement('sg-layout');
+layout4.style.cssText = 'width:400px;height:300px;position:absolute;left:-9999px;';
+layout4.setAttribute('layout', JSON.stringify({
+    type: 'row', id: 'r1', sizes: [0.3, 0.7],
+    children: [
+        { type: 'stack', id: 's1', activeTab: 0, tabs: [{ type: 'tab', id: 't1', tag: 'div', title: 'Left', state: {} }] },
+        { type: 'stack', id: 's2', activeTab: 0, tabs: [{ type: 'tab', id: 't2', tag: 'div', title: 'Right', state: {} }] },
+    ]
+}));
+document.body.appendChild(layout4);
+await new Promise(r => requestAnimationFrame(r));
+
+const layout4Tree = layout4.getLayout();
+assert(layout4Tree.type === 'row', 'JSON attribute: tree is a row');
+assert(layout4Tree.sizes[0] === 0.3, 'JSON attribute: first size is 0.3');
+assert(layout4Tree.children[1].tabs[0].title === 'Right', 'JSON attribute: second tab title is Right');
+
+// -----------------------------------------------------------------------
+// Test 9: EventBus — layout:ready fires
+// -----------------------------------------------------------------------
+let readyFired = false;
+const layout5 = document.createElement('sg-layout');
+layout5.style.cssText = 'width:400px;height:300px;position:absolute;left:-9999px;';
+// Listen before connecting
+// We need to add it after the element exists but access the events bus
+// The bus is available immediately after construction
+layout5.events.on(SGL_EVENTS.LAYOUT_READY, () => { readyFired = true; });
+document.body.appendChild(layout5);
+assert(readyFired, 'layout:ready fires on connectedCallback');
+
+// -----------------------------------------------------------------------
+// Test 10: Sizes normalise correctly
+// -----------------------------------------------------------------------
+const layout6 = document.createElement('sg-layout');
+layout6.style.cssText = 'width:600px;height:400px;position:absolute;left:-9999px;';
+layout6.setAttribute('layout', JSON.stringify({
+    type: 'row', id: 'r2', sizes: [1, 2, 1],
+    children: [
+        { type: 'stack', id: 'a1', activeTab: 0, tabs: [{ type: 'tab', id: 'ta1', tag: 'div', title: 'A', state: {} }] },
+        { type: 'stack', id: 'a2', activeTab: 0, tabs: [{ type: 'tab', id: 'ta2', tag: 'div', title: 'B', state: {} }] },
+        { type: 'stack', id: 'a3', activeTab: 0, tabs: [{ type: 'tab', id: 'ta3', tag: 'div', title: 'C', state: {} }] },
+    ]
+}));
+document.body.appendChild(layout6);
+await new Promise(r => requestAnimationFrame(r));
+const sizes = layout6.getLayout().sizes;
+assert(Math.abs(sizes[0] - 0.25) < 0.01, 'Sizes normalise: first = 0.25');
+assert(Math.abs(sizes[1] - 0.50) < 0.01, 'Sizes normalise: second = 0.50');
+assert(Math.abs(sizes[2] - 0.25) < 0.01, 'Sizes normalise: third = 0.25');
+
+// -----------------------------------------------------------------------
+// Cleanup test layouts
+// -----------------------------------------------------------------------
+[layout1, layout2, layout3, layout4, layout5, layout6].forEach(l => {
+    if (l.parentNode) l.parentNode.removeChild(l);
+});
+
+// -----------------------------------------------------------------------
+// Summary
+// -----------------------------------------------------------------------
+showSummary();
+
+// -----------------------------------------------------------------------
+// DEMO: visible interactive layout
+// -----------------------------------------------------------------------
+const demo = document.createElement('sg-layout');
+demo.style.width  = '100%';
+demo.style.height = '100%';
+
+const demoLayout = {
+    type: 'row', id: 'demo-r', sizes: [0.25, 0.5, 0.25],
+    children: [
+        {
+            type: 'stack', id: 'demo-s1', activeTab: 0,
+            tabs: [{ type: 'tab', id: 'demo-t1', tag: 'div', title: 'Navigation', state: {} }]
+        },
+        {
+            type: 'column', id: 'demo-c1', sizes: [0.6, 0.4],
+            children: [
+                {
+                    type: 'stack', id: 'demo-s2', activeTab: 0,
+                    tabs: [{ type: 'tab', id: 'demo-t2', tag: 'div', title: 'Editor', state: {} }]
+                },
+                {
+                    type: 'stack', id: 'demo-s3', activeTab: 0,
+                    tabs: [{ type: 'tab', id: 'demo-t3', tag: 'div', title: 'Console', state: {} }]
+                },
+            ]
+        },
+        {
+            type: 'stack', id: 'demo-s4', activeTab: 0,
+            tabs: [{ type: 'tab', id: 'demo-t4', tag: 'div', title: 'Inspector', state: {} }]
+        },
+    ]
+};
+
+demo.setAttribute('layout', JSON.stringify(demoLayout));
+document.getElementById('demo-container').appendChild(demo);
+
+await new Promise(r => requestAnimationFrame(r));
+
+// Style the demo panels
+const panelStyles = {
+    'demo-t1': { bg: '#1a3a5c', label: 'Navigation', desc: 'Collapsible sidebar' },
+    'demo-t2': { bg: '#1a5c3a', label: 'Editor',     desc: 'Main content area' },
+    'demo-t3': { bg: '#5c3a1a', label: 'Console',    desc: 'Bottom panel' },
+    'demo-t4': { bg: '#3a1a5c', label: 'Inspector',  desc: 'Right sidebar' },
+};
+
+for (const [tabId, config] of Object.entries(panelStyles)) {
+    const el = demo.getPanelElement(tabId);
+    if (el) {
+        el.className = 'demo-panel';
+        el.style.background = config.bg;
+        el.innerHTML = `
+            <strong>${config.label}</strong>
+            <span style="color:var(--sgl-text-muted)">${config.desc}</span>
+            <code>panelId: ${tabId}</code>
+        `;
+    }
+}
+</script>
+
+</body>
+</html>
