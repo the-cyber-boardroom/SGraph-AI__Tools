@@ -1,0 +1,462 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>sg-layout v0.1.2 — Fractal Nesting Demo</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: #0d0d1a;
+            color: #e2e8f0;
+        }
+
+        h1 {
+            padding: 12px 20px;
+            font-size: 16px;
+            background: #111122;
+            border-bottom: 1px solid #222d4d;
+        }
+        h2 {
+            padding: 8px 20px;
+            font-size: 13px;
+            font-weight: 500;
+            color: #5a6478;
+            background: #0f0f22;
+            border-bottom: 1px solid #1a1a3a;
+        }
+
+        .demo-section {
+            border-bottom: 2px solid #222d4d;
+        }
+        .demo-container {
+            width: 100%;
+            height: 420px;
+        }
+
+        /* Filler content for panels */
+        .panel {
+            width: 100%; height: 100%;
+            display: flex; align-items: center; justify-content: center;
+            flex-direction: column;
+            gap: 6px;
+            font-size: 13px;
+        }
+        .panel strong { font-size: 14px; }
+        .panel code {
+            background: rgba(255,255,255,0.1);
+            padding: 2px 6px;
+            border-radius: 3px;
+            font-size: 11px;
+        }
+        .panel .muted { color: #5a6478; font-size: 12px; }
+
+        #info-bar {
+            padding: 8px 20px;
+            background: #111122;
+            border-bottom: 1px solid #222d4d;
+            font-size: 12px;
+            color: #5a6478;
+        }
+        #info-bar span { color: #4ECDC4; font-weight: 500; }
+    </style>
+</head>
+<body>
+
+<h1>sg-layout v0.1.2 — Fractal Nesting Demo</h1>
+<div id="info-bar">Loading...</div>
+
+<!-- ============================================================ -->
+<!-- DEMO 1: Simple nesting — one nested layout in right panel    -->
+<!-- ============================================================ -->
+<div class="demo-section">
+    <h2>Demo 1 — Simple: nested column layout inside right panel</h2>
+    <div class="demo-container" id="demo1"></div>
+</div>
+
+<!-- ============================================================ -->
+<!-- DEMO 2: Mirror — nested layout has same structure as parent  -->
+<!-- ============================================================ -->
+<div class="demo-section">
+    <h2>Demo 2 — Mirror: nested layout replicates the parent's full IDE layout</h2>
+    <div class="demo-container" id="demo2"></div>
+</div>
+
+<!-- ============================================================ -->
+<!-- DEMO 3: Deep nesting — 3 levels deep                        -->
+<!-- ============================================================ -->
+<div class="demo-section">
+    <h2>Demo 3 — Deep: 3 levels of nesting (depth 0 → 1 → 2)</h2>
+    <div class="demo-container" id="demo3"></div>
+</div>
+
+<!-- ============================================================ -->
+<!-- DEMO 4: Multiple nested layouts in one parent                -->
+<!-- ============================================================ -->
+<div class="demo-section">
+    <h2>Demo 4 — Multiple: two different nested layouts in one parent</h2>
+    <div class="demo-container" id="demo4"></div>
+</div>
+
+<!-- ============================================================ -->
+<!-- DEMO 5: Nested as tab — switch between flat panel and nested -->
+<!-- ============================================================ -->
+<div class="demo-section">
+    <h2>Demo 5 — Tab mix: nested layout as one tab among plain panels (click tabs to switch)</h2>
+    <div class="demo-container" id="demo5"></div>
+</div>
+
+<script type="module">
+import { SGL_EVENTS } from '../../core/sg-layout/v0.1.0/sg-layout-events.js';
+import { SgLayout }   from '../../core/sg-layout/v0.1.0/sg-layout.js';
+
+// Helper: wait for frames to settle (nested layouts need extra frames)
+const settle = (n = 3) => new Promise(resolve => {
+    let count = 0;
+    function next() {
+        if (++count >= n) resolve();
+        else requestAnimationFrame(next);
+    }
+    requestAnimationFrame(next);
+});
+
+// Helper: style a panel inside a layout
+function stylePanel(layout, tabId, bg, label, desc) {
+    const el = layout.getPanelElement(tabId);
+    if (!el) return;
+    el.className = 'panel';
+    el.style.background = bg;
+    el.innerHTML = `
+        <strong>${label}</strong>
+        <span class="muted">${desc}</span>
+        <code>depth: ${layout.getDepth()} · panelId: ${tabId}</code>
+    `;
+}
+
+// Helper: style panels in a nested layout by walking down
+async function styleNested(parentLayout, nestedTabId, styles) {
+    const nested = parentLayout.getPanelElement(nestedTabId);
+    if (!nested || typeof nested.getPanelElement !== 'function') return nested;
+    await settle(2);
+    for (const [tabId, s] of Object.entries(styles)) {
+        stylePanel(nested, tabId, s.bg, s.label, s.desc);
+    }
+    return nested;
+}
+
+// ===================================================================
+// DEMO 1: Simple nesting
+// ===================================================================
+const d1 = document.createElement('sg-layout');
+d1.style.cssText = 'width:100%;height:100%;';
+d1.setAttribute('layout', JSON.stringify({
+    type: 'row', id: 'd1-r', sizes: [0.35, 0.65],
+    children: [
+        {
+            type: 'stack', id: 'd1-s1', activeTab: 0,
+            tabs: [{ type: 'tab', id: 'd1-left', tag: 'div', title: 'Main Panel', state: {} }]
+        },
+        {
+            type: 'stack', id: 'd1-s2', activeTab: 0,
+            tabs: [{
+                type: 'tab', id: 'd1-nested', tag: 'sg-layout', title: 'Nested Layout',
+                state: {
+                    layout: {
+                        type: 'column', id: 'd1n-c', sizes: [0.4, 0.3, 0.3],
+                        children: [
+                            { type: 'stack', id: 'd1n-s1', activeTab: 0, tabs: [{ type: 'tab', id: 'd1n-t1', tag: 'div', title: 'Top', state: {} }] },
+                            { type: 'stack', id: 'd1n-s2', activeTab: 0, tabs: [{ type: 'tab', id: 'd1n-t2', tag: 'div', title: 'Middle', state: {} }] },
+                            { type: 'stack', id: 'd1n-s3', activeTab: 0, tabs: [{ type: 'tab', id: 'd1n-t3', tag: 'div', title: 'Bottom', state: {} }] },
+                        ]
+                    }
+                }
+            }]
+        },
+    ]
+}));
+document.getElementById('demo1').appendChild(d1);
+await settle();
+
+stylePanel(d1, 'd1-left', '#1a3a5c', 'Main Panel', 'Depth 0 — regular panel');
+await styleNested(d1, 'd1-nested', {
+    'd1n-t1': { bg: '#2a4a3c', label: 'Top',    desc: 'Depth 1 — nested column' },
+    'd1n-t2': { bg: '#3a4a2c', label: 'Middle', desc: 'Depth 1 — nested column' },
+    'd1n-t3': { bg: '#4a3a2c', label: 'Bottom', desc: 'Depth 1 — nested column' },
+});
+
+// ===================================================================
+// DEMO 2: Mirror — nested layout is the same IDE structure as parent
+// ===================================================================
+const ideLayout = (prefix, depth) => ({
+    type: 'row', id: `${prefix}-r`, sizes: [0.2, 0.55, 0.25],
+    children: [
+        {
+            type: 'stack', id: `${prefix}-nav`, activeTab: 0,
+            tabs: [{ type: 'tab', id: `${prefix}-nav-t`, tag: 'div', title: 'Explorer', state: {} }]
+        },
+        {
+            type: 'column', id: `${prefix}-main`, sizes: [0.65, 0.35],
+            children: [
+                {
+                    type: 'stack', id: `${prefix}-editor`, activeTab: 0,
+                    tabs: [
+                        { type: 'tab', id: `${prefix}-ed1`, tag: 'div', title: 'index.html', state: {} },
+                        { type: 'tab', id: `${prefix}-ed2`, tag: 'div', title: 'app.js', state: {} },
+                    ]
+                },
+                {
+                    type: 'stack', id: `${prefix}-console`, activeTab: 0,
+                    tabs: [
+                        { type: 'tab', id: `${prefix}-con1`, tag: 'div', title: 'Console', state: {} },
+                        { type: 'tab', id: `${prefix}-con2`, tag: 'div', title: 'Terminal', state: {} },
+                    ]
+                },
+            ]
+        },
+        {
+            type: 'stack', id: `${prefix}-inspect`, activeTab: 0,
+            tabs: [{ type: 'tab', id: `${prefix}-insp-t`, tag: 'div', title: 'Inspector', state: {} }]
+        },
+    ]
+});
+
+const d2 = document.createElement('sg-layout');
+d2.style.cssText = 'width:100%;height:100%;';
+
+// Parent has the IDE layout, but the "Editor" area contains a nested sg-layout
+// that mirrors the SAME IDE layout
+const d2Layout = ideLayout('d2', 0);
+// Replace the editor stack's first tab with a nested sg-layout
+d2Layout.children[1].children[0].tabs[0] = {
+    type: 'tab', id: 'd2-mirror', tag: 'sg-layout', title: 'Nested IDE',
+    state: { layout: ideLayout('d2n', 1) }
+};
+
+d2.setAttribute('layout', JSON.stringify(d2Layout));
+document.getElementById('demo2').appendChild(d2);
+await settle();
+
+const d2Colors = { nav: '#1a3a5c', ed: '#1a5c3a', con: '#5c3a1a', insp: '#3a1a5c' };
+stylePanel(d2, 'd2-nav-t',  d2Colors.nav,  'Explorer',   'Depth 0 sidebar');
+stylePanel(d2, 'd2-ed2',    d2Colors.ed,   'app.js',     'Depth 0 editor tab');
+stylePanel(d2, 'd2-con1',   d2Colors.con,  'Console',    'Depth 0 console');
+stylePanel(d2, 'd2-con2',   d2Colors.con,  'Terminal',   'Depth 0 terminal');
+stylePanel(d2, 'd2-insp-t', d2Colors.insp, 'Inspector',  'Depth 0 sidebar');
+
+const d2nested = await styleNested(d2, 'd2-mirror', {
+    'd2n-nav-t':  { bg: '#254a6c', label: 'Explorer',   desc: 'Depth 1 — mirror sidebar' },
+    'd2n-ed1':    { bg: '#256c4a', label: 'index.html',  desc: 'Depth 1 — mirror editor' },
+    'd2n-ed2':    { bg: '#2a6c4a', label: 'app.js',      desc: 'Depth 1 — mirror editor' },
+    'd2n-con1':   { bg: '#6c4a25', label: 'Console',     desc: 'Depth 1 — mirror console' },
+    'd2n-con2':   { bg: '#5c4a25', label: 'Terminal',    desc: 'Depth 1 — mirror terminal' },
+    'd2n-insp-t': { bg: '#4a256c', label: 'Inspector',  desc: 'Depth 1 — mirror sidebar' },
+});
+
+// ===================================================================
+// DEMO 3: Deep nesting — 3 levels
+// ===================================================================
+const d3 = document.createElement('sg-layout');
+d3.style.cssText = 'width:100%;height:100%;';
+d3.setAttribute('layout', JSON.stringify({
+    type: 'row', id: 'd3-r', sizes: [0.3, 0.7],
+    children: [
+        {
+            type: 'stack', id: 'd3-s1', activeTab: 0,
+            tabs: [{ type: 'tab', id: 'd3-plain', tag: 'div', title: 'Depth 0', state: {} }]
+        },
+        {
+            type: 'stack', id: 'd3-s2', activeTab: 0,
+            tabs: [{
+                type: 'tab', id: 'd3-lvl1', tag: 'sg-layout', title: 'Level 1',
+                state: {
+                    layout: {
+                        type: 'row', id: 'd3l1-r', sizes: [0.35, 0.65],
+                        children: [
+                            { type: 'stack', id: 'd3l1-s1', activeTab: 0, tabs: [{ type: 'tab', id: 'd3l1-plain', tag: 'div', title: 'Depth 1', state: {} }] },
+                            {
+                                type: 'stack', id: 'd3l1-s2', activeTab: 0,
+                                tabs: [{
+                                    type: 'tab', id: 'd3l1-lvl2', tag: 'sg-layout', title: 'Level 2',
+                                    state: {
+                                        layout: {
+                                            type: 'column', id: 'd3l2-c', sizes: [0.5, 0.5],
+                                            children: [
+                                                { type: 'stack', id: 'd3l2-s1', activeTab: 0, tabs: [{ type: 'tab', id: 'd3l2-top', tag: 'div', title: 'Depth 2 Top', state: {} }] },
+                                                { type: 'stack', id: 'd3l2-s2', activeTab: 0, tabs: [{ type: 'tab', id: 'd3l2-bot', tag: 'div', title: 'Depth 2 Bottom', state: {} }] },
+                                            ]
+                                        }
+                                    }
+                                }]
+                            },
+                        ]
+                    }
+                }
+            }]
+        },
+    ]
+}));
+document.getElementById('demo3').appendChild(d3);
+await settle(5);
+
+stylePanel(d3, 'd3-plain', '#1a3a5c', 'Root Panel', 'Depth 0');
+
+// Level 1
+const d3l1 = d3.getPanelElement('d3-lvl1');
+if (d3l1) {
+    await settle(2);
+    stylePanel(d3l1, 'd3l1-plain', '#2a4a3c', 'Level 1 Panel', 'Depth 1');
+
+    // Level 2
+    const d3l2 = d3l1.getPanelElement('d3l1-lvl2');
+    if (d3l2) {
+        await settle(2);
+        stylePanel(d3l2, 'd3l2-top', '#4a2a6c', 'Deep Top',    'Depth 2 — third level!');
+        stylePanel(d3l2, 'd3l2-bot', '#5c2a4a', 'Deep Bottom', 'Depth 2 — third level!');
+    }
+}
+
+// ===================================================================
+// DEMO 4: Multiple nested layouts in one parent
+// ===================================================================
+const d4 = document.createElement('sg-layout');
+d4.style.cssText = 'width:100%;height:100%;';
+d4.setAttribute('layout', JSON.stringify({
+    type: 'row', id: 'd4-r', sizes: [0.33, 0.34, 0.33],
+    children: [
+        {
+            type: 'stack', id: 'd4-s1', activeTab: 0,
+            tabs: [{
+                type: 'tab', id: 'd4-nest1', tag: 'sg-layout', title: 'Nested A',
+                state: {
+                    layout: {
+                        type: 'column', id: 'd4a-c', sizes: [0.5, 0.5],
+                        children: [
+                            { type: 'stack', id: 'd4a-s1', activeTab: 0, tabs: [{ type: 'tab', id: 'd4a-top', tag: 'div', title: 'A-Top', state: {} }] },
+                            { type: 'stack', id: 'd4a-s2', activeTab: 0, tabs: [{ type: 'tab', id: 'd4a-bot', tag: 'div', title: 'A-Bottom', state: {} }] },
+                        ]
+                    }
+                }
+            }]
+        },
+        {
+            type: 'stack', id: 'd4-s2', activeTab: 0,
+            tabs: [{ type: 'tab', id: 'd4-center', tag: 'div', title: 'Center', state: {} }]
+        },
+        {
+            type: 'stack', id: 'd4-s3', activeTab: 0,
+            tabs: [{
+                type: 'tab', id: 'd4-nest2', tag: 'sg-layout', title: 'Nested B',
+                state: {
+                    layout: {
+                        type: 'row', id: 'd4b-r', sizes: [0.5, 0.5],
+                        children: [
+                            { type: 'stack', id: 'd4b-s1', activeTab: 0, tabs: [{ type: 'tab', id: 'd4b-left', tag: 'div', title: 'B-Left', state: {} }] },
+                            {
+                                type: 'stack', id: 'd4b-s2', activeTab: 0,
+                                tabs: [
+                                    { type: 'tab', id: 'd4b-r1', tag: 'div', title: 'B-Tab1', state: {} },
+                                    { type: 'tab', id: 'd4b-r2', tag: 'div', title: 'B-Tab2', state: {} },
+                                ]
+                            },
+                        ]
+                    }
+                }
+            }]
+        },
+    ]
+}));
+document.getElementById('demo4').appendChild(d4);
+await settle();
+
+stylePanel(d4, 'd4-center', '#3a5c1a', 'Center', 'Depth 0 — plain panel between nested layouts');
+
+await styleNested(d4, 'd4-nest1', {
+    'd4a-top': { bg: '#2a4a6c', label: 'A-Top',    desc: 'Nested A — column top' },
+    'd4a-bot': { bg: '#2a3a6c', label: 'A-Bottom', desc: 'Nested A — column bottom' },
+});
+
+await styleNested(d4, 'd4-nest2', {
+    'd4b-left': { bg: '#6c4a2a', label: 'B-Left',  desc: 'Nested B — row left' },
+    'd4b-r1':   { bg: '#6c3a2a', label: 'B-Tab1',  desc: 'Nested B — tab 1' },
+    'd4b-r2':   { bg: '#5c3a2a', label: 'B-Tab2',  desc: 'Nested B — tab 2 (click to see)' },
+});
+
+// ===================================================================
+// DEMO 5: Nested as a tab among flat panels
+// ===================================================================
+const d5 = document.createElement('sg-layout');
+d5.style.cssText = 'width:100%;height:100%;';
+d5.setAttribute('layout', JSON.stringify({
+    type: 'row', id: 'd5-r', sizes: [0.4, 0.6],
+    children: [
+        {
+            type: 'stack', id: 'd5-s1', activeTab: 0,
+            tabs: [{ type: 'tab', id: 'd5-left', tag: 'div', title: 'Sidebar', state: {} }]
+        },
+        {
+            type: 'stack', id: 'd5-s2', activeTab: 0,
+            tabs: [
+                { type: 'tab', id: 'd5-flat1', tag: 'div', title: 'Readme', state: {} },
+                {
+                    type: 'tab', id: 'd5-nested', tag: 'sg-layout', title: 'Preview',
+                    state: {
+                        layout: {
+                            type: 'row', id: 'd5n-r', sizes: [0.5, 0.5],
+                            children: [
+                                {
+                                    type: 'stack', id: 'd5n-s1', activeTab: 0,
+                                    tabs: [
+                                        { type: 'tab', id: 'd5n-html', tag: 'div', title: 'HTML', state: {} },
+                                        { type: 'tab', id: 'd5n-css', tag: 'div', title: 'CSS', state: {} },
+                                    ]
+                                },
+                                { type: 'stack', id: 'd5n-s2', activeTab: 0, tabs: [{ type: 'tab', id: 'd5n-output', tag: 'div', title: 'Output', state: {} }] },
+                            ]
+                        }
+                    }
+                },
+                { type: 'tab', id: 'd5-flat2', tag: 'div', title: 'Settings', state: {} },
+            ]
+        },
+    ]
+}));
+document.getElementById('demo5').appendChild(d5);
+await settle();
+
+stylePanel(d5, 'd5-left',  '#1a3a5c', 'Sidebar',  'Depth 0');
+stylePanel(d5, 'd5-flat1', '#1a5c3a', 'Readme',   'Depth 0 — flat tab (active by default)');
+stylePanel(d5, 'd5-flat2', '#5c3a1a', 'Settings', 'Depth 0 — flat tab (click Settings tab)');
+
+await styleNested(d5, 'd5-nested', {
+    'd5n-html':   { bg: '#2a5c4a', label: 'HTML',   desc: 'Depth 1 — code editor' },
+    'd5n-css':    { bg: '#2a4a5c', label: 'CSS',    desc: 'Depth 1 — code editor' },
+    'd5n-output': { bg: '#4a2a5c', label: 'Output', desc: 'Depth 1 — live preview' },
+});
+
+// ===================================================================
+// INFO BAR: report layout stats
+// ===================================================================
+await settle(2);
+
+let totalLayouts = 0;
+let maxDepth = 0;
+const layouts = [d1, d2, d3, d4, d5];
+
+for (const root of layouts) {
+    root.walkLayouts((layout, depth) => {
+        totalLayouts++;
+        if (depth > maxDepth) maxDepth = depth;
+    });
+}
+
+document.getElementById('info-bar').innerHTML =
+    `<span>${layouts.length}</span> demo sections · ` +
+    `<span>${totalLayouts}</span> total sg-layout instances · ` +
+    `max depth: <span>${maxDepth}</span> · ` +
+    `serialisation check: run <code>demo.getLayout()</code> in console to verify round-trip`;
+
+</script>
+
+</body>
+</html>
