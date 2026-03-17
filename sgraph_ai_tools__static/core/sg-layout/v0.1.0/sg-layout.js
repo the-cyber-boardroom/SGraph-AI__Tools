@@ -94,6 +94,11 @@ const SHADOW_STYLES = `
     --sgl-surface: #222C58;
     --sgl-border: #3A476C;
 }
+:host([data-depth="4"]) {
+    --sgl-bg: #2A2A4A;
+    --sgl-surface: #263060;
+    --sgl-border: #425076;
+}
 
 .sgl-root {
     display: flex;
