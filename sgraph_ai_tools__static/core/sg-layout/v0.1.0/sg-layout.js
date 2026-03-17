@@ -628,7 +628,6 @@ class SgLayout extends HTMLElement {
         }
 
         // Re-apply grid sizing on the parent container
-        const parentNode = this._findParentNode(this._tree, node.id);
         if (parentNode) {
             this._applyGridSizes(parentNode);
         }
