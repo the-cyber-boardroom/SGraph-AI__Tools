@@ -1,6 +1,7 @@
 /**
  * sg-layout.js
  * Fractal window management Web Component.
+ * v0.1.1 — tab stacks (multiple tabs per panel, click to switch, close tab).
  * v0.1.0 — row/column layout, resize handles, registration protocol, serialisation.
  *
  * @module sg-layout
@@ -106,7 +107,7 @@ const SHADOW_STYLES = `
     min-height: 0;
 }
 
-/* Stack container (single panel, or tabs in future) */
+/* Stack container */
 .sgl-stack {
     display: flex;
     flex-direction: column;
@@ -122,13 +123,80 @@ const SHADOW_STYLES = `
     align-items: center;
     height: var(--sgl-panel-header-height);
     min-height: var(--sgl-panel-header-height);
-    padding: 0 8px;
+    padding: 0;
     background: var(--sgl-surface);
     border-bottom: 1px solid var(--sgl-border);
     cursor: default;
     user-select: none;
-    gap: 6px;
+    gap: 0;
+    overflow: hidden;
 }
+
+/* Tab bar — horizontal strip of tabs inside the stack header */
+.sgl-tab-bar {
+    display: flex;
+    flex: 1;
+    overflow-x: auto;
+    overflow-y: hidden;
+    scrollbar-width: none;
+    min-width: 0;
+}
+.sgl-tab-bar::-webkit-scrollbar { display: none; }
+
+.sgl-tab {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    padding: 0 10px;
+    height: 100%;
+    white-space: nowrap;
+    font-size: 12px;
+    font-weight: 400;
+    color: var(--sgl-text-muted);
+    cursor: pointer;
+    border-right: 1px solid var(--sgl-border);
+    background: transparent;
+    transition: color var(--sgl-transition-speed) ease,
+                background var(--sgl-transition-speed) ease;
+    flex-shrink: 0;
+}
+.sgl-tab:hover {
+    color: var(--sgl-text);
+    background: var(--sgl-surface-hover);
+}
+.sgl-tab--active {
+    color: var(--sgl-text);
+    font-weight: 500;
+    background: var(--sgl-bg);
+    border-bottom: 2px solid var(--sgl-accent);
+}
+.sgl-tab-label {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    max-width: 120px;
+}
+.sgl-tab-close {
+    background: none;
+    border: none;
+    color: var(--sgl-text-muted);
+    cursor: pointer;
+    font-size: 12px;
+    line-height: 1;
+    padding: 0 2px;
+    border-radius: 3px;
+    opacity: 0;
+    transition: opacity var(--sgl-transition-speed) ease;
+}
+.sgl-tab:hover .sgl-tab-close,
+.sgl-tab--active .sgl-tab-close {
+    opacity: 1;
+}
+.sgl-tab-close:hover {
+    color: var(--sgl-text);
+    background: rgba(255,255,255,0.1);
+}
+
+/* Single-tab mode — show title without tab chrome */
 .sgl-stack-title {
     flex: 1;
     overflow: hidden;
@@ -137,7 +205,9 @@ const SHADOW_STYLES = `
     font-size: 12px;
     font-weight: 500;
     color: var(--sgl-text);
+    padding: 0 8px;
 }
+
 .sgl-collapse-btn {
     background: none;
     border: none;
@@ -153,6 +223,14 @@ const SHADOW_STYLES = `
     color: var(--sgl-text);
 }
 
+/* Header actions area (collapse button etc.) */
+.sgl-header-actions {
+    display: flex;
+    align-items: center;
+    padding: 0 4px;
+    flex-shrink: 0;
+}
+
 /* Slot wrapper — the portal contract */
 .sgl-slot-wrapper {
     display: block;
@@ -162,6 +240,14 @@ const SHADOW_STYLES = `
     position: relative;
     box-sizing: border-box;
     min-height: 0;
+}
+
+/* Only the active tab's slot is visible */
+.sgl-slot-wrapper slot {
+    display: none;
+}
+.sgl-slot-wrapper slot.sgl-slot--active {
+    display: block;
 }
 
 /* Collapsed state — shared */
@@ -506,7 +592,9 @@ class SgLayout extends HTMLElement {
 
     /**
      * Render a stack (panel with header + slot wrapper).
+     * Multi-tab: shows a tab bar when tabs.length > 1, single title otherwise.
      * @param {object} node
+     * @param {string} [parentType]
      * @returns {HTMLElement}
      */
     _renderStack(node, parentType) {
@@ -524,34 +612,94 @@ class SgLayout extends HTMLElement {
         const header = document.createElement('div');
         header.className = 'sgl-stack-header';
 
-        const title = document.createElement('span');
-        title.className = 'sgl-stack-title';
-        const activeTab = node.tabs[node.activeTab || 0];
-        title.textContent = activeTab?.title || '';
-        header.appendChild(title);
+        if (node.tabs.length > 1) {
+            // Multi-tab: render a tab bar
+            const tabBar = document.createElement('div');
+            tabBar.className = 'sgl-tab-bar';
+
+            node.tabs.forEach((tab, i) => {
+                tabBar.appendChild(this._renderTabElement(node, tab, i));
+            });
+
+            header.appendChild(tabBar);
+        } else {
+            // Single tab: show title only
+            const title = document.createElement('span');
+            title.className = 'sgl-stack-title';
+            const activeTab = node.tabs[node.activeTab || 0];
+            title.textContent = activeTab?.title || '';
+            header.appendChild(title);
+        }
+
+        // Header actions (collapse button)
+        const actions = document.createElement('div');
+        actions.className = 'sgl-header-actions';
 
         const collapseBtn = document.createElement('button');
         collapseBtn.className = 'sgl-collapse-btn';
         collapseBtn.textContent = this._collapsedStacks.has(node.id) ? '+' : '\u2013';
         collapseBtn.title = 'Collapse/expand panel';
         collapseBtn.addEventListener('click', () => this._toggleCollapse(node));
-        header.appendChild(collapseBtn);
+        actions.appendChild(collapseBtn);
 
+        header.appendChild(actions);
         el.appendChild(header);
 
         // Slot wrapper for hosted content
         const slotWrapper = document.createElement('div');
         slotWrapper.className = 'sgl-slot-wrapper';
 
-        // Create a named slot for each tab
+        // Create a named slot for each tab — only active one is visible
         node.tabs.forEach((tab, i) => {
             const slot = document.createElement('slot');
             slot.name = `p-${tab.id}`;
+            if (i === (node.activeTab || 0)) {
+                slot.classList.add('sgl-slot--active');
+            }
             slotWrapper.appendChild(slot);
         });
 
         el.appendChild(slotWrapper);
         return el;
+    }
+
+    /**
+     * Render a single tab element for the tab bar.
+     * @param {object} stackNode  The parent stack node
+     * @param {object} tab        The tab data
+     * @param {number} index      Tab index within the stack
+     * @returns {HTMLElement}
+     */
+    _renderTabElement(stackNode, tab, index) {
+        const tabEl = document.createElement('div');
+        tabEl.className = 'sgl-tab';
+        tabEl.dataset.tabId = tab.id;
+        if (index === (stackNode.activeTab || 0)) {
+            tabEl.classList.add('sgl-tab--active');
+        }
+
+        const label = document.createElement('span');
+        label.className = 'sgl-tab-label';
+        label.textContent = tab.title || tab.tag || 'Tab';
+        tabEl.appendChild(label);
+
+        // Close button
+        const closeBtn = document.createElement('button');
+        closeBtn.className = 'sgl-tab-close';
+        closeBtn.textContent = '\u00d7';
+        closeBtn.title = 'Close tab';
+        closeBtn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            this._closeTab(stackNode, tab);
+        });
+        tabEl.appendChild(closeBtn);
+
+        // Click to switch
+        tabEl.addEventListener('click', () => {
+            this._switchTab(stackNode, index);
+        });
+
+        return tabEl;
     }
 
     // -----------------------------------------------------------------------
@@ -631,6 +779,122 @@ class SgLayout extends HTMLElement {
         }
 
         this._events.emit(SGL_EVENTS.LAYOUT_CHANGED, { tree: this.getLayout() });
+    }
+
+    // -----------------------------------------------------------------------
+    // Tab switching
+    // -----------------------------------------------------------------------
+
+    /**
+     * Switch the active tab in a stack.
+     * @param {object} stackNode
+     * @param {number} newIndex
+     */
+    _switchTab(stackNode, newIndex) {
+        if (newIndex === stackNode.activeTab) return;
+        if (newIndex < 0 || newIndex >= stackNode.tabs.length) return;
+
+        stackNode.activeTab = newIndex;
+
+        const stackEl = this._nodeElements.get(stackNode.id);
+        if (!stackEl) return;
+
+        // Update tab bar active state
+        const tabs = stackEl.querySelectorAll('.sgl-tab');
+        tabs.forEach((tabEl, i) => {
+            tabEl.classList.toggle('sgl-tab--active', i === newIndex);
+        });
+
+        // Update slot visibility
+        const slots = stackEl.querySelectorAll('.sgl-slot-wrapper slot');
+        slots.forEach((slot, i) => {
+            slot.classList.toggle('sgl-slot--active', i === newIndex);
+        });
+
+        this._events.emit(SGL_EVENTS.TAB_CHANGED, {
+            stackId: stackNode.id,
+            tabId: stackNode.tabs[newIndex].id,
+        });
+        this._events.emit(SGL_EVENTS.LAYOUT_CHANGED, { tree: this.getLayout() });
+    }
+
+    /**
+     * Close a tab in a stack. If last tab, remove the stack from the layout.
+     * @param {object} stackNode
+     * @param {object} tab
+     */
+    _closeTab(stackNode, tab) {
+        const tabIndex = stackNode.tabs.indexOf(tab);
+        if (tabIndex === -1) return;
+
+        // Remove element from light DOM
+        if (tab.el && tab.el.parentNode === this) {
+            this.removeChild(tab.el);
+        }
+        this._registeredElements.delete(tab.el);
+
+        // Remove from tabs array
+        stackNode.tabs.splice(tabIndex, 1);
+
+        if (stackNode.tabs.length === 0) {
+            // Stack is empty — remove it from the tree
+            this._removeEmptyStack(stackNode.id);
+            this._renderTree();
+            this._mountAllTabs();
+        } else {
+            // Adjust activeTab index
+            if (stackNode.activeTab >= stackNode.tabs.length) {
+                stackNode.activeTab = stackNode.tabs.length - 1;
+            } else if (tabIndex < stackNode.activeTab) {
+                stackNode.activeTab--;
+            }
+            // Re-render the stack (tab count may have changed single↔multi)
+            this._renderTree();
+            this._mountAllTabs();
+        }
+
+        this._events.emit(SGL_EVENTS.PANEL_CLOSED, { id: tab.id });
+        this._events.emit(SGL_EVENTS.LAYOUT_CHANGED, { tree: this.getLayout() });
+    }
+
+    /**
+     * Remove an empty stack from the tree, cleaning up parent containers.
+     * @param {string} stackId
+     */
+    _removeEmptyStack(stackId) {
+        this._removeNodeFromTree(this._tree, stackId);
+    }
+
+    /**
+     * Remove a node by id from the tree, collapsing single-child containers.
+     * @param {object} node
+     * @param {string} targetId
+     * @returns {boolean} true if removed
+     */
+    _removeNodeFromTree(node, targetId) {
+        if (!node || !node.children) return false;
+
+        for (let i = 0; i < node.children.length; i++) {
+            if (node.children[i].id === targetId) {
+                node.children.splice(i, 1);
+                node.sizes = normaliseSizes(null, node.children.length);
+
+                // If only one child remains and this is the root, promote it
+                if (node.children.length === 1 && node === this._tree) {
+                    this._tree = node.children[0];
+                }
+                return true;
+            }
+            if (this._removeNodeFromTree(node.children[i], targetId)) {
+                // Child may now have only one child — promote
+                const child = node.children[i];
+                if (child.children && child.children.length === 1) {
+                    node.children[i] = child.children[0];
+                }
+                return true;
+            }
+        }
+        return false;
     }
 
     // -----------------------------------------------------------------------
@@ -830,6 +1094,24 @@ class SgLayout extends HTMLElement {
     }
 
     /**
+     * Find a node by id anywhere in the tree.
+     * @param {object} node
+     * @param {string} id
+     * @returns {object|null}
+     */
+    _findNodeById(node, id) {
+        if (!node) return null;
+        if (node.id === id) return node;
+        if (node.children) {
+            for (const child of node.children) {
+                const found = this._findNodeById(child, id);
+                if (found) return found;
+            }
+        }
+        return null;
+    }
+
+    /**
      * Find the parent (row/column) of a node with the given id.
      * @param {object} tree
      * @param {string} childId
@@ -875,6 +1157,7 @@ class SgLayout extends HTMLElement {
 
     /**
      * Update the title in a stack's header for a given tab.
+     * Handles both single-tab (title span) and multi-tab (tab bar label) modes.
      * @param {object} tab
      */
     _updateStackTitle(tab) {
@@ -888,8 +1171,19 @@ class SgLayout extends HTMLElement {
         const stackEl = this._nodeElements.get(targetStack.id);
         if (!stackEl) return;
 
+        // Single-tab mode: update the title span
         const titleEl = stackEl.querySelector('.sgl-stack-title');
-        if (titleEl) titleEl.textContent = tab.title;
+        if (titleEl) {
+            titleEl.textContent = tab.title;
+            return;
+        }
+
+        // Multi-tab mode: update the tab label
+        const tabEl = stackEl.querySelector(`.sgl-tab[data-tab-id="${tab.id}"]`);
+        if (tabEl) {
+            const label = tabEl.querySelector('.sgl-tab-label');
+            if (label) label.textContent = tab.title;
+        }
     }
 
     // -----------------------------------------------------------------------
@@ -953,6 +1247,38 @@ class SgLayout extends HTMLElement {
         } else {
             this._mountNewElement(tab);
         }
+
+        this._events.emit(SGL_EVENTS.LAYOUT_CHANGED, { tree: this.getLayout() });
+        return tab.id;
+    }
+
+    /**
+     * Add a tab to an existing stack.
+     * @param {string} stackId  The id of the stack node
+     * @param {object} config   { tag, title, state, el }
+     * @param {boolean} [activate=true]  Whether to switch to the new tab
+     * @returns {string|null}  The new tab id, or null if stack not found
+     */
+    addTabToStack(stackId, config, activate = true) {
+        const stack = this._findNodeById(this._tree, stackId);
+        if (!stack || stack.type !== 'stack') return null;
+
+        const tab = makeTab(
+            config.tag || config.el?.tagName?.toLowerCase() || 'div',
+            config.title || config.tag || 'Tab',
+            config.state || {},
+        );
+        if (config.el) tab.el = config.el;
+
+        stack.tabs.push(tab);
+
+        if (activate) {
+            stack.activeTab = stack.tabs.length - 1;
+        }
+
+        // Re-render to update tab bar
+        this._renderTree();
+        this._mountAllTabs();
 
         this._events.emit(SGL_EVENTS.LAYOUT_CHANGED, { tree: this.getLayout() });
         return tab.id;

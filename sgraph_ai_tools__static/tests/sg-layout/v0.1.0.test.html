@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>sg-layout v0.1.0 — Tests + Demo</title>
+    <title>sg-layout v0.1.1 — Tests + Demo</title>
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
         body {
@@ -52,7 +52,7 @@
 <body>
 
 <div id="test-results">
-    <h2>sg-layout v0.1.0 — Test Results</h2>
+    <h2>sg-layout v0.1.1 — Test Results</h2>
     <div id="results"></div>
 </div>
 
@@ -258,9 +258,123 @@ assert(Math.abs(sizes[1] - 0.50) < 0.01, 'Sizes normalise: second = 0.50');
 assert(Math.abs(sizes[2] - 0.25) < 0.01, 'Sizes normalise: third = 0.25');
 
 // -----------------------------------------------------------------------
+// Test 11: Multi-tab stack — tab bar renders with multiple tabs
+// -----------------------------------------------------------------------
+const layout7 = document.createElement('sg-layout');
+layout7.style.cssText = 'width:600px;height:400px;position:absolute;left:-9999px;';
+layout7.setAttribute('layout', JSON.stringify({
+    type: 'stack', id: 'ms1', activeTab: 0,
+    tabs: [
+        { type: 'tab', id: 'mt1', tag: 'div', title: 'File A', state: {} },
+        { type: 'tab', id: 'mt2', tag: 'div', title: 'File B', state: {} },
+        { type: 'tab', id: 'mt3', tag: 'div', title: 'File C', state: {} },
+    ]
+}));
+document.body.appendChild(layout7);
+await new Promise(r => requestAnimationFrame(r));
+
+const tabBar = layout7.shadowRoot.querySelector('.sgl-tab-bar');
+assert(tabBar !== null, 'Multi-tab: tab bar is rendered');
+const tabEls = tabBar.querySelectorAll('.sgl-tab');
+assert(tabEls.length === 3, 'Multi-tab: 3 tab elements rendered');
+assert(tabEls[0].classList.contains('sgl-tab--active'), 'Multi-tab: first tab is active');
+assert(!tabEls[1].classList.contains('sgl-tab--active'), 'Multi-tab: second tab is not active');
+
+// -----------------------------------------------------------------------
+// Test 12: Tab switching — click changes active tab
+// -----------------------------------------------------------------------
+tabEls[1].click();
+await new Promise(r => requestAnimationFrame(r));
+
+assert(tabEls[1].classList.contains('sgl-tab--active'), 'Tab switch: second tab now active');
+assert(!tabEls[0].classList.contains('sgl-tab--active'), 'Tab switch: first tab no longer active');
+
+const tree7 = layout7.getLayout();
+assert(tree7.activeTab === 1, 'Tab switch: activeTab updated to 1');
+
+// -----------------------------------------------------------------------
+// Test 13: Slot visibility — only active tab slot is visible
+// -----------------------------------------------------------------------
+const slots = layout7.shadowRoot.querySelectorAll('.sgl-slot-wrapper slot');
+assert(slots.length === 3, 'Slots: 3 slots rendered');
+assert(!slots[0].classList.contains('sgl-slot--active'), 'Slots: first slot hidden after switch');
+assert(slots[1].classList.contains('sgl-slot--active'), 'Slots: second slot active after switch');
+
+// -----------------------------------------------------------------------
+// Test 14: addTabToStack — adds a tab to an existing stack
+// -----------------------------------------------------------------------
+const newTabId = layout7.addTabToStack('ms1', { tag: 'div', title: 'File D' });
+await new Promise(r => requestAnimationFrame(r));
+
+assert(newTabId !== null, 'addTabToStack: returns a tab id');
+const tree7b = layout7.getLayout();
+assert(tree7b.tabs.length === 4, 'addTabToStack: stack now has 4 tabs');
+assert(tree7b.tabs[3].title === 'File D', 'addTabToStack: new tab is File D');
+assert(tree7b.activeTab === 3, 'addTabToStack: new tab is activated');
+
+// -----------------------------------------------------------------------
+// Test 15: Close tab — removes tab and adjusts activeTab
+// -----------------------------------------------------------------------
+let closedId = null;
+layout7.events.on(SGL_EVENTS.PANEL_CLOSED, detail => { closedId = detail.id; });
+
+// Close the second tab (File B, id: mt2)
+const tabBar2 = layout7.shadowRoot.querySelector('.sgl-tab-bar');
+const closeBtn = tabBar2?.querySelectorAll('.sgl-tab-close')[1];
+if (closeBtn) closeBtn.click();
+await new Promise(r => requestAnimationFrame(r));
+
+const tree7c = layout7.getLayout();
+assert(tree7c.tabs.length === 3, 'Close tab: stack now has 3 tabs');
+assert(closedId === 'mt2', 'Close tab: PANEL_CLOSED fired with correct id');
+
+// -----------------------------------------------------------------------
+// Test 16: Single-tab mode — no tab bar, just title
+// -----------------------------------------------------------------------
+const layout8 = document.createElement('sg-layout');
+layout8.style.cssText = 'width:400px;height:300px;position:absolute;left:-9999px;';
+layout8.setAttribute('layout', JSON.stringify({
+    type: 'stack', id: 'ss1', activeTab: 0,
+    tabs: [{ type: 'tab', id: 'st1', tag: 'div', title: 'Solo Tab', state: {} }]
+}));
+document.body.appendChild(layout8);
+await new Promise(r => requestAnimationFrame(r));
+
+const singleTabBar = layout8.shadowRoot.querySelector('.sgl-tab-bar');
+assert(singleTabBar === null, 'Single tab: no tab bar rendered');
+const singleTitle = layout8.shadowRoot.querySelector('.sgl-stack-title');
+assert(singleTitle !== null, 'Single tab: title span rendered');
+assert(singleTitle.textContent === 'Solo Tab', 'Single tab: title text correct');
+
+// -----------------------------------------------------------------------
+// Test 17: TAB_CHANGED event fires on tab switch
+// -----------------------------------------------------------------------
+const layout9 = document.createElement('sg-layout');
+layout9.style.cssText = 'width:400px;height:300px;position:absolute;left:-9999px;';
+layout9.setAttribute('layout', JSON.stringify({
+    type: 'stack', id: 'es1', activeTab: 0,
+    tabs: [
+        { type: 'tab', id: 'et1', tag: 'div', title: 'Tab 1', state: {} },
+        { type: 'tab', id: 'et2', tag: 'div', title: 'Tab 2', state: {} },
+    ]
+}));
+document.body.appendChild(layout9);
+await new Promise(r => requestAnimationFrame(r));
+
+let tabChangedEvent = null;
+layout9.events.on(SGL_EVENTS.TAB_CHANGED, detail => { tabChangedEvent = detail; });
+
+const eventTabBar = layout9.shadowRoot.querySelector('.sgl-tab-bar');
+eventTabBar?.querySelectorAll('.sgl-tab')[1]?.click();
+
+assert(tabChangedEvent !== null, 'TAB_CHANGED: event fired');
+assert(tabChangedEvent?.stackId === 'es1', 'TAB_CHANGED: correct stackId');
+assert(tabChangedEvent?.tabId === 'et2', 'TAB_CHANGED: correct tabId');
+
+// -----------------------------------------------------------------------
 // Cleanup test layouts
 // -----------------------------------------------------------------------
-[layout1, layout2, layout3, layout4, layout5, layout6].forEach(l => {
+[layout1, layout2, layout3, layout4, layout5, layout6, layout7, layout8, layout9].forEach(l => {
     if (l.parentNode) l.parentNode.removeChild(l);
 });
 
@@ -277,22 +391,33 @@ demo.style.width  = '100%';
 demo.style.height = '100%';
 
 const demoLayout = {
-    type: 'row', id: 'demo-r', sizes: [0.25, 0.5, 0.25],
+    type: 'row', id: 'demo-r', sizes: [0.22, 0.53, 0.25],
     children: [
         {
             type: 'stack', id: 'demo-s1', activeTab: 0,
-            tabs: [{ type: 'tab', id: 'demo-t1', tag: 'div', title: 'Navigation', state: {} }]
+            tabs: [
+                { type: 'tab', id: 'demo-t1', tag: 'div', title: 'Explorer', state: {} },
+                { type: 'tab', id: 'demo-t1b', tag: 'div', title: 'Search', state: {} },
+            ]
         },
         {
             type: 'column', id: 'demo-c1', sizes: [0.6, 0.4],
             children: [
                 {
                     type: 'stack', id: 'demo-s2', activeTab: 0,
-                    tabs: [{ type: 'tab', id: 'demo-t2', tag: 'div', title: 'Editor', state: {} }]
+                    tabs: [
+                        { type: 'tab', id: 'demo-t2a', tag: 'div', title: 'index.html', state: {} },
+                        { type: 'tab', id: 'demo-t2b', tag: 'div', title: 'app.js', state: {} },
+                        { type: 'tab', id: 'demo-t2c', tag: 'div', title: 'styles.css', state: {} },
+                    ]
                 },
                 {
                     type: 'stack', id: 'demo-s3', activeTab: 0,
-                    tabs: [{ type: 'tab', id: 'demo-t3', tag: 'div', title: 'Console', state: {} }]
+                    tabs: [
+                        { type: 'tab', id: 'demo-t3a', tag: 'div', title: 'Console', state: {} },
+                        { type: 'tab', id: 'demo-t3b', tag: 'div', title: 'Terminal', state: {} },
+                        { type: 'tab', id: 'demo-t3c', tag: 'div', title: 'Problems', state: {} },
+                    ]
                 },
             ]
         },
@@ -310,10 +435,15 @@ await new Promise(r => requestAnimationFrame(r));
 
 // Style the demo panels
 const panelStyles = {
-    'demo-t1': { bg: '#1a3a5c', label: 'Navigation', desc: 'Collapsible sidebar' },
-    'demo-t2': { bg: '#1a5c3a', label: 'Editor',     desc: 'Main content area' },
-    'demo-t3': { bg: '#5c3a1a', label: 'Console',    desc: 'Bottom panel' },
-    'demo-t4': { bg: '#3a1a5c', label: 'Inspector',  desc: 'Right sidebar' },
+    'demo-t1':  { bg: '#1a3a5c', label: 'Explorer',   desc: 'File tree sidebar' },
+    'demo-t1b': { bg: '#1a3050', label: 'Search',     desc: 'Full-text search' },
+    'demo-t2a': { bg: '#1a5c3a', label: 'index.html', desc: 'Main HTML file' },
+    'demo-t2b': { bg: '#2a5c2a', label: 'app.js',     desc: 'Application logic' },
+    'demo-t2c': { bg: '#1a5c4a', label: 'styles.css', desc: 'Stylesheet' },
+    'demo-t3a': { bg: '#5c3a1a', label: 'Console',    desc: 'Log output' },
+    'demo-t3b': { bg: '#4c3a1a', label: 'Terminal',    desc: 'Shell terminal' },
+    'demo-t3c': { bg: '#5c4a1a', label: 'Problems',   desc: 'Error list' },
+    'demo-t4':  { bg: '#3a1a5c', label: 'Inspector',  desc: 'Right sidebar' },
 };
 
 for (const [tabId, config] of Object.entries(panelStyles)) {
