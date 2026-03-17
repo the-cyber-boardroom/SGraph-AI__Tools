@@ -251,13 +251,14 @@ const SHADOW_STYLES = `
 
 /* Slot wrapper — the portal contract */
 .sgl-slot-wrapper {
-    display: block;
+    display: flex;
     flex: 1;
     width: 100%;
     overflow: hidden;
     position: relative;
     box-sizing: border-box;
     min-height: 0;
+    flex-direction: column;
 }
 
 /* Only the active tab's slot is visible */
@@ -265,7 +266,17 @@ const SHADOW_STYLES = `
     display: none;
 }
 .sgl-slot-wrapper slot.sgl-slot--active {
-    display: block;
+    display: flex;
+    flex: 1;
+    min-height: 0;
+}
+
+/* Slotted elements fill the entire panel area */
+::slotted(*) {
+    flex: 1;
+    width: 100%;
+    min-height: 0;
+    box-sizing: border-box;
 }
 
 /* Collapsed state — shared */
