@@ -372,7 +372,7 @@ class SgLayout extends HTMLElement {
         const layoutAttr = this.getAttribute('layout');
         if (layoutAttr) {
             try {
-                this._tree = JSON.parse(layoutAttr);
+                this._tree = this._normaliseTree(JSON.parse(layoutAttr));
                 return;
             } catch(e) {
                 console.error('[sg-layout] Invalid layout attribute JSON:', e);
@@ -716,6 +716,24 @@ class SgLayout extends HTMLElement {
     }
 
     // -----------------------------------------------------------------------
+    // Tree normalisation (for deserialised JSON)
+    // -----------------------------------------------------------------------
+
+    /**
+     * Recursively normalise a tree: ensure sizes sum to 1.0 on row/column nodes.
+     * @param {object} node
+     * @returns {object} The same node (mutated in place)
+     */
+    _normaliseTree(node) {
+        if (!node) return node;
+        if (node.type === 'row' || node.type === 'column') {
+            node.sizes = normaliseSizes(node.sizes, node.children.length);
+            node.children.forEach(c => this._normaliseTree(c));
+        }
+        return node;
+    }
+
+    // -----------------------------------------------------------------------
     // Tree traversal helpers
     // -----------------------------------------------------------------------
 
@@ -834,7 +852,7 @@ class SgLayout extends HTMLElement {
      */
     setLayout(json) {
         this._unmountAll();
-        this._tree = JSON.parse(JSON.stringify(json));
+        this._tree = this._normaliseTree(JSON.parse(JSON.stringify(json)));
         this._collapsedStacks.clear();
         this._renderTree();
         this._mountAllTabs();
