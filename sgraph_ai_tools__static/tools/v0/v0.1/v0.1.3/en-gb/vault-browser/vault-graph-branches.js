@@ -141,37 +141,51 @@ export class VaultGraphBranches extends HTMLElement {
     }
 
     /**
-     * Post-render: style individual tspan lines inside SVG nodes.
-     * Line 1 = branch name (bold, bright), Line 2 = type (dim), Line 3 = ref (purple)
+     * Post-render: restyle node labels for visual hierarchy.
+     * Mermaid v11 renders labels as HTML inside foreignObject:
+     *   <span class="nodeLabel">Line1<br>Line2<br>Line3</span>
+     * We split by <br> and wrap each segment in a styled span.
      */
     _styleNodeText() {
         requestAnimationFrame(() => {
             const svg = this._mermaid.querySelector('svg')
             if (!svg) return
 
-            for (const node of svg.querySelectorAll('.node')) {
-                const tspans = node.querySelectorAll('tspan')
-                if (tspans.length >= 1) {
-                    // Branch name — bold, bright
-                    tspans[0].style.fontWeight = '700'
-                    tspans[0].style.fontSize = '0.85rem'
-                }
-                if (tspans.length >= 2) {
-                    // Type label (NAMED/CLONE) — dim, uppercase already
-                    tspans[1].style.fontWeight = '400'
-                    tspans[1].style.fontSize = '0.65rem'
-                    tspans[1].style.opacity = '0.6'
-                    tspans[1].style.letterSpacing = '0.05em'
-                }
-                if (tspans.length >= 3) {
-                    // Ref ID — purple, smaller
-                    tspans[2].style.fontWeight = '400'
-                    tspans[2].style.fill = '#c792ea'
-                    tspans[2].style.fontSize = '0.65rem'
-                    tspans[2].style.opacity = '0.7'
-                }
+            for (const label of svg.querySelectorAll('.nodeLabel')) {
+                const lines = this._splitNodeLabel(label)
+                if (lines.length < 2) continue  // single-line labels (index node) — skip
+
+                label.innerHTML = lines.map((text, i) => {
+                    if (i === 0) {
+                        // Branch name — bold, prominent
+                        return `<span style="font-weight:700;font-size:0.85rem;display:block;margin-bottom:2px">${text}</span>`
+                    } else if (text === 'NAMED' || text === 'CLONE') {
+                        // Type label — dim, small, uppercase
+                        return `<span style="font-size:0.6rem;opacity:0.5;letter-spacing:0.08em;display:block;margin-bottom:1px">${text}</span>`
+                    } else {
+                        // Ref ID — purple, monospace
+                        return `<span style="color:#c792ea;font-size:0.65rem;opacity:0.75;display:block">${text}</span>`
+                    }
+                }).join('')
             }
         })
+    }
+
+    /** Split a nodeLabel element into its text lines (handles <br> and <p> structures) */
+    _splitNodeLabel(el) {
+        const lines = []
+        for (const child of el.childNodes) {
+            if (child.nodeType === Node.TEXT_NODE) {
+                const text = child.textContent.trim()
+                if (text) lines.push(text)
+            } else if (child.nodeName === 'BR') {
+                // separator
+            } else if (child.nodeName === 'P') {
+                const text = child.textContent.trim()
+                if (text) lines.push(text)
+            }
+        }
+        return lines
     }
 
     /** Render clickable ref/key links below the diagram */
