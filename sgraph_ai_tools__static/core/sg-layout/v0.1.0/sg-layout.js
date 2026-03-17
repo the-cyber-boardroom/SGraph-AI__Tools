@@ -549,14 +549,23 @@ class SgLayout extends HTMLElement {
         const styles = getComputedStyle(this);
         const tabH   = styles.getPropertyValue('--sgl-tab-height').trim()  || '28px';
         const handleS = styles.getPropertyValue('--sgl-handle-size').trim() || '4px';
-        const parts = [];
 
+        // Collect non-collapsed sizes and normalise so fr values sum to 1
+        // (CSS Grid treats sum < 1 as percentage of free space, not filling it)
+        let frTotal = 0;
+        node.children.forEach((child, i) => {
+            const isCollapsed = child.type === 'stack' && this._collapsedStacks.has(child.id);
+            if (!isCollapsed) frTotal += node.sizes[i];
+        });
+        const scale = frTotal > 0 ? 1 / frTotal : 1;
+
+        const parts = [];
         node.children.forEach((child, i) => {
             const isCollapsed = child.type === 'stack' && this._collapsedStacks.has(child.id);
             if (isCollapsed) {
                 parts.push(tabH);
             } else {
-                parts.push(`${node.sizes[i]}fr`);
+                parts.push(`${node.sizes[i] * scale}fr`);
             }
             if (i < node.children.length - 1) {
                 parts.push(handleS);
