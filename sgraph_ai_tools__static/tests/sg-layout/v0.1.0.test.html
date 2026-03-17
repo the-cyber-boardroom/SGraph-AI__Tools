@@ -528,17 +528,17 @@ document.getElementById('demo-container').appendChild(demo);
 
 await new Promise(r => requestAnimationFrame(r));
 
-// Style the demo panels
+// Style the demo panels — vivid solid colours filling the entire cell
 const panelStyles = {
-    'demo-t1':  { bg: '#1a3a5c', label: 'Explorer',   desc: 'File tree sidebar' },
-    'demo-t1b': { bg: '#1a3050', label: 'Search',     desc: 'Full-text search' },
-    'demo-t2a': { bg: '#1a5c3a', label: 'index.html', desc: 'Main HTML file' },
-    'demo-t2b': { bg: '#2a5c2a', label: 'app.js',     desc: 'Application logic' },
-    'demo-t2c': { bg: '#1a5c4a', label: 'styles.css', desc: 'Stylesheet' },
-    'demo-t3a': { bg: '#5c3a1a', label: 'Console',    desc: 'Log output' },
-    'demo-t3b': { bg: '#4c3a1a', label: 'Terminal',    desc: 'Shell terminal' },
-    'demo-t3c': { bg: '#5c4a1a', label: 'Problems',   desc: 'Error list' },
-    'demo-t4':  { bg: '#3a1a5c', label: 'Inspector',  desc: 'Right sidebar' },
+    'demo-t1':  { bg: '#0D47A1', label: 'Explorer',   desc: 'File tree sidebar' },
+    'demo-t1b': { bg: '#1565C0', label: 'Search',     desc: 'Full-text search' },
+    'demo-t2a': { bg: '#1B5E20', label: 'index.html', desc: 'Main HTML file' },
+    'demo-t2b': { bg: '#2E7D32', label: 'app.js',     desc: 'Application logic' },
+    'demo-t2c': { bg: '#388E3C', label: 'styles.css', desc: 'Stylesheet' },
+    'demo-t3a': { bg: '#BF360C', label: 'Console',    desc: 'Log output' },
+    'demo-t3b': { bg: '#D84315', label: 'Terminal',    desc: 'Shell terminal' },
+    'demo-t3c': { bg: '#E65100', label: 'Problems',   desc: 'Error list' },
+    'demo-t4':  { bg: '#4A148C', label: 'Inspector',  desc: 'Right sidebar' },
 };
 
 // Note: demo-t4b is a nested sg-layout — no direct styling needed.
@@ -548,8 +548,8 @@ const nestedLayout = demo.getPanelElement('demo-t4b');
 if (nestedLayout && nestedLayout.getPanelElement) {
     await new Promise(r => requestAnimationFrame(r));
     const nestedStyles = {
-        'nested-t1': { bg: '#4a2a6c', label: 'Props',  desc: 'Component properties' },
-        'nested-t2': { bg: '#5a3a7c', label: 'Events', desc: 'Event listeners' },
+        'nested-t1': { bg: '#6A1B9A', label: 'Props',  desc: 'Component properties' },
+        'nested-t2': { bg: '#AD1457', label: 'Events', desc: 'Event listeners' },
     };
     for (const [tabId, config] of Object.entries(nestedStyles)) {
         const el = nestedLayout.getPanelElement(tabId);

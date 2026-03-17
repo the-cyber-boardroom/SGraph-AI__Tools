@@ -121,12 +121,13 @@ const settle = (n = 3) => new Promise(resolve => {
     requestAnimationFrame(next);
 });
 
-// Helper: style a panel inside a layout
+// Helper: style a panel inside a layout — fills entire cell with solid colour
 function stylePanel(layout, tabId, bg, label, desc) {
     const el = layout.getPanelElement(tabId);
     if (!el) return;
     el.className = 'panel';
     el.style.background = bg;
+    el.style.minHeight = '0';
     el.innerHTML = `
         <strong>${label}</strong>
         <span class="muted">${desc}</span>
@@ -178,11 +179,11 @@ d1.setAttribute('layout', JSON.stringify({
 document.getElementById('demo1').appendChild(d1);
 await settle();
 
-stylePanel(d1, 'd1-left', '#1a3a5c', 'Main Panel', 'Depth 0 — regular panel');
+stylePanel(d1, 'd1-left', '#1565C0', 'Main Panel', 'Depth 0 — regular panel');
 await styleNested(d1, 'd1-nested', {
-    'd1n-t1': { bg: '#2a4a3c', label: 'Top',    desc: 'Depth 1 — nested column' },
-    'd1n-t2': { bg: '#3a4a2c', label: 'Middle', desc: 'Depth 1 — nested column' },
-    'd1n-t3': { bg: '#4a3a2c', label: 'Bottom', desc: 'Depth 1 — nested column' },
+    'd1n-t1': { bg: '#2E7D32', label: 'Top',    desc: 'Depth 1 — nested column' },
+    'd1n-t2': { bg: '#F57F17', label: 'Middle', desc: 'Depth 1 — nested column' },
+    'd1n-t3': { bg: '#C62828', label: 'Bottom', desc: 'Depth 1 — nested column' },
 });
 
 // ===================================================================
@@ -237,20 +238,19 @@ d2.setAttribute('layout', JSON.stringify(d2Layout));
 document.getElementById('demo2').appendChild(d2);
 await settle();
 
-const d2Colors = { nav: '#1a3a5c', ed: '#1a5c3a', con: '#5c3a1a', insp: '#3a1a5c' };
-stylePanel(d2, 'd2-nav-t',  d2Colors.nav,  'Explorer',   'Depth 0 sidebar');
-stylePanel(d2, 'd2-ed2',    d2Colors.ed,   'app.js',     'Depth 0 editor tab');
-stylePanel(d2, 'd2-con1',   d2Colors.con,  'Console',    'Depth 0 console');
-stylePanel(d2, 'd2-con2',   d2Colors.con,  'Terminal',   'Depth 0 terminal');
-stylePanel(d2, 'd2-insp-t', d2Colors.insp, 'Inspector',  'Depth 0 sidebar');
+stylePanel(d2, 'd2-nav-t',  '#0D47A1', 'Explorer',   'Depth 0 sidebar');
+stylePanel(d2, 'd2-ed2',    '#1B5E20', 'app.js',     'Depth 0 editor tab');
+stylePanel(d2, 'd2-con1',   '#BF360C', 'Console',    'Depth 0 console');
+stylePanel(d2, 'd2-con2',   '#E65100', 'Terminal',   'Depth 0 terminal');
+stylePanel(d2, 'd2-insp-t', '#4A148C', 'Inspector',  'Depth 0 sidebar');
 
 const d2nested = await styleNested(d2, 'd2-mirror', {
-    'd2n-nav-t':  { bg: '#254a6c', label: 'Explorer',   desc: 'Depth 1 — mirror sidebar' },
-    'd2n-ed1':    { bg: '#256c4a', label: 'index.html',  desc: 'Depth 1 — mirror editor' },
-    'd2n-ed2':    { bg: '#2a6c4a', label: 'app.js',      desc: 'Depth 1 — mirror editor' },
-    'd2n-con1':   { bg: '#6c4a25', label: 'Console',     desc: 'Depth 1 — mirror console' },
-    'd2n-con2':   { bg: '#5c4a25', label: 'Terminal',    desc: 'Depth 1 — mirror terminal' },
-    'd2n-insp-t': { bg: '#4a256c', label: 'Inspector',  desc: 'Depth 1 — mirror sidebar' },
+    'd2n-nav-t':  { bg: '#1976D2', label: 'Explorer',   desc: 'Depth 1 — mirror sidebar' },
+    'd2n-ed1':    { bg: '#388E3C', label: 'index.html',  desc: 'Depth 1 — mirror editor' },
+    'd2n-ed2':    { bg: '#43A047', label: 'app.js',      desc: 'Depth 1 — mirror editor' },
+    'd2n-con1':   { bg: '#D84315', label: 'Console',     desc: 'Depth 1 — mirror console' },
+    'd2n-con2':   { bg: '#EF6C00', label: 'Terminal',    desc: 'Depth 1 — mirror terminal' },
+    'd2n-insp-t': { bg: '#7B1FA2', label: 'Inspector',  desc: 'Depth 1 — mirror sidebar' },
 });
 
 // ===================================================================
@@ -299,20 +299,20 @@ d3.setAttribute('layout', JSON.stringify({
 document.getElementById('demo3').appendChild(d3);
 await settle(5);
 
-stylePanel(d3, 'd3-plain', '#1a3a5c', 'Root Panel', 'Depth 0');
+stylePanel(d3, 'd3-plain', '#0D47A1', 'Root Panel', 'Depth 0');
 
 // Level 1
 const d3l1 = d3.getPanelElement('d3-lvl1');
 if (d3l1) {
     await settle(2);
-    stylePanel(d3l1, 'd3l1-plain', '#2a4a3c', 'Level 1 Panel', 'Depth 1');
+    stylePanel(d3l1, 'd3l1-plain', '#2E7D32', 'Level 1 Panel', 'Depth 1');
 
     // Level 2
     const d3l2 = d3l1.getPanelElement('d3l1-lvl2');
     if (d3l2) {
         await settle(2);
-        stylePanel(d3l2, 'd3l2-top', '#4a2a6c', 'Deep Top',    'Depth 2 — third level!');
-        stylePanel(d3l2, 'd3l2-bot', '#5c2a4a', 'Deep Bottom', 'Depth 2 — third level!');
+        stylePanel(d3l2, 'd3l2-top', '#6A1B9A', 'Deep Top',    'Depth 2 — third level!');
+        stylePanel(d3l2, 'd3l2-bot', '#AD1457', 'Deep Bottom', 'Depth 2 — third level!');
     }
 }
 
@@ -369,17 +369,17 @@ d4.setAttribute('layout', JSON.stringify({
 document.getElementById('demo4').appendChild(d4);
 await settle();
 
-stylePanel(d4, 'd4-center', '#3a5c1a', 'Center', 'Depth 0 — plain panel between nested layouts');
+stylePanel(d4, 'd4-center', '#33691E', 'Center', 'Depth 0 — plain panel between nested layouts');
 
 await styleNested(d4, 'd4-nest1', {
-    'd4a-top': { bg: '#2a4a6c', label: 'A-Top',    desc: 'Nested A — column top' },
-    'd4a-bot': { bg: '#2a3a6c', label: 'A-Bottom', desc: 'Nested A — column bottom' },
+    'd4a-top': { bg: '#1565C0', label: 'A-Top',    desc: 'Nested A — column top' },
+    'd4a-bot': { bg: '#0277BD', label: 'A-Bottom', desc: 'Nested A — column bottom' },
 });
 
 await styleNested(d4, 'd4-nest2', {
-    'd4b-left': { bg: '#6c4a2a', label: 'B-Left',  desc: 'Nested B — row left' },
-    'd4b-r1':   { bg: '#6c3a2a', label: 'B-Tab1',  desc: 'Nested B — tab 1' },
-    'd4b-r2':   { bg: '#5c3a2a', label: 'B-Tab2',  desc: 'Nested B — tab 2 (click to see)' },
+    'd4b-left': { bg: '#E65100', label: 'B-Left',  desc: 'Nested B — row left' },
+    'd4b-r1':   { bg: '#BF360C', label: 'B-Tab1',  desc: 'Nested B — tab 1' },
+    'd4b-r2':   { bg: '#D84315', label: 'B-Tab2',  desc: 'Nested B — tab 2 (click to see)' },
 });
 
 // ===================================================================
@@ -424,14 +424,14 @@ d5.setAttribute('layout', JSON.stringify({
 document.getElementById('demo5').appendChild(d5);
 await settle();
 
-stylePanel(d5, 'd5-left',  '#1a3a5c', 'Sidebar',  'Depth 0');
-stylePanel(d5, 'd5-flat1', '#1a5c3a', 'Readme',   'Depth 0 — flat tab (active by default)');
-stylePanel(d5, 'd5-flat2', '#5c3a1a', 'Settings', 'Depth 0 — flat tab (click Settings tab)');
+stylePanel(d5, 'd5-left',  '#283593', 'Sidebar',  'Depth 0');
+stylePanel(d5, 'd5-flat1', '#2E7D32', 'Readme',   'Depth 0 — flat tab (active by default)');
+stylePanel(d5, 'd5-flat2', '#C62828', 'Settings', 'Depth 0 — flat tab (click Settings tab)');
 
 await styleNested(d5, 'd5-nested', {
-    'd5n-html':   { bg: '#2a5c4a', label: 'HTML',   desc: 'Depth 1 — code editor' },
-    'd5n-css':    { bg: '#2a4a5c', label: 'CSS',    desc: 'Depth 1 — code editor' },
-    'd5n-output': { bg: '#4a2a5c', label: 'Output', desc: 'Depth 1 — live preview' },
+    'd5n-html':   { bg: '#00695C', label: 'HTML',   desc: 'Depth 1 — code editor' },
+    'd5n-css':    { bg: '#00838F', label: 'CSS',    desc: 'Depth 1 — code editor' },
+    'd5n-output': { bg: '#6A1B9A', label: 'Output', desc: 'Depth 1 — live preview' },
 });
 
 // ===================================================================
