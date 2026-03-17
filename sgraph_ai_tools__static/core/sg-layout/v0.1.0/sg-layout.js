@@ -179,7 +179,6 @@ const SHADOW_STYLES = `
 
 /* Collapsed in a ROW → vertical strip (column-collapse) */
 .sgl-stack--collapsed-col .sgl-stack-header {
-    writing-mode: vertical-lr;
     text-orientation: mixed;
     height: 100%;
     width: var(--sgl-tab-height);
