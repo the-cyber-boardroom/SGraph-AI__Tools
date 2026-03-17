@@ -834,7 +834,7 @@ class SgLayout extends HTMLElement {
      */
     setLayout(json) {
         this._unmountAll();
-        this._tree = json;
+        this._tree = JSON.parse(JSON.stringify(json));
         this._collapsedStacks.clear();
         this._renderTree();
         this._mountAllTabs();
