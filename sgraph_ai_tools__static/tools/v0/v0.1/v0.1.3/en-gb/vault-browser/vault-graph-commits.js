@@ -33,19 +33,6 @@ export class VaultGraphCommits extends HTMLElement {
                     font-family: var(--sg-font-mono);
                 }
 
-                /* ── Node text styling ─────────────────────────────── */
-                /* First line = commit message (bold, bright) */
-                vault-graph-commits .node .nodeLabel span[class=""] tspan:first-child,
-                vault-graph-commits .node .label foreignObject div span tspan:first-child,
-                vault-graph-commits .commitNode .nodeLabel tspan:first-child,
-                vault-graph-commits .node foreignObject div tspan:first-child {
-                    font-weight: 600;
-                }
-                /* Target tspan elements inside nodes for visual hierarchy */
-                vault-graph-commits .node .nodeLabel {
-                    line-height: 1.4;
-                }
-
                 /* ── Tree links below diagram ────────────────────── */
                 vault-graph-commits .vgc-tree-links {
                     display: flex;
@@ -195,38 +182,52 @@ export class VaultGraphCommits extends HTMLElement {
     }
 
     /**
-     * Post-render: style individual tspan lines inside SVG nodes.
-     * Line 1 = message (bold, bright), Line 2 = timestamp (dim), Line 3 = tree (green)
+     * Post-render: restyle node labels for visual hierarchy.
+     * Mermaid v11 renders labels as HTML inside foreignObject:
+     *   <span class="nodeLabel">Line1<br>Line2<br>Line3</span>
+     * We split by <br> and wrap each segment in a styled span.
      */
     _styleNodeText() {
         requestAnimationFrame(() => {
             const svg = this._mermaid.querySelector('svg')
             if (!svg) return
 
-            for (const node of svg.querySelectorAll('.node')) {
-                const tspans = node.querySelectorAll('tspan')
-                if (tspans.length >= 1) {
-                    // Message line — bold, bright
-                    tspans[0].style.fontWeight = '600'
-                    tspans[0].style.fill = '#e0e0e0'
-                    tspans[0].style.fontSize = '0.85rem'
-                }
-                if (tspans.length >= 2) {
-                    // Timestamp line — dim, smaller
-                    tspans[1].style.fontWeight = '400'
-                    tspans[1].style.fill = '#82aaff'
-                    tspans[1].style.fontSize = '0.7rem'
-                    tspans[1].style.opacity = '0.8'
-                }
-                if (tspans.length >= 3) {
-                    // Tree ref line — green, mono
-                    tspans[2].style.fontWeight = '400'
-                    tspans[2].style.fill = '#c3e88d'
-                    tspans[2].style.fontSize = '0.65rem'
-                    tspans[2].style.opacity = '0.7'
-                }
+            for (const label of svg.querySelectorAll('.nodeLabel')) {
+                const lines = this._splitNodeLabel(label)
+                if (lines.length < 2) continue  // single-line labels (branch label, orphans) — skip
+
+                // Rebuild the label with styled spans
+                label.innerHTML = lines.map((text, i) => {
+                    if (i === 0) {
+                        // Commit message — bold, bright, larger
+                        return `<span style="font-weight:600;color:#e0e0e0;font-size:0.85rem;display:block;margin-bottom:2px">${text}</span>`
+                    } else if (i === 1 && lines.length >= 3) {
+                        // Timestamp — blue, smaller
+                        return `<span style="color:#82aaff;font-size:0.7rem;opacity:0.85;display:block;margin-bottom:1px">${text}</span>`
+                    } else {
+                        // Tree ref — green, smallest
+                        return `<span style="color:#c3e88d;font-size:0.65rem;opacity:0.75;display:block">${text}</span>`
+                    }
+                }).join('')
             }
         })
+    }
+
+    /** Split a nodeLabel element into its text lines (handles <br> and <p> structures) */
+    _splitNodeLabel(el) {
+        const lines = []
+        for (const child of el.childNodes) {
+            if (child.nodeType === Node.TEXT_NODE) {
+                const text = child.textContent.trim()
+                if (text) lines.push(text)
+            } else if (child.nodeName === 'BR') {
+                // <br> is a separator, not content
+            } else if (child.nodeName === 'P') {
+                const text = child.textContent.trim()
+                if (text) lines.push(text)
+            }
+        }
+        return lines
     }
 
     /** Render clickable tree links below the diagram */
