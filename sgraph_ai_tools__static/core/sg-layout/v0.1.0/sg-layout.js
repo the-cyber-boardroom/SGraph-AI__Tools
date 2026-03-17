@@ -1,6 +1,7 @@
 /**
  * sg-layout.js
  * Fractal window management Web Component.
+ * v0.1.2 — fractal registration (nested sg-layout, depth tracking, nested serialisation).
  * v0.1.1 — tab stacks (multiple tabs per panel, click to switch, close tab).
  * v0.1.0 — row/column layout, resize handles, registration protocol, serialisation.
  *
@@ -75,6 +76,23 @@ const SHADOW_STYLES = `
     font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
     font-size: 13px;
     color: var(--sgl-text);
+}
+
+/* Depth-based visual differentiation for nested layouts */
+:host([data-depth="1"]) {
+    --sgl-bg: #1E1E32;
+    --sgl-surface: #1A2448;
+    --sgl-border: #2A3558;
+}
+:host([data-depth="2"]) {
+    --sgl-bg: #22223A;
+    --sgl-surface: #1E2850;
+    --sgl-border: #323D62;
+}
+:host([data-depth="3"]) {
+    --sgl-bg: #262642;
+    --sgl-surface: #222C58;
+    --sgl-border: #3A476C;
 }
 
 .sgl-root {
@@ -364,6 +382,9 @@ class SgLayout extends HTMLElement {
         /** @type {Map<string, HTMLElement>} node id → DOM element cache */
         this._nodeElements = new Map();
 
+        /** @type {Map<string, SgLayout>} panelId → child SgLayout instance */
+        this._childLayouts = new Map();
+
         /** @type {HTMLElement} Root container in shadow DOM */
         this._rootEl = null;
     }
@@ -421,6 +442,13 @@ class SgLayout extends HTMLElement {
         this._nodeElements.clear();
         this._registeredElements.clear();
         this._collapsedStacks.clear();
+
+        // Unregister from parent layout
+        if (this._parentLayoutRef) {
+            this._parentLayoutRef._childLayouts.delete(this.dataset.panelId);
+            this._parentLayoutRef = null;
+        }
+        this._childLayouts.clear();
     }
 
     // -----------------------------------------------------------------------
@@ -472,6 +500,11 @@ class SgLayout extends HTMLElement {
                 });
             }
 
+            // Track child sg-layout instances
+            if (event.target instanceof SgLayout) {
+                this._childLayouts.set(tab.id, event.target);
+            }
+
             this._registerDepth--;
         });
     }
@@ -488,6 +521,8 @@ class SgLayout extends HTMLElement {
             this._depth = config.depth + 1;
             this._parentLayoutRef = config.layoutRef;
             this.dataset.panelId = config.panelId;
+            // Set data-depth attribute for CSS depth styling
+            this.dataset.depth = String(this._depth);
         }
     }
 
@@ -1009,6 +1044,11 @@ class SgLayout extends HTMLElement {
         el.dataset.layoutDepth = String(this._depth);
         if (tab.title) el.dataset.panelTitle = tab.title;
 
+        // For nested sg-layout: pass the layout tree via attribute before connecting
+        if (tab.tag === 'sg-layout' && tab.state?.layout) {
+            el.setAttribute('layout', JSON.stringify(tab.state.layout));
+        }
+
         // Restore state if component supports it
         if (tab.state && Object.keys(tab.state).length > 0 && typeof el.setLayoutState === 'function') {
             el.setLayoutState(tab.state);
@@ -1329,6 +1369,46 @@ class SgLayout extends HTMLElement {
     }
 
     // -----------------------------------------------------------------------
+    // Fractal API (nested layouts)
+    // -----------------------------------------------------------------------
+
+    /**
+     * Get all child sg-layout instances registered within this layout.
+     * @returns {Map<string, SgLayout>} panelId → child SgLayout
+     */
+    getChildLayouts() {
+        return new Map(this._childLayouts);
+    }
+
+    /**
+     * Get the parent sg-layout instance, if this layout is nested.
+     * @returns {SgLayout|null}
+     */
+    getParentLayout() {
+        return this._parentLayoutRef;
+    }
+
+    /**
+     * Get the nesting depth (0 = root layout).
+     * @returns {number}
+     */
+    getDepth() {
+        return this._depth;
+    }
+
+    /**
+     * Walk the entire fractal tree (this layout + all nested child layouts).
+     * Calls visitor(layout, depth) for each sg-layout instance.
+     * @param {function} visitor  Called with (sgLayoutInstance, depth)
+     */
+    walkLayouts(visitor) {
+        visitor(this, this._depth);
+        for (const [, child] of this._childLayouts) {
+            child.walkLayouts(visitor);
+        }
+    }
+
+    // -----------------------------------------------------------------------
     // Serialisation
     // -----------------------------------------------------------------------
 
@@ -1339,9 +1419,15 @@ class SgLayout extends HTMLElement {
      */
     _serializeNode(node) {
         if (node.type === 'tab') {
-            const state = (typeof node.el?.getLayoutState === 'function')
+            let state = (typeof node.el?.getLayoutState === 'function')
                 ? node.el.getLayoutState()
                 : (node.state || {});
+
+            // Capture nested sg-layout tree in state
+            if (node.el instanceof SgLayout) {
+                state = { ...state, layout: node.el.getLayout() };
+            }
+
             return { type: 'tab', id: node.id, title: node.title, tag: node.tag, state };
         }
         if (node.type === 'stack') {

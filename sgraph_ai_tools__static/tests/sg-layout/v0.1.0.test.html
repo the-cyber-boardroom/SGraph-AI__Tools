@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>sg-layout v0.1.1 — Tests + Demo</title>
+    <title>sg-layout v0.1.2 — Tests + Demo</title>
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
         body {
@@ -52,7 +52,7 @@
 <body>
 
 <div id="test-results">
-    <h2>sg-layout v0.1.1 — Test Results</h2>
+    <h2>sg-layout v0.1.2 — Test Results</h2>
     <div id="results"></div>
 </div>
 
@@ -372,9 +372,90 @@ assert(tabChangedEvent?.stackId === 'es1', 'TAB_CHANGED: correct stackId');
 assert(tabChangedEvent?.tabId === 'et2', 'TAB_CHANGED: correct tabId');
 
 // -----------------------------------------------------------------------
+// Test 18: Nested sg-layout — depth tracking
+// -----------------------------------------------------------------------
+const layoutOuter = document.createElement('sg-layout');
+layoutOuter.style.cssText = 'width:600px;height:400px;position:absolute;left:-9999px;';
+layoutOuter.setAttribute('layout', JSON.stringify({
+    type: 'row', id: 'outer-r', sizes: [0.5, 0.5],
+    children: [
+        {
+            type: 'stack', id: 'outer-s1', activeTab: 0,
+            tabs: [{ type: 'tab', id: 'outer-t1', tag: 'div', title: 'Left', state: {} }]
+        },
+        {
+            type: 'stack', id: 'outer-s2', activeTab: 0,
+            tabs: [{
+                type: 'tab', id: 'outer-t2', tag: 'sg-layout', title: 'Nested',
+                state: {
+                    layout: {
+                        type: 'row', id: 'inner-r', sizes: [0.5, 0.5],
+                        children: [
+                            { type: 'stack', id: 'inner-s1', activeTab: 0, tabs: [{ type: 'tab', id: 'inner-t1', tag: 'div', title: 'Inner A', state: {} }] },
+                            { type: 'stack', id: 'inner-s2', activeTab: 0, tabs: [{ type: 'tab', id: 'inner-t2', tag: 'div', title: 'Inner B', state: {} }] },
+                        ]
+                    }
+                }
+            }]
+        },
+    ]
+}));
+document.body.appendChild(layoutOuter);
+await new Promise(r => requestAnimationFrame(r));
+await new Promise(r => requestAnimationFrame(r)); // extra frame for nested mount
+
+assert(layoutOuter.getDepth() === 0, 'Fractal: outer layout depth is 0');
+
+const nestedEl = layoutOuter.getPanelElement('outer-t2');
+assert(nestedEl !== null, 'Fractal: nested sg-layout element exists');
+assert(nestedEl instanceof SgLayout, 'Fractal: nested element is SgLayout');
+assert(nestedEl.getDepth() === 1, 'Fractal: nested layout depth is 1');
+assert(nestedEl.dataset.depth === '1', 'Fractal: data-depth attribute is "1"');
+
+// -----------------------------------------------------------------------
+// Test 19: Fractal — child layout registry
+// -----------------------------------------------------------------------
+const children = layoutOuter.getChildLayouts();
+assert(children.size === 1, 'Fractal: outer has 1 child layout');
+assert(children.get('outer-t2') === nestedEl, 'Fractal: child keyed by panelId');
+
+// -----------------------------------------------------------------------
+// Test 20: Fractal — parent reference
+// -----------------------------------------------------------------------
+assert(nestedEl.getParentLayout() === layoutOuter, 'Fractal: nested.getParentLayout() is outer');
+assert(layoutOuter.getParentLayout() === null, 'Fractal: root.getParentLayout() is null');
+
+// -----------------------------------------------------------------------
+// Test 21: Fractal — nested layout has correct tree
+// -----------------------------------------------------------------------
+const innerTree = nestedEl.getLayout();
+assert(innerTree !== null, 'Fractal: nested getLayout() is non-null');
+assert(innerTree.type === 'row', 'Fractal: nested tree is a row');
+assert(innerTree.children.length === 2, 'Fractal: nested row has 2 children');
+assert(innerTree.children[0].tabs[0].title === 'Inner A', 'Fractal: first nested tab is Inner A');
+
+// -----------------------------------------------------------------------
+// Test 22: Fractal — serialisation captures nested tree
+// -----------------------------------------------------------------------
+const outerTree = layoutOuter.getLayout();
+const nestedTab = outerTree.children[1].tabs[0];
+assert(nestedTab.tag === 'sg-layout', 'Fractal serial: nested tab tag is sg-layout');
+assert(nestedTab.state?.layout?.type === 'row', 'Fractal serial: nested state.layout is a row');
+assert(nestedTab.state.layout.children.length === 2, 'Fractal serial: nested layout has 2 children');
+
+// -----------------------------------------------------------------------
+// Test 23: Fractal — walkLayouts visits all levels
+// -----------------------------------------------------------------------
+const visited = [];
+layoutOuter.walkLayouts((layout, depth) => visited.push(depth));
+assert(visited.length === 2, 'walkLayouts: visits 2 layouts (outer + nested)');
+assert(visited[0] === 0, 'walkLayouts: first is depth 0');
+assert(visited[1] === 1, 'walkLayouts: second is depth 1');
+
+// -----------------------------------------------------------------------
 // Cleanup test layouts
 // -----------------------------------------------------------------------
-[layout1, layout2, layout3, layout4, layout5, layout6, layout7, layout8, layout9].forEach(l => {
+[layout1, layout2, layout3, layout4, layout5, layout6, layout7, layout8, layout9, layoutOuter].forEach(l => {
     if (l.parentNode) l.parentNode.removeChild(l);
 });
 
@@ -423,7 +504,21 @@ const demoLayout = {
         },
         {
             type: 'stack', id: 'demo-s4', activeTab: 0,
-            tabs: [{ type: 'tab', id: 'demo-t4', tag: 'div', title: 'Inspector', state: {} }]
+            tabs: [
+                { type: 'tab', id: 'demo-t4', tag: 'div', title: 'Inspector', state: {} },
+                {
+                    type: 'tab', id: 'demo-t4b', tag: 'sg-layout', title: 'Nested',
+                    state: {
+                        layout: {
+                            type: 'column', id: 'nested-c', sizes: [0.5, 0.5],
+                            children: [
+                                { type: 'stack', id: 'nested-s1', activeTab: 0, tabs: [{ type: 'tab', id: 'nested-t1', tag: 'div', title: 'Props', state: {} }] },
+                                { type: 'stack', id: 'nested-s2', activeTab: 0, tabs: [{ type: 'tab', id: 'nested-t2', tag: 'div', title: 'Events', state: {} }] },
+                            ]
+                        }
+                    }
+                },
+            ]
         },
     ]
 };
@@ -445,6 +540,30 @@ const panelStyles = {
     'demo-t3c': { bg: '#5c4a1a', label: 'Problems',   desc: 'Error list' },
     'demo-t4':  { bg: '#3a1a5c', label: 'Inspector',  desc: 'Right sidebar' },
 };
+
+// Note: demo-t4b is a nested sg-layout — no direct styling needed.
+// Style the nested panels after the nested layout mounts.
+await new Promise(r => requestAnimationFrame(r));
+const nestedLayout = demo.getPanelElement('demo-t4b');
+if (nestedLayout && nestedLayout.getPanelElement) {
+    await new Promise(r => requestAnimationFrame(r));
+    const nestedStyles = {
+        'nested-t1': { bg: '#4a2a6c', label: 'Props',  desc: 'Component properties' },
+        'nested-t2': { bg: '#5a3a7c', label: 'Events', desc: 'Event listeners' },
+    };
+    for (const [tabId, config] of Object.entries(nestedStyles)) {
+        const el = nestedLayout.getPanelElement(tabId);
+        if (el) {
+            el.className = 'demo-panel';
+            el.style.background = config.bg;
+            el.innerHTML = `
+                <strong>${config.label}</strong>
+                <span style="color:var(--sgl-text-muted)">${config.desc}</span>
+                <code>depth: ${nestedLayout.getDepth()}</code>
+            `;
+        }
+    }
+}
 
 for (const [tabId, config] of Object.entries(panelStyles)) {
     const el = demo.getPanelElement(tabId);
