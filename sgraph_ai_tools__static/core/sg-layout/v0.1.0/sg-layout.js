@@ -1,6 +1,7 @@
 /**
  * sg-layout.js
  * Fractal window management Web Component.
+ * v0.1.3 — drag to dock (within one layout).
  * v0.1.2 — fractal registration (nested sg-layout, depth tracking, nested serialisation).
  * v0.1.1 — tab stacks (multiple tabs per panel, click to switch, close tab).
  * v0.1.0 — row/column layout, resize handles, registration protocol, serialisation.
@@ -176,7 +177,7 @@ const SHADOW_STYLES = `
     font-size: 12px;
     font-weight: 400;
     color: var(--sgl-text-muted);
-    cursor: pointer;
+    cursor: grab;
     border-right: 1px solid var(--sgl-border);
     background: transparent;
     transition: color var(--sgl-transition-speed) ease,
@@ -362,6 +363,68 @@ const SHADOW_STYLES = `
     height: var(--sgl-handle-size);
     min-height: var(--sgl-handle-size);
 }
+
+/* --- Drag to dock --- */
+
+/* Dragging state on host */
+:host(.sgl-dragging) {
+    cursor: grabbing;
+}
+
+/* Dim the tab being dragged */
+.sgl-tab--dragging {
+    opacity: 0.3;
+}
+
+/* Floating ghost that follows the pointer */
+.sgl-drag-ghost {
+    position: fixed;
+    z-index: 9999;
+    pointer-events: none;
+    padding: 4px 12px;
+    font-size: 12px;
+    font-weight: 500;
+    color: var(--sgl-text);
+    background: var(--sgl-surface);
+    border: 1px solid var(--sgl-accent);
+    border-radius: 4px;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.4);
+    opacity: 0.85;
+    white-space: nowrap;
+}
+
+/* Dock overlay — covers the target stack */
+.sgl-dock-overlay {
+    position: absolute;
+    z-index: 100;
+    pointer-events: none;
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr;
+    grid-template-rows: 1fr 1fr 1fr;
+    gap: 2px;
+    padding: 2px;
+}
+
+/* Each dock zone */
+.sgl-dock-zone {
+    border-radius: 3px;
+    border: 2px solid transparent;
+    transition: background var(--sgl-transition-speed) ease,
+                border-color var(--sgl-transition-speed) ease;
+}
+
+/* Zone positions in the 3x3 grid */
+.sgl-dock-zone--top    { grid-column: 1 / 4; grid-row: 1; }
+.sgl-dock-zone--left   { grid-column: 1;     grid-row: 2; }
+.sgl-dock-zone--center { grid-column: 2;     grid-row: 2; }
+.sgl-dock-zone--right  { grid-column: 3;     grid-row: 2; }
+.sgl-dock-zone--bottom { grid-column: 1 / 4; grid-row: 3; }
+
+/* Active (hovered) zone highlight */
+.sgl-dock-zone--active {
+    background: rgba(78, 205, 196, 0.2);
+    border-color: var(--sgl-accent);
+}
 `;
 
 // ---------------------------------------------------------------------------
@@ -403,6 +466,13 @@ class SgLayout extends HTMLElement {
 
         /** @type {HTMLElement} Root container in shadow DOM */
         this._rootEl = null;
+
+        /** @type {object|null} In-progress drag state */
+        this._dragState = null;
+
+        /** Bound drag handlers (for add/remove on document) */
+        this._boundDragMove = this._onDragMove.bind(this);
+        this._boundDragEnd  = this._onDragEnd.bind(this);
     }
 
     /** @returns {EventBus} */
@@ -454,6 +524,7 @@ class SgLayout extends HTMLElement {
     }
 
     disconnectedCallback() {
+        if (this._dragState) this._cancelDrag();
         this._unmountAll();
         this._nodeElements.clear();
         this._registeredElements.clear();
@@ -679,6 +750,14 @@ class SgLayout extends HTMLElement {
             title.className = 'sgl-stack-title';
             const activeTab = node.tabs[node.activeTab || 0];
             title.textContent = activeTab?.title || '';
+            // Drag initiation from single-tab title
+            if (activeTab) {
+                title.style.cursor = 'grab';
+                title.addEventListener('pointerdown', (e) => {
+                    if (e.button !== 0) return;
+                    this._onTabPointerDown(e, node, activeTab, title);
+                });
+            }
             header.appendChild(title);
         }
 
@@ -747,7 +826,13 @@ class SgLayout extends HTMLElement {
 
         // Click to switch
         tabEl.addEventListener('click', () => {
-            this._switchTab(stackNode, index);
+            if (!this._dragState) this._switchTab(stackNode, index);
+        });
+
+        // Drag initiation
+        tabEl.addEventListener('pointerdown', (e) => {
+            if (e.button !== 0) return;
+            this._onTabPointerDown(e, stackNode, tab, tabEl);
         });
 
         return tabEl;
@@ -946,6 +1031,364 @@ class SgLayout extends HTMLElement {
             }
         }
         return false;
+    }
+
+    // -----------------------------------------------------------------------
+    // Drag to dock
+    // -----------------------------------------------------------------------
+
+    /** Threshold in px before a pointerdown becomes a drag. */
+    static DRAG_THRESHOLD = 5;
+
+    /**
+     * Handle pointerdown on a tab or single-tab title.
+     * Records start position; actual drag starts after threshold movement.
+     */
+    _onTabPointerDown(e, stackNode, tab, el) {
+        if (this._collapsedStacks.has(stackNode.id)) return;
+        e.preventDefault();
+
+        const startX = e.clientX;
+        const startY = e.clientY;
+        let started = false;
+
+        const onMove = (me) => {
+            const dx = me.clientX - startX;
+            const dy = me.clientY - startY;
+            if (!started && Math.sqrt(dx * dx + dy * dy) >= SgLayout.DRAG_THRESHOLD) {
+                started = true;
+                this._startDrag(stackNode, tab, el, startX, startY);
+            }
+            if (started) {
+                this._onDragMove(me);
+            }
+        };
+
+        const onUp = (ue) => {
+            document.removeEventListener('pointermove', onMove);
+            document.removeEventListener('pointerup', onUp);
+            if (started) {
+                this._onDragEnd(ue);
+            }
+        };
+
+        document.addEventListener('pointermove', onMove);
+        document.addEventListener('pointerup', onUp);
+    }
+
+    /**
+     * Initiate a drag operation.
+     */
+    _startDrag(stackNode, tab, tabEl, startX, startY) {
+        // Cache bounding rects of all stacks
+        const stackRects = [];
+        this._walkTree(this._tree, (node) => {
+            if (node.type === 'stack') {
+                const el = this._nodeElements.get(node.id);
+                if (el && !this._collapsedStacks.has(node.id)) {
+                    stackRects.push({ node, el, rect: el.getBoundingClientRect() });
+                }
+            }
+        });
+
+        // Create ghost
+        const ghost = document.createElement('div');
+        ghost.className = 'sgl-drag-ghost';
+        ghost.textContent = tab.title || tab.tag || 'Tab';
+        ghost.style.left = startX + 'px';
+        ghost.style.top  = (startY - 14) + 'px';
+        this.shadowRoot.appendChild(ghost);
+
+        // Dim the original tab
+        if (tabEl.classList.contains('sgl-tab')) {
+            tabEl.classList.add('sgl-tab--dragging');
+        }
+
+        this.classList.add('sgl-dragging');
+
+        this._dragState = {
+            tab,
+            sourceStackId: stackNode.id,
+            sourceStack: stackNode,
+            ghost,
+            tabEl,
+            stackRects,
+            overlayEl: null,
+            currentTargetStackId: null,
+            activeZone: null,
+        };
+
+        this._events.emit(SGL_EVENTS.DRAG_START, {
+            panelId: tab.id,
+            sourceLayoutId: this,
+        });
+    }
+
+    /**
+     * Update ghost position and dock zone overlay during drag.
+     */
+    _onDragMove(e) {
+        const ds = this._dragState;
+        if (!ds) return;
+
+        // Move ghost
+        ds.ghost.style.left = e.clientX + 'px';
+        ds.ghost.style.top  = (e.clientY - 14) + 'px';
+
+        // Hit-test stacks
+        const x = e.clientX;
+        const y = e.clientY;
+        let hit = null;
+
+        for (const entry of ds.stackRects) {
+            const r = entry.rect;
+            if (x >= r.left && x <= r.right && y >= r.top && y <= r.bottom) {
+                hit = entry;
+                break;
+            }
+        }
+
+        if (hit) {
+            if (ds.currentTargetStackId !== hit.node.id) {
+                this._removeDockOverlay();
+                ds.currentTargetStackId = hit.node.id;
+                this._showDockOverlay(hit.el, hit.rect);
+            }
+            this._updateDockZoneHighlight(x, y, hit.rect);
+        } else {
+            if (ds.currentTargetStackId) {
+                this._removeDockOverlay();
+                ds.currentTargetStackId = null;
+                ds.activeZone = null;
+            }
+        }
+    }
+
+    /**
+     * Finish the drag — execute dock or cancel.
+     */
+    _onDragEnd(e) {
+        const ds = this._dragState;
+        if (!ds) return;
+
+        const zone = ds.activeZone;
+        const targetStackId = ds.currentTargetStackId;
+
+        // Clean up visuals first
+        this._cleanupDrag();
+
+        if (!zone || !targetStackId) {
+            this._events.emit(SGL_EVENTS.DRAG_END, { panelId: ds.tab.id, accepted: false });
+            return;
+        }
+
+        // Same stack + center = no-op
+        if (targetStackId === ds.sourceStackId && zone === 'center') {
+            this._events.emit(SGL_EVENTS.DRAG_END, { panelId: ds.tab.id, accepted: false });
+            return;
+        }
+
+        // Find the target stack node
+        const targetStack = this._findNodeById(this._tree, targetStackId);
+        if (!targetStack) {
+            this._events.emit(SGL_EVENTS.DRAG_END, { panelId: ds.tab.id, accepted: false });
+            return;
+        }
+
+        this._executeDock(ds.tab, ds.sourceStack, targetStack, zone);
+        this._events.emit(SGL_EVENTS.DRAG_END, { panelId: ds.tab.id, accepted: true });
+    }
+
+    /**
+     * Cancel an in-progress drag.
+     */
+    _cancelDrag() {
+        this._cleanupDrag();
+    }
+
+    /**
+     * Remove ghost, overlay, and reset drag state.
+     */
+    _cleanupDrag() {
+        const ds = this._dragState;
+        if (!ds) return;
+
+        if (ds.ghost?.parentNode) ds.ghost.parentNode.removeChild(ds.ghost);
+        if (ds.tabEl) ds.tabEl.classList.remove('sgl-tab--dragging');
+        this._removeDockOverlay();
+        this.classList.remove('sgl-dragging');
+        this._dragState = null;
+    }
+
+    /**
+     * Show the 5-zone dock overlay on top of a target stack.
+     */
+    _showDockOverlay(stackEl, rect) {
+        const rootRect = this._rootEl.getBoundingClientRect();
+        const overlay = document.createElement('div');
+        overlay.className = 'sgl-dock-overlay';
+        overlay.style.left   = (rect.left - rootRect.left) + 'px';
+        overlay.style.top    = (rect.top  - rootRect.top)  + 'px';
+        overlay.style.width  = rect.width  + 'px';
+        overlay.style.height = rect.height + 'px';
+
+        const zones = ['top', 'left', 'center', 'right', 'bottom'];
+        for (const z of zones) {
+            const zoneEl = document.createElement('div');
+            zoneEl.className = `sgl-dock-zone sgl-dock-zone--${z}`;
+            zoneEl.dataset.zone = z;
+            overlay.appendChild(zoneEl);
+        }
+
+        this._rootEl.appendChild(overlay);
+        if (this._dragState) this._dragState.overlayEl = overlay;
+    }
+
+    /**
+     * Highlight the active dock zone based on pointer position.
+     */
+    _updateDockZoneHighlight(x, y, rect) {
+        const ds = this._dragState;
+        if (!ds?.overlayEl) return;
+
+        const relX = (x - rect.left) / rect.width;
+        const relY = (y - rect.top)  / rect.height;
+
+        let zone;
+        if (relY < 0.25)      zone = 'top';
+        else if (relY > 0.75) zone = 'bottom';
+        else if (relX < 0.25) zone = 'left';
+        else if (relX > 0.75) zone = 'right';
+        else                  zone = 'center';
+
+        if (zone !== ds.activeZone) {
+            ds.activeZone = zone;
+            const zoneEls = ds.overlayEl.querySelectorAll('.sgl-dock-zone');
+            zoneEls.forEach(el => {
+                el.classList.toggle('sgl-dock-zone--active', el.dataset.zone === zone);
+            });
+        }
+    }
+
+    /**
+     * Remove the dock overlay.
+     */
+    _removeDockOverlay() {
+        const ds = this._dragState;
+        if (ds?.overlayEl?.parentNode) {
+            ds.overlayEl.parentNode.removeChild(ds.overlayEl);
+            ds.overlayEl = null;
+        }
+    }
+
+    /**
+     * Execute the dock: move a tab to a new location in the tree.
+     * @param {object} tab         The tab being dragged
+     * @param {object} sourceStack The stack it came from
+     * @param {object} targetStack The stack it's being docked to
+     * @param {string} zone        'center'|'left'|'right'|'top'|'bottom'
+     */
+    _executeDock(tab, sourceStack, targetStack, zone) {
+        // 1. Remove tab from source stack
+        const tabIndex = sourceStack.tabs.indexOf(tab);
+        if (tabIndex === -1) return;
+
+        sourceStack.tabs.splice(tabIndex, 1);
+
+        // Fix activeTab on source
+        if (sourceStack.tabs.length > 0) {
+            if (sourceStack.activeTab >= sourceStack.tabs.length) {
+                sourceStack.activeTab = sourceStack.tabs.length - 1;
+            }
+        }
+
+        // 2. Dock based on zone
+        if (zone === 'center') {
+            // Add as new tab in target stack
+            targetStack.tabs.push(tab);
+            targetStack.activeTab = targetStack.tabs.length - 1;
+        } else {
+            // Split: create a new stack for the dragged tab
+            const newStack = makeStack([tab]);
+
+            // Determine split direction
+            const isHorizontal = (zone === 'left' || zone === 'right');
+            const containerType = isHorizontal ? 'row' : 'column';
+            const insertBefore = (zone === 'left' || zone === 'top');
+
+            this._insertNodeBesideTarget(targetStack.id, newStack, containerType, insertBefore);
+        }
+
+        // 3. Clean up empty source stack
+        if (sourceStack.tabs.length === 0) {
+            this._removeEmptyStack(sourceStack.id);
+        }
+
+        // 4. Re-render
+        this._renderTree();
+        this._mountAllTabs();
+        this._events.emit(SGL_EVENTS.LAYOUT_CHANGED, { tree: this.getLayout() });
+    }
+
+    /**
+     * Insert a node beside a target node in the tree, creating or extending a row/column container.
+     * @param {string} targetId       The id of the target node
+     * @param {object} newNode        The new node to insert
+     * @param {string} containerType  'row' or 'column'
+     * @param {boolean} insertBefore  true to insert before the target, false for after
+     */
+    _insertNodeBesideTarget(targetId, newNode, containerType, insertBefore) {
+        // Special case: target is the root
+        if (this._tree.id === targetId) {
+            const oldRoot = this._tree;
+            const children = insertBefore ? [newNode, oldRoot] : [oldRoot, newNode];
+            this._tree = {
+                type: containerType,
+                id: uid(),
+                sizes: normaliseSizes(null, 2),
+                children,
+            };
+            return;
+        }
+
+        // Find parent of target
+        const parent = this._findParentNode(this._tree, targetId);
+        if (!parent) return;
+
+        const idx = parent.children.findIndex(c => c.id === targetId);
+        if (idx === -1) return;
+
+        // If parent is already the same container type, insert as sibling
+        if (parent.type === containerType) {
+            const insertIdx = insertBefore ? idx : idx + 1;
+            parent.children.splice(insertIdx, 0, newNode);
+            // Redistribute sizes evenly
+            parent.sizes = normaliseSizes(null, parent.children.length);
+        } else {
+            // Wrap the target in a new container
+            const target = parent.children[idx];
+            const children = insertBefore ? [newNode, target] : [target, newNode];
+            const wrapper = {
+                type: containerType,
+                id: uid(),
+                sizes: normaliseSizes(null, 2),
+                children,
+            };
+            parent.children[idx] = wrapper;
+        }
+    }
+
+    /**
+     * Walk all nodes in the tree (not just tabs).
+     * @param {object} node
+     * @param {function} visitor
+     */
+    _walkTree(node, visitor) {
+        if (!node) return;
+        visitor(node);
+        if (node.children) {
+            node.children.forEach(c => this._walkTree(c, visitor));
+        }
     }
 
     // -----------------------------------------------------------------------
