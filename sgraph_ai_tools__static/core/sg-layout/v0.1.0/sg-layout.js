@@ -200,7 +200,8 @@ const SHADOW_STYLES = `
 .sgl-tab--locked {
     cursor: default;
 }
-.sgl-tab--locked .sgl-tab-close {
+.sgl-tab--locked .sgl-tab-close,
+.sgl-tab--no-close .sgl-tab-close {
     display: none;
 }
 .sgl-tab--active {
@@ -835,10 +836,10 @@ class SgLayout extends HTMLElement {
         const actions = document.createElement('div');
         actions.className = 'sgl-header-actions';
 
-        // Close button for single-tab stacks (hidden if locked)
+        // Close button for single-tab stacks (hidden if locked or closable === false)
         if (node.tabs.length === 1) {
             const activeTab = node.tabs[node.activeTab || 0];
-            if (activeTab && !activeTab.locked) {
+            if (activeTab && !activeTab.locked && activeTab.closable !== false) {
                 const closeBtn = document.createElement('button');
                 closeBtn.className = 'sgl-header-close-btn';
                 closeBtn.textContent = '\u00d7';
@@ -893,8 +894,12 @@ class SgLayout extends HTMLElement {
         if (index === (stackNode.activeTab || 0)) {
             tabEl.classList.add('sgl-tab--active');
         }
+        const isClosable = !tab.locked && tab.closable !== false;
         if (tab.locked) {
             tabEl.classList.add('sgl-tab--locked');
+        }
+        if (!isClosable) {
+            tabEl.classList.add('sgl-tab--no-close');
         }
 
         const label = document.createElement('span');
@@ -902,16 +907,18 @@ class SgLayout extends HTMLElement {
         label.textContent = tab.title || tab.tag || 'Tab';
         tabEl.appendChild(label);
 
-        // Close button
-        const closeBtn = document.createElement('button');
-        closeBtn.className = 'sgl-tab-close';
-        closeBtn.textContent = '\u00d7';
-        closeBtn.title = 'Close tab';
-        closeBtn.addEventListener('click', (e) => {
-            e.stopPropagation();
-            this._closeTab(stackNode, tab);
-        });
-        tabEl.appendChild(closeBtn);
+        // Close button (hidden if locked or closable === false)
+        if (isClosable) {
+            const closeBtn = document.createElement('button');
+            closeBtn.className = 'sgl-tab-close';
+            closeBtn.textContent = '\u00d7';
+            closeBtn.title = 'Close tab';
+            closeBtn.addEventListener('click', (e) => {
+                e.stopPropagation();
+                this._closeTab(stackNode, tab);
+            });
+            tabEl.appendChild(closeBtn);
+        }
 
         // Click to switch
         tabEl.addEventListener('click', () => {
@@ -945,12 +952,13 @@ class SgLayout extends HTMLElement {
         const tabH   = styles.getPropertyValue('--sgl-tab-height').trim()  || '28px';
         const handleS = styles.getPropertyValue('--sgl-handle-size').trim() || '4px';
 
-        // Collect non-collapsed sizes and normalise so fr values sum to 1
+        // Collect non-collapsed, non-fixed sizes and normalise so fr values sum to 1
         // (CSS Grid treats sum < 1 as percentage of free space, not filling it)
         let frTotal = 0;
         node.children.forEach((child, i) => {
             const isCollapsed = child.type === 'stack' && this._collapsedStacks.has(child.id);
-            if (!isCollapsed) frTotal += node.sizes[i];
+            const isFixed = child.fixedSize != null;
+            if (!isCollapsed && !isFixed) frTotal += node.sizes[i];
         });
         const scale = frTotal > 0 ? 1 / frTotal : 1;
 
@@ -959,6 +967,9 @@ class SgLayout extends HTMLElement {
             const isCollapsed = child.type === 'stack' && this._collapsedStacks.has(child.id);
             if (isCollapsed) {
                 parts.push(tabH);
+            } else if (child.fixedSize != null) {
+                // Fixed size — use the CSS value directly (e.g. '250px', '20%')
+                parts.push(String(child.fixedSize));
             } else {
                 parts.push(`${node.sizes[i] * scale}fr`);
             }
@@ -1049,7 +1060,7 @@ class SgLayout extends HTMLElement {
      * @param {object} tab
      */
     _closeTab(stackNode, tab) {
-        if (tab.locked) return;
+        if (tab.locked || tab.closable === false) return;
         const tabIndex = stackNode.tabs.indexOf(tab);
         if (tabIndex === -1) return;
 
@@ -1537,6 +1548,15 @@ class SgLayout extends HTMLElement {
     _makeResizeHandle(axis, parentNode, index) {
         const handle = document.createElement('div');
         handle.className = `sgl-resize-handle sgl-resize-handle--${axis}`;
+
+        // If either neighbor has fixedSize, disable resizing for this handle
+        const leftChild  = parentNode.children[index];
+        const rightChild = parentNode.children[index + 1];
+        if (leftChild?.fixedSize != null || rightChild?.fixedSize != null) {
+            handle.style.pointerEvents = 'none';
+            handle.style.cursor = 'default';
+            return handle;
+        }
 
         let startPos, startSizes;
 
@@ -2064,20 +2084,25 @@ class SgLayout extends HTMLElement {
 
             const out = { type: 'tab', id: node.id, title: node.title, tag: node.tag, state };
             if (node.locked) out.locked = true;
+            if (node.closable === false) out.closable = false;
             return out;
         }
         if (node.type === 'stack') {
-            return {
+            const stackOut = {
                 type: 'stack', id: node.id,
                 activeTab: node.activeTab,
                 tabs: node.tabs.map(t => this._serializeNode(t)),
             };
+            if (node.fixedSize != null) stackOut.fixedSize = node.fixedSize;
+            return stackOut;
         }
-        return {
+        const containerOut = {
             type: node.type, id: node.id,
             sizes: [...node.sizes],
             children: node.children.map(c => this._serializeNode(c)),
         };
+        if (node.fixedSize != null) containerOut.fixedSize = node.fixedSize;
+        return containerOut;
     }
 
     // -----------------------------------------------------------------------
