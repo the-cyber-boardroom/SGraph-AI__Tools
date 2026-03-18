@@ -1,0 +1,187 @@
+<!DOCTYPE html>
+<html lang="en-GB">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title data-i18n="keygen.title">Key Generator — tools.sgraph.ai</title>
+    <meta name="description" data-i18n="keygen.meta_description" content="Create friendly encryption keys like apple-mango-56 instead of random strings. See how secure your key is with entropy visualisation.">
+    <link rel="icon" type="image/svg+xml" href="../../_common/favicon.svg">
+    <link rel="stylesheet" href="../../_common/css/tools.css">
+    <style>
+        .main {
+            flex: 1;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 2rem 1.5rem;
+            width: 100%;
+        }
+
+        h1 {
+            font-size: 1.5rem;
+            margin-bottom: 0.5rem;
+        }
+
+        .subtitle {
+            color: var(--sg-text-muted);
+            font-size: 0.9375rem;
+            margin-bottom: 2rem;
+            line-height: 1.5;
+        }
+
+        .how-it-works {
+            margin-top: 2rem;
+            padding: 1rem;
+            background: rgba(78, 205, 196, 0.05);
+            border: 1px solid var(--sg-border);
+            border-radius: var(--sg-radius);
+        }
+
+        .how-it-works h2 {
+            font-size: 1rem;
+            margin-bottom: 0.75rem;
+            color: var(--sg-accent);
+        }
+
+        .how-it-works ol {
+            margin-left: 1.25rem;
+            color: var(--sg-text-muted);
+            font-size: 0.875rem;
+            line-height: 1.8;
+        }
+
+        .use-with-send {
+            margin-top: 1.5rem;
+            padding: 1rem;
+            background: var(--sg-bg-card);
+            border: 1px solid var(--sg-border);
+            border-radius: var(--sg-radius);
+        }
+
+        .use-with-send h2 {
+            font-size: 1rem;
+            margin-bottom: 0.5rem;
+        }
+
+        .use-with-send p {
+            color: var(--sg-text-muted);
+            font-size: 0.875rem;
+            line-height: 1.6;
+            margin-bottom: 0.75rem;
+        }
+
+        .use-with-send blockquote {
+            padding: 0.5rem 0.75rem;
+            border-left: 3px solid var(--sg-accent);
+            color: var(--sg-text);
+            font-style: italic;
+            font-size: 0.9375rem;
+            margin-bottom: 0.75rem;
+        }
+
+        .cta-button {
+            display: inline-block;
+            padding: 0.5rem 1.25rem;
+            background: var(--sg-accent);
+            color: var(--sg-bg);
+            font-weight: 600;
+            font-size: 0.875rem;
+            border-radius: var(--sg-radius);
+            text-decoration: none;
+            transition: opacity 150ms;
+        }
+
+        .cta-button:hover {
+            opacity: 0.9;
+        }
+
+        .info-box {
+            margin-top: 1.5rem;
+            padding: 1rem;
+            background: rgba(78, 205, 196, 0.05);
+            border: 1px solid var(--sg-border);
+            border-radius: var(--sg-radius);
+        }
+
+        .info-box p {
+            color: var(--sg-text-muted);
+            font-size: 0.8125rem;
+            line-height: 1.6;
+        }
+    </style>
+</head>
+<body>
+    <script type="module" src="/components/site-header/v1/v1.0/v1.0.2/sg-site-header.js"></script>
+    <script type="module" src="/components/locale-picker/v1/v1.0/v1.0.1/sg-locale-picker.js"></script>
+    <sg-site-header
+        site="Tools"
+        home-url="/en-gb/">
+        <sg-locale-picker slot="locale" locale="en-gb" base-path="/"></sg-locale-picker>
+    </sg-site-header>
+
+    <script type="module">
+        import { buildToolsNav } from '../../_common/js/sg-nav.js'
+        document.querySelector('sg-site-header').whenReady().then(() => {
+            buildToolsNav(document.querySelector('sg-site-header'))
+        }).catch(() => {
+            buildToolsNav(document.querySelector('sg-site-header'))
+        })
+    </script>
+
+    <div class="main">
+        <h1 data-i18n="keygen.heading">Key Generator</h1>
+        <p class="subtitle" data-i18n="keygen.subtitle">
+            Instead of random strings like "Xk9mP2vR7w", create encryption keys you can
+            actually remember and share over the phone.
+        </p>
+
+        <script type="module" src="/components/key-generator/v1/v1.0/v1.0.0/sg-key-generator.js"></script>
+        <sg-key-generator
+            locale="en-gb"
+            show-geek-mode
+            word-count="2"
+            suffix-length="2">
+        </sg-key-generator>
+
+        <div class="how-it-works">
+            <h2 data-i18n="keygen.how_title">How It Works</h2>
+            <ol>
+                <li data-i18n="keygen.how_step1">Pick two words (or let us choose randomly)</li>
+                <li data-i18n="keygen.how_step2">A short numeric suffix is added for extra security</li>
+                <li data-i18n="keygen.how_step3">Your words are turned into a 256-bit encryption key using PBKDF2 (600,000 iterations)</li>
+                <li data-i18n="keygen.how_step4">The resulting key is identical in strength to a random AES-256 key</li>
+            </ol>
+        </div>
+
+        <div class="use-with-send">
+            <h2 data-i18n="keygen.send_title">Use with SG/Send</h2>
+            <p data-i18n="keygen.send_body">
+                Send encrypted files with a key your recipient can type from memory:
+            </p>
+            <blockquote>"The key is apple mango 56"</blockquote>
+            <a href="https://send.sgraph.ai" class="cta-button" data-i18n="keygen.send_cta">Try SG/Send &rarr;</a>
+        </div>
+
+        <div class="info-box">
+            <p data-i18n="keygen.privacy">
+                All processing happens in your browser. No keys are sent to any server.
+            </p>
+        </div>
+    </div>
+
+    <script type="module" src="/components/site-footer/v1/v1.0/v1.0.0/sg-site-footer.js"></script>
+    <sg-site-footer
+        brand-desc="Free browser-based tools that run entirely on your device. No uploads, no servers, no tracking."
+        columns='[{"title":"Tools","links":[{"label":"Key Generator","href":"./"},{"label":"All Tools","href":"/en-gb/"}]},{"title":"SGraph","links":[{"label":"sgraph.ai","href":"https://sgraph.ai/en-gb/"},{"label":"send.sgraph.ai","href":"https://send.sgraph.ai"},{"label":"GitHub","href":"https://github.com/the-cyber-boardroom/SGraph-AI__Tools"}]}]'>
+    </sg-site-footer>
+
+    <script src="../../_common/js/build-info.js"></script>
+    <div id="build-version" style="text-align:center;color:var(--sg-text-dim, #4a5568);font-size:0.7rem;padding:8px 0;opacity:0.6;background:var(--sg-bg-secondary, #16213E);"></div>
+    <script>
+        (function() {
+            var b = window.SGRAPH_BUILD || { appVersion: 'v0.1.0', uiVersion: 'v0.1.3' };
+            var el = document.getElementById('build-version');
+            if (el) el.textContent = b.appVersion + '  \u00b7  UI ' + b.uiVersion + (b.buildTime ? '  \u00b7  ' + b.buildTime : '');
+        })();
+    </script>
+</body>
+</html>

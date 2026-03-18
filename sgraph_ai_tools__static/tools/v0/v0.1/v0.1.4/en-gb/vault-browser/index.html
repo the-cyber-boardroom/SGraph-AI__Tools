@@ -1,0 +1,294 @@
+<!DOCTYPE html>
+<html lang="en-GB">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Vault Browser — tools.sgraph.ai</title>
+    <meta name="description" content="Open and browse SG/Send vaults entirely in your browser. Derive keys, decrypt files, and view contents — no Python or CLI required.">
+    <link rel="stylesheet" href="../../_common/css/tools.css">
+    <style>
+        .main {
+            flex: 1;
+            max-width: 1280px;
+            margin: 0 auto;
+            padding: 2rem 1.5rem;
+            width: 100%;
+        }
+
+        .page-header {
+            display: flex;
+            align-items: baseline;
+            gap: 1rem;
+            margin-bottom: 0.5rem;
+        }
+        .page-header h1 { font-size: 1.5rem; margin: 0; }
+        .page-header .subtitle {
+            color: var(--sg-text-muted);
+            font-size: 0.8125rem;
+        }
+
+        /* --- Status bar --- */
+        .status-bar {
+            margin-top: 0.75rem;
+            font-size: 0.8125rem;
+            padding: 0.375rem 0.75rem;
+            border-radius: var(--sg-radius);
+            display: none;
+        }
+        .status-bar.visible { display: block; }
+        .status-bar.info    { color: var(--sg-accent); background: rgba(78,205,196,0.1); border: 1px solid rgba(78,205,196,0.2); }
+        .status-bar.error   { color: var(--sg-error);  background: rgba(233,69,96,0.1);  border: 1px solid rgba(233,69,96,0.2); }
+        .status-bar.success { color: var(--sg-accent); background: rgba(78,205,196,0.1); border: 1px solid rgba(78,205,196,0.2); }
+
+        .spinner {
+            display: inline-block;
+            width: 14px; height: 14px;
+            border: 2px solid var(--sg-border);
+            border-top-color: var(--sg-accent);
+            border-radius: 50%;
+            animation: spin 0.6s linear infinite;
+            vertical-align: middle;
+            margin-right: 0.5rem;
+        }
+        @keyframes spin { to { transform: rotate(360deg); } }
+
+        /* --- Two-column browse area --- */
+        .browse-area {
+            display: none;
+            gap: 1.5rem;
+            margin-top: 1rem;
+        }
+        .browse-area.visible {
+            display: grid;
+            grid-template-columns: minmax(280px, 1fr) 2fr;
+        }
+        .browse-preview-col {
+            display: flex;
+            flex-direction: column;
+            gap: 0;
+        }
+        @media (max-width: 768px) {
+            .browse-area.visible {
+                grid-template-columns: 1fr;
+            }
+        }
+    </style>
+</head>
+<body>
+    <script type="module" src="/components/site-header/v1/v1.0/v1.0.1/sg-site-header.js"></script>
+    <script type="module" src="/components/locale-picker/v1/v1.0/v1.0.1/sg-locale-picker.js"></script>
+    <sg-site-header
+        site="Tools"
+        home-url="/en-gb/">
+        <sg-locale-picker slot="locale" locale="en-gb" base-path="/"></sg-locale-picker>
+    </sg-site-header>
+
+    <script type="module">
+        import { buildToolsNav } from '../../_common/js/sg-nav.js'
+        document.querySelector('sg-site-header').whenReady().then(() => {
+            buildToolsNav(document.querySelector('sg-site-header'))
+        }).catch(() => {
+            buildToolsNav(document.querySelector('sg-site-header'))
+        })
+    </script>
+
+    <!-- Load vault-browser components -->
+    <script type="module" src="./vault-manager.js"></script>
+    <script type="module" src="./vault-derived-keys.js"></script>
+    <script type="module" src="./vault-nav-history.js"></script>
+    <script type="module" src="./vault-file-list.js"></script>
+    <script type="module" src="./vault-json-view.js"></script>
+    <script type="module" src="./vault-mermaid.js"></script>
+    <script type="module" src="./vault-graph-branches.js"></script>
+    <script type="module" src="./vault-graph-commits.js"></script>
+    <script type="module" src="./vault-file-preview.js"></script>
+    <!-- Schema viewers (self-register via vault-schema-registry) -->
+    <script type="module" src="./schema/vault-schema-branch-index.js"></script>
+    <script type="module" src="./schema/vault-schema-commit.js"></script>
+    <script type="module" src="./schema/vault-schema-tree.js"></script>
+    <script type="module" src="./schema/vault-schema-ref.js"></script>
+    <script type="module" src="./schema/vault-schema-pki-key.js"></script>
+
+    <div class="main">
+        <div class="page-header">
+            <h1>Vault Browser</h1>
+            <span class="subtitle">Client-side vault decryption — nothing leaves your device</span>
+        </div>
+
+        <vault-manager id="vault-mgr" api-url="https://send.sgraph.ai"></vault-manager>
+        <div id="status" class="status-bar"></div>
+        <vault-derived-keys id="derived-keys"></vault-derived-keys>
+
+        <div id="browse-area" class="browse-area">
+            <vault-file-list id="file-list"></vault-file-list>
+            <div class="browse-preview-col">
+                <vault-nav-history id="nav-history"></vault-nav-history>
+                <vault-file-preview id="file-preview"></vault-file-preview>
+            </div>
+        </div>
+    </div>
+
+    <script type="module" src="/components/site-footer/v1/v1.0/v1.0.0/sg-site-footer.js"></script>
+    <sg-site-footer
+        brand-desc="Free browser-based tools that run entirely on your device. No uploads, no servers, no tracking."
+        columns='[{"title":"Tools","links":[{"label":"Vault Browser","href":"./"},{"label":"Vault (Pyodide)","href":"../vault-pyodide/"},{"label":"All Tools","href":"/en-gb/"}]},{"title":"SGraph","links":[{"label":"sgraph.ai","href":"https://sgraph.ai/en-gb/"},{"label":"send.sgraph.ai","href":"https://send.sgraph.ai"},{"label":"GitHub","href":"https://github.com/the-cyber-boardroom/SGraph-AI__Tools"}]}]'>
+    </sg-site-footer>
+
+    <script src="../../_common/js/build-info.js"></script>
+    <div id="build-version" style="text-align:center;color:var(--sg-text-dim, #4a5568);font-size:0.7rem;padding:8px 0;opacity:0.6;background:var(--sg-bg-secondary, #16213E);"></div>
+    <script>
+        (function() {
+            var b = window.SGRAPH_BUILD || { appVersion: 'v0.1.0', uiVersion: 'v0.1.4' };
+            var el = document.getElementById('build-version');
+            if (el) el.textContent = b.appVersion + '  \u00b7  UI ' + b.uiVersion + (b.buildTime ? '  \u00b7  ' + b.buildTime : '');
+        })();
+    </script>
+
+    <!-- Orchestrator: wires components together via events -->
+    <script type="module">
+        import {
+            parseVaultKey, deriveVaultKeys, openVault, readFile,
+            listFileIds, fileIdToPath, decryptEncFields
+        } from '/core/vault-client/v1/v1.1/v1.1.0/sg-vault-client.js'
+
+        const vaultMgr    = document.getElementById('vault-mgr')
+        const derivedKeys = document.getElementById('derived-keys')
+        const fileList    = document.getElementById('file-list')
+        const filePreview = document.getElementById('file-preview')
+        const navHistory  = document.getElementById('nav-history')
+        const statusDiv   = document.getElementById('status')
+        const browseArea  = document.getElementById('browse-area')
+
+        let currentVault = null
+        let _navFromHistory = false   // flag to avoid double-push in history
+
+        /**
+         * Fetch + decrypt + parse a vault object as JSON.
+         * Pre-decrypts any *_enc fields before returning.
+         */
+        async function fetchVaultObject(fileId) {
+            const data = await readFile(currentVault, fileId)
+            const text = new TextDecoder().decode(data)
+            const json = JSON.parse(text)
+            await decryptEncFields(json, currentVault.keys.readKey)
+            return json
+        }
+
+        // --- vault-open-request from <vault-manager> ---
+        document.addEventListener('vault-open-request', async (e) => {
+            const { vaultKey, apiBaseUrl } = e.detail
+
+            vaultMgr.setLoading(true)
+            showStatus('<span class="spinner"></span>Deriving vault keys (PBKDF2, 600K iterations)\u2026', 'info')
+            filePreview.hide()
+            navHistory.clear()
+            browseArea.classList.remove('visible')
+            derivedKeys.hide()
+
+            try {
+                const { passphrase, vaultId } = parseVaultKey(vaultKey)
+                const keys = await deriveVaultKeys(passphrase, vaultId)
+
+                derivedKeys.show(keys)
+                showStatus('<span class="spinner"></span>Loading vault via deterministic entry points\u2026', 'info')
+
+                currentVault = await openVault(keys, { apiBaseUrl })
+
+                // Give the preview component access to fetch for graph traversal
+                filePreview.setFetchFn(fetchVaultObject)
+
+                // Deterministic entry points available: keys.refFileId, keys.indexFileId
+                // Also list all files for the sidebar
+                let fileIds = []
+                try {
+                    const refPath   = fileIdToPath(keys.refFileId)
+                    const indexPath = fileIdToPath(keys.indexFileId)
+                    fileIds = [refPath, indexPath]
+
+                    const listed = await listFileIds(currentVault, 'bare/')
+                    if (listed.length > 0) {
+                        fileIds = listed
+                    }
+                } catch {
+                    fileIds = await listFileIds(currentVault, 'bare/')
+                }
+
+                fileList.render(fileIds)
+                fileList.show()
+                browseArea.classList.add('visible')
+                vaultMgr.setConnected(vaultId)
+                showStatus(`Vault opened \u2014 ${fileIds.length} file(s) found.`, 'success')
+
+            } catch (err) {
+                derivedKeys.hide()
+                browseArea.classList.remove('visible')
+                vaultMgr.setDisconnected()
+                showStatus(err.message, 'error')
+            }
+
+            vaultMgr.setLoading(false)
+        })
+
+        // --- vault-file-select from <vault-file-list> (user click) ---
+        document.addEventListener('vault-file-select', (e) => {
+            _navFromHistory = false
+            navigateToFile(e.detail.fileId)
+        })
+
+        // --- vault-object-navigate from schema viewers / JSON view / nav-history ---
+        document.addEventListener('vault-object-navigate', (e) => {
+            if (e.target === navHistory || e.target.closest('vault-nav-history')) {
+                _navFromHistory = true
+            } else {
+                _navFromHistory = false
+            }
+            navigateToFile(e.detail.fileId)
+        })
+
+        async function navigateToFile(fileId) {
+            if (!currentVault) return
+
+            fileList.setSelected(fileId)
+            showStatus(`<span class="spinner"></span>Fetching and decrypting ${fileId}\u2026`, 'info')
+
+            try {
+                const data = await readFile(currentVault, fileId)
+
+                if (!_navFromHistory) {
+                    navHistory.push(fileId)
+                }
+
+                // Pre-decrypt encrypted fields in JSON objects
+                let decryptedJson = null
+                const bytes = new Uint8Array(data)
+                if (bytes.length < 500_000) {
+                    try {
+                        const text = new TextDecoder().decode(data)
+                        const json = JSON.parse(text)
+                        await decryptEncFields(json, currentVault.keys.readKey)
+                        decryptedJson = json
+                    } catch {
+                        // Not JSON or decrypt failed
+                    }
+                }
+
+                filePreview.showFile(fileId, data, decryptedJson)
+                showStatus(`Decrypted: ${fileId} (${formatBytes(data.byteLength)})`, 'success')
+            } catch (err) {
+                showStatus(`Failed to read ${fileId}: ${err.message}`, 'error')
+            }
+        }
+
+        function showStatus(msg, type) {
+            statusDiv.innerHTML = msg
+            statusDiv.className = `status-bar visible ${type}`
+        }
+
+        function formatBytes(n) {
+            if (n < 1024) return `${n} B`
+            if (n < 1024 * 1024) return `${(n / 1024).toFixed(1)} KB`
+            return `${(n / (1024 * 1024)).toFixed(1)} MB`
+        }
+    </script>
+</body>
+</html>
