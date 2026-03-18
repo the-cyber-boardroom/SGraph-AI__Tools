@@ -163,14 +163,14 @@ export class VaultGraphCommits extends HTMLElement {
             const cls = isMerge ? 'mergeNode' : 'commitNode'
             lines.push(`    ${safeId}["${label}"]:::${cls}`)
 
-            // Parent links — arrows point from parent to child (older → newer)
+            // Parent links — only draw edges, no separate tree nodes
             for (const p of parents) {
                 const parentSafe = this._safe(p)
                 if (this._commits.has(p)) {
-                    lines.push(`    ${parentSafe} --> ${safeId}`)
+                    lines.push(`    ${safeId} --> ${parentSafe}`)
                 } else {
                     lines.push(`    ${parentSafe}["${this._shortId(p)}\\n(not loaded)"]:::orphanNode`)
-                    lines.push(`    ${parentSafe} --> ${safeId}`)
+                    lines.push(`    ${safeId} --> ${parentSafe}`)
                 }
             }
         }
