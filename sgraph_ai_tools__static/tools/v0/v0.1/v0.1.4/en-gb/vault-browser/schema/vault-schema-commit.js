@@ -62,13 +62,14 @@ export class VaultSchemaCommit extends HTMLElement {
     render(data) {
         this._root.innerHTML = ''
 
-        // Message
-        if (data.message) {
+        // Message (check both decrypted and encrypted forms)
+        const message = data.message || (data.message_enc ? '[encrypted]' : null)
+        if (message) {
             const msgLabel = this._makeLabel('Message')
             this._root.appendChild(msgLabel)
             const msg = document.createElement('div')
             msg.className = 'vsc-message'
-            msg.textContent = data.message
+            msg.textContent = message
             this._root.appendChild(msg)
         }
 

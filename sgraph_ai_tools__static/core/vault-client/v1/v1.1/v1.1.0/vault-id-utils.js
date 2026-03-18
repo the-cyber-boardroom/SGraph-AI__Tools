@@ -164,44 +164,49 @@ export async function decryptField(readKey, encryptedBase64) {
 export async function decryptEncFields(obj, readKey) {
     if (!obj || typeof obj !== 'object') return obj
 
-    const promises = []
+    try {
+        const promises = []
 
-    for (const key of Object.keys(obj)) {
-        if (key.endsWith('_enc') && typeof obj[key] === 'string') {
-            const plainKey = key.slice(0, -4)  // remove _enc suffix
-            promises.push(
-                decryptField(readKey, obj[key])
-                    .then(val => {
-                        // Try to parse as number for size fields
-                        if (plainKey === 'size') {
-                            const n = Number(val)
-                            obj[plainKey] = Number.isFinite(n) ? n : val
-                        } else {
-                            obj[plainKey] = val
-                        }
-                    })
-                    .catch(() => {
-                        obj[plainKey] = `[decrypt failed]`
-                    })
-            )
+        for (const key of Object.keys(obj)) {
+            if (key.endsWith('_enc') && typeof obj[key] === 'string') {
+                const plainKey = key.slice(0, -4)  // remove _enc suffix
+                promises.push(
+                    decryptField(readKey, obj[key])
+                        .then(val => {
+                            // Try to parse as number for size fields
+                            if (plainKey === 'size') {
+                                const n = Number(val)
+                                obj[plainKey] = Number.isFinite(n) ? n : val
+                            } else {
+                                obj[plainKey] = val
+                            }
+                        })
+                        .catch(err => {
+                            console.warn(`decryptEncFields: failed to decrypt ${key}:`, err)
+                            obj[plainKey] = `[decrypt failed]`
+                        })
+                )
+            }
         }
-    }
 
-    // Recurse into entries arrays (tree objects)
-    if (Array.isArray(obj.entries)) {
-        for (const entry of obj.entries) {
-            promises.push(decryptEncFields(entry, readKey))
+        // Recurse into entries arrays (tree objects)
+        if (Array.isArray(obj.entries)) {
+            for (const entry of obj.entries) {
+                promises.push(decryptEncFields(entry, readKey))
+            }
         }
-    }
 
-    // Recurse into branches arrays (branch index)
-    if (Array.isArray(obj.branches)) {
-        for (const branch of obj.branches) {
-            promises.push(decryptEncFields(branch, readKey))
+        // Recurse into branches arrays (branch index)
+        if (Array.isArray(obj.branches)) {
+            for (const branch of obj.branches) {
+                promises.push(decryptEncFields(branch, readKey))
+            }
         }
-    }
 
-    await Promise.all(promises)
+        await Promise.all(promises)
+    } catch (err) {
+        console.warn('decryptEncFields: unexpected error:', err)
+    }
     return obj
 }
 

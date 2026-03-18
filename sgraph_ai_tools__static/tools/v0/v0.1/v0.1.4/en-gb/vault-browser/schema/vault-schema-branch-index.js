@@ -100,7 +100,7 @@ export class VaultSchemaBranchIndex extends HTMLElement {
         card.className = 'vsbi-branch'
 
         const typeClass = b.branch_type === 'named' ? 'vsbi-type-named' : 'vsbi-type-clone'
-        card.innerHTML = `<div class="vsbi-branch-name">${this._esc(b.name || '(unnamed)')}<span class="vsbi-branch-type ${typeClass}">${this._esc(b.branch_type || '?')}</span></div>`
+        card.innerHTML = `<div class="vsbi-branch-name">${this._esc(b.name || (b.name_enc ? '[encrypted]' : '(unnamed)'))}<span class="vsbi-branch-type ${typeClass}">${this._esc(b.branch_type || '?')}</span></div>`
 
         const fields = [
             ['branch_id',      b.branch_id,       false],

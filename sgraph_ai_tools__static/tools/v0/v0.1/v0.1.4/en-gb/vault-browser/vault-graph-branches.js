@@ -99,7 +99,7 @@ export class VaultGraphBranches extends HTMLElement {
             const bid = this._safe(b.branch_id || `branch-${branchIds.size}`)
             branchIds.set(b.branch_id, bid)
 
-            const name = this._esc(b.name || '(unnamed)')
+            const name = this._esc(b.name || (b.name_enc ? '[encrypted]' : '(unnamed)'))
             const refShort = b.head_ref_id ? `ref: ${this._shortId(b.head_ref_id)}` : ''
             const parts = [name, 'NAMED']
             if (refShort) parts.push(refShort)
@@ -112,7 +112,7 @@ export class VaultGraphBranches extends HTMLElement {
             const bid = this._safe(b.branch_id || `branch-${branchIds.size}`)
             branchIds.set(b.branch_id, bid)
 
-            const name = this._esc(b.name || '(unnamed)')
+            const name = this._esc(b.name || (b.name_enc ? '[encrypted]' : '(unnamed)'))
             const refShort = b.head_ref_id ? `ref: ${this._shortId(b.head_ref_id)}` : ''
             const parts = [name, 'CLONE']
             if (refShort) parts.push(refShort)
@@ -195,7 +195,7 @@ export class VaultGraphBranches extends HTMLElement {
         this._refLinks.innerHTML = ''
 
         for (const b of branches) {
-            const name = b.name || '(unnamed)'
+            const name = b.name || (b.name_enc ? '[encrypted]' : '(unnamed)')
 
             if (b.head_ref_id) {
                 const el = document.createElement('span')

@@ -98,13 +98,16 @@ export class VaultSchemaTree extends HTMLElement {
 
         const name = document.createElement('span')
         name.className   = 'vst-name'
-        name.textContent = entry.path || entry.name || '(unnamed)'
+        name.textContent = entry.path || entry.name || (entry.name_enc ? '[encrypted]' : '(unnamed)')
         row.appendChild(name)
 
-        if (entry.size !== undefined && entry.size !== null) {
+        const sizeVal = entry.size !== undefined && entry.size !== null
+            ? entry.size
+            : (entry.size_enc ? '[enc]' : null)
+        if (sizeVal !== null) {
             const size = document.createElement('span')
             size.className   = 'vst-size'
-            size.textContent = this._formatBytes(entry.size)
+            size.textContent = typeof sizeVal === 'number' ? this._formatBytes(sizeVal) : sizeVal
             row.appendChild(size)
         }
 
