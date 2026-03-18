@@ -170,7 +170,11 @@
             const data = await readFile(currentVault, fileId)
             const text = new TextDecoder().decode(data)
             const json = JSON.parse(text)
-            await decryptEncFields(json, currentVault.keys.readKey)
+            try {
+                await decryptEncFields(json, currentVault.keys.readKey)
+            } catch (err) {
+                console.warn('fetchVaultObject: field decryption failed for', fileId, err)
+            }
             return json
         }
 
@@ -259,20 +263,26 @@
                 }
 
                 // Pre-decrypt encrypted fields in JSON objects
-                let decryptedJson = null
+                let parsedJson = null
                 const bytes = new Uint8Array(data)
                 if (bytes.length < 500_000) {
                     try {
                         const text = new TextDecoder().decode(data)
-                        const json = JSON.parse(text)
-                        await decryptEncFields(json, currentVault.keys.readKey)
-                        decryptedJson = json
+                        parsedJson = JSON.parse(text)
                     } catch {
-                        // Not JSON or decrypt failed
+                        // Not JSON — that's fine
+                    }
+
+                    if (parsedJson) {
+                        try {
+                            await decryptEncFields(parsedJson, currentVault.keys.readKey)
+                        } catch (err) {
+                            console.warn('navigateToFile: field decryption failed for', fileId, err)
+                        }
                     }
                 }
 
-                filePreview.showFile(fileId, data, decryptedJson)
+                filePreview.showFile(fileId, data, parsedJson)
                 showStatus(`Decrypted: ${fileId} (${formatBytes(data.byteLength)})`, 'success')
             } catch (err) {
                 showStatus(`Failed to read ${fileId}: ${err.message}`, 'error')

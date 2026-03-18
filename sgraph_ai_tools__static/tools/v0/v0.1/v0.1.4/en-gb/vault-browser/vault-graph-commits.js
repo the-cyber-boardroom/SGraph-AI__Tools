@@ -144,7 +144,7 @@ export class VaultGraphCommits extends HTMLElement {
 
         for (const [id, commit] of commits) {
             const safeId = this._safe(id)
-            const msg    = this._truncMsg(commit.message || '(no message)')
+            const msg    = this._truncMsg(commit.message || (commit.message_enc ? '[encrypted]' : '(no message)'))
             const time   = commit.timestamp_ms
                 ? new Date(commit.timestamp_ms).toISOString().slice(0, 16).replace('T', ' ')
                 : ''
@@ -240,7 +240,7 @@ export class VaultGraphCommits extends HTMLElement {
 
         for (const [, commit] of commits) {
             if (!commit.tree_id) continue
-            const msg = this._truncMsg(commit.message || '(no message)')
+            const msg = this._truncMsg(commit.message || (commit.message_enc ? '[encrypted]' : '(no message)'))
             const el  = document.createElement('span')
             el.className = 'vgc-tree-link'
             el.innerHTML = `<span class="vgc-tree-label">${msg} →</span> ${this._shortId(commit.tree_id)}`
