@@ -1,0 +1,13 @@
+{
+    "name": "sg-vault-client",
+    "version": "1.1.0",
+    "description": "Browser-based vault access with self-describing file IDs, batch reads, and encrypted metadata decryption",
+    "exports": {
+        ".": "./sg-vault-client.js",
+        "./vault-id-utils": "./vault-id-utils.js"
+    },
+    "files": [
+        "sg-vault-client.js",
+        "vault-id-utils.js"
+    ]
+}
