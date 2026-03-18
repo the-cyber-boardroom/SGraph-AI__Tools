@@ -236,16 +236,21 @@ const SHADOW_STYLES = `
     background: rgba(255,255,255,0.1);
 }
 
-/* Single-tab mode — show title without tab chrome */
+/* Single-tab mode — title group keeps title + close together */
+.sgl-title-group {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    min-width: 0;
+    padding: 0 8px;
+}
 .sgl-stack-title {
-    flex: 1;
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
     font-size: 12px;
     font-weight: 500;
     color: var(--sgl-text);
-    padding: 0 8px;
 }
 
 .sgl-collapse-btn {
@@ -277,12 +282,13 @@ const SHADOW_STYLES = `
     color: var(--sgl-text);
 }
 
-/* Header actions area (collapse button etc.) */
+/* Header actions area (collapse button etc.) — pushed to far right */
 .sgl-header-actions {
     display: flex;
     align-items: center;
     padding: 0 4px;
     flex-shrink: 0;
+    margin-left: auto;
 }
 
 /* Slot wrapper — the portal contract */
@@ -816,7 +822,9 @@ class SgLayout extends HTMLElement {
 
             header.appendChild(tabBar);
         } else {
-            // Single tab: show title only
+            // Single tab: show title + close button together
+            const titleGroup = document.createElement('div');
+            titleGroup.className = 'sgl-title-group';
             const title = document.createElement('span');
             title.className = 'sgl-stack-title';
             const activeTab = node.tabs[node.activeTab || 0];
@@ -829,16 +837,9 @@ class SgLayout extends HTMLElement {
                     this._onTabPointerDown(e, node, activeTab, title);
                 });
             }
-            header.appendChild(title);
-        }
+            titleGroup.appendChild(title);
 
-        // Header actions (close + collapse buttons)
-        const actions = document.createElement('div');
-        actions.className = 'sgl-header-actions';
-
-        // Close button for single-tab stacks (hidden if locked or closable === false)
-        if (node.tabs.length === 1) {
-            const activeTab = node.tabs[node.activeTab || 0];
+            // Close button right next to title
             if (activeTab && !activeTab.locked && activeTab.closable !== false) {
                 const closeBtn = document.createElement('button');
                 closeBtn.className = 'sgl-header-close-btn';
@@ -848,9 +849,15 @@ class SgLayout extends HTMLElement {
                     e.stopPropagation();
                     this._closeTab(node, activeTab);
                 });
-                actions.appendChild(closeBtn);
+                titleGroup.appendChild(closeBtn);
             }
+
+            header.appendChild(titleGroup);
         }
+
+        // Header actions (collapse button)
+        const actions = document.createElement('div');
+        actions.className = 'sgl-header-actions';
 
         const collapseBtn = document.createElement('button');
         collapseBtn.className = 'sgl-collapse-btn';
