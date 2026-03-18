@@ -141,6 +141,9 @@ const SHADOW_STYLES = `
 .sgl-stack {
     display: flex;
     flex-direction: column;
+    flex: 1;
+    width: 100%;
+    height: 100%;
     overflow: hidden;
     min-width: 0;
     min-height: 0;
