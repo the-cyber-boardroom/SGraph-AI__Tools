@@ -261,6 +261,20 @@ const SHADOW_STYLES = `
     background: var(--sgl-surface-hover);
     color: var(--sgl-text);
 }
+.sgl-header-close-btn {
+    background: none;
+    border: none;
+    color: var(--sgl-text-muted);
+    cursor: pointer;
+    font-size: 14px;
+    padding: 2px 4px;
+    line-height: 1;
+    border-radius: 3px;
+}
+.sgl-header-close-btn:hover {
+    background: rgba(255,255,255,0.1);
+    color: var(--sgl-text);
+}
 
 /* Header actions area (collapse button etc.) */
 .sgl-header-actions {
@@ -817,9 +831,25 @@ class SgLayout extends HTMLElement {
             header.appendChild(title);
         }
 
-        // Header actions (collapse button)
+        // Header actions (close + collapse buttons)
         const actions = document.createElement('div');
         actions.className = 'sgl-header-actions';
+
+        // Close button for single-tab stacks (hidden if locked)
+        if (node.tabs.length === 1) {
+            const activeTab = node.tabs[node.activeTab || 0];
+            if (activeTab && !activeTab.locked) {
+                const closeBtn = document.createElement('button');
+                closeBtn.className = 'sgl-header-close-btn';
+                closeBtn.textContent = '\u00d7';
+                closeBtn.title = 'Close panel';
+                closeBtn.addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    this._closeTab(node, activeTab);
+                });
+                actions.appendChild(closeBtn);
+            }
+        }
 
         const collapseBtn = document.createElement('button');
         collapseBtn.className = 'sgl-collapse-btn';
