@@ -37,7 +37,12 @@ function normaliseSizes(sizes, count) {
 function makeRow(children, sizes)          { return { type: 'row',    id: uid(), children, sizes: normaliseSizes(sizes, children.length) }; }
 function makeColumn(children, sizes)       { return { type: 'column', id: uid(), children, sizes: normaliseSizes(sizes, children.length) }; }
 function makeStack(tabs, activeTab = 0)    { return { type: 'stack',  id: uid(), tabs, activeTab }; }
-function makeTab(tag, title, state = {})   { return { type: 'tab',    id: uid(), tag, title, state, el: null }; }
+function makeTab(tag, title, state = {}, locked = false) { return { type: 'tab', id: uid(), tag, title, state, el: null, locked }; }
+
+/** Check if a stack is locked (all tabs locked → no drops allowed on it). */
+function isStackLocked(stackNode) {
+    return stackNode.tabs.length > 0 && stackNode.tabs.every(t => t.locked);
+}
 
 // ---------------------------------------------------------------------------
 // Minimal EventBus (internal only)
@@ -136,6 +141,9 @@ const SHADOW_STYLES = `
 .sgl-stack {
     display: flex;
     flex-direction: column;
+    flex: 1;
+    width: 100%;
+    height: 100%;
     overflow: hidden;
     min-width: 0;
     min-height: 0;
@@ -188,6 +196,12 @@ const SHADOW_STYLES = `
 .sgl-tab:hover {
     color: var(--sgl-text);
     background: var(--sgl-surface-hover);
+}
+.sgl-tab--locked {
+    cursor: default;
+}
+.sgl-tab--locked .sgl-tab-close {
+    display: none;
 }
 .sgl-tab--active {
     color: var(--sgl-text);
@@ -792,8 +806,8 @@ class SgLayout extends HTMLElement {
             title.className = 'sgl-stack-title';
             const activeTab = node.tabs[node.activeTab || 0];
             title.textContent = activeTab?.title || '';
-            // Drag initiation from single-tab title
-            if (activeTab) {
+            // Drag initiation from single-tab title (unless locked)
+            if (activeTab && !activeTab.locked) {
                 title.style.cursor = 'grab';
                 title.addEventListener('pointerdown', (e) => {
                     if (e.button !== 0) return;
@@ -848,6 +862,9 @@ class SgLayout extends HTMLElement {
         tabEl.dataset.tabId = tab.id;
         if (index === (stackNode.activeTab || 0)) {
             tabEl.classList.add('sgl-tab--active');
+        }
+        if (tab.locked) {
+            tabEl.classList.add('sgl-tab--locked');
         }
 
         const label = document.createElement('span');
@@ -1002,6 +1019,7 @@ class SgLayout extends HTMLElement {
      * @param {object} tab
      */
     _closeTab(stackNode, tab) {
+        if (tab.locked) return;
         const tabIndex = stackNode.tabs.indexOf(tab);
         if (tabIndex === -1) return;
 
@@ -1088,6 +1106,7 @@ class SgLayout extends HTMLElement {
      */
     _onTabPointerDown(e, stackNode, tab, el) {
         if (this._collapsedStacks.has(stackNode.id)) return;
+        if (tab.locked) return;
         e.preventDefault();
 
         const startX = e.clientX;
@@ -1185,6 +1204,8 @@ class SgLayout extends HTMLElement {
         for (const entry of ds.stackRects) {
             const r = entry.rect;
             if (x >= r.left && x <= r.right && y >= r.top && y <= r.bottom) {
+                // Skip locked stacks — they don't accept drops
+                if (isStackLocked(entry.node)) continue;
                 hit = entry;
                 break;
             }
@@ -1802,6 +1823,7 @@ class SgLayout extends HTMLElement {
             config.tag || config.el?.tagName?.toLowerCase() || 'div',
             config.title || config.tag || 'Panel',
             config.state || {},
+            !!config.locked,
         );
         if (config.el) tab.el = config.el;
 
@@ -1847,6 +1869,7 @@ class SgLayout extends HTMLElement {
             config.tag || config.el?.tagName?.toLowerCase() || 'div',
             config.title || config.tag || 'Tab',
             config.state || {},
+            !!config.locked,
         );
         if (config.el) tab.el = config.el;
 
@@ -1906,6 +1929,47 @@ class SgLayout extends HTMLElement {
             if (tab.id === id) result = tab.el;
         });
         return result;
+    }
+
+    /**
+     * Lock a panel so it cannot be dragged, dropped onto, or closed.
+     * @param {string} id  Panel/tab id
+     */
+    lockPanel(id) {
+        this._walkTabs(this._tree, tab => {
+            if (tab.id === id) {
+                tab.locked = true;
+                this._renderTree();
+                this._mountAllTabs();
+            }
+        });
+    }
+
+    /**
+     * Unlock a previously locked panel.
+     * @param {string} id  Panel/tab id
+     */
+    unlockPanel(id) {
+        this._walkTabs(this._tree, tab => {
+            if (tab.id === id) {
+                tab.locked = false;
+                this._renderTree();
+                this._mountAllTabs();
+            }
+        });
+    }
+
+    /**
+     * Check if a panel is locked.
+     * @param {string} id  Panel/tab id
+     * @returns {boolean}
+     */
+    isPanelLocked(id) {
+        let locked = false;
+        this._walkTabs(this._tree, tab => {
+            if (tab.id === id) locked = !!tab.locked;
+        });
+        return locked;
     }
 
     // -----------------------------------------------------------------------
@@ -1968,7 +2032,9 @@ class SgLayout extends HTMLElement {
                 state = { ...state, layout: node.el.getLayout() };
             }
 
-            return { type: 'tab', id: node.id, title: node.title, tag: node.tag, state };
+            const out = { type: 'tab', id: node.id, title: node.title, tag: node.tag, state };
+            if (node.locked) out.locked = true;
+            return out;
         }
         if (node.type === 'stack') {
             return {
