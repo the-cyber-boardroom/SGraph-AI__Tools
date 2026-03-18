@@ -3,8 +3,8 @@
 # Local dev server for tools.sgraph.ai
 #
 # In production, the CI deploy script flattens the versioned IFD structure:
-#   tools/v0/v0.1/v0.1.3/en-gb/   →  latest/en-gb/
-#   tools/v0/v0.1/v0.1.3/_common/  →  latest/_common/
+#   tools/v0/v0.1/v0.1.4/en-gb/   →  latest/en-gb/
+#   tools/v0/v0.1/v0.1.4/_common/  →  latest/_common/
 #   core/                           →  latest/core/
 #   components/                     →  latest/components/
 #
@@ -16,7 +16,7 @@ PORT=10063
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 REPO_ROOT="$(dirname "$SCRIPT_DIR")"
 STATIC_DIR="$REPO_ROOT/sgraph_ai_tools__static"
-UI_VERSION="v0.1.3"
+UI_VERSION="v0.1.4"
 IFD_PATH="tools/v0/v0.1/$UI_VERSION"
 SERVE_DIR="$REPO_ROOT/.local-server"
 
