@@ -82,6 +82,7 @@
     Drop zones appear: <code>center</code> = add as tab,
     <code>left/right/top/bottom</code> = split panel.
     Single-tab panel titles are also draggable.
+    <strong>Locked:</strong> Explorer is locked (no drag, no drop, no close).
 </div>
 
 <div id="event-log"></div>
@@ -112,7 +113,7 @@ const demoLayout = {
         {
             type: 'stack', id: 's-nav', activeTab: 0,
             tabs: [
-                { type: 'tab', id: 't-explorer', tag: 'div', title: 'Explorer', state: {} },
+                { type: 'tab', id: 't-explorer', tag: 'div', title: 'Explorer', state: {}, locked: true },
                 { type: 'tab', id: 't-search',   tag: 'div', title: 'Search', state: {} },
                 { type: 'tab', id: 't-git',      tag: 'div', title: 'Git', state: {} },
             ]
@@ -175,9 +176,10 @@ for (const [id, bg] of Object.entries(colours)) {
     if (el) {
         el.className = 'panel';
         el.style.background = bg;
+        const isLocked = demo.isPanelLocked(id);
         el.innerHTML = `
-            <strong>${id.replace('t-', '')}</strong>
-            <span class="muted">Drag this tab to rearrange</span>
+            <strong>${isLocked ? '\uD83D\uDD12 ' : ''}${id.replace('t-', '')}</strong>
+            <span class="muted">${isLocked ? 'This panel is locked' : 'Drag this tab to rearrange'}</span>
             <code>panelId: ${id}</code>
         `;
     }
