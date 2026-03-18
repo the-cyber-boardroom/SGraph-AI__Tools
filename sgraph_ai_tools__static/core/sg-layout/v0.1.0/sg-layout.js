@@ -435,11 +435,11 @@ const SHADOW_STYLES = `
     line-height: 1;
     opacity: 0.7;
 }
-.sgl-dock-zone--top::after    { content: '\25B2'; }  /* ▲ */
-.sgl-dock-zone--left::after   { content: '\25C0'; }  /* ◀ */
-.sgl-dock-zone--center::after { content: '\25CF'; }  /* ● */
-.sgl-dock-zone--right::after  { content: '\25B6'; }  /* ▶ */
-.sgl-dock-zone--bottom::after { content: '\25BC'; }  /* ▼ */
+.sgl-dock-zone--top::after    { content: '▲'; }
+.sgl-dock-zone--left::after   { content: '◀'; }
+.sgl-dock-zone--center::after { content: '●'; }
+.sgl-dock-zone--right::after  { content: '▶'; }
+.sgl-dock-zone--bottom::after { content: '▼'; }
 
 /* Cross layout: top/bottom in center column, left/right on sides */
 .sgl-dock-zone--top    { grid-column: 2; grid-row: 1; }
