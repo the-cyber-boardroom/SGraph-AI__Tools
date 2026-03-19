@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>sg-layout v0.1.0 — Tests + Demo</title>
+    <title>sg-layout v0.1.3 — Tests + Demo</title>
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
         body {
@@ -52,7 +52,7 @@
 <body>
 
 <div id="test-results">
-    <h2>sg-layout v0.1.0 — Test Results</h2>
+    <h2>sg-layout v0.1.3 — Test Results</h2>
     <div id="results"></div>
 </div>
 
@@ -258,9 +258,204 @@ assert(Math.abs(sizes[1] - 0.50) < 0.01, 'Sizes normalise: second = 0.50');
 assert(Math.abs(sizes[2] - 0.25) < 0.01, 'Sizes normalise: third = 0.25');
 
 // -----------------------------------------------------------------------
+// Test 11: Multi-tab stack — tab bar renders with multiple tabs
+// -----------------------------------------------------------------------
+const layout7 = document.createElement('sg-layout');
+layout7.style.cssText = 'width:600px;height:400px;position:absolute;left:-9999px;';
+layout7.setAttribute('layout', JSON.stringify({
+    type: 'stack', id: 'ms1', activeTab: 0,
+    tabs: [
+        { type: 'tab', id: 'mt1', tag: 'div', title: 'File A', state: {} },
+        { type: 'tab', id: 'mt2', tag: 'div', title: 'File B', state: {} },
+        { type: 'tab', id: 'mt3', tag: 'div', title: 'File C', state: {} },
+    ]
+}));
+document.body.appendChild(layout7);
+await new Promise(r => requestAnimationFrame(r));
+
+const tabBar = layout7.shadowRoot.querySelector('.sgl-tab-bar');
+assert(tabBar !== null, 'Multi-tab: tab bar is rendered');
+const tabEls = tabBar.querySelectorAll('.sgl-tab');
+assert(tabEls.length === 3, 'Multi-tab: 3 tab elements rendered');
+assert(tabEls[0].classList.contains('sgl-tab--active'), 'Multi-tab: first tab is active');
+assert(!tabEls[1].classList.contains('sgl-tab--active'), 'Multi-tab: second tab is not active');
+
+// -----------------------------------------------------------------------
+// Test 12: Tab switching — click changes active tab
+// -----------------------------------------------------------------------
+tabEls[1].click();
+await new Promise(r => requestAnimationFrame(r));
+
+assert(tabEls[1].classList.contains('sgl-tab--active'), 'Tab switch: second tab now active');
+assert(!tabEls[0].classList.contains('sgl-tab--active'), 'Tab switch: first tab no longer active');
+
+const tree7 = layout7.getLayout();
+assert(tree7.activeTab === 1, 'Tab switch: activeTab updated to 1');
+
+// -----------------------------------------------------------------------
+// Test 13: Slot visibility — only active tab slot is visible
+// -----------------------------------------------------------------------
+const slots = layout7.shadowRoot.querySelectorAll('.sgl-slot-wrapper slot');
+assert(slots.length === 3, 'Slots: 3 slots rendered');
+assert(!slots[0].classList.contains('sgl-slot--active'), 'Slots: first slot hidden after switch');
+assert(slots[1].classList.contains('sgl-slot--active'), 'Slots: second slot active after switch');
+
+// -----------------------------------------------------------------------
+// Test 14: addTabToStack — adds a tab to an existing stack
+// -----------------------------------------------------------------------
+const newTabId = layout7.addTabToStack('ms1', { tag: 'div', title: 'File D' });
+await new Promise(r => requestAnimationFrame(r));
+
+assert(newTabId !== null, 'addTabToStack: returns a tab id');
+const tree7b = layout7.getLayout();
+assert(tree7b.tabs.length === 4, 'addTabToStack: stack now has 4 tabs');
+assert(tree7b.tabs[3].title === 'File D', 'addTabToStack: new tab is File D');
+assert(tree7b.activeTab === 3, 'addTabToStack: new tab is activated');
+
+// -----------------------------------------------------------------------
+// Test 15: Close tab — removes tab and adjusts activeTab
+// -----------------------------------------------------------------------
+let closedId = null;
+layout7.events.on(SGL_EVENTS.PANEL_CLOSED, detail => { closedId = detail.id; });
+
+// Close the second tab (File B, id: mt2)
+const tabBar2 = layout7.shadowRoot.querySelector('.sgl-tab-bar');
+const closeBtn = tabBar2?.querySelectorAll('.sgl-tab-close')[1];
+if (closeBtn) closeBtn.click();
+await new Promise(r => requestAnimationFrame(r));
+
+const tree7c = layout7.getLayout();
+assert(tree7c.tabs.length === 3, 'Close tab: stack now has 3 tabs');
+assert(closedId === 'mt2', 'Close tab: PANEL_CLOSED fired with correct id');
+
+// -----------------------------------------------------------------------
+// Test 16: Single-tab mode — no tab bar, just title
+// -----------------------------------------------------------------------
+const layout8 = document.createElement('sg-layout');
+layout8.style.cssText = 'width:400px;height:300px;position:absolute;left:-9999px;';
+layout8.setAttribute('layout', JSON.stringify({
+    type: 'stack', id: 'ss1', activeTab: 0,
+    tabs: [{ type: 'tab', id: 'st1', tag: 'div', title: 'Solo Tab', state: {} }]
+}));
+document.body.appendChild(layout8);
+await new Promise(r => requestAnimationFrame(r));
+
+const singleTabBar = layout8.shadowRoot.querySelector('.sgl-tab-bar');
+assert(singleTabBar === null, 'Single tab: no tab bar rendered');
+const singleTitle = layout8.shadowRoot.querySelector('.sgl-stack-title');
+assert(singleTitle !== null, 'Single tab: title span rendered');
+assert(singleTitle.textContent === 'Solo Tab', 'Single tab: title text correct');
+
+// -----------------------------------------------------------------------
+// Test 17: TAB_CHANGED event fires on tab switch
+// -----------------------------------------------------------------------
+const layout9 = document.createElement('sg-layout');
+layout9.style.cssText = 'width:400px;height:300px;position:absolute;left:-9999px;';
+layout9.setAttribute('layout', JSON.stringify({
+    type: 'stack', id: 'es1', activeTab: 0,
+    tabs: [
+        { type: 'tab', id: 'et1', tag: 'div', title: 'Tab 1', state: {} },
+        { type: 'tab', id: 'et2', tag: 'div', title: 'Tab 2', state: {} },
+    ]
+}));
+document.body.appendChild(layout9);
+await new Promise(r => requestAnimationFrame(r));
+
+let tabChangedEvent = null;
+layout9.events.on(SGL_EVENTS.TAB_CHANGED, detail => { tabChangedEvent = detail; });
+
+const eventTabBar = layout9.shadowRoot.querySelector('.sgl-tab-bar');
+eventTabBar?.querySelectorAll('.sgl-tab')[1]?.click();
+
+assert(tabChangedEvent !== null, 'TAB_CHANGED: event fired');
+assert(tabChangedEvent?.stackId === 'es1', 'TAB_CHANGED: correct stackId');
+assert(tabChangedEvent?.tabId === 'et2', 'TAB_CHANGED: correct tabId');
+
+// -----------------------------------------------------------------------
+// Test 18: Nested sg-layout — depth tracking
+// -----------------------------------------------------------------------
+const layoutOuter = document.createElement('sg-layout');
+layoutOuter.style.cssText = 'width:600px;height:400px;position:absolute;left:-9999px;';
+layoutOuter.setAttribute('layout', JSON.stringify({
+    type: 'row', id: 'outer-r', sizes: [0.5, 0.5],
+    children: [
+        {
+            type: 'stack', id: 'outer-s1', activeTab: 0,
+            tabs: [{ type: 'tab', id: 'outer-t1', tag: 'div', title: 'Left', state: {} }]
+        },
+        {
+            type: 'stack', id: 'outer-s2', activeTab: 0,
+            tabs: [{
+                type: 'tab', id: 'outer-t2', tag: 'sg-layout', title: 'Nested',
+                state: {
+                    layout: {
+                        type: 'row', id: 'inner-r', sizes: [0.5, 0.5],
+                        children: [
+                            { type: 'stack', id: 'inner-s1', activeTab: 0, tabs: [{ type: 'tab', id: 'inner-t1', tag: 'div', title: 'Inner A', state: {} }] },
+                            { type: 'stack', id: 'inner-s2', activeTab: 0, tabs: [{ type: 'tab', id: 'inner-t2', tag: 'div', title: 'Inner B', state: {} }] },
+                        ]
+                    }
+                }
+            }]
+        },
+    ]
+}));
+document.body.appendChild(layoutOuter);
+await new Promise(r => requestAnimationFrame(r));
+await new Promise(r => requestAnimationFrame(r)); // extra frame for nested mount
+
+assert(layoutOuter.getDepth() === 0, 'Fractal: outer layout depth is 0');
+
+const nestedEl = layoutOuter.getPanelElement('outer-t2');
+assert(nestedEl !== null, 'Fractal: nested sg-layout element exists');
+assert(nestedEl instanceof SgLayout, 'Fractal: nested element is SgLayout');
+assert(nestedEl.getDepth() === 1, 'Fractal: nested layout depth is 1');
+assert(nestedEl.dataset.depth === '1', 'Fractal: data-depth attribute is "1"');
+
+// -----------------------------------------------------------------------
+// Test 19: Fractal — child layout registry
+// -----------------------------------------------------------------------
+const children = layoutOuter.getChildLayouts();
+assert(children.size === 1, 'Fractal: outer has 1 child layout');
+assert(children.get('outer-t2') === nestedEl, 'Fractal: child keyed by panelId');
+
+// -----------------------------------------------------------------------
+// Test 20: Fractal — parent reference
+// -----------------------------------------------------------------------
+assert(nestedEl.getParentLayout() === layoutOuter, 'Fractal: nested.getParentLayout() is outer');
+assert(layoutOuter.getParentLayout() === null, 'Fractal: root.getParentLayout() is null');
+
+// -----------------------------------------------------------------------
+// Test 21: Fractal — nested layout has correct tree
+// -----------------------------------------------------------------------
+const innerTree = nestedEl.getLayout();
+assert(innerTree !== null, 'Fractal: nested getLayout() is non-null');
+assert(innerTree.type === 'row', 'Fractal: nested tree is a row');
+assert(innerTree.children.length === 2, 'Fractal: nested row has 2 children');
+assert(innerTree.children[0].tabs[0].title === 'Inner A', 'Fractal: first nested tab is Inner A');
+
+// -----------------------------------------------------------------------
+// Test 22: Fractal — serialisation captures nested tree
+// -----------------------------------------------------------------------
+const outerTree = layoutOuter.getLayout();
+const nestedTab = outerTree.children[1].tabs[0];
+assert(nestedTab.tag === 'sg-layout', 'Fractal serial: nested tab tag is sg-layout');
+assert(nestedTab.state?.layout?.type === 'row', 'Fractal serial: nested state.layout is a row');
+assert(nestedTab.state.layout.children.length === 2, 'Fractal serial: nested layout has 2 children');
+
+// -----------------------------------------------------------------------
+// Test 23: Fractal — walkLayouts visits all levels
+// -----------------------------------------------------------------------
+const visited = [];
+layoutOuter.walkLayouts((layout, depth) => visited.push(depth));
+assert(visited.length === 2, 'walkLayouts: visits 2 layouts (outer + nested)');
+assert(visited[0] === 0, 'walkLayouts: first is depth 0');
+assert(visited[1] === 1, 'walkLayouts: second is depth 1');
+
+// -----------------------------------------------------------------------
 // Cleanup test layouts
 // -----------------------------------------------------------------------
-[layout1, layout2, layout3, layout4, layout5, layout6].forEach(l => {
+[layout1, layout2, layout3, layout4, layout5, layout6, layout7, layout8, layout9, layoutOuter].forEach(l => {
     if (l.parentNode) l.parentNode.removeChild(l);
 });
 
@@ -277,28 +472,53 @@ demo.style.width  = '100%';
 demo.style.height = '100%';
 
 const demoLayout = {
-    type: 'row', id: 'demo-r', sizes: [0.25, 0.5, 0.25],
+    type: 'row', id: 'demo-r', sizes: [0.22, 0.53, 0.25],
     children: [
         {
             type: 'stack', id: 'demo-s1', activeTab: 0,
-            tabs: [{ type: 'tab', id: 'demo-t1', tag: 'div', title: 'Navigation', state: {} }]
+            tabs: [
+                { type: 'tab', id: 'demo-t1', tag: 'div', title: 'Explorer', state: {} },
+                { type: 'tab', id: 'demo-t1b', tag: 'div', title: 'Search', state: {} },
+            ]
         },
         {
             type: 'column', id: 'demo-c1', sizes: [0.6, 0.4],
             children: [
                 {
                     type: 'stack', id: 'demo-s2', activeTab: 0,
-                    tabs: [{ type: 'tab', id: 'demo-t2', tag: 'div', title: 'Editor', state: {} }]
+                    tabs: [
+                        { type: 'tab', id: 'demo-t2a', tag: 'div', title: 'index.html', state: {} },
+                        { type: 'tab', id: 'demo-t2b', tag: 'div', title: 'app.js', state: {} },
+                        { type: 'tab', id: 'demo-t2c', tag: 'div', title: 'styles.css', state: {} },
+                    ]
                 },
                 {
                     type: 'stack', id: 'demo-s3', activeTab: 0,
-                    tabs: [{ type: 'tab', id: 'demo-t3', tag: 'div', title: 'Console', state: {} }]
+                    tabs: [
+                        { type: 'tab', id: 'demo-t3a', tag: 'div', title: 'Console', state: {} },
+                        { type: 'tab', id: 'demo-t3b', tag: 'div', title: 'Terminal', state: {} },
+                        { type: 'tab', id: 'demo-t3c', tag: 'div', title: 'Problems', state: {} },
+                    ]
                 },
             ]
         },
         {
             type: 'stack', id: 'demo-s4', activeTab: 0,
-            tabs: [{ type: 'tab', id: 'demo-t4', tag: 'div', title: 'Inspector', state: {} }]
+            tabs: [
+                { type: 'tab', id: 'demo-t4', tag: 'div', title: 'Inspector', state: {} },
+                {
+                    type: 'tab', id: 'demo-t4b', tag: 'sg-layout', title: 'Nested',
+                    state: {
+                        layout: {
+                            type: 'column', id: 'nested-c', sizes: [0.5, 0.5],
+                            children: [
+                                { type: 'stack', id: 'nested-s1', activeTab: 0, tabs: [{ type: 'tab', id: 'nested-t1', tag: 'div', title: 'Props', state: {} }] },
+                                { type: 'stack', id: 'nested-s2', activeTab: 0, tabs: [{ type: 'tab', id: 'nested-t2', tag: 'div', title: 'Events', state: {} }] },
+                            ]
+                        }
+                    }
+                },
+            ]
         },
     ]
 };
@@ -308,13 +528,42 @@ document.getElementById('demo-container').appendChild(demo);
 
 await new Promise(r => requestAnimationFrame(r));
 
-// Style the demo panels
+// Style the demo panels — vivid solid colours filling the entire cell
 const panelStyles = {
-    'demo-t1': { bg: '#1a3a5c', label: 'Navigation', desc: 'Collapsible sidebar' },
-    'demo-t2': { bg: '#1a5c3a', label: 'Editor',     desc: 'Main content area' },
-    'demo-t3': { bg: '#5c3a1a', label: 'Console',    desc: 'Bottom panel' },
-    'demo-t4': { bg: '#3a1a5c', label: 'Inspector',  desc: 'Right sidebar' },
+    'demo-t1':  { bg: '#0D47A1', label: 'Explorer',   desc: 'File tree sidebar' },
+    'demo-t1b': { bg: '#1565C0', label: 'Search',     desc: 'Full-text search' },
+    'demo-t2a': { bg: '#1B5E20', label: 'index.html', desc: 'Main HTML file' },
+    'demo-t2b': { bg: '#2E7D32', label: 'app.js',     desc: 'Application logic' },
+    'demo-t2c': { bg: '#388E3C', label: 'styles.css', desc: 'Stylesheet' },
+    'demo-t3a': { bg: '#BF360C', label: 'Console',    desc: 'Log output' },
+    'demo-t3b': { bg: '#D84315', label: 'Terminal',    desc: 'Shell terminal' },
+    'demo-t3c': { bg: '#E65100', label: 'Problems',   desc: 'Error list' },
+    'demo-t4':  { bg: '#4A148C', label: 'Inspector',  desc: 'Right sidebar' },
 };
+
+// Note: demo-t4b is a nested sg-layout — no direct styling needed.
+// Style the nested panels after the nested layout mounts.
+await new Promise(r => requestAnimationFrame(r));
+const nestedLayout = demo.getPanelElement('demo-t4b');
+if (nestedLayout && nestedLayout.getPanelElement) {
+    await new Promise(r => requestAnimationFrame(r));
+    const nestedStyles = {
+        'nested-t1': { bg: '#6A1B9A', label: 'Props',  desc: 'Component properties' },
+        'nested-t2': { bg: '#AD1457', label: 'Events', desc: 'Event listeners' },
+    };
+    for (const [tabId, config] of Object.entries(nestedStyles)) {
+        const el = nestedLayout.getPanelElement(tabId);
+        if (el) {
+            el.className = 'demo-panel';
+            el.style.background = config.bg;
+            el.innerHTML = `
+                <strong>${config.label}</strong>
+                <span style="color:var(--sgl-text-muted)">${config.desc}</span>
+                <code>depth: ${nestedLayout.getDepth()}</code>
+            `;
+        }
+    }
+}
 
 for (const [tabId, config] of Object.entries(panelStyles)) {
     const el = demo.getPanelElement(tabId);

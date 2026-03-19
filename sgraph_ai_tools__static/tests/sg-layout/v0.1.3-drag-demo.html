@@ -1,0 +1,204 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>sg-layout v0.1.3 — Drag to Dock Demo</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: #0d0d1a;
+            color: #e2e8f0;
+        }
+
+        h1 {
+            padding: 12px 20px;
+            font-size: 16px;
+            background: #111122;
+            border-bottom: 1px solid #222d4d;
+        }
+
+        .instructions {
+            padding: 12px 20px;
+            background: #0f0f22;
+            border-bottom: 1px solid #1a1a3a;
+            font-size: 13px;
+            line-height: 1.6;
+            color: #8892a8;
+        }
+        .instructions strong { color: #4ECDC4; }
+        .instructions code {
+            background: rgba(255,255,255,0.08);
+            padding: 1px 5px;
+            border-radius: 3px;
+            font-size: 12px;
+        }
+
+        #event-log {
+            padding: 8px 20px;
+            background: #111122;
+            border-bottom: 1px solid #222d4d;
+            font-size: 11px;
+            color: #5a6478;
+            max-height: 80px;
+            overflow-y: auto;
+        }
+        #event-log .event { margin: 2px 0; }
+        #event-log .event-start { color: #4ECDC4; }
+        #event-log .event-end-ok { color: #66BB6A; }
+        #event-log .event-end-cancel { color: #FF7043; }
+        #event-log .event-change { color: #AB47BC; }
+
+        #demo-container {
+            width: 100vw;
+            height: calc(100vh - 200px);
+            min-height: 400px;
+        }
+
+        .panel {
+            width: 100%; height: 100%;
+            display: flex; align-items: center; justify-content: center;
+            flex-direction: column;
+            gap: 6px;
+            font-size: 13px;
+        }
+        .panel strong { font-size: 14px; }
+        .panel code {
+            background: rgba(255,255,255,0.1);
+            padding: 2px 6px;
+            border-radius: 3px;
+            font-size: 11px;
+        }
+        .panel .muted { color: rgba(255,255,255,0.5); font-size: 12px; }
+    </style>
+</head>
+<body>
+
+<h1>sg-layout v0.1.3 — Drag to Dock</h1>
+
+<div class="instructions">
+    <strong>Try it:</strong> Grab any tab and drag it to another panel.
+    Drop zones appear: <code>center</code> = add as tab,
+    <code>left/right/top/bottom</code> = split panel.
+    Single-tab panel titles are also draggable.
+    <strong>Locked:</strong> Explorer is locked (no drag, no drop, no close).
+</div>
+
+<div id="event-log"></div>
+
+<div id="demo-container"></div>
+
+<script type="module">
+import { SGL_EVENTS } from '../../core/sg-layout/v0.1.0/sg-layout-events.js';
+import { SgLayout }   from '../../core/sg-layout/v0.1.0/sg-layout.js';
+
+const logEl = document.getElementById('event-log');
+function log(cls, text) {
+    const div = document.createElement('div');
+    div.className = `event ${cls}`;
+    div.textContent = `${new Date().toLocaleTimeString()} — ${text}`;
+    logEl.prepend(div);
+    // Keep max 20 entries
+    while (logEl.children.length > 20) logEl.removeChild(logEl.lastChild);
+}
+
+const demo = document.createElement('sg-layout');
+demo.style.width  = '100%';
+demo.style.height = '100%';
+
+const demoLayout = {
+    type: 'row', id: 'r1', sizes: [0.2, 0.55, 0.25],
+    children: [
+        {
+            type: 'stack', id: 's-nav', activeTab: 0,
+            tabs: [
+                { type: 'tab', id: 't-explorer', tag: 'div', title: 'Explorer', state: {}, locked: true },
+                { type: 'tab', id: 't-search',   tag: 'div', title: 'Search', state: {} },
+                { type: 'tab', id: 't-git',      tag: 'div', title: 'Git', state: {} },
+            ]
+        },
+        {
+            type: 'column', id: 'c-main', sizes: [0.65, 0.35],
+            children: [
+                {
+                    type: 'stack', id: 's-editor', activeTab: 0,
+                    tabs: [
+                        { type: 'tab', id: 't-index',  tag: 'div', title: 'index.html', state: {} },
+                        { type: 'tab', id: 't-app',    tag: 'div', title: 'app.js', state: {} },
+                        { type: 'tab', id: 't-styles', tag: 'div', title: 'styles.css', state: {} },
+                        { type: 'tab', id: 't-readme', tag: 'div', title: 'README.md', state: {} },
+                    ]
+                },
+                {
+                    type: 'stack', id: 's-bottom', activeTab: 0,
+                    tabs: [
+                        { type: 'tab', id: 't-console',  tag: 'div', title: 'Console', state: {} },
+                        { type: 'tab', id: 't-terminal', tag: 'div', title: 'Terminal', state: {} },
+                        { type: 'tab', id: 't-problems', tag: 'div', title: 'Problems', state: {} },
+                    ]
+                },
+            ]
+        },
+        {
+            type: 'stack', id: 's-right', activeTab: 0,
+            tabs: [
+                { type: 'tab', id: 't-inspector', tag: 'div', title: 'Inspector', state: {} },
+                { type: 'tab', id: 't-outline',   tag: 'div', title: 'Outline', state: {} },
+            ]
+        },
+    ]
+};
+
+demo.setAttribute('layout', JSON.stringify(demoLayout));
+document.getElementById('demo-container').appendChild(demo);
+
+await new Promise(r => requestAnimationFrame(r));
+
+// Style all panels with distinct vivid colours
+const colours = {
+    't-explorer':  '#0D47A1',
+    't-search':    '#1565C0',
+    't-git':       '#1976D2',
+    't-index':     '#1B5E20',
+    't-app':       '#2E7D32',
+    't-styles':    '#388E3C',
+    't-readme':    '#43A047',
+    't-console':   '#BF360C',
+    't-terminal':  '#D84315',
+    't-problems':  '#E65100',
+    't-inspector': '#4A148C',
+    't-outline':   '#6A1B9A',
+};
+
+for (const [id, bg] of Object.entries(colours)) {
+    const el = demo.getPanelElement(id);
+    if (el) {
+        el.className = 'panel';
+        el.style.background = bg;
+        const isLocked = demo.isPanelLocked(id);
+        el.innerHTML = `
+            <strong>${isLocked ? '\uD83D\uDD12 ' : ''}${id.replace('t-', '')}</strong>
+            <span class="muted">${isLocked ? 'This panel is locked' : 'Drag this tab to rearrange'}</span>
+            <code>panelId: ${id}</code>
+        `;
+    }
+}
+
+// Log drag events
+demo.events.on(SGL_EVENTS.DRAG_START, detail => {
+    log('event-start', `DRAG_START: ${detail.panelId}`);
+});
+demo.events.on(SGL_EVENTS.DRAG_END, detail => {
+    const cls = detail.accepted ? 'event-end-ok' : 'event-end-cancel';
+    log(cls, `DRAG_END: ${detail.panelId} — ${detail.accepted ? 'DOCKED' : 'cancelled'}`);
+});
+demo.events.on(SGL_EVENTS.LAYOUT_CHANGED, () => {
+    log('event-change', `LAYOUT_CHANGED — tree updated`);
+});
+
+log('', 'Ready. Drag tabs to rearrange the layout.');
+</script>
+
+</body>
+</html>
