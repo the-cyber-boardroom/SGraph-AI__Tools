@@ -142,9 +142,9 @@
         }
 
         {
-            const { passphrase, vaultId } = parseVaultKey('ditg7au7rr0rsw4ont6qlzcw:98a3heec')
+            const { passphrase, vaultId } = parseVaultKey('ditg7au7rr0rsw4ont6qlzcw:aaaabbp1')
             assertEqual(passphrase, 'ditg7au7rr0rsw4ont6qlzcw', 'Parses alphanumeric passphrase')
-            assertEqual(vaultId, '98a3heec', 'Accepts alphanumeric vault_id (not just hex)')
+            assertEqual(vaultId, 'aaaabbp1', 'Accepts alphanumeric vault_id (not just hex)')
         }
 
         heading('parseVaultKey — invalid keys')
