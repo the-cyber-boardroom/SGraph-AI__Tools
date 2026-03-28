@@ -309,19 +309,15 @@ export async function getVideoInfo(file) {
             // videoWidth/videoHeight > 0 means there's a video track
             const hasVideo = width > 0 && height > 0;
 
-            // For audio detection we check audioTracks if available,
-            // otherwise fall back to a heuristic: if duration > 0 it likely has audio
-            let hasAudio = false;
-            if (video.audioTracks) {
-                hasAudio = video.audioTracks.length > 0;
-            } else if (video.mozHasAudio !== undefined) {
-                hasAudio = video.mozHasAudio;
-            } else if (video.webkitAudioDecodedByteCount !== undefined) {
-                hasAudio = video.webkitAudioDecodedByteCount > 0;
-            } else {
-                // Assume audio exists if it's a video container with duration
-                hasAudio = duration > 0;
-            }
+            // Audio detection via browser APIs is unreliable at the
+            // loadedmetadata stage — audioTracks is not widely supported,
+            // mozHasAudio is Firefox-only, and webkitAudioDecodedByteCount
+            // is always 0 before playback starts. Instead, we assume audio
+            // is present for any media file with duration > 0 and let
+            // FFmpeg handle the actual stream detection. If extractAudio()
+            // is called on a file with no audio, FFmpeg will produce an
+            // error which the component handles gracefully.
+            const hasAudio = duration > 0;
 
             cleanup();
 
@@ -491,14 +487,25 @@ export async function extractAudio(ffmpeg, file) {
 
     await _writeInputFile(ffmpeg, inputName, file);
 
-    await ffmpeg.exec([
+    const exitCode = await ffmpeg.exec([
         '-i', inputName,
         '-vn',
         '-c:a', 'copy',
         outputName,
     ]);
 
-    const blob = await _readAndCleanup(ffmpeg, outputName, 'audio/mp4');
+    if (exitCode !== 0) {
+        await ffmpeg.deleteFile(inputName);
+        throw new Error('extractAudio: FFmpeg failed — the file may not contain an audio stream.');
+    }
+
+    let blob;
+    try {
+        blob = await _readAndCleanup(ffmpeg, outputName, 'audio/mp4');
+    } catch (_e) {
+        await ffmpeg.deleteFile(inputName);
+        throw new Error('extractAudio: no audio output produced — the file may not contain an audio stream.');
+    }
 
     await ffmpeg.deleteFile(inputName);
 
@@ -534,15 +541,26 @@ export async function extractVideo(ffmpeg, file) {
 
     await _writeInputFile(ffmpeg, inputName, file);
 
-    await ffmpeg.exec([
+    const exitCode = await ffmpeg.exec([
         '-i', inputName,
         '-an',
         '-c:v', 'copy',
         outputName,
     ]);
 
-    const mimeType = _mimeFromFilename(outputName);
-    const blob = await _readAndCleanup(ffmpeg, outputName, mimeType);
+    if (exitCode !== 0) {
+        await ffmpeg.deleteFile(inputName);
+        throw new Error('extractVideo: FFmpeg failed — the file may not contain a video stream.');
+    }
+
+    let blob;
+    try {
+        const mimeType = _mimeFromFilename(outputName);
+        blob = await _readAndCleanup(ffmpeg, outputName, mimeType);
+    } catch (_e) {
+        await ffmpeg.deleteFile(inputName);
+        throw new Error('extractVideo: no video output produced — the file may not contain a video stream.');
+    }
 
     await ffmpeg.deleteFile(inputName);
 
