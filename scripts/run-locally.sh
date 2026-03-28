@@ -8,8 +8,13 @@
 #   core/                           →  latest/core/
 #   components/                     →  latest/components/
 #
-# This script replicates that locally by creating symlinks in a temporary
-# directory that mirrors the production URL structure.
+# IFD principle: each version only contains its DELTAS (new/changed files).
+# The final served state is the layering of ALL versions in order, with
+# later versions overwriting earlier ones:
+#   v0.1.0 (base) → v0.1.1 (overlay) → v0.1.2 → ... → v0.1.5 (latest)
+#
+# This script replicates that locally by copying each version in order
+# into a temporary directory that mirrors the production URL structure.
 # ---------------------------------------------------------------------------
 
 PORT=10063
@@ -17,7 +22,7 @@ SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 REPO_ROOT="$(dirname "$SCRIPT_DIR")"
 STATIC_DIR="$REPO_ROOT/sgraph_ai_tools__static"
 UI_VERSION="v0.1.5"
-IFD_PATH="tools/v0/v0.1/$UI_VERSION"
+IFD_BASE="tools/v0/v0.1"
 SERVE_DIR="$REPO_ROOT/.local-server"
 
 # Clean up on exit
@@ -28,28 +33,37 @@ cleanup() {
 }
 trap cleanup EXIT
 
-# Build the local serve directory with symlinks
-echo "Building local server directory (mirroring production URL structure)..."
+# Build the local serve directory by layering IFD versions
+echo "Building local server directory (IFD version layering)..."
 rm -rf "$SERVE_DIR"
 mkdir -p "$SERVE_DIR"
 
-# Versioned content → root (en-gb/, _common/, 404.html, etc.)
-CONTENT_DIR="$STATIC_DIR/$IFD_PATH"
-if [ ! -d "$CONTENT_DIR" ]; then
-    echo "ERROR: Content directory not found: $CONTENT_DIR"
-    exit 1
-fi
+# Layer all patch versions in order: v0.1.0, v0.1.1, ..., v0.1.5
+# Each version's content overwrites the previous, so only deltas are needed per version
+echo "  Layering IFD versions from $IFD_BASE/:"
+for version_dir in $(ls -d "$STATIC_DIR/$IFD_BASE"/v0.1.* 2>/dev/null | sort -V); do
+    version_name=$(basename "$version_dir")
+    echo "    + $version_name"
 
-# Symlink locale folders (en-gb/, etc.)
-for locale_dir in "$CONTENT_DIR"/*/; do
-    dirname=$(basename "$locale_dir")
-    if [ "$dirname" != "_common" ] && [ -d "$locale_dir" ]; then
-        ln -sf "$locale_dir" "$SERVE_DIR/$dirname"
+    # Copy locale folders (en-gb/, etc.) — merge, don't replace
+    for sub in "$version_dir"/*/; do
+        dirname=$(basename "$sub")
+        if [ "$dirname" != "_common" ] && [ "$dirname" != "i18n" ] && [ -d "$sub" ]; then
+            # Use cp -r to merge into existing directory
+            cp -r "$sub" "$SERVE_DIR/$dirname"
+        fi
+    done
+
+    # Copy _common/ (overwrites if exists)
+    if [ -d "$version_dir/_common" ]; then
+        cp -r "$version_dir/_common" "$SERVE_DIR/_common"
     fi
-done
 
-# Copy _common (not symlink) so we can inject build-info.js
-cp -r "$CONTENT_DIR/_common" "$SERVE_DIR/_common"
+    # Copy root files (404.html, manifest.json, etc.)
+    for f in "$version_dir"/*.html "$version_dir"/*.json "$version_dir"/*.txt "$version_dir"/*.xml; do
+        [ -f "$f" ] && [ "$(basename "$f")" != "index.html" ] && cp "$f" "$SERVE_DIR/$(basename "$f")"
+    done
+done
 
 # Symlink core/ and components/ from static root
 [ -d "$STATIC_DIR/core" ]       && ln -sf "$STATIC_DIR/core"       "$SERVE_DIR/core"
@@ -57,11 +71,6 @@ cp -r "$CONTENT_DIR/_common" "$SERVE_DIR/_common"
 
 # Symlink tests/
 [ -d "$STATIC_DIR/tests" ]      && ln -sf "$STATIC_DIR/tests"      "$SERVE_DIR/tests"
-
-# Copy root files (404.html, manifest.json, etc.) — skip index.html, we create our own
-for f in "$CONTENT_DIR"/*.html "$CONTENT_DIR"/*.json; do
-    [ -f "$f" ] && [ "$(basename "$f")" != "index.html" ] && cp "$f" "$SERVE_DIR/$(basename "$f")"
-done
 
 # Inject build-info.js for local dev (CI generates this in production)
 mkdir -p "$SERVE_DIR/_common/js"
@@ -86,7 +95,11 @@ HTMLEOF
 echo ""
 echo "Starting tools.sgraph.ai local server..."
 echo "  Root:       $SERVE_DIR"
-echo "  Content:    $CONTENT_DIR"
+echo "  IFD base:   $STATIC_DIR/$IFD_BASE"
+echo "  Latest:     $UI_VERSION"
+echo ""
+echo "  Layered content:"
+echo "    Tools:  $(ls "$SERVE_DIR/en-gb/" 2>/dev/null | grep -v index.html | tr '\n' ' ')"
 echo ""
 echo "  URLs:"
 echo "    Home:           http://localhost:$PORT/"

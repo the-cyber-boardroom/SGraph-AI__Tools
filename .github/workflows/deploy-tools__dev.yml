@@ -74,6 +74,14 @@ jobs:
       - name: Generate i18n locale pages
         run: python scripts/generate_tools_i18n_pages.py --version ${{ env.UI_VERSION }}
 
+      - name: Build layered IFD content
+        run: |
+          echo "Building layered IFD content (all versions merged into latest)"
+          python scripts/build_ifd_latest.py \
+            --source-dir ${{ env.SOURCE_DIR }} \
+            --ifd-base tools/v0/v0.1 \
+            --up-to ${{ env.UI_VERSION }}
+
       - name: Check AWS credentials
         id: check-creds
         run: |
@@ -105,4 +113,4 @@ jobs:
             --cloudfront-distribution-id ${{ secrets.SGRAPH_TOOLS__CLOUDFRONT_DISTRIBUTION_ID }} \
             --skip-validation \
             --clean-urls \
-            --clean-urls-source-version tools/v0/v0.1/v0.1.5
+            --clean-urls-source-version tools/v0/v0.1/_latest
