@@ -11,8 +11,11 @@
 /** @type {string} CDN base URL for FFmpeg core WASM files */
 export const FFMPEG_CORE_BASE = 'https://unpkg.com/@ffmpeg/core@0.12.6/dist/esm';
 
+/** @type {string} CDN base URL for FFmpeg ESM distribution (used to resolve worker imports) */
+export const FFMPEG_ESM_BASE = 'https://unpkg.com/@ffmpeg/ffmpeg@0.12.10/dist/esm';
+
 /** @type {string} CDN URL for FFmpeg WASM ES module */
-export const FFMPEG_CDN_URL = 'https://unpkg.com/@ffmpeg/ffmpeg@0.12.10/dist/esm/index.js';
+export const FFMPEG_CDN_URL = `${FFMPEG_ESM_BASE}/index.js`;
 
 /** @type {string} CDN URL for FFmpeg util ES module */
 export const FFMPEG_UTIL_URL = 'https://unpkg.com/@ffmpeg/util@0.12.1/dist/esm/index.js';
@@ -161,7 +164,7 @@ export async function loadFFmpeg(onProgress) {
 
 /**
  * Fetch a remote URL and return a same-origin Blob URL.
- * This avoids cross-origin Worker restrictions when loading FFmpeg WASM.
+ * This avoids cross-origin restrictions when loading FFmpeg WASM resources.
  *
  * @param {string} url - Remote URL to fetch
  * @param {string} mimeType - MIME type for the Blob
@@ -179,7 +182,57 @@ async function _toBlobURL(url, mimeType) {
 }
 
 /**
+ * Create a same-origin Blob URL for FFmpeg's class Worker (worker.js).
+ *
+ * The FFmpeg class (classes.js) creates its Web Worker via:
+ *   new Worker(new URL("./worker.js", import.meta.url), { type: "module" })
+ *
+ * When the FFmpeg module is imported from a CDN, import.meta.url points to
+ * the CDN origin, causing a cross-origin Worker error. The load() method
+ * accepts a `classWorkerURL` parameter to override this, but the replacement
+ * must be a same-origin URL.
+ *
+ * worker.js is an ES module with relative imports (e.g. `from "./const.js"`).
+ * Blob URLs have no path context, so relative imports would fail. We rewrite
+ * them to absolute CDN URLs before creating the blob — this works because
+ * module Workers can import cross-origin modules when the server sends CORS
+ * headers (unpkg.com does).
+ *
+ * @returns {Promise<string>} A blob: URL containing the rewritten worker.js
+ * @private
+ */
+async function _createClassWorkerBlobURL() {
+    const workerURL = `${FFMPEG_ESM_BASE}/worker.js`;
+    const response = await fetch(workerURL);
+    if (!response.ok) {
+        throw new Error(`Failed to fetch FFmpeg worker.js: ${response.status}`);
+    }
+    let source = await response.text();
+
+    // Rewrite relative ES module imports to absolute CDN URLs.
+    // e.g. `from "./const.js"` → `from "https://unpkg.com/.../const.js"`
+    source = source.replace(
+        /from\s+["']\.\/([^"']+)["']/g,
+        (_match, path) => `from "${FFMPEG_ESM_BASE}/${path}"`
+    );
+
+    const blob = new Blob([source], { type: 'text/javascript' });
+    return URL.createObjectURL(blob);
+}
+
+/**
  * Internal: performs the actual FFmpeg load.
+ *
+ * FFmpeg WASM has a two-layer Worker architecture:
+ *
+ *   Layer 1 (classes.js → worker.js)
+ *     The FFmpeg class creates a Web Worker to run commands.
+ *     Parameter: `classWorkerURL` — must be same-origin.
+ *
+ *   Layer 2 (worker.js → ffmpeg-core.js + ffmpeg-core.wasm)
+ *     Inside the Worker, it loads the Emscripten-compiled FFmpeg core.
+ *     Parameters: `coreURL`, `wasmURL` — passed via config, used with
+ *     dynamic import() inside the Worker (cross-origin OK with CORS).
  *
  * @param {Function} [onProgress]
  * @returns {Promise<import('@ffmpeg/ffmpeg').FFmpeg>}
@@ -206,11 +259,16 @@ async function _doLoadFFmpeg(onProgress) {
         throw new Error(`Failed to load FFmpeg util module from CDN: ${err.message}`);
     }
 
-    // FFmpeg's Web Worker must be same-origin. Fetch the remote scripts,
-    // convert to same-origin Blob URLs, then pass to ffmpeg.load().
-    const coreURL   = await _toBlobURL(`${FFMPEG_CORE_BASE}/ffmpeg-core.js`,   'text/javascript');
-    const wasmURL   = await _toBlobURL(`${FFMPEG_CORE_BASE}/ffmpeg-core.wasm`, 'application/wasm');
-    const workerURL = await _toBlobURL(`https://unpkg.com/@ffmpeg/ffmpeg@0.12.10/dist/esm/worker.js`, 'text/javascript');
+    // Layer 1 fix: create a same-origin blob URL for the class Worker.
+    // This is the actual cross-origin error — `new Worker()` requires same-origin.
+    const classWorkerURL = await _createClassWorkerBlobURL();
+
+    // Layer 2: pass CDN URLs for the WASM core files. Inside the Worker, these are
+    // loaded via dynamic import() and fetch(), which handle cross-origin fine when the
+    // CDN sends CORS headers (unpkg.com sends Access-Control-Allow-Origin: *).
+    // Using raw CDN URLs avoids blob-URL-cross-context edge cases.
+    const coreURL = `${FFMPEG_CORE_BASE}/ffmpeg-core.js`;
+    const wasmURL = `${FFMPEG_CORE_BASE}/ffmpeg-core.wasm`;
 
     const ffmpeg = new FFmpeg();
 
@@ -219,7 +277,7 @@ async function _doLoadFFmpeg(onProgress) {
     }
 
     try {
-        await ffmpeg.load({ coreURL, wasmURL, workerURL });
+        await ffmpeg.load({ classWorkerURL, coreURL, wasmURL });
     } catch (err) {
         throw new Error(`FFmpeg WASM failed to initialize: ${err.message}`);
     }

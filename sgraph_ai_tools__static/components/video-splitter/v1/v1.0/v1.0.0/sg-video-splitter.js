@@ -677,6 +677,12 @@ export class SgVideoSplitter extends HTMLElement {
         const btns = document.createElement('div');
         btns.className = 'sg-vs-extract-buttons';
 
+        const bothBtn = document.createElement('button');
+        bothBtn.textContent = 'Extract Both (Audio + Video)';
+        bothBtn.type = 'button';
+        if ((!this._videoInfo.hasAudio && !this._videoInfo.hasVideo) || this._processing) bothBtn.disabled = true;
+        bothBtn.addEventListener('click', () => this._doExtractBoth());
+
         const audioBtn = document.createElement('button');
         audioBtn.textContent = 'Extract Audio Only';
         audioBtn.type = 'button';
@@ -689,6 +695,7 @@ export class SgVideoSplitter extends HTMLElement {
         if (!this._videoInfo.hasVideo || this._processing) videoBtn.disabled = true;
         videoBtn.addEventListener('click', () => this._doExtractVideo());
 
+        btns.appendChild(bothBtn);
         btns.appendChild(audioBtn);
         btns.appendChild(videoBtn);
         panel.appendChild(btns);
@@ -1078,6 +1085,72 @@ export class SgVideoSplitter extends HTMLElement {
                 filename: result.filename,
                 duration: this._videoInfo.duration,
             }];
+            this._processing = false;
+            this._hideProgress();
+            this._render();
+            this._emit('sg-split-complete', { results: this._results });
+        } catch (err) {
+            this._processing = false;
+            this._hideProgress();
+            this._render();
+            this._emitError(err);
+        }
+    }
+
+    /**
+     * Perform both audio and video extraction in a single pass.
+     * Produces two results: audio-only and video-only files.
+     *
+     * @returns {Promise<void>}
+     * @private
+     */
+    async _doExtractBoth() {
+        if (this._processing) return;
+        this._processing = true;
+        this._results = [];
+        this._render();
+
+        this._emit('sg-split-start', { mode: 'extract-both', filename: this._videoInfo.filename });
+
+        try {
+            this._showProgress('Loading FFmpeg...', 0);
+            const ffmpeg = await loadFFmpeg((p) => {
+                this._showProgress('Loading FFmpeg...', p.ratio || 0);
+            });
+
+            const results = [];
+
+            // Extract audio
+            this._showProgress('Extracting audio...', 0.25);
+            try {
+                const audio = await extractAudio(ffmpeg, this._file);
+                results.push({
+                    blob: audio.blob,
+                    filename: audio.filename,
+                    duration: this._videoInfo.duration,
+                });
+            } catch (_audioErr) {
+                // Audio extraction may fail if no audio stream — continue to video
+            }
+
+            // Extract video (strip audio)
+            this._showProgress('Extracting video...', 0.65);
+            try {
+                const video = await extractVideo(ffmpeg, this._file);
+                results.push({
+                    blob: video.blob,
+                    filename: video.filename,
+                    duration: this._videoInfo.duration,
+                });
+            } catch (_videoErr) {
+                // Video extraction may fail if no video stream
+            }
+
+            if (results.length === 0) {
+                throw new Error('Neither audio nor video could be extracted from this file.');
+            }
+
+            this._results = results;
             this._processing = false;
             this._hideProgress();
             this._render();

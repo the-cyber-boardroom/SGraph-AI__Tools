@@ -368,7 +368,7 @@
 
         // Splitter completes → offer results to sg-send-drop
         splitter.addEventListener('sg-split-complete', (e) => {
-            const results = e.detail
+            const results = e.detail.results || e.detail
             sendSection.classList.add('visible')
 
             if (Array.isArray(results) && results.length > 1) {
