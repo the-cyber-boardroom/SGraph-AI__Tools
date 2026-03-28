@@ -1,0 +1,142 @@
+/**
+ * sg-image-redact.css — Styles for the redact overlay component
+ * @version 1.0.0
+ */
+
+:host {
+    display: block;
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    pointer-events: none;
+    z-index: 10;
+}
+
+.sg-redact-overlay {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    cursor: crosshair;
+    pointer-events: all;
+}
+
+.sg-redact-region {
+    position: absolute;
+    border: 2px solid #f87171;
+    background: rgba(248, 113, 113, 0.15);
+    box-sizing: border-box;
+    pointer-events: all;
+}
+
+.sg-redact-region .sg-redact-label {
+    position: absolute;
+    top: -1px;
+    left: -1px;
+    background: #f87171;
+    color: #fff;
+    font-size: 10px;
+    font-weight: 600;
+    padding: 1px 5px;
+    border-radius: 0 0 4px 0;
+    line-height: 1.4;
+    font-family: inherit;
+}
+
+.sg-redact-region .sg-redact-remove {
+    position: absolute;
+    top: -1px;
+    right: -1px;
+    background: #f87171;
+    color: #fff;
+    border: none;
+    font-size: 12px;
+    width: 18px;
+    height: 18px;
+    line-height: 16px;
+    text-align: center;
+    cursor: pointer;
+    padding: 0;
+    border-radius: 0 0 0 4px;
+    font-family: inherit;
+}
+
+.sg-redact-region .sg-redact-remove:hover {
+    background: #dc2626;
+}
+
+.sg-redact-controls {
+    position: absolute;
+    bottom: 12px;
+    left: 50%;
+    transform: translateX(-50%);
+    display: flex;
+    gap: 6px;
+    align-items: center;
+    background: var(--sg-bg-card, #1e1e2e);
+    border: 1px solid var(--sg-border, #333);
+    border-radius: var(--sg-radius, 6px);
+    padding: 6px 10px;
+    pointer-events: all;
+    white-space: nowrap;
+    z-index: 20;
+}
+
+.sg-redact-controls button {
+    background: transparent;
+    color: var(--sg-text, #e0e0e0);
+    border: 1px solid var(--sg-border, #333);
+    border-radius: var(--sg-radius, 6px);
+    padding: 4px 10px;
+    font-size: 12px;
+    cursor: pointer;
+    font-family: inherit;
+    transition: background 0.15s, border-color 0.15s;
+}
+
+.sg-redact-controls button:hover {
+    background: rgba(255, 255, 255, 0.08);
+}
+
+.sg-redact-controls button.active {
+    background: var(--sg-accent, teal);
+    color: #fff;
+    border-color: var(--sg-accent, teal);
+}
+
+.sg-redact-controls .sg-redact-separator {
+    width: 1px;
+    height: 20px;
+    background: var(--sg-border, #333);
+    margin: 0 2px;
+}
+
+.sg-redact-controls button.sg-redact-apply {
+    background: var(--sg-accent, teal);
+    color: #fff;
+    border-color: var(--sg-accent, teal);
+    font-weight: 600;
+}
+
+.sg-redact-controls button.sg-redact-apply:hover {
+    filter: brightness(1.15);
+}
+
+.sg-redact-controls button.sg-redact-cancel {
+    color: #f87171;
+    border-color: #f87171;
+}
+
+.sg-redact-controls button.sg-redact-cancel:hover {
+    background: rgba(248, 113, 113, 0.12);
+}
+
+.sg-redact-count {
+    font-size: 11px;
+    color: var(--sg-text, #e0e0e0);
+    opacity: 0.7;
+    margin: 0 4px;
+}

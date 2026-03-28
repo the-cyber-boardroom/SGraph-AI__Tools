@@ -1,0 +1,209 @@
+<!DOCTYPE html>
+<html lang="en-GB">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title data-i18n="image_tools.title">Image Tools — tools.sgraph.ai</title>
+    <meta name="description" data-i18n="image_tools.meta_description" content="Convert, resize, crop, redact, and annotate images in your browser. Nothing is uploaded.">
+    <link rel="icon" type="image/svg+xml" href="../../_common/favicon.svg">
+    <link rel="stylesheet" href="../../_common/css/tools.css">
+    <style>
+        .main {
+            flex: 1;
+            max-width: 900px;
+            margin: 0 auto;
+            padding: 2rem 1.5rem;
+            width: 100%;
+        }
+
+        h1 {
+            font-size: 1.5rem;
+            margin-bottom: 0.5rem;
+        }
+
+        .subtitle {
+            color: var(--sg-text-muted);
+            font-size: 0.9375rem;
+            margin-bottom: 2rem;
+            line-height: 1.5;
+        }
+
+        #editor-area {
+            display: none;
+            margin-top: 1.5rem;
+        }
+
+        #editor-area.visible {
+            display: block;
+        }
+
+        #dropzone-area.hidden {
+            display: none;
+        }
+
+        .start-over-bar {
+            display: flex;
+            justify-content: flex-end;
+            margin-bottom: 1rem;
+        }
+
+        #send-drop-area {
+            margin-top: 1.5rem;
+            display: none;
+        }
+
+        #send-drop-area.visible {
+            display: block;
+        }
+
+        .info-box {
+            margin-top: 2rem;
+            padding: 1rem;
+            background: rgba(78, 205, 196, 0.05);
+            border: 1px solid var(--sg-border);
+            border-radius: var(--sg-radius);
+        }
+
+        .info-box h3 {
+            font-size: 0.875rem;
+            margin-bottom: 0.5rem;
+            color: var(--sg-accent);
+        }
+
+        .info-box p {
+            color: var(--sg-text-muted);
+            font-size: 0.8125rem;
+            line-height: 1.6;
+        }
+    </style>
+</head>
+<body>
+    <script type="module" src="/components/site-header/v1/v1.0/v1.0.2/sg-site-header.js"></script>
+    <script type="module" src="/components/locale-picker/v1/v1.0/v1.0.1/sg-locale-picker.js"></script>
+    <sg-site-header
+        site="Tools"
+        home-url="/en-gb/">
+        <sg-locale-picker slot="locale" locale="en-gb" base-path="/"></sg-locale-picker>
+    </sg-site-header>
+
+    <script type="module">
+        import { buildToolsNav } from '../../_common/js/sg-nav.js'
+        document.querySelector('sg-site-header').whenReady().then(() => {
+            buildToolsNav(document.querySelector('sg-site-header'))
+        }).catch(() => {
+            buildToolsNav(document.querySelector('sg-site-header'))
+        })
+    </script>
+
+    <div class="main">
+        <h1 data-i18n="image_tools.heading">Image Tools</h1>
+        <p class="subtitle" data-i18n="image_tools.subtitle">
+            Convert, resize, crop, redact, and annotate images entirely in your browser.
+            Your images never leave your device.
+        </p>
+
+        <div id="dropzone-area">
+            <script type="module" src="/components/upload-dropzone/v1/v1.0/v1.0.0/sg-upload-dropzone.js"></script>
+            <sg-upload-dropzone
+                id="dropzone"
+                label="Drop an image here or click to select"
+                accept=".png,.jpg,.jpeg,.webp,.avif,.gif,.bmp,.svg">
+            </sg-upload-dropzone>
+        </div>
+
+        <div id="editor-area">
+            <div class="start-over-bar">
+                <button class="btn btn--secondary" id="start-over" data-i18n="image_tools.start_over">Start Over</button>
+            </div>
+            <script type="module" src="/components/image/v1/v1.0/v1.0.0/sg-image-editor.js"></script>
+            <sg-image-editor id="editor"></sg-image-editor>
+        </div>
+
+        <div id="send-drop-area">
+            <script type="module" src="/components/send-drop/v1/v1.0/v1.0.0/sg-send-drop.js"></script>
+            <sg-send-drop id="send-drop"></sg-send-drop>
+        </div>
+
+        <div class="info-box">
+            <h3 data-i18n="image_tools.privacy_title">Privacy First</h3>
+            <p data-i18n="image_tools.privacy">
+                All processing happens in your browser. No data is sent to any server.
+            </p>
+        </div>
+    </div>
+
+    <script type="module" src="/components/site-footer/v1/v1.0/v1.0.0/sg-site-footer.js"></script>
+    <sg-site-footer
+        brand-desc="Free browser-based tools that run entirely on your device. No uploads, no servers, no tracking."
+        columns='[{"title":"Tools","links":[{"label":"Image Tools","href":"./"},{"label":"All Tools","href":"/en-gb/"}]},{"title":"SGraph","links":[{"label":"sgraph.ai","href":"https://sgraph.ai/en-gb/"},{"label":"send.sgraph.ai","href":"https://send.sgraph.ai"},{"label":"GitHub","href":"https://github.com/the-cyber-boardroom/SGraph-AI__Tools"}]}]'>
+    </sg-site-footer>
+
+    <script src="../../_common/js/build-info.js"></script>
+    <div id="build-version" style="text-align:center;color:var(--sg-text-dim, #4a5568);font-size:0.7rem;padding:8px 0;opacity:0.6;background:var(--sg-bg-secondary, #16213E);"></div>
+    <script>
+        (function() {
+            var b = window.SGRAPH_BUILD || { appVersion: 'v0.1.0', uiVersion: 'v0.1.5' };
+            var el = document.getElementById('build-version');
+            if (el) el.textContent = b.appVersion + '  \u00b7  UI ' + b.uiVersion + (b.buildTime ? '  \u00b7  ' + b.buildTime : '');
+        })();
+    </script>
+
+    <script type="module">
+        const dropzoneArea = document.getElementById('dropzone-area')
+        const dropzone     = document.getElementById('dropzone')
+        const editorArea   = document.getElementById('editor-area')
+        const editor       = document.getElementById('editor')
+        const startOverBtn = document.getElementById('start-over')
+        const sendDropArea = document.getElementById('send-drop-area')
+        const sendDrop     = document.getElementById('send-drop')
+
+        /* --- File selected from dropzone → load into editor --- */
+        dropzone.addEventListener('files-selected', async (e) => {
+            const file = e.detail.files[0]
+            if (!file) return
+
+            dropzoneArea.classList.add('hidden')
+            editorArea.classList.add('visible')
+            sendDropArea.classList.remove('visible')
+
+            try {
+                await editor.loadImage(file)
+            } catch (err) {
+                console.error('Failed to load image:', err)
+            }
+        })
+
+        /* --- Editor exports an image → trigger download and offer to sg-send-drop --- */
+        editor.addEventListener('image-exported', (e) => {
+            const { file, blob, filename } = e.detail
+
+            /* Trigger browser download */
+            const exportFile = file || new File([blob], filename || 'image.png', { type: blob.type })
+            const url = URL.createObjectURL(exportFile)
+            const a = document.createElement('a')
+            a.href = url
+            a.download = exportFile.name
+            a.click()
+            URL.revokeObjectURL(url)
+
+            /* Offer to sg-send-drop */
+            if (sendDrop && typeof sendDrop.offerFile === 'function') {
+                sendDropArea.classList.add('visible')
+                sendDrop.offerFile(exportFile)
+            }
+        })
+
+        /* --- Start Over → reset everything --- */
+        startOverBtn.addEventListener('click', () => {
+            editorArea.classList.remove('visible')
+            sendDropArea.classList.remove('visible')
+            dropzoneArea.classList.remove('hidden')
+
+            /* Reset send-drop if it has a reset method */
+            if (sendDrop && typeof sendDrop.reset === 'function') {
+                sendDrop.reset()
+            }
+        })
+    </script>
+</body>
+</html>

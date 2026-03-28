@@ -1,0 +1,194 @@
+<!DOCTYPE html>
+<html lang="en-GB">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title data-i18n="video_tools.title">Video Tools — tools.sgraph.ai</title>
+    <meta name="description" data-i18n="video_tools.meta_description" content="Split, trim, and extract audio/video in your browser. No upload — files never leave your device.">
+    <link rel="icon" type="image/svg+xml" href="../../_common/favicon.svg">
+    <link rel="stylesheet" href="../../_common/css/tools.css">
+    <style>
+        .main {
+            flex: 1;
+            max-width: 900px;
+            margin: 0 auto;
+            padding: 2rem 1.5rem;
+            width: 100%;
+        }
+
+        h1 {
+            font-size: 1.5rem;
+            margin-bottom: 0.5rem;
+        }
+
+        .subtitle {
+            color: var(--sg-text-muted);
+            font-size: 0.9375rem;
+            margin-bottom: 2rem;
+            line-height: 1.5;
+        }
+
+        .splitter-section {
+            display: none;
+            margin-top: 1.5rem;
+        }
+
+        .splitter-section.visible {
+            display: block;
+        }
+
+        .send-section {
+            margin-top: 2rem;
+            display: none;
+        }
+
+        .send-section.visible {
+            display: block;
+        }
+
+        .start-over {
+            margin-top: 1.5rem;
+            text-align: center;
+        }
+
+        .info-box {
+            margin-top: 2rem;
+            padding: 1rem;
+            background: rgba(78, 205, 196, 0.05);
+            border: 1px solid var(--sg-border);
+            border-radius: var(--sg-radius);
+        }
+
+        .info-box h3 {
+            font-size: 0.875rem;
+            margin-bottom: 0.5rem;
+            color: var(--sg-accent);
+        }
+
+        .info-box p {
+            color: var(--sg-text-muted);
+            font-size: 0.8125rem;
+            line-height: 1.6;
+        }
+    </style>
+</head>
+<body>
+    <script type="module" src="/components/site-header/v1/v1.0/v1.0.2/sg-site-header.js"></script>
+    <script type="module" src="/components/locale-picker/v1/v1.0/v1.0.1/sg-locale-picker.js"></script>
+    <sg-site-header
+        site="Tools"
+        home-url="/en-gb/">
+        <sg-locale-picker slot="locale" locale="en-gb" base-path="/"></sg-locale-picker>
+    </sg-site-header>
+
+    <script type="module">
+        import { buildToolsNav } from '../../_common/js/sg-nav.js'
+        document.querySelector('sg-site-header').whenReady().then(() => {
+            buildToolsNav(document.querySelector('sg-site-header'))
+        }).catch(() => {
+            buildToolsNav(document.querySelector('sg-site-header'))
+        })
+    </script>
+
+    <div class="main">
+        <h1 data-i18n="video_tools.heading">Video Tools</h1>
+        <p class="subtitle" data-i18n="video_tools.subtitle">
+            Split, trim, and extract audio or video entirely in your browser.
+            Your files never leave your device.
+        </p>
+
+        <script type="module" src="/components/upload-dropzone/v1/v1.0/v1.0.0/sg-upload-dropzone.js"></script>
+        <sg-upload-dropzone
+            id="dropzone"
+            label="Drop a video or audio file here, or click to select"
+            accept=".mp4,.webm,.mov,.avi,.mkv,.mp3,.aac,.m4a,.wav,.ogg">
+        </sg-upload-dropzone>
+
+        <div id="splitter-section" class="splitter-section">
+            <script type="module" src="/components/video-splitter/v1/v1.0/v1.0.0/sg-video-splitter.js"></script>
+            <sg-video-splitter id="splitter"></sg-video-splitter>
+
+            <div class="start-over">
+                <button class="btn btn--secondary" id="start-over-btn" data-i18n="video_tools.start_over">Start Over</button>
+            </div>
+        </div>
+
+        <div id="send-section" class="send-section">
+            <script type="module" src="/components/send-drop/v1/v1.0/v1.0.0/sg-send-drop.js"></script>
+            <sg-send-drop id="send-drop" label="Share via SG/Send"></sg-send-drop>
+        </div>
+
+        <div class="info-box">
+            <h3 data-i18n="video_tools.privacy_title">Privacy First</h3>
+            <p data-i18n="video_tools.privacy">
+                All processing happens in your browser. No data is sent to any server.
+            </p>
+        </div>
+    </div>
+
+    <script type="module" src="/components/site-footer/v1/v1.0/v1.0.0/sg-site-footer.js"></script>
+    <sg-site-footer
+        brand-desc="Free browser-based tools that run entirely on your device. No uploads, no servers, no tracking."
+        columns='[{"title":"Tools","links":[{"label":"Video Tools","href":"./"},{"label":"All Tools","href":"/en-gb/"}]},{"title":"SGraph","links":[{"label":"sgraph.ai","href":"https://sgraph.ai/en-gb/"},{"label":"send.sgraph.ai","href":"https://send.sgraph.ai"},{"label":"GitHub","href":"https://github.com/the-cyber-boardroom/SGraph-AI__Tools"}]}]'>
+    </sg-site-footer>
+
+    <script src="../../_common/js/build-info.js"></script>
+    <div id="build-version" style="text-align:center;color:var(--sg-text-dim, #4a5568);font-size:0.7rem;padding:8px 0;opacity:0.6;background:var(--sg-bg-secondary, #16213E);"></div>
+    <script>
+        (function() {
+            var b = window.SGRAPH_BUILD || { appVersion: 'v0.1.0', uiVersion: 'v0.1.5' };
+            var el = document.getElementById('build-version');
+            if (el) el.textContent = b.appVersion + '  \u00b7  UI ' + b.uiVersion + (b.buildTime ? '  \u00b7  ' + b.buildTime : '');
+        })();
+    </script>
+
+    <script type="module">
+        const dropzone        = document.getElementById('dropzone')
+        const splitterSection = document.getElementById('splitter-section')
+        const splitter        = document.getElementById('splitter')
+        const sendSection     = document.getElementById('send-section')
+        const sendDrop        = document.getElementById('send-drop')
+        const startOverBtn    = document.getElementById('start-over-btn')
+
+        // File selected → load into splitter, swap visibility
+        dropzone.addEventListener('files-selected', (e) => {
+            const file = e.detail.files[0]
+            if (!file) return
+
+            dropzone.style.display = 'none'
+            splitterSection.classList.add('visible')
+            sendSection.classList.remove('visible')
+            sendDrop.reset()
+
+            splitter.loadVideo(file)
+        })
+
+        // Splitter completes → offer results to sg-send-drop
+        splitter.addEventListener('sg-split-complete', (e) => {
+            const results = e.detail
+            sendSection.classList.add('visible')
+
+            if (Array.isArray(results) && results.length > 1) {
+                const files = results.map(r => ({
+                    blob:     r.blob || r.file,
+                    filename: r.filename || r.name,
+                }))
+                sendDrop.offerFiles(files)
+            } else {
+                const result = Array.isArray(results) ? results[0] : results
+                const blob     = result.blob || result.file
+                const filename = result.filename || result.name
+                sendDrop.offerFile(blob, filename)
+            }
+        })
+
+        // Start Over → reset everything
+        startOverBtn.addEventListener('click', () => {
+            splitterSection.classList.remove('visible')
+            sendSection.classList.remove('visible')
+            dropzone.style.display = ''
+            sendDrop.reset()
+        })
+    </script>
+</body>
+</html>

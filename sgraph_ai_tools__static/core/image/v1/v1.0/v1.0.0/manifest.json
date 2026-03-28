@@ -1,0 +1,8 @@
+{
+  "name": "sg-image",
+  "version": "1.0.0",
+  "description": "Client-side image processing via Canvas API — crop, resize, redact, text, format conversion",
+  "exports": {
+    "sg-image.js": ["getImageInfo", "supportsAvif", "crop", "resize", "redact", "addText", "flattenTransparency", "renderOperations", "exportImage"]
+  }
+}
