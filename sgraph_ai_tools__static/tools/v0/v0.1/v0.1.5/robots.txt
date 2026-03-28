@@ -1,0 +1,4 @@
+User-agent: *
+Allow: /
+
+Sitemap: https://tools.sgraph.ai/tools/v0/v0.1/v0.1.0/sitemap.xml
