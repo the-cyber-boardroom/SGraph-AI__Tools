@@ -8,6 +8,9 @@
  * @version 1.0.0
  */
 
+/** @type {string} CDN base URL for FFmpeg core WASM files */
+export const FFMPEG_CORE_BASE = 'https://unpkg.com/@ffmpeg/core@0.12.6/dist/esm';
+
 /** @type {string} CDN URL for FFmpeg WASM ES module */
 export const FFMPEG_CDN_URL = 'https://unpkg.com/@ffmpeg/ffmpeg@0.12.10/dist/esm/index.js';
 
@@ -168,7 +171,7 @@ async function _doLoadFFmpeg(onProgress) {
         throw new Error('WebAssembly is not supported in this browser.');
     }
 
-    let FFmpeg, fetchFile;
+    let FFmpeg, fetchFile, toBlobURL;
 
     try {
         const ffmpegModule = await import(/* webpackIgnore: true */ FFMPEG_CDN_URL);
@@ -180,6 +183,7 @@ async function _doLoadFFmpeg(onProgress) {
     try {
         const utilModule = await import(/* webpackIgnore: true */ FFMPEG_UTIL_URL);
         fetchFile = utilModule.fetchFile;
+        toBlobURL = utilModule.toBlobURL;
     } catch (err) {
         throw new Error(`Failed to load FFmpeg util module from CDN: ${err.message}`);
     }
@@ -190,8 +194,14 @@ async function _doLoadFFmpeg(onProgress) {
         ffmpeg.on('progress', onProgress);
     }
 
+    // FFmpeg's Web Worker must be same-origin. Use toBlobURL to fetch
+    // the cross-origin scripts and convert them to same-origin Blob URLs.
     try {
-        await ffmpeg.load();
+        const coreURL   = await toBlobURL(`${FFMPEG_CORE_BASE}/ffmpeg-core.js`,   'text/javascript');
+        const wasmURL   = await toBlobURL(`${FFMPEG_CORE_BASE}/ffmpeg-core.wasm`, 'application/wasm');
+        const workerURL = await toBlobURL(`https://unpkg.com/@ffmpeg/ffmpeg@0.12.10/dist/esm/worker.js`, 'text/javascript');
+
+        await ffmpeg.load({ coreURL, wasmURL, workerURL });
     } catch (err) {
         throw new Error(`FFmpeg WASM failed to initialize: ${err.message}`);
     }
