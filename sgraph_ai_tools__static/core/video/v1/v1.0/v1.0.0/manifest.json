@@ -13,6 +13,8 @@
       "parseTime",
       "formatTime",
       "isWasmSupported",
+      "generateTestClip",
+      "runHealthCheck",
       "FFMPEG_CDN_URL",
       "FFMPEG_UTIL_URL"
     ]
