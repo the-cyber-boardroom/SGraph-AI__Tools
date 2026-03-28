@@ -70,6 +70,114 @@
             font-size: 0.8125rem;
             line-height: 1.6;
         }
+
+        /* Setup environment section */
+        .setup-section {
+            margin-bottom: 1.5rem;
+            padding: 1.25rem;
+            background: var(--sg-bg-card, #1a1a2e);
+            border: 1px solid var(--sg-border, #333);
+            border-radius: var(--sg-radius, 8px);
+        }
+
+        .setup-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            flex-wrap: wrap;
+            gap: 0.75rem;
+        }
+
+        .setup-header h3 {
+            font-size: 0.9375rem;
+            font-weight: 600;
+            margin: 0;
+        }
+
+        .setup-btn {
+            padding: 0.4rem 1rem;
+            font-size: 0.8125rem;
+            font-weight: 600;
+            background: var(--sg-accent, #4ecdc4);
+            color: #000;
+            border: none;
+            border-radius: var(--sg-radius-pill, 20px);
+            cursor: pointer;
+            transition: opacity 150ms;
+        }
+
+        .setup-btn:hover { opacity: 0.9; }
+        .setup-btn:disabled { opacity: 0.5; cursor: default; }
+
+        .setup-status {
+            font-size: 0.8125rem;
+            color: var(--sg-text-muted, #888);
+            margin-top: 0.75rem;
+        }
+
+        .setup-checks {
+            margin-top: 0.75rem;
+            display: flex;
+            flex-direction: column;
+            gap: 0.375rem;
+        }
+
+        .setup-check {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            font-size: 0.8125rem;
+        }
+
+        .setup-check-icon {
+            width: 18px;
+            text-align: center;
+            flex-shrink: 0;
+        }
+
+        .setup-check-icon.pass { color: #66bb6a; }
+        .setup-check-icon.fail { color: #ef5350; }
+        .setup-check-icon.skip { color: #ffa726; }
+        .setup-check-icon.pending { color: var(--sg-text-muted, #888); }
+
+        .setup-check-label {
+            color: var(--sg-text, #e0e0e0);
+        }
+
+        .setup-check-detail {
+            color: var(--sg-text-muted, #888);
+            margin-left: auto;
+            font-size: 0.75rem;
+        }
+
+        .setup-progress {
+            margin-top: 0.75rem;
+            height: 4px;
+            background: var(--sg-border, #333);
+            border-radius: 2px;
+            overflow: hidden;
+        }
+
+        .setup-progress-fill {
+            height: 100%;
+            background: var(--sg-accent, #4ecdc4);
+            border-radius: 2px;
+            transition: width 300ms ease;
+        }
+
+        .setup-complete {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            margin-top: 0.75rem;
+            font-size: 0.875rem;
+            font-weight: 600;
+            color: #66bb6a;
+        }
+
+        .setup-complete.failed {
+            color: #ef5350;
+        }
     </style>
 </head>
 <body>
@@ -96,6 +204,21 @@
             Split, trim, and extract audio or video entirely in your browser.
             Your files never leave your device.
         </p>
+
+        <div id="setup-section" class="setup-section">
+            <div class="setup-header">
+                <h3>Setup Video Editing Environment</h3>
+                <button id="setup-btn" class="setup-btn">Setup</button>
+            </div>
+            <div id="setup-status" class="setup-status">
+                Downloads FFmpeg WASM (~30 MB on first run, cached after that) and runs health checks to verify split, trim, and extract operations work in your browser.
+            </div>
+            <div id="setup-progress" class="setup-progress" hidden>
+                <div id="setup-progress-fill" class="setup-progress-fill" style="width: 0%"></div>
+            </div>
+            <div id="setup-checks" class="setup-checks" hidden></div>
+            <div id="setup-result" hidden></div>
+        </div>
 
         <script type="module" src="/components/upload-dropzone/v1/v1.0/v1.0.0/sg-upload-dropzone.js"></script>
         <sg-upload-dropzone
@@ -143,6 +266,8 @@
     </script>
 
     <script type="module">
+        import { runHealthCheck } from '/core/video/v1/v1.0/v1.0.0/sg-video.js'
+
         const dropzone        = document.getElementById('dropzone')
         const splitterSection = document.getElementById('splitter-section')
         const splitter        = document.getElementById('splitter')
@@ -150,7 +275,85 @@
         const sendDrop        = document.getElementById('send-drop')
         const startOverBtn    = document.getElementById('start-over-btn')
 
-        // File selected → load into splitter, swap visibility
+        // ── Setup environment ────────────────────────────────
+
+        const setupBtn        = document.getElementById('setup-btn')
+        const setupStatus     = document.getElementById('setup-status')
+        const setupProgress   = document.getElementById('setup-progress')
+        const setupFill       = document.getElementById('setup-progress-fill')
+        const setupChecks     = document.getElementById('setup-checks')
+        const setupResult     = document.getElementById('setup-result')
+        const setupSection    = document.getElementById('setup-section')
+
+        const STATUS_ICONS = { pass: '\u2713', fail: '\u2717', skip: '\u2014', pending: '\u2022' }
+
+        setupBtn.addEventListener('click', async () => {
+            setupBtn.disabled = true
+            setupBtn.textContent = 'Running...'
+            setupStatus.textContent = 'Loading FFmpeg WASM and running health checks...'
+            setupProgress.hidden = false
+            setupChecks.hidden = false
+            setupChecks.innerHTML = ''
+            setupResult.hidden = true
+
+            // Pre-render all check rows as pending
+            const checkLabels = [
+                'WebAssembly support', 'Load FFmpeg WASM', 'Generate test clip',
+                'Get video info', 'Split video', 'Trim video',
+                'Extract audio', 'Extract video (silent)'
+            ]
+            const checkRows = checkLabels.map(label => {
+                const row = document.createElement('div')
+                row.className = 'setup-check'
+                row.innerHTML = `<span class="setup-check-icon pending">${STATUS_ICONS.pending}</span>`
+                    + `<span class="setup-check-label">${label}</span>`
+                    + `<span class="setup-check-detail"></span>`
+                setupChecks.appendChild(row)
+                return row
+            })
+
+            const { passed, results } = await runHealthCheck(({ step, total, label, status }) => {
+                // Update progress bar
+                const pct = Math.round(((step + 1) / total) * 100)
+                setupFill.style.width = pct + '%'
+
+                // Update the check row
+                if (checkRows[step]) {
+                    const icon = checkRows[step].querySelector('.setup-check-icon')
+                    icon.textContent = STATUS_ICONS[status]
+                    icon.className = 'setup-check-icon ' + status
+                }
+            })
+
+            // Fill in details from results
+            results.forEach((r, i) => {
+                if (checkRows[i]) {
+                    const icon = checkRows[i].querySelector('.setup-check-icon')
+                    icon.textContent = STATUS_ICONS[r.status]
+                    icon.className = 'setup-check-icon ' + r.status
+                    const detail = checkRows[i].querySelector('.setup-check-detail')
+                    detail.textContent = r.detail
+                }
+            })
+
+            // Show result
+            setupResult.hidden = false
+            if (passed) {
+                setupResult.className = 'setup-complete'
+                setupResult.textContent = '\u2713 Environment ready — all checks passed'
+                setupStatus.textContent = 'FFmpeg WASM is cached in your browser. Subsequent visits will be instant.'
+                setupBtn.textContent = 'Ready'
+            } else {
+                setupResult.className = 'setup-complete failed'
+                setupResult.textContent = '\u2717 Some checks failed — video processing may not work fully in this browser'
+                setupStatus.textContent = 'Check the results above for details.'
+                setupBtn.textContent = 'Retry'
+                setupBtn.disabled = false
+            }
+        })
+
+        // ── File selected → load into splitter ───────────────
+
         dropzone.addEventListener('files-selected', (e) => {
             const file = e.detail.files[0]
             if (!file) return

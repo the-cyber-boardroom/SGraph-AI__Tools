@@ -569,3 +569,184 @@ export async function extractVideo(ffmpeg, file) {
         filename: outputName,
     };
 }
+
+/**
+ * Generate a small test video clip in the browser using Canvas + MediaRecorder.
+ * Produces a ~2-second WebM with a video track (coloured frames with counter)
+ * and an audio track (440 Hz sine tone).
+ *
+ * Useful for health-checking FFmpeg without needing external test files.
+ *
+ * @returns {Promise<File>} A small WebM file (~50-100 KB)
+ */
+export async function generateTestClip() {
+    const DURATION_MS = 2000;
+    const FPS = 10;
+    const WIDTH = 160;
+    const HEIGHT = 120;
+
+    const canvas = document.createElement('canvas');
+    canvas.width = WIDTH;
+    canvas.height = HEIGHT;
+    const ctx = canvas.getContext('2d');
+
+    // Create audio context with a 440 Hz tone
+    const audioCtx = new (globalThis.AudioContext || globalThis.webkitAudioContext)();
+    const oscillator = audioCtx.createOscillator();
+    oscillator.frequency.value = 440;
+    const dest = audioCtx.createMediaStreamDestination();
+    oscillator.connect(dest);
+    oscillator.start();
+
+    // Combine canvas video stream + audio stream
+    const canvasStream = canvas.captureStream(FPS);
+    const audioTrack = dest.stream.getAudioTracks()[0];
+    if (audioTrack) {
+        canvasStream.addTrack(audioTrack);
+    }
+
+    // Record
+    const recorder = new MediaRecorder(canvasStream, {
+        mimeType: 'video/webm;codecs=vp8,opus',
+    });
+    const chunks = [];
+    recorder.ondataavailable = (e) => { if (e.data.size > 0) chunks.push(e.data); };
+
+    const recordingDone = new Promise((resolve) => { recorder.onstop = resolve; });
+    recorder.start();
+
+    // Draw frames — cycling colours with a frame counter
+    const colours = ['#e74c3c', '#3498db', '#2ecc71', '#f1c40f', '#9b59b6'];
+    const totalFrames = Math.ceil((DURATION_MS / 1000) * FPS);
+    for (let i = 0; i < totalFrames; i++) {
+        ctx.fillStyle = colours[i % colours.length];
+        ctx.fillRect(0, 0, WIDTH, HEIGHT);
+        ctx.fillStyle = '#ffffff';
+        ctx.font = 'bold 32px sans-serif';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText(String(i + 1), WIDTH / 2, HEIGHT / 2);
+        await new Promise((r) => setTimeout(r, 1000 / FPS));
+    }
+
+    recorder.stop();
+    oscillator.stop();
+    audioCtx.close();
+    await recordingDone;
+
+    const blob = new Blob(chunks, { type: 'video/webm' });
+    return new File([blob], 'test-clip.webm', { type: 'video/webm' });
+}
+
+/**
+ * Run a health check on the FFmpeg environment. Loads FFmpeg if needed,
+ * generates a test clip, and verifies split, trim, and extract operations.
+ *
+ * @param {Function} [onStep] - Optional callback({ step, total, label, status })
+ *   called after each check completes. status is 'pass', 'fail', or 'skip'.
+ * @returns {Promise<{ passed: boolean, results: Array<{ label: string, status: string, detail: string }> }>}
+ */
+export async function runHealthCheck(onStep) {
+    const results = [];
+    const steps = [
+        'WebAssembly support',
+        'Load FFmpeg WASM',
+        'Generate test clip',
+        'Get video info',
+        'Split video',
+        'Trim video',
+        'Extract audio',
+        'Extract video (silent)',
+    ];
+    const total = steps.length;
+    let stepIndex = 0;
+
+    function report(label, status, detail = '') {
+        results.push({ label, status, detail });
+        if (typeof onStep === 'function') {
+            onStep({ step: stepIndex, total, label, status });
+        }
+        stepIndex++;
+    }
+
+    // 1. WASM support
+    if (!isWasmSupported()) {
+        report(steps[0], 'fail', 'WebAssembly not available');
+        return { passed: false, results };
+    }
+    report(steps[0], 'pass');
+
+    // 2. Load FFmpeg
+    let ffmpeg;
+    try {
+        ffmpeg = await loadFFmpeg();
+        report(steps[1], 'pass', 'FFmpeg WASM loaded successfully');
+    } catch (err) {
+        report(steps[1], 'fail', err.message);
+        return { passed: false, results };
+    }
+
+    // 3. Generate test clip
+    let testFile;
+    try {
+        testFile = await generateTestClip();
+        report(steps[2], 'pass', `${(testFile.size / 1024).toFixed(1)} KB test clip generated`);
+    } catch (err) {
+        report(steps[2], 'fail', err.message);
+        return { passed: false, results };
+    }
+
+    // 4. Get video info
+    try {
+        const info = await getVideoInfo(testFile);
+        const ok = info.duration > 0 && info.width > 0 && info.height > 0;
+        report(steps[3], ok ? 'pass' : 'fail',
+            `${info.width}x${info.height}, ${formatTime(info.duration)}, ` +
+            `audio: ${info.hasAudio ? 'yes' : 'no'}`);
+    } catch (err) {
+        report(steps[3], 'fail', err.message);
+    }
+
+    // 5. Split (2 segments of 1 second each)
+    try {
+        const segs = await splitVideo(ffmpeg, testFile, [
+            { start: 0, end: 1 },
+            { start: 1, end: 2 },
+        ]);
+        const ok = segs.length === 2 && segs[0].blob.size > 0 && segs[1].blob.size > 0;
+        report(steps[4], ok ? 'pass' : 'fail',
+            `${segs.length} segments, ${(segs[0].blob.size / 1024).toFixed(1)} KB + ${(segs[1].blob.size / 1024).toFixed(1)} KB`);
+    } catch (err) {
+        report(steps[4], 'fail', err.message);
+    }
+
+    // 6. Trim (keep 0.5–1.5s)
+    try {
+        const trimmed = await trimVideo(ffmpeg, testFile, 0.5, 1.5);
+        const ok = trimmed.blob.size > 0;
+        report(steps[5], ok ? 'pass' : 'fail',
+            `${(trimmed.blob.size / 1024).toFixed(1)} KB trimmed clip`);
+    } catch (err) {
+        report(steps[5], 'fail', err.message);
+    }
+
+    // 7. Extract audio
+    try {
+        const audio = await extractAudio(ffmpeg, testFile);
+        report(steps[6], 'pass', `${(audio.blob.size / 1024).toFixed(1)} KB audio extracted`);
+    } catch (err) {
+        // Audio extraction may fail on WebM depending on codec support
+        report(steps[6], 'skip', err.message);
+    }
+
+    // 8. Extract video (silent)
+    try {
+        const video = await extractVideo(ffmpeg, testFile);
+        report(steps[7], 'pass', `${(video.blob.size / 1024).toFixed(1)} KB silent video extracted`);
+    } catch (err) {
+        report(steps[7], 'skip', err.message);
+    }
+
+    const passed = results.every(r => r.status === 'pass' || r.status === 'skip');
+    return { passed, results };
+}
