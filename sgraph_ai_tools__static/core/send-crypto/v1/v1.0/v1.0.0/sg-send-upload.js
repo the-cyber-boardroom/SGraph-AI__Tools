@@ -107,14 +107,14 @@ async function parallelLimit(tasks, limit) {
  * @param {Uint8Array} ciphertext   - Encrypted payload.
  * @param {string}     transferId   - Derived transfer ID.
  * @param {string}     sendUrl      - Base URL of the SG/Send API.
- * @param {string}     accessToken  - Bearer token for authentication.
+ * @param {string}     accessToken  - Access token (sent as x-sgraph-access-token header).
  * @param {Function}   onProgress   - Progress callback.
  * @returns {Promise<void>}
  */
 async function directUpload(ciphertext, transferId, sendUrl, accessToken, onProgress) {
   const headers = {
-    'Authorization': `Bearer ${accessToken}`,
-    'Content-Type':  'application/json',
+    'x-sgraph-access-token': accessToken,
+    'Content-Type':          'application/json',
   };
 
   // Step 1 — create transfer
@@ -134,8 +134,8 @@ async function directUpload(ciphertext, transferId, sendUrl, accessToken, onProg
   const uploadRes = await fetch(`${sendUrl}/api/transfers/upload/${id}`, {
     method:  'POST',
     headers: {
-      'Authorization': `Bearer ${accessToken}`,
-      'Content-Type':  'application/octet-stream',
+      'x-sgraph-access-token': accessToken,
+      'Content-Type':          'application/octet-stream',
     },
     body: ciphertext,
   });
@@ -168,14 +168,14 @@ async function directUpload(ciphertext, transferId, sendUrl, accessToken, onProg
  * @param {Uint8Array} ciphertext   - Encrypted payload.
  * @param {string}     transferId   - Derived transfer ID.
  * @param {string}     sendUrl      - Base URL of the SG/Send API.
- * @param {string}     accessToken  - Bearer token for authentication.
+ * @param {string}     accessToken  - Access token (sent as x-sgraph-access-token header).
  * @param {Function}   onProgress   - Progress callback.
  * @returns {Promise<void>}
  */
 async function multipartUpload(ciphertext, transferId, sendUrl, accessToken, onProgress) {
   const headers = {
-    'Authorization': `Bearer ${accessToken}`,
-    'Content-Type':  'application/json',
+    'x-sgraph-access-token': accessToken,
+    'Content-Type':          'application/json',
   };
 
   const totalSize = ciphertext.byteLength;
@@ -233,7 +233,7 @@ async function multipartUpload(ciphertext, transferId, sendUrl, accessToken, onP
  * @param {Blob}     blob         - The file content as a Blob.
  * @param {string}   filename     - Original filename (embedded in SGMETA metadata).
  * @param {string}   sendUrl      - Base URL of the SG/Send API (no trailing slash).
- * @param {string}   accessToken  - Bearer token for API authentication.
+ * @param {string}   accessToken  - Access token (sent as x-sgraph-access-token header).
  * @param {Function} [onProgress] - Optional callback receiving `{ percent: number, stage: string }`.
  *                                  Stages: `'generating'` | `'packaging'` | `'encrypting'` | `'uploading'` | `'complete'`.
  * @returns {Promise<{ token: string, transferId: string, url: string }>}
