@@ -18,18 +18,18 @@ Usage:
 """
 
 import argparse
+import re
 import shutil
 import sys
 from pathlib import Path
-from packaging.version import Version
 
 
-def parse_version(name):
-    """Parse a version folder name like 'v0.1.5' into a sortable Version."""
-    try:
-        return Version(name.lstrip('v'))
-    except Exception:
-        return None
+def parse_version_tuple(name):
+    """Parse a version folder name like 'v0.1.5' into a sortable tuple (0, 1, 5)."""
+    m = re.match(r'^v?(\d+)\.(\d+)\.(\d+)$', name)
+    if m:
+        return (int(m.group(1)), int(m.group(2)), int(m.group(3)))
+    return None
 
 
 def main():
@@ -52,7 +52,7 @@ def main():
 
     source_dir = Path(args.source_dir).resolve()
     ifd_base = source_dir / args.ifd_base
-    target_version = parse_version(args.up_to)
+    target_version = parse_version_tuple(args.up_to)
 
     if not ifd_base.is_dir():
         print(f"ERROR: IFD base directory not found: {ifd_base}")
@@ -66,7 +66,7 @@ def main():
     version_dirs = []
     for d in ifd_base.iterdir():
         if d.is_dir() and d.name.startswith('v') and d.name != '_latest':
-            v = parse_version(d.name)
+            v = parse_version_tuple(d.name)
             if v is not None and v <= target_version:
                 version_dirs.append((v, d))
 
@@ -99,7 +99,8 @@ def main():
                 shutil.copy2(src_path, dst)
                 file_count += 1
 
-        print(f"  + v{version}: {file_count} files")
+        ver_str = f"{version[0]}.{version[1]}.{version[2]}"
+        print(f"  + v{ver_str}: {file_count} files")
 
     # Count total files in _latest
     total = sum(1 for _ in latest_dir.rglob('*') if _.is_file())
