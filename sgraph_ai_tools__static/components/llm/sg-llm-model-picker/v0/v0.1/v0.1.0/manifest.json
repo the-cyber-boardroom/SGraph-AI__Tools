@@ -1,0 +1,25 @@
+{
+  "name": "sg-llm-model-picker",
+  "version": "0.1.0",
+  "description": "Compact model selector dropdown for any LLM provider with live refresh",
+  "tag": "sg-llm-model-picker",
+  "path": "components/llm/sg-llm-model-picker/v0/v0.1/v0.1.0/sg-llm-model-picker.js",
+  "exports": ["SgLlmModelPicker"],
+  "attributes": {
+    "provider": "Provider id: openrouter | ollama | anthropic | openai",
+    "base-url": "Optional base URL override (for custom Ollama endpoints)",
+    "compact": "Boolean — inline-block display when present"
+  },
+  "emits": {
+    "llm:model-changed": "{ model: string } — when user selects a model (dispatched on parentElement)"
+  },
+  "consumes": {
+    "llm:connected": "{ provider, model, baseUrl, apiKey } — auto-loads models and pre-selects model"
+  },
+  "api": {
+    "setProvider": "async (provider, apiKey, baseUrl) => void — load models for a provider",
+    "setModel": "(model) => void — pre-select a model",
+    "getModel": "() => string — returns currently selected model"
+  },
+  "dependencies": []
+}
