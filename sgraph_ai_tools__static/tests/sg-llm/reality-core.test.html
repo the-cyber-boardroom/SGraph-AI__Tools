@@ -1,0 +1,356 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>sg-llm-reality-core — Tests</title>
+<style>
+    body { font-family: monospace; background: #0d0d1a; color: #e2e8f0; padding: 24px; margin: 0; }
+    h1 { color: #7c9ef8; margin: 0 0 8px; }
+    .subtitle { color: #64748b; font-size: 13px; margin: 0 0 24px; }
+    .test-summary { font-size: 14px; font-weight: bold; margin-bottom: 20px; padding: 10px 16px; border-radius: 6px; }
+    .test-summary.pass { background: #0d2a1a; color: #4ade80; border: 1px solid #166534; }
+    .test-summary.fail { background: #2a0d0d; color: #f87171; border: 1px solid #991b1b; }
+    .suite { margin-bottom: 20px; }
+    .suite-title { color: #a0aec0; font-size: 12px; text-transform: uppercase; letter-spacing: 0.08em; margin-bottom: 8px; }
+    .test { display: flex; align-items: flex-start; gap: 8px; font-size: 13px; padding: 4px 0; line-height: 1.4; }
+    .test .icon { flex-shrink: 0; }
+    .pass .icon { color: #4ade80; }
+    .fail .icon { color: #f87171; }
+    .fail .msg { color: #f87171; }
+    .detail { color: #64748b; font-size: 12px; margin-top: 2px; }
+</style>
+</head>
+<body>
+<h1>sg-llm-reality-core</h1>
+<p class="subtitle">Pure logic — block factory, token estimation, messages assembly</p>
+<div class="test-summary" id="summary">Running…</div>
+<div id="results"></div>
+
+<script type="module">
+import {
+    BLOCK_TYPES,
+    createBlock,
+    estimateTokens,
+    totalTokens,
+    blockTokens,
+    assembleMessages,
+    assembleMemoryUpdateMessages,
+} from '/components/llm/sg-llm-reality/v0/v0.1/v0.1.0/sg-llm-reality-core.js';
+
+// ── Test harness ─────────────────────────────────────────────────────────────
+
+let passed = 0;
+let failed = 0;
+const suites = [];
+let currentSuite = null;
+
+function suite(name) {
+    currentSuite = { name, tests: [] };
+    suites.push(currentSuite);
+}
+
+function test(name, fn) {
+    try {
+        fn();
+        currentSuite.tests.push({ name, ok: true });
+        passed++;
+    } catch (err) {
+        currentSuite.tests.push({ name, ok: false, msg: err.message });
+        failed++;
+    }
+}
+
+function assert(cond, msg) {
+    if (!cond) throw new Error(msg || 'Assertion failed');
+}
+
+function assertEqual(a, b, msg) {
+    const as = JSON.stringify(a);
+    const bs = JSON.stringify(b);
+    if (as !== bs) throw new Error(msg || `Expected ${bs}, got ${as}`);
+}
+
+// ── Tests ────────────────────────────────────────────────────────────────────
+
+suite('BLOCK_TYPES');
+
+test('frozen object with 5 types', () => {
+    assert(Object.isFrozen(BLOCK_TYPES), 'BLOCK_TYPES should be frozen');
+    const keys = Object.keys(BLOCK_TYPES);
+    assertEqual(keys.sort(), ['context', 'history', 'memory', 'question', 'system']);
+});
+
+test('each type has label, icon, collapsible', () => {
+    for (const [, meta] of Object.entries(BLOCK_TYPES)) {
+        assert(typeof meta.label === 'string' && meta.label.length > 0, 'missing label');
+        assert(typeof meta.icon === 'string' && meta.icon.length > 0, 'missing icon');
+        assert(typeof meta.collapsible === 'boolean', 'collapsible should be boolean');
+    }
+});
+
+test('history role is null', () => {
+    assertEqual(BLOCK_TYPES.history.role, null);
+});
+
+// ── createBlock ──────────────────────────────────────────────────────────────
+
+suite('createBlock');
+
+test('system block has correct shape', () => {
+    const b = createBlock('system');
+    assert(typeof b.id === 'string' && b.id.startsWith('block-'), 'id prefix');
+    assertEqual(b.type, 'system');
+    assert(b.enabled === true, 'enabled by default');
+    assert('content' in b, 'has content');
+    assertEqual(b.content, '');
+});
+
+test('context block has label and content', () => {
+    const b = createBlock('context');
+    assert('label' in b && 'content' in b, 'has label and content');
+    assertEqual(b.label, '');
+    assertEqual(b.content, '');
+});
+
+test('history block has pairs array with one empty pair', () => {
+    const b = createBlock('history');
+    assert(Array.isArray(b.pairs), 'pairs is array');
+    assertEqual(b.pairs.length, 1);
+    assertEqual(b.pairs[0], { user: '', assistant: '' });
+});
+
+test('memory block has content', () => {
+    const b = createBlock('memory');
+    assert('content' in b);
+    assertEqual(b.content, '');
+});
+
+test('question block has content and _imageCount', () => {
+    const b = createBlock('question');
+    assert('content' in b);
+    assertEqual(b._imageCount, 0);
+});
+
+test('overrides are applied', () => {
+    const b = createBlock('system', { content: 'hello', enabled: false });
+    assertEqual(b.content, 'hello');
+    assertEqual(b.enabled, false);
+});
+
+test('each call produces a unique id', () => {
+    const ids = new Set();
+    for (let i = 0; i < 10; i++) ids.add(createBlock('system').id);
+    assertEqual(ids.size, 10);
+});
+
+// ── estimateTokens ────────────────────────────────────────────────────────────
+
+suite('estimateTokens');
+
+test('empty string returns 0', () => {
+    assertEqual(estimateTokens(''), 0);
+});
+
+test('null/undefined returns 0', () => {
+    assertEqual(estimateTokens(null), 0);
+    assertEqual(estimateTokens(undefined), 0);
+});
+
+test('12-char string → 3 tokens (ceil(12/4))', () => {
+    assertEqual(estimateTokens('hello world!'), 3);
+});
+
+test('1-char string → 1 token (ceil)', () => {
+    assertEqual(estimateTokens('x'), 1);
+});
+
+// ── blockTokens / totalTokens ─────────────────────────────────────────────────
+
+suite('blockTokens / totalTokens');
+
+test('system block tokens = content tokens', () => {
+    const b = createBlock('system', { content: 'abcd' }); // 4 chars → 1 token
+    assertEqual(blockTokens(b), 1);
+});
+
+test('context block tokens = label + content', () => {
+    const b = createBlock('context', { label: 'abcd', content: 'efgh' }); // 4+4=8 → 2
+    assertEqual(blockTokens(b), 2);
+});
+
+test('history block tokens = sum of all pair text', () => {
+    const b = createBlock('history', { pairs: [
+        { user: 'abcd', assistant: 'efgh' }, // 4+4=8 → 2
+        { user: 'ijkl', assistant: '' },     // 4+0=4 → 1
+    ]});
+    assertEqual(blockTokens(b), 3);
+});
+
+test('disabled blocks excluded from totalTokens', () => {
+    const blocks = [
+        createBlock('system', { content: 'aaaa' }),     // 1 tok, enabled
+        createBlock('question', { content: 'bbbb', enabled: false }), // disabled
+    ];
+    blocks[1].enabled = false;
+    assertEqual(totalTokens(blocks), 1);
+});
+
+// ── assembleMessages ──────────────────────────────────────────────────────────
+
+suite('assembleMessages');
+
+test('system block → role:system', () => {
+    const msgs = assembleMessages([createBlock('system', { content: 'Be helpful.' })]);
+    assertEqual(msgs.length, 1);
+    assertEqual(msgs[0], { role: 'system', content: 'Be helpful.' });
+});
+
+test('context block → role:user with prefix', () => {
+    const b = createBlock('context', { label: 'Doc', content: 'Some text.' });
+    const msgs = assembleMessages([b]);
+    assertEqual(msgs[0].role, 'user');
+    assert(msgs[0].content.startsWith('--- CONTEXT: Doc ---'), 'context prefix');
+    assert(msgs[0].content.includes('Some text.'), 'context body');
+});
+
+test('history pairs → interleaved user/assistant', () => {
+    const b = createBlock('history', { pairs: [
+        { user: 'Hello', assistant: 'Hi' },
+        { user: 'Go on', assistant: 'Sure' },
+    ]});
+    const msgs = assembleMessages([b]);
+    assertEqual(msgs.length, 4);
+    assertEqual(msgs[0], { role: 'user',      content: 'Hello' });
+    assertEqual(msgs[1], { role: 'assistant', content: 'Hi' });
+    assertEqual(msgs[2], { role: 'user',      content: 'Go on' });
+    assertEqual(msgs[3], { role: 'assistant', content: 'Sure' });
+});
+
+test('history skips empty user/assistant entries', () => {
+    const b = createBlock('history', { pairs: [
+        { user: 'Hello', assistant: '' },
+    ]});
+    const msgs = assembleMessages([b]);
+    assertEqual(msgs.length, 1);
+    assertEqual(msgs[0].role, 'user');
+});
+
+test('memory block → role:user with SESSION MEMORY prefix', () => {
+    const b = createBlock('memory', { content: '- learnt X\n- learnt Y' });
+    const msgs = assembleMessages([b]);
+    assertEqual(msgs[0].role, 'user');
+    assert(msgs[0].content.startsWith('--- SESSION MEMORY ---'), 'memory prefix');
+});
+
+test('question block → plain string when no images', () => {
+    const b = createBlock('question', { content: 'What is X?' });
+    const msgs = assembleMessages([b]);
+    assertEqual(msgs[0], { role: 'user', content: 'What is X?' });
+});
+
+test('question block → multimodal array when images present', () => {
+    const b = createBlock('question', { content: 'Describe this.' });
+    const imgs = [{ dataUrl: 'data:image/png;base64,abc' }];
+    const msgs = assembleMessages([b], imgs);
+    assert(Array.isArray(msgs[0].content), 'content should be array');
+    assertEqual(msgs[0].content[0], { type: 'text', text: 'Describe this.' });
+    assertEqual(msgs[0].content[1].type, 'image_url');
+    assertEqual(msgs[0].content[1].image_url.url, 'data:image/png;base64,abc');
+});
+
+test('removing images reverts question to plain string', () => {
+    const b = createBlock('question', { content: 'X' });
+    const withImg = assembleMessages([b], [{ dataUrl: 'data:image/png;base64,x' }]);
+    assert(Array.isArray(withImg[0].content), 'multimodal with images');
+    const withoutImg = assembleMessages([b], []);
+    assertEqual(typeof withoutImg[0].content, 'string', 'plain string without images');
+});
+
+test('disabled block excluded from messages', () => {
+    const sys = createBlock('system', { content: 'sys', enabled: false });
+    sys.enabled = false;
+    const q   = createBlock('question', { content: 'q' });
+    const msgs = assembleMessages([sys, q]);
+    assertEqual(msgs.length, 1);
+    assertEqual(msgs[0].role, 'user');
+});
+
+test('full reality: system + context + history + memory + question', () => {
+    const blocks = [
+        createBlock('system',   { content: 'You are X.' }),
+        createBlock('context',  { label: 'Ref', content: 'ref body' }),
+        createBlock('history',  { pairs: [{ user: 'u1', assistant: 'a1' }] }),
+        createBlock('memory',   { content: 'mem' }),
+        createBlock('question', { content: 'task' }),
+    ];
+    const msgs = assembleMessages(blocks);
+    // system + context + u1 + a1 + memory + question = 6
+    assertEqual(msgs.length, 6);
+    assertEqual(msgs[0].role, 'system');
+    assertEqual(msgs[1].role, 'user');       // context
+    assertEqual(msgs[2].role, 'user');       // history user
+    assertEqual(msgs[3].role, 'assistant');  // history assistant
+    assertEqual(msgs[4].role, 'user');       // memory
+    assertEqual(msgs[5].role, 'user');       // question
+});
+
+// ── assembleMemoryUpdateMessages ──────────────────────────────────────────────
+
+suite('assembleMemoryUpdateMessages');
+
+test('returns 2-message array', () => {
+    const msgs = assembleMemoryUpdateMessages(null, 'q', 'r');
+    assertEqual(msgs.length, 2);
+});
+
+test('first message is system role', () => {
+    const msgs = assembleMemoryUpdateMessages(null, 'q', 'r');
+    assertEqual(msgs[0].role, 'system');
+    assert(msgs[0].content.includes('memory manager'), 'system prompt');
+});
+
+test('second message is user with current memory', () => {
+    const mem = createBlock('memory', { content: '- item A' });
+    const msgs = assembleMemoryUpdateMessages(mem, 'What next?', 'Do Y.');
+    assertEqual(msgs[1].role, 'user');
+    assert(msgs[1].content.includes('- item A'), 'includes memory content');
+    assert(msgs[1].content.includes('What next?'), 'includes question');
+    assert(msgs[1].content.includes('Do Y.'), 'includes response');
+});
+
+test('handles null memoryBlock gracefully', () => {
+    const msgs = assembleMemoryUpdateMessages(null, 'q', 'r');
+    assert(msgs[1].content.includes('(empty)'), 'empty memory fallback');
+});
+
+// ── Render ────────────────────────────────────────────────────────────────────
+
+const resultsEl  = document.getElementById('results');
+const summaryEl  = document.getElementById('summary');
+
+for (const s of suites) {
+    const suiteDiv = document.createElement('div');
+    suiteDiv.className = 'suite';
+    suiteDiv.innerHTML = `<div class="suite-title">${s.name}</div>`;
+    for (const t of s.tests) {
+        const div = document.createElement('div');
+        div.className = `test ${t.ok ? 'pass' : 'fail'}`;
+        div.innerHTML = `
+            <span class="icon">${t.ok ? '✓' : '✗'}</span>
+            <div>
+                <div>${t.name}</div>
+                ${t.ok ? '' : `<div class="detail msg">${t.msg}</div>`}
+            </div>`;
+        suiteDiv.appendChild(div);
+    }
+    resultsEl.appendChild(suiteDiv);
+}
+
+const total = passed + failed;
+summaryEl.textContent = failed === 0
+    ? `✓ All ${total} tests passed`
+    : `✗ ${failed} of ${total} tests failed`;
+summaryEl.className = `test-summary ${failed === 0 ? 'pass' : 'fail'}`;
+</script>
+</body>
+</html>

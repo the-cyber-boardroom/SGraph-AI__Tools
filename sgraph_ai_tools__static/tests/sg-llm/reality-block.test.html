@@ -1,0 +1,375 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>sg-llm-block — Tests</title>
+<style>
+    body { font-family: monospace; background: #0d0d1a; color: #e2e8f0; padding: 24px; margin: 0; }
+    h1 { color: #7c9ef8; margin: 0 0 8px; }
+    .subtitle { color: #64748b; font-size: 13px; margin: 0 0 24px; }
+    .test-summary { font-size: 14px; font-weight: bold; margin-bottom: 20px; padding: 10px 16px; border-radius: 6px; }
+    .test-summary.pass { background: #0d2a1a; color: #4ade80; border: 1px solid #166534; }
+    .test-summary.fail { background: #2a0d0d; color: #f87171; border: 1px solid #991b1b; }
+    .suite { margin-bottom: 20px; }
+    .suite-title { color: #a0aec0; font-size: 12px; text-transform: uppercase; letter-spacing: 0.08em; margin-bottom: 8px; }
+    .test { display: flex; align-items: flex-start; gap: 8px; font-size: 13px; padding: 4px 0; }
+    .test .icon { flex-shrink: 0; }
+    .pass .icon { color: #4ade80; }
+    .fail .icon { color: #f87171; }
+    .fail .msg { color: #f87171; }
+    .detail { color: #64748b; font-size: 12px; margin-top: 2px; }
+    h2 { color: #a0aec0; font-size: 14px; margin: 32px 0 8px; border-top: 1px solid #1e2a45; padding-top: 16px; }
+    .demo { display: flex; flex-wrap: wrap; gap: 16px; margin-top: 12px; }
+    .demo-block { width: 340px; }
+    .demo-label { font-size: 11px; color: #64748b; margin-bottom: 6px; }
+</style>
+</head>
+<body>
+<h1>sg-llm-block</h1>
+<p class="subtitle">Single block Web Component — all 5 block types, events, setData/getData</p>
+<div class="test-summary" id="summary">Running…</div>
+<div id="results"></div>
+
+<h2>Interactive demos</h2>
+<p style="color:#64748b;font-size:12px;">Each block below is a live &lt;sg-llm-block&gt; element. Edit fields and observe the token count update in the header.</p>
+<div class="demo" id="demo-area"></div>
+
+<script type="module">
+import { SgLlmBlock }   from '/components/llm/sg-llm-reality/v0/v0.1/v0.1.0/sg-llm-block.js';
+import { createBlock }  from '/components/llm/sg-llm-reality/v0/v0.1/v0.1.0/sg-llm-reality-core.js';
+
+// ── Test harness ─────────────────────────────────────────────────────────────
+
+let passed = 0;
+let failed = 0;
+const suites = [];
+let currentSuite = null;
+
+function suite(name) {
+    currentSuite = { name, tests: [] };
+    suites.push(currentSuite);
+}
+
+function test(name, fn) {
+    try {
+        fn();
+        currentSuite.tests.push({ name, ok: true });
+        passed++;
+    } catch (err) {
+        currentSuite.tests.push({ name, ok: false, msg: err.message });
+        failed++;
+    }
+}
+
+function assert(cond, msg) { if (!cond) throw new Error(msg || 'Assertion failed'); }
+function assertEqual(a, b, msg) {
+    const as = JSON.stringify(a), bs = JSON.stringify(b);
+    if (as !== bs) throw new Error(msg || `Expected ${bs}, got ${as}`);
+}
+
+// Helper: make a mounted block element
+function makeBlock(type, overrides = {}) {
+    const el = document.createElement('sg-llm-block');
+    document.body.appendChild(el); // must be in DOM for connectedCallback
+    el.setData(createBlock(type, overrides));
+    return el;
+}
+
+// ── Tests ────────────────────────────────────────────────────────────────────
+
+suite('Custom element');
+
+test('sg-llm-block is registered', () => {
+    assert(customElements.get('sg-llm-block') !== undefined, 'not registered');
+});
+
+test('element can be created', () => {
+    const el = document.createElement('sg-llm-block');
+    assert(el instanceof SgLlmBlock);
+});
+
+// ── setData / getData round-trip ──────────────────────────────────────────────
+
+suite('setData / getData round-trip');
+
+test('system block', () => {
+    const el = makeBlock('system', { content: 'Be helpful.' });
+    const d = el.getData();
+    assertEqual(d.type, 'system');
+    assertEqual(d.content, 'Be helpful.');
+    el.remove();
+});
+
+test('context block', () => {
+    const el = makeBlock('context', { label: 'Docs', content: 'Body text.' });
+    const d = el.getData();
+    assertEqual(d.type, 'context');
+    assertEqual(d.label, 'Docs');
+    assertEqual(d.content, 'Body text.');
+    el.remove();
+});
+
+test('history block has pairs', () => {
+    const el = makeBlock('history', { pairs: [{ user: 'Hi', assistant: 'Hello' }] });
+    const d = el.getData();
+    assertEqual(d.type, 'history');
+    assert(Array.isArray(d.pairs) && d.pairs.length === 1, 'should have 1 pair');
+    assertEqual(d.pairs[0].user, 'Hi');
+    assertEqual(d.pairs[0].assistant, 'Hello');
+    el.remove();
+});
+
+test('memory block', () => {
+    const el = makeBlock('memory', { content: '- learnt X' });
+    const d = el.getData();
+    assertEqual(d.type, 'memory');
+    assertEqual(d.content, '- learnt X');
+    el.remove();
+});
+
+test('question block', () => {
+    const el = makeBlock('question', { content: 'What is this?' });
+    const d = el.getData();
+    assertEqual(d.type, 'question');
+    assertEqual(d.content, 'What is this?');
+    el.remove();
+});
+
+// ── Shadow DOM structure ───────────────────────────────────────────────────────
+
+suite('Shadow DOM structure');
+
+test('system block renders a textarea', () => {
+    const el = makeBlock('system');
+    const ta = el.shadowRoot.querySelector('textarea#content');
+    assert(ta !== null, 'no textarea#content found');
+    el.remove();
+});
+
+test('context block renders label input + textarea', () => {
+    const el = makeBlock('context');
+    assert(el.shadowRoot.querySelector('input#ctx-label') !== null, 'no ctx-label input');
+    assert(el.shadowRoot.querySelector('textarea#content') !== null, 'no content textarea');
+    el.remove();
+});
+
+test('history block renders pairs container and add-pair button', () => {
+    const el = makeBlock('history');
+    assert(el.shadowRoot.querySelector('#pairs-container') !== null, 'no pairs-container');
+    assert(el.shadowRoot.querySelector('#add-pair-btn') !== null, 'no add-pair-btn');
+    el.remove();
+});
+
+test('question block shows image badge hidden when _imageCount is 0', () => {
+    const el = makeBlock('question');
+    const badge = el.shadowRoot.querySelector('#img-badge');
+    assert(badge !== null, 'no img-badge');
+    assert(badge.classList.contains('hidden'), 'badge should be hidden when imageCount=0');
+    el.remove();
+});
+
+test('disabled block renders with .disabled class', () => {
+    const el = makeBlock('system', { enabled: false });
+    const root = el.shadowRoot.querySelector('.block-root');
+    assert(root?.classList.contains('disabled'), 'should have disabled class');
+    el.remove();
+});
+
+// ── Events ────────────────────────────────────────────────────────────────────
+
+suite('Events');
+
+test('block-change fires on textarea input', (done) => {
+    const el = makeBlock('system', { content: '' });
+    let fired = false;
+    el.addEventListener('block-change', (e) => {
+        fired = true;
+        assert(e.detail.blockId, 'missing blockId in block-change');
+    });
+    const ta = el.shadowRoot.querySelector('textarea#content');
+    ta.value = 'hello';
+    ta.dispatchEvent(new Event('input', { bubbles: true }));
+    assert(fired, 'block-change did not fire');
+    el.remove();
+});
+
+test('block-remove fires on ✕ click', () => {
+    const el = makeBlock('system');
+    let fired = false;
+    el.addEventListener('block-remove', (e) => {
+        fired = true;
+        assert(e.detail.blockId, 'missing blockId in block-remove');
+    });
+    el.shadowRoot.getElementById('remove-btn').click();
+    assert(fired, 'block-remove did not fire');
+    el.remove();
+});
+
+test('block-toggle fires on toggle click with enabled state', () => {
+    const el = makeBlock('system', { enabled: true });
+    let fired = false;
+    let detail = null;
+    el.addEventListener('block-toggle', (e) => {
+        fired = true;
+        detail = e.detail;
+    });
+    el.shadowRoot.getElementById('toggle-btn').click();
+    assert(fired, 'block-toggle did not fire');
+    assertEqual(detail.enabled, false, 'enabled should be false after first toggle');
+    el.remove();
+});
+
+test('block-toggle flips enabled back to true on second click', () => {
+    const el = makeBlock('system', { enabled: true });
+    const btn = el.shadowRoot.getElementById('toggle-btn');
+    btn.click(); // → false
+    let detail = null;
+    el.addEventListener('block-toggle', (e) => { detail = e.detail; });
+    btn.click(); // → true
+    assertEqual(detail.enabled, true, 'enabled should be true on second toggle');
+    el.remove();
+});
+
+// ── History-specific ──────────────────────────────────────────────────────────
+
+suite('History block');
+
+test('add-pair button increases pairs count', () => {
+    const el = makeBlock('history', { pairs: [{ user: '', assistant: '' }] });
+    el.shadowRoot.getElementById('add-pair-btn').click();
+    const d = el.getData();
+    assertEqual(d.pairs.length, 2, 'should have 2 pairs after add');
+    el.remove();
+});
+
+test('pair remove button decreases pairs count', () => {
+    const el = makeBlock('history', { pairs: [
+        { user: 'A', assistant: 'B' },
+        { user: 'C', assistant: 'D' },
+    ]});
+    const removeBtn = el.shadowRoot.querySelector('.pair-remove');
+    removeBtn.click();
+    const d = el.getData();
+    assertEqual(d.pairs.length, 1, 'should have 1 pair after remove');
+    el.remove();
+});
+
+test('pair text changes captured in getData', () => {
+    const el = makeBlock('history', { pairs: [{ user: '', assistant: '' }] });
+    const userTa = el.shadowRoot.querySelector('.pair-user');
+    userTa.value = 'New user text';
+    userTa.dispatchEvent(new Event('input', { bubbles: true }));
+    const d = el.getData();
+    assertEqual(d.pairs[0].user, 'New user text');
+    el.remove();
+});
+
+// ── Token count ────────────────────────────────────────────────────────────────
+
+suite('Token count');
+
+test('token display shows correct count on setData', () => {
+    const el = makeBlock('system', { content: 'abcdefgh' }); // 8 chars → 2 tok
+    const tok = el.shadowRoot.getElementById('tok-display');
+    assert(tok !== null, 'no tok-display element');
+    assert(tok.textContent.includes('2'), `expected "2 tok", got "${tok.textContent}"`);
+    el.remove();
+});
+
+test('token display updates on input', () => {
+    const el = makeBlock('system', { content: '' });
+    const ta = el.shadowRoot.querySelector('textarea#content');
+    ta.value = 'abcdefgh'; // 8 chars → 2 tok
+    ta.dispatchEvent(new Event('input', { bubbles: true }));
+    const tok = el.shadowRoot.getElementById('tok-display');
+    assert(tok.textContent.includes('2'), `expected "2 tok" after input, got "${tok.textContent}"`);
+    el.remove();
+});
+
+// ── setImageCount ──────────────────────────────────────────────────────────────
+
+suite('setImageCount');
+
+test('setImageCount shows badge on question block', () => {
+    const el = makeBlock('question');
+    el.setImageCount(2);
+    const badge = el.shadowRoot.getElementById('img-badge');
+    assert(!badge.classList.contains('hidden'), 'badge should be visible');
+    assert(badge.textContent.includes('2'), 'badge should show count');
+    el.remove();
+});
+
+test('setImageCount(0) hides badge', () => {
+    const el = makeBlock('question');
+    el.setImageCount(3);
+    el.setImageCount(0);
+    const badge = el.shadowRoot.getElementById('img-badge');
+    assert(badge.classList.contains('hidden'), 'badge should be hidden at 0');
+    el.remove();
+});
+
+test('setImageCount does nothing on non-question block', () => {
+    const el = makeBlock('system');
+    // Should not throw
+    el.setImageCount(5);
+    el.remove();
+});
+
+// ── Render ────────────────────────────────────────────────────────────────────
+
+const resultsEl = document.getElementById('results');
+const summaryEl = document.getElementById('summary');
+
+for (const s of suites) {
+    const suiteDiv = document.createElement('div');
+    suiteDiv.className = 'suite';
+    suiteDiv.innerHTML = `<div class="suite-title">${s.name}</div>`;
+    for (const t of s.tests) {
+        const div = document.createElement('div');
+        div.className = `test ${t.ok ? 'pass' : 'fail'}`;
+        div.innerHTML = `
+            <span class="icon">${t.ok ? '✓' : '✗'}</span>
+            <div>
+                <div>${t.name}</div>
+                ${t.ok ? '' : `<div class="detail msg">${t.msg}</div>`}
+            </div>`;
+        suiteDiv.appendChild(div);
+    }
+    resultsEl.appendChild(suiteDiv);
+}
+
+const total = passed + failed;
+summaryEl.textContent = failed === 0
+    ? `✓ All ${total} tests passed`
+    : `✗ ${failed} of ${total} tests failed`;
+summaryEl.className = `test-summary ${failed === 0 ? 'pass' : 'fail'}`;
+
+// ── Interactive demos ──────────────────────────────────────────────────────────
+
+const demoArea = document.getElementById('demo-area');
+const demoTypes = [
+    ['system',   { content: 'You are an expert web component developer.' }],
+    ['context',  { label: 'architecture.md', content: 'The project uses vanilla JS ES modules.' }],
+    ['history',  { pairs: [{ user: 'How do I add keyboard nav?', assistant: 'Use keydown on the host element.' }] }],
+    ['memory',   { content: '- Using Shadow DOM\n- Decided on flat row rendering' }],
+    ['question', { content: 'Add expand/collapse to all nodes.', _imageCount: 0 }],
+];
+
+for (const [type, data] of demoTypes) {
+    const wrap = document.createElement('div');
+    wrap.className = 'demo-block';
+    const label = document.createElement('div');
+    label.className = 'demo-label';
+    label.textContent = `<sg-llm-block type="${type}">`;
+    const el = document.createElement('sg-llm-block');
+    wrap.appendChild(label);
+    wrap.appendChild(el);
+    demoArea.appendChild(wrap);
+    el.setData(createBlock(type, data));
+    el.addEventListener('block-change',  (e) => console.log('block-change',  e.detail));
+    el.addEventListener('block-remove',  (e) => console.log('block-remove',  e.detail));
+    el.addEventListener('block-toggle',  (e) => console.log('block-toggle',  e.detail));
+}
+</script>
+</body>
+</html>
