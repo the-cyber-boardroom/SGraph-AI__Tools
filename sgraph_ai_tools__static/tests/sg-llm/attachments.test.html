@@ -1,0 +1,339 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>sg-llm-attachments — Tests</title>
+<style>
+    body { font-family: monospace; background: #0d0d1a; color: #e2e8f0; padding: 24px; margin: 0; }
+    h1 { color: #7c9ef8; margin: 0 0 8px; }
+    .subtitle { color: #64748b; font-size: 13px; margin: 0 0 24px; }
+    .test-summary { font-size: 14px; font-weight: bold; margin-bottom: 20px; padding: 10px 16px; border-radius: 6px; }
+    .test-summary.pass { background: #0d2a1a; color: #4ade80; border: 1px solid #166534; }
+    .test-summary.fail { background: #2a0d0d; color: #f87171; border: 1px solid #991b1b; }
+    .suite { margin-bottom: 20px; }
+    .suite-title { color: #a0aec0; font-size: 12px; text-transform: uppercase; letter-spacing: 0.08em; margin-bottom: 8px; }
+    .test { display: flex; align-items: flex-start; gap: 8px; font-size: 13px; padding: 4px 0; }
+    .test .icon { flex-shrink: 0; }
+    .pass .icon { color: #4ade80; }
+    .fail .icon { color: #f87171; }
+    .fail .msg { color: #f87171; }
+    .detail { color: #64748b; font-size: 12px; margin-top: 2px; }
+    h2 { color: #a0aec0; font-size: 14px; margin: 32px 0 8px; border-top: 1px solid #1e2a45; padding-top: 16px; }
+    .demo { width: 380px; height: 420px; border: 1px solid #222d4d; border-radius: 8px; overflow: hidden; margin-top: 12px; }
+</style>
+</head>
+<body>
+<h1>sg-llm-attachments</h1>
+<p class="subtitle">File drop zone, clipboard paste, attachment cache — ATTACHMENT_ADDED/REMOVED/CLEARED events</p>
+<div class="test-summary" id="summary">Running…</div>
+<div id="results"></div>
+
+<h2>Interactive demo</h2>
+<p style="color:#64748b;font-size:12px;">Drop files or paste (Ctrl+V) onto the component. Events log to console.</p>
+<div id="demo-bus">
+    <div class="demo" id="demo-container"></div>
+</div>
+
+<script type="module">
+import { SgLlmAttachments } from '/components/llm/sg-llm-attachments/v0/v0.1/v0.1.0/sg-llm-attachments.js';
+import { SGL_LLM }          from '/components/llm/sg-llm-events/v0/v0.1/v0.1.0/sg-llm-events.js';
+
+// ── Harness ───────────────────────────────────────────────────────────────────
+
+let passed = 0, failed = 0;
+const suites = [];
+let currentSuite = null;
+
+function suite(name) { currentSuite = { name, tests: [] }; suites.push(currentSuite); }
+function test(name, fn) {
+    try { fn(); currentSuite.tests.push({ name, ok: true }); passed++; }
+    catch (err) { currentSuite.tests.push({ name, ok: false, msg: err.message }); failed++; }
+}
+function assert(cond, msg) { if (!cond) throw new Error(msg || 'Assertion failed'); }
+function assertEqual(a, b, msg) {
+    const as = JSON.stringify(a), bs = JSON.stringify(b);
+    if (as !== bs) throw new Error(msg || `Expected ${bs}, got ${as}`);
+}
+
+function makeComp() {
+    const bus  = document.createElement('div');
+    const comp = document.createElement('sg-llm-attachments');
+    bus.appendChild(comp);
+    document.body.appendChild(bus);
+    return { bus, comp, cleanup: () => bus.remove() };
+}
+
+function dispatch(bus, eventName, detail = {}) {
+    bus.dispatchEvent(new CustomEvent(eventName, { detail, bubbles: true, composed: true }));
+}
+
+function nextEvent(bus, name) {
+    return new Promise(r => bus.addEventListener(name, e => r(e.detail), { once: true }));
+}
+
+// ── Tests ─────────────────────────────────────────────────────────────────────
+
+suite('Custom element');
+
+test('sg-llm-attachments is registered', () => {
+    assert(customElements.get('sg-llm-attachments') !== undefined);
+});
+
+test('element can be created', () => {
+    const el = document.createElement('sg-llm-attachments');
+    assert(el instanceof SgLlmAttachments);
+});
+
+test('renders drop zone and browse button', () => {
+    const { comp, cleanup } = makeComp();
+    assert(comp.shadowRoot.getElementById('drop-zone') !== null, 'no drop-zone');
+    assert(comp.shadowRoot.getElementById('browse-btn') !== null, 'no browse-btn');
+    cleanup();
+});
+
+test('starts with empty list and hidden clear button', () => {
+    const { comp, cleanup } = makeComp();
+    const clearBtn = comp.shadowRoot.getElementById('clear-btn');
+    assert(clearBtn.classList.contains('hidden'), 'clear-btn should be hidden initially');
+    cleanup();
+});
+
+// ── Text attachment ────────────────────────────────────────────────────────────
+
+suite('Text attachment');
+
+test('_addTextItem emits ATTACHMENT_ADDED with textContent', async () => {
+    const { bus, comp, cleanup } = makeComp();
+    const p = nextEvent(bus, SGL_LLM.ATTACHMENT_ADDED);
+    comp._addTextItem('text', 'readme.md', 'Hello world', 11);
+    const detail = await p;
+    assertEqual(detail.attachment.type, 'text');
+    assertEqual(detail.attachment.name, 'readme.md');
+    assertEqual(detail.attachment.textContent, 'Hello world');
+    assert(typeof detail.attachment.id === 'string', 'id should be string');
+    cleanup();
+});
+
+test('text attachment appears in cache', async () => {
+    const { comp, cleanup } = makeComp();
+    comp._addTextItem('text', 'file.txt', 'content', 7);
+    await Promise.resolve();
+    assertEqual(comp._cache.size, 1);
+    cleanup();
+});
+
+test('clear-btn visible after adding attachment', async () => {
+    const { comp, cleanup } = makeComp();
+    comp._addTextItem('text', 'f.txt', 'x', 1);
+    await Promise.resolve();
+    const clearBtn = comp.shadowRoot.getElementById('clear-btn');
+    assert(!clearBtn.classList.contains('hidden'), 'clear-btn should be visible');
+    cleanup();
+});
+
+test('token count shown in item size', async () => {
+    const { comp, cleanup } = makeComp();
+    comp._addTextItem('text', 'f.txt', 'abcdefgh', 8); // 8 chars → 2 tok
+    await Promise.resolve();
+    const list = comp.shadowRoot.getElementById('att-list');
+    assert(list.querySelector('.att-size')?.textContent.includes('2 tok'), 'should show ~2 tok');
+    cleanup();
+});
+
+// ── Image attachment ──────────────────────────────────────────────────────────
+
+suite('Image attachment');
+
+test('image attachment emits ATTACHMENT_ADDED with dataUrl', async () => {
+    const { bus, comp, cleanup } = makeComp();
+    const p = nextEvent(bus, SGL_LLM.ATTACHMENT_ADDED);
+    // Inject via _processImageFile-like path
+    const att = { id: 'img-1', type: 'image', name: 'photo.png', size: 1024, dataUrl: 'data:image/png;base64,abc' };
+    comp._cache.set(att.id, att);
+    comp._refreshList();
+    comp._emitLlm(SGL_LLM.ATTACHMENT_ADDED, { attachment: att });
+    const detail = await p;
+    assertEqual(detail.attachment.type, 'image');
+    assert(detail.attachment.dataUrl?.startsWith('data:'), 'should have dataUrl');
+    cleanup();
+});
+
+test('image attachment renders thumbnail', async () => {
+    const { comp, cleanup } = makeComp();
+    const att = { id: 'img-1', type: 'image', name: 'x.png', size: 100, dataUrl: 'data:image/png;base64,abc' };
+    comp._cache.set(att.id, att);
+    comp._refreshList();
+    const thumb = comp.shadowRoot.querySelector('.att-thumb');
+    assert(thumb !== null, 'should render thumbnail img');
+    cleanup();
+});
+
+// ── Remove ────────────────────────────────────────────────────────────────────
+
+suite('Remove item');
+
+test('_removeItem emits ATTACHMENT_REMOVED with id', async () => {
+    const { bus, comp, cleanup } = makeComp();
+    comp._addTextItem('text', 'f.txt', 'x', 1);
+    await Promise.resolve();
+    const id = [...comp._cache.keys()][0];
+
+    const p = nextEvent(bus, SGL_LLM.ATTACHMENT_REMOVED);
+    comp._removeItem(id);
+    const detail = await p;
+    assertEqual(detail.id, id);
+    cleanup();
+});
+
+test('_removeItem deletes from cache', async () => {
+    const { comp, cleanup } = makeComp();
+    comp._addTextItem('text', 'f.txt', 'x', 1);
+    await Promise.resolve();
+    const id = [...comp._cache.keys()][0];
+    comp._removeItem(id);
+    assertEqual(comp._cache.size, 0);
+    cleanup();
+});
+
+test('remove button click removes item from DOM', async () => {
+    const { comp, cleanup } = makeComp();
+    comp._addTextItem('text', 'f.txt', 'x', 1);
+    await Promise.resolve();
+    comp.shadowRoot.querySelector('.att-remove')?.click();
+    await Promise.resolve();
+    assertEqual(comp._cache.size, 0);
+    cleanup();
+});
+
+// ── Clear all ─────────────────────────────────────────────────────────────────
+
+suite('Clear all');
+
+test('_clearAll emits ATTACHMENTS_CLEARED', async () => {
+    const { bus, comp, cleanup } = makeComp();
+    comp._addTextItem('text', 'a.txt', 'x', 1);
+    comp._addTextItem('text', 'b.txt', 'y', 1);
+    await Promise.resolve();
+
+    const p = nextEvent(bus, SGL_LLM.ATTACHMENTS_CLEARED);
+    comp._clearAll();
+    await p;
+    assertEqual(comp._cache.size, 0);
+    cleanup();
+});
+
+test('clear-btn click triggers _clearAll', async () => {
+    const { bus, comp, cleanup } = makeComp();
+    comp._addTextItem('text', 'f.txt', 'x', 1);
+    await Promise.resolve();
+
+    const p = nextEvent(bus, SGL_LLM.ATTACHMENTS_CLEARED);
+    comp.shadowRoot.getElementById('clear-btn').click();
+    await p;
+    assertEqual(comp._cache.size, 0);
+    cleanup();
+});
+
+// ── getAttachments ─────────────────────────────────────────────────────────────
+
+suite('getAttachments');
+
+test('returns array of attachment copies', async () => {
+    const { comp, cleanup } = makeComp();
+    comp._addTextItem('text', 'a.txt', 'hello', 5);
+    comp._addTextItem('text', 'b.txt', 'world', 5);
+    await Promise.resolve();
+    const atts = comp.getAttachments();
+    assertEqual(atts.length, 2);
+    assert(atts[0].name && atts[1].name, 'should have names');
+    cleanup();
+});
+
+// ── MODEL_CHANGED warning ──────────────────────────────────────────────────────
+
+suite('Model compatibility warning');
+
+test('image gets warning when model does not support vision', async () => {
+    const { bus, comp, cleanup } = makeComp();
+    // Add an image attachment
+    const att = { id: 'img-1', type: 'image', name: 'x.png', size: 100, dataUrl: 'data:image/png;base64,x' };
+    comp._cache.set(att.id, att);
+    // Signal a non-vision model
+    dispatch(bus, SGL_LLM.MODEL_CHANGED, { model: 'llama3.2' });
+    await Promise.resolve();
+    const warn = comp.shadowRoot.querySelector('.att-warn');
+    assert(warn !== null, 'should show vision warning for llama3.2');
+    cleanup();
+});
+
+test('no warning for vision-capable model', async () => {
+    const { bus, comp, cleanup } = makeComp();
+    const att = { id: 'img-1', type: 'image', name: 'x.png', size: 100, dataUrl: 'data:image/png;base64,x' };
+    comp._cache.set(att.id, att);
+    dispatch(bus, SGL_LLM.MODEL_CHANGED, { model: 'anthropic/claude-sonnet-4-6' });
+    await Promise.resolve();
+    const warn = comp.shadowRoot.querySelector('.att-warn');
+    assert(warn === null, 'should not show warning for claude');
+    cleanup();
+});
+
+// ── BUNDLE_LOADED restore ──────────────────────────────────────────────────────
+
+suite('Bundle restore');
+
+test('BUNDLE_LOADED restores attachments and re-emits ATTACHMENT_ADDED', async () => {
+    const { bus, comp, cleanup } = makeComp();
+
+    const attachments = [
+        { id: 'att-1', type: 'text', name: 'doc.md', size: 5, textContent: 'hello' },
+        { id: 'att-2', type: 'image', name: 'img.png', size: 100, dataUrl: 'data:image/png;base64,x' },
+    ];
+
+    let addedCount = 0;
+    bus.addEventListener(SGL_LLM.ATTACHMENT_ADDED, () => addedCount++);
+
+    dispatch(bus, SGL_LLM.BUNDLE_LOADED, { bundle: { attachments } });
+    await Promise.resolve();
+
+    assertEqual(comp._cache.size, 2, 'cache should have 2 items');
+    assertEqual(addedCount, 2, 'should re-emit 2 ATTACHMENT_ADDED events');
+    cleanup();
+});
+
+// ── Render ────────────────────────────────────────────────────────────────────
+
+const resultsEl = document.getElementById('results');
+const summaryEl = document.getElementById('summary');
+
+for (const s of suites) {
+    const suiteDiv = document.createElement('div');
+    suiteDiv.className = 'suite';
+    suiteDiv.innerHTML = `<div class="suite-title">${s.name}</div>`;
+    for (const t of s.tests) {
+        const div = document.createElement('div');
+        div.className = `test ${t.ok ? 'pass' : 'fail'}`;
+        div.innerHTML = `
+            <span class="icon">${t.ok ? '✓' : '✗'}</span>
+            <div><div>${t.name}</div>${t.ok ? '' : `<div class="detail msg">${t.msg}</div>`}</div>`;
+        suiteDiv.appendChild(div);
+    }
+    resultsEl.appendChild(suiteDiv);
+}
+
+const total = passed + failed;
+summaryEl.textContent = failed === 0 ? `✓ All ${total} tests passed` : `✗ ${failed} of ${total} tests failed`;
+summaryEl.className = `test-summary ${failed === 0 ? 'pass' : 'fail'}`;
+
+// ── Demo ──────────────────────────────────────────────────────────────────────
+
+const demoBus  = document.getElementById('demo-bus');
+const demoComp = document.createElement('sg-llm-attachments');
+demoComp.style.cssText = 'display:flex;flex-direction:column;height:100%;';
+document.getElementById('demo-container').appendChild(demoComp);
+
+for (const ev of [SGL_LLM.ATTACHMENT_ADDED, SGL_LLM.ATTACHMENT_REMOVED, SGL_LLM.ATTACHMENTS_CLEARED]) {
+    demoBus.addEventListener(ev, (e) => console.log(ev, e.detail));
+}
+</script>
+</body>
+</html>

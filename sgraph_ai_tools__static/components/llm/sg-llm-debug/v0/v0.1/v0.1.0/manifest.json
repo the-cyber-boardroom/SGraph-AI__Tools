@@ -1,0 +1,18 @@
+{
+    "name": "sg-llm-debug",
+    "version": "0.1.0",
+    "description": "Full request inspector. Logs every SEND event with the complete messages array, colour-coded by block type. Attaches responses/errors. Pure observer — emits nothing.",
+    "files": ["sg-llm-debug.js"],
+    "exports": {
+        "sg-llm-debug.js": ["SgLlmDebug"]
+    },
+    "customElements": {
+        "sg-llm-debug": "sg-llm-debug.js"
+    },
+    "dependencies": {
+        "sg-llm-events": "/components/llm/sg-llm-events/v0/v0.1/v0.1.0/sg-llm-events.js"
+    },
+    "compatibleWith": {
+        "sg-llm-events": ">=0.1.0"
+    }
+}
