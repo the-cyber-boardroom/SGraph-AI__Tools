@@ -1,0 +1,19 @@
+{
+    "name": "sg-llm-stats",
+    "version": "0.1.0",
+    "description": "Token accounting and cost tracking panel. Pre-send estimate, last-request metrics, session totals, streaming toggle.",
+    "files": ["sg-llm-stats.js"],
+    "exports": {
+        "sg-llm-stats.js": ["SgLlmStats"]
+    },
+    "customElements": {
+        "sg-llm-stats": "sg-llm-stats.js"
+    },
+    "dependencies": {
+        "sg-llm-events": "/components/llm/sg-llm-events/v0/v0.1/v0.1.0/sg-llm-events.js"
+    },
+    "compatibleWith": {
+        "sg-llm-events":  ">=0.1.0",
+        "sg-llm-request": ">=0.1.0"
+    }
+}

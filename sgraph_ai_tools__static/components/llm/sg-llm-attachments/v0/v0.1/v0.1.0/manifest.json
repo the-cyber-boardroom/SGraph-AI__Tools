@@ -1,0 +1,19 @@
+{
+    "name": "sg-llm-attachments",
+    "version": "0.1.0",
+    "description": "File drop zone, clipboard paste handler, and attachment cache. Emits ATTACHMENT_ADDED/REMOVED/CLEARED for sg-llm-reality to consume.",
+    "files": ["sg-llm-attachments.js"],
+    "exports": {
+        "sg-llm-attachments.js": ["SgLlmAttachments"]
+    },
+    "customElements": {
+        "sg-llm-attachments": "sg-llm-attachments.js"
+    },
+    "dependencies": {
+        "sg-llm-events": "/components/llm/sg-llm-events/v0/v0.1/v0.1.0/sg-llm-events.js"
+    },
+    "compatibleWith": {
+        "sg-llm-events":  ">=0.1.0",
+        "sg-llm-reality": ">=0.1.0"
+    }
+}
