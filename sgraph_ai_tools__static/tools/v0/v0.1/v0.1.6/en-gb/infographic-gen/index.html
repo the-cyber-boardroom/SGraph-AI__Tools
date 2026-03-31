@@ -1,0 +1,130 @@
+<!DOCTYPE html>
+<html lang="en-GB">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Infographic Generator — tools.sgraph.ai</title>
+    <meta name="description" content="Turn text into SVG infographics with a one-shot LLM request. Choose a style preset, describe your content, and export the result.">
+    <link rel="icon" type="image/svg+xml" href="../../_common/favicon.svg">
+    <link rel="stylesheet" href="../../_common/css/tools.css">
+    <style>
+        html, body {
+            height: 100%;
+            margin: 0;
+            overflow: hidden;
+        }
+        body {
+            display: flex;
+            flex-direction: column;
+        }
+        sg-site-header {
+            flex-shrink: 0;
+        }
+
+        /* ── Event bus + layout container ─────────────────────────────── */
+        #bus {
+            flex: 1;
+            display: grid;
+            grid-template-columns: 36% 1fr;
+            grid-template-rows: auto 1fr auto;
+            grid-template-areas:
+                "connection  infographic"
+                "reality     infographic"
+                "stats       infographic";
+            gap: 1px;
+            background: #1a1a2e;
+            min-height: 0;
+            overflow: hidden;
+        }
+
+        /* ── Panel base ────────────────────────────────────────────────── */
+        #bus > * {
+            background: #0d0d1a;
+            overflow: hidden;
+            min-height: 0;
+        }
+
+        /* ── Grid area assignments ─────────────────────────────────────── */
+        sg-llm-request,
+        sg-llm-bundle     { display: none !important; }
+
+        sg-llm-connection  { grid-area: connection; overflow: auto; max-height: 160px; }
+        sg-llm-reality     { grid-area: reality; overflow: hidden; }
+        sg-llm-stats       { grid-area: stats; overflow: auto; max-height: 130px; }
+        sg-llm-infographic { grid-area: infographic; overflow: hidden; }
+    </style>
+</head>
+<body>
+
+<script type="module" src="/components/site-header/v1/v1.0/v1.0.2/sg-site-header.js"></script>
+<sg-site-header site="Tools" home-url="../../"></sg-site-header>
+
+<!-- ── Event bus: all sg-llm-* are direct children so they share this as parentElement ── -->
+<div id="bus">
+
+    <!-- Headless orchestrators -->
+    <sg-llm-request></sg-llm-request>
+    <sg-llm-bundle auto-save></sg-llm-bundle>
+
+    <!-- Left column: provider settings -->
+    <sg-llm-connection></sg-llm-connection>
+
+    <!-- Left column: reality constructor -->
+    <sg-llm-reality></sg-llm-reality>
+
+    <!-- Left column: token/cost metrics -->
+    <sg-llm-stats></sg-llm-stats>
+
+    <!-- Right: infographic renderer (full height) -->
+    <sg-llm-infographic style-preset="executive" orientation="landscape"></sg-llm-infographic>
+
+</div>
+
+<script type="module">
+// Import all sg-llm components — custom elements self-register on import
+import '/components/llm/sg-llm-events/v0/v0.1/v0.1.0/sg-llm-events.js';
+import '/components/llm/sg-llm-request/v0/v0.1/v0.1.0/sg-llm-request.js';
+import '/components/llm/sg-llm-bundle/v0/v0.1/v0.1.0/sg-llm-bundle.js';
+import '/components/llm/sg-llm-connection/v0/v0.1/v0.1.0/sg-llm-connection.js';
+import '/components/llm/sg-llm-reality/v0/v0.1/v0.1.0/sg-llm-reality.js';
+import '/components/llm/sg-llm-stats/v0/v0.1/v0.1.0/sg-llm-stats.js';
+import '/components/llm/sg-llm-infographic/v0/v0.1/v0.1.0/sg-llm-infographic.js';
+
+// Pre-configure the system block with the infographic prompt once connected
+import { SGL_LLM } from '/components/llm/sg-llm-events/v0/v0.1/v0.1.0/sg-llm-events.js';
+
+const bus = document.getElementById('bus');
+
+// When the infographic component loads, inject its system prompt into the reality
+customElements.whenDefined('sg-llm-infographic').then(() => {
+    customElements.whenDefined('sg-llm-reality').then(() => {
+        const infographic = bus.querySelector('sg-llm-infographic');
+        const reality     = bus.querySelector('sg-llm-reality');
+
+        if (!infographic || !reality) return;
+
+        // Listen for style changes and update system block accordingly
+        const styleSelect = infographic.shadowRoot?.querySelector('.inf-style-select');
+        function injectSystemPrompt() {
+            const prompt = infographic.getSystemPrompt();
+            // Set the system block content if reality exposes a setState API
+            const state = reality.getState?.();
+            if (!state) return;
+            const sysBlock = state.blocks?.find(b => b.type === 'system');
+            if (sysBlock) {
+                sysBlock.content = prompt;
+                reality.setState?.({ blocks: state.blocks });
+            }
+        }
+
+        // Inject on first load
+        injectSystemPrompt();
+
+        // Re-inject when style changes
+        if (styleSelect) styleSelect.addEventListener('change', injectSystemPrompt);
+    });
+});
+</script>
+
+</body>
+</html>
