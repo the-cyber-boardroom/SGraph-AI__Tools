@@ -1,0 +1,17 @@
+{
+    "name": "sg-llm-connection",
+    "version": "0.1.0",
+    "description": "LLM provider configuration panel. Provider tabs (OpenRouter/Ollama/Anthropic/OpenAI), API key entry, model listing/favourites, connection testing. Persists to localStorage.",
+    "files": [
+        "sg-llm-connection.js"
+    ],
+    "exports": {
+        "sg-llm-connection.js": ["SgLlmConnection"]
+    },
+    "dependencies": {
+        "sg-llm-events": "/components/llm/sg-llm-events/v0/v0.1/v0.1.0/sg-llm-events.js"
+    },
+    "compatibleWith": {
+        "sg-llm-events": ">=0.1.0"
+    }
+}
