@@ -193,6 +193,17 @@ function buildEndpoint(provider, baseUrl) {
  * @returns {string} text delta, or '' if none
  */
 function parseSseDelta(line, provider) {
+    // Ollama uses NDJSON — each line is raw JSON, no 'data: ' prefix
+    if (provider === 'ollama') {
+        if (!line.trim()) return '';
+        try {
+            const obj = JSON.parse(line);
+            return obj?.message?.content || '';
+        } catch {
+            return '';
+        }
+    }
+    // SSE format for all other providers
     if (!line.startsWith('data: ')) return '';
     const json = line.slice(6).trim();
     if (json === '[DONE]') return '';
@@ -201,9 +212,6 @@ function parseSseDelta(line, provider) {
         if (provider === 'anthropic') {
             // Anthropic: content_block_delta events
             return obj?.delta?.text || '';
-        }
-        if (provider === 'ollama') {
-            return obj?.message?.content || '';
         }
         // OpenAI-compat: choices[0].delta.content
         return obj?.choices?.[0]?.delta?.content || '';
@@ -438,19 +446,27 @@ export class SgLlmRequest extends HTMLElement {
                     this._emit(SGL_LLM.REQUEST_CHUNK, { chunk: delta, accumulated });
                 }
 
-                // Extract usage from final chunk (Anthropic, some OpenAI-compat)
-                if (line.startsWith('data: ') && line !== 'data: [DONE]') {
-                    try {
-                        const obj = JSON.parse(line.slice(6));
+                // Extract usage and finish reason from streaming chunks
+                try {
+                    // Ollama: raw JSON per line; others: 'data: ...' SSE lines
+                    const raw = provider === 'ollama'
+                        ? line.trim()
+                        : (line.startsWith('data: ') && line !== 'data: [DONE]' ? line.slice(6) : '');
+                    if (raw) {
+                        const obj = JSON.parse(raw);
                         if (obj?.usage) {
                             const u = extractUsage(obj, provider);
                             if (u.promptTokens)     promptTokens     = u.promptTokens;
                             if (u.completionTokens) completionTokens = u.completionTokens;
                         }
+                        // Ollama: prompt_eval_count / eval_count on the done:true line
+                        if (obj?.prompt_eval_count) promptTokens     = obj.prompt_eval_count;
+                        if (obj?.eval_count)        completionTokens = obj.eval_count;
                         if (obj?.choices?.[0]?.finish_reason) finishReason = obj.choices[0].finish_reason;
-                        if (obj?.stop_reason) finishReason = obj.stop_reason;
-                    } catch { /* ignore */ }
-                }
+                        if (obj?.stop_reason)  finishReason = obj.stop_reason;
+                        if (obj?.done_reason)  finishReason = obj.done_reason;
+                    }
+                } catch { /* ignore */ }
             }
         }
 
@@ -459,7 +475,7 @@ export class SgLlmRequest extends HTMLElement {
             promptTokens,
             completionTokens,
             cost:             0,
-            latencyMs:        Date.now() - (this._startTime || Date.now()),
+            latencyMs:        Date.now() - startTime,
             model:            this._config?.model || '',
             finishReason,
         });
