@@ -1,0 +1,298 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>sg-llm-chat-history — Tests</title>
+<style>
+    body { font-family: monospace; background: #0d0d1a; color: #e2e8f0; padding: 24px; margin: 0; }
+    h1 { color: #7c9ef8; margin: 0 0 8px; }
+    .subtitle { color: #64748b; font-size: 13px; margin: 0 0 24px; }
+    .test-summary { font-size: 14px; font-weight: bold; margin-bottom: 20px; padding: 10px 16px; border-radius: 6px; }
+    .test-summary.pass { background: #0d2a1a; color: #4ade80; border: 1px solid #166534; }
+    .test-summary.fail { background: #2a0d0d; color: #f87171; border: 1px solid #991b1b; }
+    .suite { margin-bottom: 20px; }
+    .suite-title { color: #a0aec0; font-size: 12px; text-transform: uppercase; letter-spacing: 0.08em; margin-bottom: 8px; }
+    .test { display: flex; align-items: flex-start; gap: 8px; font-size: 13px; padding: 4px 0; }
+    .pass .icon { color: #4ade80; }
+    .fail .icon { color: #f87171; }
+    .detail { color: #64748b; font-size: 12px; margin-top: 2px; }
+</style>
+</head>
+<body>
+<h1>sg-llm-chat-history</h1>
+<p class="subtitle">Conversation display, state management, streaming, message assembly, export</p>
+<div class="test-summary" id="summary">Running…</div>
+<div id="results"></div>
+
+<script type="module">
+import { SgLlmChatHistory } from '/components/llm/sg-llm-chat-history/v0/v0.1/v0.1.0/sg-llm-chat-history.js';
+import { SGL_LLM }          from '/components/llm/sg-llm-events/v0/v0.1/v0.1.0/sg-llm-events.js';
+
+const CHAT_MESSAGE = 'llm:chat-message';
+
+// ── Harness ───────────────────────────────────────────────────────────────────
+
+let passed = 0, failed = 0;
+const suites = [];
+let currentSuite = null;
+
+function suite(name) { currentSuite = { name, tests: [] }; suites.push(currentSuite); }
+function test(name, fn) {
+    try { fn(); currentSuite.tests.push({ name, ok: true }); passed++; }
+    catch (err) { currentSuite.tests.push({ name, ok: false, msg: err.message }); failed++; }
+}
+async function testAsync(name, fn) {
+    try { await fn(); currentSuite.tests.push({ name, ok: true }); passed++; }
+    catch (err) { currentSuite.tests.push({ name, ok: false, msg: err.message }); failed++; }
+}
+function assert(cond, msg) { if (!cond) throw new Error(msg || 'Assertion failed'); }
+function assertEqual(a, b, msg) {
+    const as = JSON.stringify(a), bs = JSON.stringify(b);
+    if (as !== bs) throw new Error(msg || `Expected ${bs}, got ${as}`);
+}
+
+function nextEvent(bus, name) {
+    return new Promise(r => bus.addEventListener(name, e => r(e.detail), { once: true }));
+}
+
+function makeComp(attrs = {}) {
+    const bus  = document.createElement('div');
+    const comp = document.createElement('sg-llm-chat-history');
+    for (const [k, v] of Object.entries(attrs)) comp.setAttribute(k, v);
+    bus.appendChild(comp);
+    document.body.appendChild(bus);
+    return { bus, comp, cleanup() { bus.remove(); } };
+}
+
+function dispatch(bus, name, detail = {}) {
+    bus.dispatchEvent(new CustomEvent(name, { detail, bubbles: true, composed: true }));
+}
+
+// ── Tests ─────────────────────────────────────────────────────────────────────
+
+suite('Custom element');
+
+test('sg-llm-chat-history is registered', () => {
+    assert(customElements.get('sg-llm-chat-history') !== undefined);
+});
+test('has shadow DOM', () => {
+    const { comp, cleanup } = makeComp();
+    assert(comp.shadowRoot !== null);
+    cleanup();
+});
+test('shows empty state initially', () => {
+    const { comp, cleanup } = makeComp();
+    assert(comp.shadowRoot.querySelector('.ch-empty') !== null, 'empty state should exist');
+    cleanup();
+});
+
+suite('System prompt');
+
+test('setSystemPrompt stores value', () => {
+    const { comp, cleanup } = makeComp();
+    comp.setSystemPrompt('You are a helpful bot');
+    assertEqual(comp._systemPrompt, 'You are a helpful bot');
+    cleanup();
+});
+test('system-prompt attribute sets initial value', () => {
+    const { comp, cleanup } = makeComp({ 'system-prompt': 'Hello' });
+    assertEqual(comp._systemPrompt, 'Hello');
+    cleanup();
+});
+test('system prompt included in getMessages when set', () => {
+    const { comp, cleanup } = makeComp();
+    comp.setSystemPrompt('Be concise.');
+    comp._turns = [{ role: 'user', content: 'Hi' }];
+    const msgs = comp.getMessages();
+    assert(msgs[0].role === 'system', 'first message should be system');
+    assertEqual(msgs[0].content, 'Be concise.');
+    cleanup();
+});
+test('empty system prompt NOT included in getMessages', () => {
+    const { comp, cleanup } = makeComp();
+    comp._turns = [{ role: 'user', content: 'Hi' }];
+    const msgs = comp.getMessages();
+    assert(msgs[0].role !== 'system', 'no system message when prompt is empty');
+    cleanup();
+});
+
+suite('Message assembly');
+
+test('getMessages empty when no turns', () => {
+    const { comp, cleanup } = makeComp();
+    assertEqual(comp.getMessages(), []);
+    cleanup();
+});
+test('user turn produces {role:user, content:text}', () => {
+    const { comp, cleanup } = makeComp();
+    comp._turns = [{ role: 'user', content: 'Hello world' }];
+    const msgs = comp.getMessages();
+    assertEqual(msgs[0], { role: 'user', content: 'Hello world' });
+    cleanup();
+});
+test('assistant turn produces {role:assistant, content}', () => {
+    const { comp, cleanup } = makeComp();
+    comp._turns = [
+        { role: 'user',      content: 'Hi' },
+        { role: 'assistant', content: 'Hello!' },
+    ];
+    const msgs = comp.getMessages();
+    assertEqual(msgs[1], { role: 'assistant', content: 'Hello!' });
+    cleanup();
+});
+test('image attachment → multimodal content array', () => {
+    const { comp, cleanup } = makeComp();
+    comp._turns = [{
+        role: 'user', content: 'Look at this',
+        attachments: [{ id: 'a1', name: 'img.png', type: 'image/png', dataUrl: 'data:image/png;base64,abc' }],
+    }];
+    const msgs = comp.getMessages();
+    assert(Array.isArray(msgs[0].content), 'content should be array for image attachment');
+    assert(msgs[0].content.some(c => c.type === 'image_url'), 'should include image_url part');
+    cleanup();
+});
+test('text file attachment → content appended to text', () => {
+    const { comp, cleanup } = makeComp();
+    comp._turns = [{
+        role: 'user', content: 'Check this file',
+        attachments: [{ id: 'a2', name: 'readme.txt', type: 'text/plain', textContent: 'Hello file' }],
+    }];
+    const msgs = comp.getMessages();
+    assert(typeof msgs[0].content === 'string', 'content should be string');
+    assert(msgs[0].content.includes('Hello file'), 'file content should be appended');
+    assert(msgs[0].content.includes('readme.txt'), 'filename should appear');
+    cleanup();
+});
+
+suite('SEND emission on chat-message');
+
+testAsync('llm:chat-message triggers SEND event', async () => {
+    const { bus, comp, cleanup } = makeComp();
+    const p = nextEvent(bus, SGL_LLM.SEND);
+    dispatch(bus, CHAT_MESSAGE, { text: 'Hello', attachments: [] });
+    const detail = await p;
+    assert(Array.isArray(detail.messages), 'messages should be array');
+    assert(detail.messages.some(m => m.content === 'Hello'), 'user message in messages');
+    cleanup();
+});
+testAsync('SEND includes mode: build', async () => {
+    const { bus, cleanup } = makeComp();
+    const p = nextEvent(bus, SGL_LLM.SEND);
+    dispatch(bus, CHAT_MESSAGE, { text: 'test', attachments: [] });
+    const detail = await p;
+    assertEqual(detail.mode, 'build');
+    cleanup();
+});
+testAsync('SEND carries model and provider from CONNECTED event', async () => {
+    const { bus, cleanup } = makeComp();
+    dispatch(bus, SGL_LLM.CONNECTED, { provider: 'openrouter', model: 'gpt-4o' });
+    const p = nextEvent(bus, SGL_LLM.SEND);
+    dispatch(bus, CHAT_MESSAGE, { text: 'Hi', attachments: [] });
+    const detail = await p;
+    assertEqual(detail.model,    'gpt-4o');
+    assertEqual(detail.provider, 'openrouter');
+    cleanup();
+});
+
+suite('Streaming');
+
+testAsync('REQUEST_START adds assistant bubble with cursor', async () => {
+    const { bus, comp, cleanup } = makeComp();
+    dispatch(bus, CHAT_MESSAGE, { text: 'Go', attachments: [] });
+    await nextEvent(bus, SGL_LLM.SEND);
+    dispatch(bus, SGL_LLM.REQUEST_START, {});
+    await Promise.resolve();
+    assert(comp._streamingEl !== null, '_streamingEl should be set');
+    assert(comp.shadowRoot.querySelector('.ch-cursor') !== null, 'cursor should appear');
+    cleanup();
+});
+
+testAsync('REQUEST_CHUNK updates streaming bubble', async () => {
+    const { bus, comp, cleanup } = makeComp();
+    dispatch(bus, SGL_LLM.REQUEST_START, {});
+    await Promise.resolve();
+    dispatch(bus, SGL_LLM.REQUEST_CHUNK, { accumulated: 'Hello world' });
+    await Promise.resolve();
+    assert(comp.shadowRoot.querySelector('.ch-wrap').textContent.includes('Hello world'));
+    cleanup();
+});
+
+testAsync('REQUEST_COMPLETE finalises bubble and adds turn', async () => {
+    const { bus, comp, cleanup } = makeComp();
+    dispatch(bus, SGL_LLM.REQUEST_START, {});
+    await Promise.resolve();
+    dispatch(bus, SGL_LLM.REQUEST_COMPLETE, { content: 'Final answer' });
+    await Promise.resolve();
+    assert(comp._streamingEl === null, 'streamingEl should be cleared');
+    assert(comp._turns.some(t => t.role === 'assistant' && t.content === 'Final answer'));
+    cleanup();
+});
+
+testAsync('REQUEST_ERROR shows error style', async () => {
+    const { bus, comp, cleanup } = makeComp();
+    dispatch(bus, SGL_LLM.REQUEST_START, {});
+    await Promise.resolve();
+    dispatch(bus, SGL_LLM.REQUEST_ERROR, { error: 'Network failure' });
+    await Promise.resolve();
+    assert(comp._streamingEl === null, 'streamingEl should be cleared');
+    assert(comp.shadowRoot.querySelector('.ch-bubble.error') !== null, 'error bubble class');
+    cleanup();
+});
+
+suite('clear + export');
+
+testAsync('clear() removes all turns', async () => {
+    const { bus, comp, cleanup } = makeComp();
+    dispatch(bus, CHAT_MESSAGE, { text: 'Hi', attachments: [] });
+    await nextEvent(bus, SGL_LLM.SEND);
+    dispatch(bus, SGL_LLM.REQUEST_COMPLETE, { content: 'Hello!' });
+    await Promise.resolve();
+    comp.clear();
+    assertEqual(comp._turns, []);
+    assert(comp.shadowRoot.querySelector('.ch-empty') !== null, 'empty state restored');
+    cleanup();
+});
+
+test('exportMarkdown returns non-empty string with turns', () => {
+    const { comp, cleanup } = makeComp();
+    comp._turns = [
+        { role: 'user',      content: 'Hello' },
+        { role: 'assistant', content: 'Hi there!' },
+    ];
+    const md = comp.exportMarkdown();
+    assert(md.includes('Hello') && md.includes('Hi there!'));
+    cleanup();
+});
+test('exportMarkdown includes system prompt when set', () => {
+    const { comp, cleanup } = makeComp();
+    comp.setSystemPrompt('Be brief.');
+    comp._turns = [{ role: 'user', content: 'Hi' }];
+    assert(comp.exportMarkdown().includes('Be brief.'));
+    cleanup();
+});
+
+// ── Render ────────────────────────────────────────────────────────────────────
+
+const resultsEl = document.getElementById('results');
+const summaryEl = document.getElementById('summary');
+await Promise.resolve();
+
+for (const s of suites) {
+    const suiteDiv = document.createElement('div');
+    suiteDiv.className = 'suite';
+    suiteDiv.innerHTML = `<div class="suite-title">${s.name}</div>`;
+    for (const t of s.tests) {
+        const div = document.createElement('div');
+        div.className = `test ${t.ok ? 'pass' : 'fail'}`;
+        div.innerHTML = `<span class="icon">${t.ok ? '✓' : '✗'}</span>
+            <div><div>${t.name}</div>${t.ok ? '' : `<div class="detail">${t.msg}</div>`}</div>`;
+        suiteDiv.appendChild(div);
+    }
+    resultsEl.appendChild(suiteDiv);
+}
+const total = passed + failed;
+summaryEl.textContent = failed === 0 ? `✓ All ${total} tests passed` : `✗ ${failed} of ${total} tests failed`;
+summaryEl.className   = `test-summary ${failed === 0 ? 'pass' : 'fail'}`;
+</script>
+</body>
+</html>

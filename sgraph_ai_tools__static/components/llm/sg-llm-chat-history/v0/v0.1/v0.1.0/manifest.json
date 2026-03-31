@@ -1,0 +1,21 @@
+{
+    "name": "sg-llm-chat-history",
+    "version": "0.1.0",
+    "description": "Multi-turn conversation display and state manager. Owns the turn array, renders user/assistant bubbles, handles live streaming, assembles the messages array, and emits SEND on each user message. Collapsible system prompt editor.",
+    "files": ["sg-llm-chat-history.js"],
+    "exports": {
+        "sg-llm-chat-history.js": ["SgLlmChatHistory"]
+    },
+    "customElements": {
+        "sg-llm-chat-history": "sg-llm-chat-history.js"
+    },
+    "dependencies": {
+        "sg-llm-events": "/components/llm/sg-llm-events/v0/v0.1/v0.1.0/sg-llm-events.js"
+    },
+    "compatibleWith": {
+        "sg-llm-events":     ">=0.1.0",
+        "sg-llm-request":    ">=0.1.0",
+        "sg-llm-chat-input": ">=0.1.0"
+    },
+    "notes": "Uses Shadow DOM. Listens for llm:chat-message (from sg-llm-chat-input). Multimodal: image attachments become content arrays, text files appended to message text. Export to markdown via exportMarkdown()."
+}
