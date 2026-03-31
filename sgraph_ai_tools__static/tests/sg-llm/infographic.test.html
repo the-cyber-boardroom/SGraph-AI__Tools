@@ -1,0 +1,377 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>sg-llm-infographic — Tests</title>
+<style>
+    body { font-family: monospace; background: #0d0d1a; color: #e2e8f0; padding: 24px; margin: 0; }
+    h1 { color: #7c9ef8; margin: 0 0 8px; }
+    .subtitle { color: #64748b; font-size: 13px; margin: 0 0 24px; }
+    .test-summary { font-size: 14px; font-weight: bold; margin-bottom: 20px; padding: 10px 16px; border-radius: 6px; }
+    .test-summary.pass { background: #0d2a1a; color: #4ade80; border: 1px solid #166534; }
+    .test-summary.fail { background: #2a0d0d; color: #f87171; border: 1px solid #991b1b; }
+    .suite { margin-bottom: 20px; }
+    .suite-title { color: #a0aec0; font-size: 12px; text-transform: uppercase; letter-spacing: 0.08em; margin-bottom: 8px; }
+    .test { display: flex; align-items: flex-start; gap: 8px; font-size: 13px; padding: 4px 0; }
+    .test .icon { flex-shrink: 0; }
+    .pass .icon { color: #4ade80; }
+    .fail .icon { color: #f87171; }
+    .fail .msg { color: #f87171; }
+    .detail { color: #64748b; font-size: 12px; margin-top: 2px; }
+</style>
+</head>
+<body>
+<h1>sg-llm-infographic</h1>
+<p class="subtitle">SVG extraction, live preview, style presets, export, sanitisation</p>
+<div class="test-summary" id="summary">Running…</div>
+<div id="results"></div>
+
+<script type="module">
+import { SgLlmInfographic } from '/components/llm/sg-llm-infographic/v0/v0.1/v0.1.0/sg-llm-infographic.js';
+import { SGL_LLM }          from '/components/llm/sg-llm-events/v0/v0.1/v0.1.0/sg-llm-events.js';
+
+// ── Harness ───────────────────────────────────────────────────────────────────
+
+let passed = 0, failed = 0;
+const suites = [];
+let currentSuite = null;
+
+function suite(name) { currentSuite = { name, tests: [] }; suites.push(currentSuite); }
+function test(name, fn) {
+    try { fn(); currentSuite.tests.push({ name, ok: true }); passed++; }
+    catch (err) { currentSuite.tests.push({ name, ok: false, msg: err.message }); failed++; }
+}
+async function testAsync(name, fn) {
+    try { await fn(); currentSuite.tests.push({ name, ok: true }); passed++; }
+    catch (err) { currentSuite.tests.push({ name, ok: false, msg: err.message }); failed++; }
+}
+function assert(cond, msg)      { if (!cond) throw new Error(msg || 'Assertion failed'); }
+function assertEqual(a, b, msg) {
+    const as = JSON.stringify(a), bs = JSON.stringify(b);
+    if (as !== bs) throw new Error(msg || `Expected ${bs}, got ${as}`);
+}
+
+function nextEvent(bus, name) {
+    return new Promise(r => bus.addEventListener(name, e => r(e.detail), { once: true }));
+}
+
+function makeComp(attrs = {}) {
+    const bus  = document.createElement('div');
+    const comp = document.createElement('sg-llm-infographic');
+    for (const [k, v] of Object.entries(attrs)) comp.setAttribute(k, v);
+    bus.appendChild(comp);
+    document.body.appendChild(bus);
+    return { bus, comp, cleanup() { bus.remove(); } };
+}
+
+function dispatch(bus, name, detail = {}) {
+    bus.dispatchEvent(new CustomEvent(name, { detail, bubbles: true, composed: true }));
+}
+
+const SAMPLE_SVG = `<svg width="1200" height="800" viewBox="0 0 1200 800" xmlns="http://www.w3.org/2000/svg"><rect x="0" y="0" width="1200" height="800" fill="#0d1b2a"/><text x="600" y="400" text-anchor="middle" fill="white" font-size="48">Test Infographic</text></svg>`;
+const PARTIAL_SVG = `<svg width="1200" height="800" viewBox="0 0 1200 800" xmlns="http://www.w3.org/2000/svg"><rect x="0" y="0" width="1200" height="800" fill="#0d1b2a"/></svg>`;
+
+// ── Custom element ────────────────────────────────────────────────────────────
+
+suite('Custom element');
+
+test('sg-llm-infographic is registered', () => {
+    assert(customElements.get('sg-llm-infographic') !== undefined);
+});
+
+test('has shadow DOM', () => {
+    const { comp, cleanup } = makeComp();
+    assert(comp.shadowRoot !== null, 'should have shadow DOM');
+    cleanup();
+});
+
+test('renders toolbar, preview, actions', () => {
+    const { comp, cleanup } = makeComp();
+    assert(comp.shadowRoot.querySelector('.inf-toolbar') !== null, 'toolbar missing');
+    assert(comp.shadowRoot.querySelector('.inf-preview') !== null, 'preview missing');
+    assert(comp.shadowRoot.querySelector('.inf-actions') !== null, 'actions missing');
+    cleanup();
+});
+
+test('shows placeholder text initially', () => {
+    const { comp, cleanup } = makeComp();
+    const preview = comp.shadowRoot.querySelector('.inf-preview');
+    assert(preview.textContent.includes('SVG will appear here'), 'placeholder should be present');
+    cleanup();
+});
+
+test('export buttons disabled initially', () => {
+    const { comp, cleanup } = makeComp();
+    assert(comp.shadowRoot.querySelector('#export-svg').disabled === true, 'SVG btn should be disabled');
+    assert(comp.shadowRoot.querySelector('#export-png').disabled === true, 'PNG btn should be disabled');
+    cleanup();
+});
+
+// ── Style presets ─────────────────────────────────────────────────────────────
+
+suite('Style presets');
+
+test('default style is executive', () => {
+    const { comp, cleanup } = makeComp();
+    assertEqual(comp.getCurrentStyle(), 'executive');
+    cleanup();
+});
+
+test('style-preset attribute sets initial style', () => {
+    const { comp, cleanup } = makeComp({ 'style-preset': 'minimal' });
+    assertEqual(comp.getCurrentStyle(), 'minimal');
+    cleanup();
+});
+
+test('invalid style-preset falls back to executive', () => {
+    const { comp, cleanup } = makeComp({ 'style-preset': 'nonexistent' });
+    assertEqual(comp.getCurrentStyle(), 'executive');
+    cleanup();
+});
+
+test('setStyle() updates current style', () => {
+    const { comp, cleanup } = makeComp();
+    comp.setStyle('technical');
+    assertEqual(comp.getCurrentStyle(), 'technical');
+    cleanup();
+});
+
+test('setStyle() ignores unknown style', () => {
+    const { comp, cleanup } = makeComp();
+    comp.setStyle('bold');
+    comp.setStyle('unknown-style');
+    assertEqual(comp.getCurrentStyle(), 'bold');
+    cleanup();
+});
+
+test('getSystemPrompt() returns a non-empty string', () => {
+    const { comp, cleanup } = makeComp();
+    const prompt = comp.getSystemPrompt();
+    assert(typeof prompt === 'string' && prompt.length > 20, 'prompt should be a substantial string');
+    cleanup();
+});
+
+test('getSystemPrompt() changes with style', () => {
+    const { comp, cleanup } = makeComp();
+    const p1 = comp.getSystemPrompt();
+    comp.setStyle('playful');
+    const p2 = comp.getSystemPrompt();
+    assert(p1 !== p2, 'different styles should give different prompts');
+    cleanup();
+});
+
+test('style selector dropdown contains all 6 styles', () => {
+    const { comp, cleanup } = makeComp();
+    const options = comp.shadowRoot.querySelectorAll('.inf-style-select option');
+    assertEqual(options.length, 6);
+    cleanup();
+});
+
+// ── Orientation ───────────────────────────────────────────────────────────────
+
+suite('Orientation');
+
+test('default orientation is landscape', () => {
+    const { comp, cleanup } = makeComp();
+    assertEqual(comp._orientation, 'landscape');
+    cleanup();
+});
+
+test('orientation attribute sets initial orientation', () => {
+    const { comp, cleanup } = makeComp({ orientation: 'portrait' });
+    assertEqual(comp._orientation, 'portrait');
+    cleanup();
+});
+
+test('orientation buttons exist in toolbar', () => {
+    const { comp, cleanup } = makeComp();
+    const btns = comp.shadowRoot.querySelectorAll('.inf-orient-btn');
+    assertEqual(btns.length, 2);
+    cleanup();
+});
+
+test('active orientation button has .active class', () => {
+    const { comp, cleanup } = makeComp({ orientation: 'portrait' });
+    const activeBtn = comp.shadowRoot.querySelector('.inf-orient-btn.active');
+    assertEqual(activeBtn?.dataset.orient, 'portrait');
+    cleanup();
+});
+
+// ── SVG extraction ────────────────────────────────────────────────────────────
+
+suite('SVG extraction via events');
+
+testAsync('REQUEST_COMPLETE with SVG renders preview', async () => {
+    const { bus, comp, cleanup } = makeComp();
+    dispatch(bus, SGL_LLM.REQUEST_COMPLETE, { content: SAMPLE_SVG });
+    await Promise.resolve();
+    const svgEl = comp.shadowRoot.querySelector('.inf-preview svg');
+    assert(svgEl !== null, 'SVG element should be in preview');
+    cleanup();
+});
+
+testAsync('REQUEST_COMPLETE with SVG emits INFOGRAPHIC_READY', async () => {
+    const { bus, comp, cleanup } = makeComp();
+    const p = nextEvent(bus, SGL_LLM.INFOGRAPHIC_READY);
+    dispatch(bus, SGL_LLM.REQUEST_COMPLETE, { content: SAMPLE_SVG });
+    const detail = await p;
+    assert(detail.svg?.length > 0, 'detail.svg should be non-empty');
+    assertEqual(detail.width,  1200);
+    assertEqual(detail.height, 800);
+    cleanup();
+});
+
+testAsync('REQUEST_COMPLETE without SVG shows no-svg status', async () => {
+    const { bus, comp, cleanup } = makeComp();
+    dispatch(bus, SGL_LLM.REQUEST_COMPLETE, { content: 'Here is my infographic... oops no SVG!' });
+    await Promise.resolve();
+    const status = comp.shadowRoot.querySelector('.inf-status');
+    assert(status.textContent.includes('No SVG'), 'status should say no SVG found');
+    cleanup();
+});
+
+testAsync('REQUEST_CHUNK with partial SVG renders live preview', async () => {
+    const { bus, comp, cleanup } = makeComp();
+    dispatch(bus, SGL_LLM.REQUEST_CHUNK, { chunk: PARTIAL_SVG, accumulated: PARTIAL_SVG });
+    await Promise.resolve();
+    const svgEl = comp.shadowRoot.querySelector('.inf-preview svg');
+    assert(svgEl !== null, 'partial SVG should render during streaming');
+    cleanup();
+});
+
+testAsync('REQUEST_CHUNK without valid SVG does not crash', async () => {
+    const { bus, comp, cleanup } = makeComp();
+    dispatch(bus, SGL_LLM.REQUEST_CHUNK, { chunk: 'partial text...', accumulated: '<svg partial' });
+    await Promise.resolve();
+    // Should silently ignore incomplete SVG — no error thrown
+    assert(true);
+    cleanup();
+});
+
+testAsync('REQUEST_START clears the preview', async () => {
+    const { bus, comp, cleanup } = makeComp();
+    // First render an SVG
+    dispatch(bus, SGL_LLM.REQUEST_COMPLETE, { content: SAMPLE_SVG });
+    await Promise.resolve();
+    assert(comp.shadowRoot.querySelector('.inf-preview svg') !== null, 'SVG should be present');
+    // Now start a new request
+    dispatch(bus, SGL_LLM.REQUEST_START, {});
+    await Promise.resolve();
+    assert(comp.shadowRoot.querySelector('.inf-preview svg') === null, 'SVG should be cleared');
+    cleanup();
+});
+
+testAsync('REQUEST_ERROR shows error status', async () => {
+    const { bus, comp, cleanup } = makeComp();
+    dispatch(bus, SGL_LLM.REQUEST_ERROR, { error: 'Rate limit exceeded' });
+    await Promise.resolve();
+    const status = comp.shadowRoot.querySelector('.inf-status');
+    assert(status.className.includes('error'), 'status should have error class');
+    assert(status.textContent.includes('Error'), 'status text should indicate error');
+    cleanup();
+});
+
+// ── getCurrentSvg ─────────────────────────────────────────────────────────────
+
+suite('getCurrentSvg');
+
+testAsync('getCurrentSvg returns null before any response', async () => {
+    const { comp, cleanup } = makeComp();
+    assertEqual(comp.getCurrentSvg(), null);
+    cleanup();
+});
+
+testAsync('getCurrentSvg returns SVG string after REQUEST_COMPLETE', async () => {
+    const { bus, comp, cleanup } = makeComp();
+    dispatch(bus, SGL_LLM.REQUEST_COMPLETE, { content: SAMPLE_SVG });
+    await Promise.resolve();
+    assert(comp.getCurrentSvg()?.includes('<svg'), 'getCurrentSvg should return extracted SVG');
+    cleanup();
+});
+
+testAsync('getCurrentSvg is reset by REQUEST_START', async () => {
+    const { bus, comp, cleanup } = makeComp();
+    dispatch(bus, SGL_LLM.REQUEST_COMPLETE, { content: SAMPLE_SVG });
+    await Promise.resolve();
+    dispatch(bus, SGL_LLM.REQUEST_START, {});
+    await Promise.resolve();
+    assertEqual(comp.getCurrentSvg(), null);
+    cleanup();
+});
+
+// ── SVG sanitisation ──────────────────────────────────────────────────────────
+
+suite('SVG sanitisation');
+
+testAsync('script tags are removed from rendered SVG', async () => {
+    const { bus, comp, cleanup } = makeComp();
+    const malicious = SAMPLE_SVG.replace('</svg>', '<script>alert("xss")</script></svg>');
+    dispatch(bus, SGL_LLM.REQUEST_COMPLETE, { content: malicious });
+    await Promise.resolve();
+    const preview = comp.shadowRoot.querySelector('.inf-preview');
+    assert(!preview.innerHTML.includes('<script'), 'script tags should be stripped');
+    cleanup();
+});
+
+testAsync('inline event handlers are removed from rendered SVG', async () => {
+    const { bus, comp, cleanup } = makeComp();
+    const malicious = SAMPLE_SVG.replace('fill="white"', 'fill="white" onclick="alert(1)"');
+    dispatch(bus, SGL_LLM.REQUEST_COMPLETE, { content: malicious });
+    await Promise.resolve();
+    const preview = comp.shadowRoot.querySelector('.inf-preview');
+    assert(!preview.innerHTML.includes('onclick='), 'onclick should be stripped');
+    cleanup();
+});
+
+// ── Export buttons ────────────────────────────────────────────────────────────
+
+suite('Export buttons');
+
+testAsync('export buttons enabled after SVG rendered', async () => {
+    const { bus, comp, cleanup } = makeComp();
+    dispatch(bus, SGL_LLM.REQUEST_COMPLETE, { content: SAMPLE_SVG });
+    await Promise.resolve();
+    assert(!comp.shadowRoot.querySelector('#export-svg').disabled, 'SVG export should be enabled');
+    assert(!comp.shadowRoot.querySelector('#export-png').disabled, 'PNG export should be enabled');
+    cleanup();
+});
+
+testAsync('SVG export emits INFOGRAPHIC_EXPORTED', async () => {
+    const { bus, comp, cleanup } = makeComp();
+    dispatch(bus, SGL_LLM.REQUEST_COMPLETE, { content: SAMPLE_SVG });
+    await Promise.resolve();
+    const p = nextEvent(bus, SGL_LLM.INFOGRAPHIC_EXPORTED);
+    comp.shadowRoot.querySelector('#export-svg').click();
+    const detail = await p;
+    assertEqual(detail.format, 'svg');
+    cleanup();
+});
+
+// ── Render ────────────────────────────────────────────────────────────────────
+
+const resultsEl = document.getElementById('results');
+const summaryEl = document.getElementById('summary');
+
+await Promise.resolve();
+
+for (const s of suites) {
+    const suiteDiv = document.createElement('div');
+    suiteDiv.className = 'suite';
+    suiteDiv.innerHTML = `<div class="suite-title">${s.name}</div>`;
+    for (const t of s.tests) {
+        const div = document.createElement('div');
+        div.className = `test ${t.ok ? 'pass' : 'fail'}`;
+        div.innerHTML = `
+            <span class="icon">${t.ok ? '✓' : '✗'}</span>
+            <div><div>${t.name}</div>${t.ok ? '' : `<div class="detail msg">${t.msg}</div>`}</div>`;
+        suiteDiv.appendChild(div);
+    }
+    resultsEl.appendChild(suiteDiv);
+}
+
+const total = passed + failed;
+summaryEl.textContent = failed === 0 ? `✓ All ${total} tests passed` : `✗ ${failed} of ${total} tests failed`;
+summaryEl.className   = `test-summary ${failed === 0 ? 'pass' : 'fail'}`;
+</script>
+</body>
+</html>
