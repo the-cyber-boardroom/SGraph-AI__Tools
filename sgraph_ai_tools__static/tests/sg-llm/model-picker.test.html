@@ -1,0 +1,381 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>sg-llm-model-picker — Tests</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+               background: #0d0d1a; color: #e2e8f0; padding: 20px; }
+        h1 { font-size: 18px; margin-bottom: 16px; color: #4ECDC4; }
+        h2 { font-size: 14px; margin: 20px 0 8px; color: #a0aec0; text-transform: uppercase; letter-spacing: 0.05em; }
+        #test-results { background: #111122; border: 1px solid #222d4d; border-radius: 8px;
+                        padding: 16px; margin-bottom: 24px; font-size: 13px; }
+        .test-pass  { color: #4ECDC4; margin: 2px 0; }
+        .test-fail  { color: #ff6b6b; font-weight: 600; margin: 2px 0; }
+        .test-summary { margin-top: 12px; font-weight: 600; font-size: 14px; padding-top: 10px;
+                         border-top: 1px solid #222d4d; }
+        .test-summary.all-pass { color: #4ECDC4; }
+        .test-summary.has-fail { color: #ff6b6b; }
+
+        /* Demo area */
+        #demo { background: #111122; border: 1px solid #222d4d; border-radius: 8px; padding: 16px; }
+        .demo-tabs { display: flex; gap: 6px; margin-bottom: 16px; flex-wrap: wrap; }
+        .demo-tab {
+            padding: 6px 14px; border-radius: 4px; border: 1px solid #333d5a;
+            background: #1a1a3a; color: #a0aec0; cursor: pointer; font-size: 13px; font-weight: 500;
+        }
+        .demo-tab.active { background: #4ECDC4; color: #0d0d1a; border-color: #4ECDC4; }
+        label { display: block; font-size: 12px; color: #a0aec0; margin-bottom: 4px; text-transform: uppercase; letter-spacing: 0.05em; }
+        input {
+            width: 100%; background: #0d0d1a; border: 1px solid #333d5a; border-radius: 4px;
+            color: #e2e8f0; padding: 6px 8px; font-size: 13px; margin-bottom: 12px;
+        }
+        .picker-wrap { margin-bottom: 16px; }
+        #event-log { background: #0d0d1a; border: 1px solid #222d4d; border-radius: 4px;
+                     padding: 10px; font-size: 12px; font-family: monospace; height: 120px;
+                     overflow-y: auto; color: #a0aec0; }
+        #event-log .log-entry { margin: 2px 0; }
+        #event-log .log-entry.model-changed { color: #4ECDC4; }
+    </style>
+</head>
+<body>
+
+<h1>sg-llm-model-picker — Test Suite</h1>
+
+<h2>Programmatic Tests</h2>
+<div id="test-results"><em>Running…</em></div>
+
+<h2>Interactive Demo</h2>
+<div id="demo">
+    <div class="demo-tabs">
+        <button class="demo-tab active" data-provider="openrouter">OpenRouter</button>
+        <button class="demo-tab" data-provider="ollama">Ollama</button>
+        <button class="demo-tab" data-provider="anthropic">Anthropic</button>
+        <button class="demo-tab" data-provider="openai">OpenAI</button>
+    </div>
+
+    <label>API Key</label>
+    <input type="password" id="demo-apikey" placeholder="Enter API key (not needed for Ollama)" autocomplete="off">
+
+    <label>Base URL <span style="text-transform:none;letter-spacing:0;font-weight:400">(optional, e.g. http://localhost:11434)</span></label>
+    <input type="text" id="demo-baseurl" placeholder="Leave blank for default">
+
+    <div style="display:flex;gap:8px;margin-bottom:12px;">
+        <button id="demo-load-btn" style="background:#4ECDC4;color:#0d0d1a;border:none;border-radius:4px;padding:7px 16px;font-size:13px;font-weight:600;cursor:pointer;">
+            Load Models
+        </button>
+    </div>
+
+    <label>Model Picker</label>
+    <div class="picker-wrap" id="picker-container">
+        <sg-llm-model-picker id="demo-picker" provider="openrouter"></sg-llm-model-picker>
+    </div>
+
+    <label>Event Log</label>
+    <div id="event-log"><em style="color:#555">Events will appear here…</em></div>
+</div>
+
+<!-- Mount point for test pickers (hidden) -->
+<div id="test-mount" style="display:none"></div>
+
+<script type="module">
+import '/components/llm/sg-llm-model-picker/v0/v0.1/v0.1.0/sg-llm-model-picker.js';
+
+// ---------------------------------------------------------------------------
+// Test runner
+// ---------------------------------------------------------------------------
+
+const results = [];
+
+function assert(name, condition, extra = '') {
+    results.push({ name, pass: !!condition, extra });
+}
+
+async function runTests() {
+    const mount = document.getElementById('test-mount');
+
+    // -----------------------------------------------------------------------
+    // T1: Custom element registered
+    // -----------------------------------------------------------------------
+    assert('T1: custom element registered',
+        customElements.get('sg-llm-model-picker') !== undefined);
+
+    // -----------------------------------------------------------------------
+    // T2: Shadow root has content
+    // -----------------------------------------------------------------------
+    const el2 = document.createElement('sg-llm-model-picker');
+    mount.appendChild(el2);
+    await customElements.whenDefined('sg-llm-model-picker');
+    assert('T2: shadow root has content',
+        el2.shadowRoot && el2.shadowRoot.innerHTML.length > 0);
+
+    // -----------------------------------------------------------------------
+    // T3: window.SgLlmModelPicker exposed
+    // -----------------------------------------------------------------------
+    assert('T3: window.SgLlmModelPicker exposed',
+        typeof window.SgLlmModelPicker === 'function');
+
+    // -----------------------------------------------------------------------
+    // T4: setProvider('anthropic') → select populated with builtin models
+    // -----------------------------------------------------------------------
+    const el4 = document.createElement('sg-llm-model-picker');
+    mount.appendChild(el4);
+    await el4.setProvider('anthropic', '', '');
+    const opts4 = [...el4.shadowRoot.querySelectorAll('select option')].map(o => o.value);
+    assert('T4: anthropic builtin models loaded',
+        opts4.includes('claude-opus-4-6') && opts4.includes('claude-sonnet-4-6'),
+        `got: ${opts4.join(', ')}`);
+
+    // -----------------------------------------------------------------------
+    // T5: getModel() returns non-empty string after setProvider
+    // -----------------------------------------------------------------------
+    const model5 = el4.getModel();
+    assert('T5: getModel() non-empty after setProvider',
+        typeof model5 === 'string' && model5.length > 0,
+        `got: "${model5}"`);
+
+    // -----------------------------------------------------------------------
+    // T6: setModel('claude-opus-4-6') → select value updated
+    // -----------------------------------------------------------------------
+    el4.setModel('claude-opus-4-6');
+    assert('T6: setModel updates select value',
+        el4.getModel() === 'claude-opus-4-6',
+        `got: "${el4.getModel()}"`);
+
+    // -----------------------------------------------------------------------
+    // T7: llm:model-changed fires when select value changes
+    // -----------------------------------------------------------------------
+    const el7 = document.createElement('sg-llm-model-picker');
+    const wrap7 = document.createElement('div');
+    wrap7.appendChild(el7);
+    mount.appendChild(wrap7);
+    await el7.setProvider('anthropic', '', '');
+
+    let changedModel7 = null;
+    wrap7.addEventListener('llm:model-changed', e => { changedModel7 = e.detail.model; });
+
+    // Change select value and dispatch change event
+    const sel7 = el7.shadowRoot.querySelector('select');
+    sel7.value = 'claude-sonnet-4-6';
+    sel7.dispatchEvent(new Event('change'));
+
+    assert('T7: llm:model-changed fires on select change',
+        changedModel7 === 'claude-sonnet-4-6',
+        `got: "${changedModel7}"`);
+
+    // -----------------------------------------------------------------------
+    // T8: llm:connected event → models auto-load, model pre-selected
+    // -----------------------------------------------------------------------
+    const el8 = document.createElement('sg-llm-model-picker');
+    const wrap8 = document.createElement('div');
+    wrap8.appendChild(el8);
+    mount.appendChild(wrap8);
+
+    await new Promise(resolve => {
+        // Wait for setProvider to finish inside the handler
+        const orig = el8.setProvider.bind(el8);
+        el8.setProvider = async (...args) => { await orig(...args); resolve(); };
+        wrap8.dispatchEvent(new CustomEvent('llm:connected', {
+            detail: { provider: 'anthropic', model: 'claude-haiku-4-5-20251001', baseUrl: '', apiKey: '' },
+            bubbles: true,
+        }));
+    });
+
+    assert('T8: llm:connected auto-populates and pre-selects model',
+        el8.getModel() === 'claude-haiku-4-5-20251001',
+        `got: "${el8.getModel()}"`);
+
+    // -----------------------------------------------------------------------
+    // T9: Mock fetch for Ollama → models populated from /api/tags response
+    // -----------------------------------------------------------------------
+    const el9 = document.createElement('sg-llm-model-picker');
+    mount.appendChild(el9);
+
+    const ollamaMock = { models: [{ name: 'llama3.2' }, { name: 'mistral' }, { name: 'phi3' }] };
+    const origFetch9 = window.fetch;
+    window.fetch = async (url) => {
+        if (url.includes('/api/tags')) {
+            return { ok: true, json: async () => ollamaMock };
+        }
+        return origFetch9(url);
+    };
+
+    await el9.setProvider('ollama', '', '');
+    window.fetch = origFetch9;
+
+    const opts9 = [...el9.shadowRoot.querySelectorAll('select option')].map(o => o.value);
+    assert('T9: Ollama mock fetch populates models',
+        opts9.includes('llama3.2') && opts9.includes('mistral'),
+        `got: ${opts9.join(', ')}`);
+
+    // -----------------------------------------------------------------------
+    // T10: Mock fetch for OpenRouter → models populated from /v1/models response
+    // -----------------------------------------------------------------------
+    const el10 = document.createElement('sg-llm-model-picker');
+    mount.appendChild(el10);
+
+    const orMock = { data: [{ id: 'anthropic/claude-haiku-4-5' }, { id: 'openai/gpt-4o' }] };
+    const origFetch10 = window.fetch;
+    window.fetch = async (url) => {
+        if (url.includes('openrouter.ai')) {
+            return { ok: true, json: async () => orMock };
+        }
+        return origFetch10(url);
+    };
+
+    await el10.setProvider('openrouter', 'sk-test', '');
+    window.fetch = origFetch10;
+
+    const opts10 = [...el10.shadowRoot.querySelectorAll('select option')].map(o => o.value);
+    assert('T10: OpenRouter mock fetch populates models',
+        opts10.includes('anthropic/claude-haiku-4-5'),
+        `got: ${opts10.join(', ')}`);
+
+    // -----------------------------------------------------------------------
+    // T11: Refresh button triggers model reload (mock fetch called again)
+    // -----------------------------------------------------------------------
+    const el11 = document.createElement('sg-llm-model-picker');
+    mount.appendChild(el11);
+
+    // First load
+    const ollamaModels11a = { models: [{ name: 'llama3.2' }] };
+    const ollamaModels11b = { models: [{ name: 'llama3.2' }, { name: 'gemma3' }] };
+    let fetchCount11 = 0;
+    const origFetch11 = window.fetch;
+    window.fetch = async (url) => {
+        if (url.includes('/api/tags')) {
+            fetchCount11++;
+            return { ok: true, json: async () => fetchCount11 === 1 ? ollamaModels11a : ollamaModels11b };
+        }
+        return origFetch11(url);
+    };
+
+    await el11.setProvider('ollama', '', '');
+
+    // Trigger refresh
+    const refreshBtn11 = el11.shadowRoot.querySelector('#refresh-btn');
+    refreshBtn11.click();
+    // Wait for async refresh to complete
+    await new Promise(r => setTimeout(r, 50));
+    window.fetch = origFetch11;
+
+    const opts11 = [...el11.shadowRoot.querySelectorAll('select option')].map(o => o.value);
+    assert('T11: refresh button triggers reload and updates models',
+        fetchCount11 >= 2 && opts11.includes('gemma3'),
+        `fetch calls: ${fetchCount11}, opts: ${opts11.join(', ')}`);
+
+    // -----------------------------------------------------------------------
+    // T12: Failed fetch → error state, previous models preserved
+    // -----------------------------------------------------------------------
+    const el12 = document.createElement('sg-llm-model-picker');
+    mount.appendChild(el12);
+
+    // First successful load
+    const origFetch12 = window.fetch;
+    window.fetch = async (url) => {
+        if (url.includes('/api/tags')) {
+            return { ok: true, json: async () => ({ models: [{ name: 'llama3.2' }] }) };
+        }
+        return origFetch12(url);
+    };
+    await el12.setProvider('ollama', '', '');
+    const modelsBefore12 = [...el12.shadowRoot.querySelectorAll('select option')].map(o => o.value);
+
+    // Now fail
+    window.fetch = async () => { throw new Error('Network error'); };
+    const refreshBtn12 = el12.shadowRoot.querySelector('#refresh-btn');
+    refreshBtn12.click();
+    await new Promise(r => setTimeout(r, 50));
+    window.fetch = origFetch12;
+
+    const opts12 = [...el12.shadowRoot.querySelectorAll('select option')].map(o => o.value);
+    assert('T12: failed fetch preserves previous models',
+        opts12.includes('llama3.2'),
+        `before: ${modelsBefore12.join(',')}, after: ${opts12.join(',')}`);
+
+    // -----------------------------------------------------------------------
+    // Render results
+    // -----------------------------------------------------------------------
+    const container = document.getElementById('test-results');
+    const passed = results.filter(r => r.pass).length;
+    const total  = results.length;
+
+    container.innerHTML = results.map(r =>
+        `<div class="${r.pass ? 'test-pass' : 'test-fail'}">
+            ${r.pass ? '✓' : '✗'} ${r.name}${r.extra ? ` — ${r.extra}` : ''}
+        </div>`
+    ).join('') +
+    `<div class="test-summary ${passed === total ? 'all-pass' : 'has-fail'}">
+        ${passed}/${total} tests passed
+    </div>`;
+}
+
+runTests().catch(err => {
+    document.getElementById('test-results').innerHTML =
+        `<div class="test-fail">Test runner error: ${err.message}</div>`;
+    console.error(err);
+});
+
+// ---------------------------------------------------------------------------
+// Interactive Demo
+// ---------------------------------------------------------------------------
+
+const demoPicker  = document.getElementById('demo-picker');
+const demoApiKey  = document.getElementById('demo-apikey');
+const demoBaseUrl = document.getElementById('demo-baseurl');
+const demoLoadBtn = document.getElementById('demo-load-btn');
+const eventLog    = document.getElementById('event-log');
+const pickerContainer = document.getElementById('picker-container');
+
+let currentProvider = 'openrouter';
+
+// Tab switching
+document.querySelectorAll('.demo-tab').forEach(btn => {
+    btn.addEventListener('click', () => {
+        document.querySelectorAll('.demo-tab').forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+        currentProvider = btn.dataset.provider;
+
+        // Anthropic = no key needed
+        demoApiKey.placeholder = currentProvider === 'ollama'
+            ? '(no key needed)'
+            : currentProvider === 'anthropic'
+            ? '(uses builtin list, no key needed)'
+            : 'Enter API key';
+    });
+});
+
+// Load models button
+demoLoadBtn.addEventListener('click', async () => {
+    demoLoadBtn.textContent = '…';
+    demoLoadBtn.disabled = true;
+    try {
+        await demoPicker.setProvider(currentProvider, demoApiKey.value.trim(), demoBaseUrl.value.trim());
+        logEvent('setProvider', currentProvider);
+    } finally {
+        demoLoadBtn.textContent = 'Load Models';
+        demoLoadBtn.disabled = false;
+    }
+});
+
+// Listen for model-changed events from picker
+pickerContainer.addEventListener('llm:model-changed', e => {
+    logEvent('llm:model-changed', JSON.stringify(e.detail));
+});
+
+function logEvent(type, detail) {
+    const entry = document.createElement('div');
+    entry.className = `log-entry ${type === 'llm:model-changed' ? 'model-changed' : ''}`;
+    const time = new Date().toLocaleTimeString();
+    entry.textContent = `[${time}] ${type}: ${detail}`;
+
+    if (eventLog.querySelector('em')) eventLog.innerHTML = '';
+    eventLog.appendChild(entry);
+    eventLog.scrollTop = eventLog.scrollHeight;
+}
+</script>
+
+</body>
+</html>
