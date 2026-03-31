@@ -1,0 +1,20 @@
+{
+    "name": "sg-llm-bundle-list",
+    "version": "0.1.0",
+    "description": "Visual bundle browser. Renders saved bundle index in reverse chronological order. Click to load (time travel). Delete action. Active bundle highlighted. Reads from sg-llm-bundle sibling.",
+    "files": ["sg-llm-bundle-list.js"],
+    "exports": {
+        "sg-llm-bundle-list.js": ["SgLlmBundleList"]
+    },
+    "customElements": {
+        "sg-llm-bundle-list": "sg-llm-bundle-list.js"
+    },
+    "dependencies": {
+        "sg-llm-events": "/components/llm/sg-llm-events/v0/v0.1/v0.1.0/sg-llm-events.js"
+    },
+    "compatibleWith": {
+        "sg-llm-events":  ">=0.1.0",
+        "sg-llm-bundle":  ">=0.1.0"
+    },
+    "notes": "Uses Shadow DOM. Reads bundle index from sibling sg-llm-bundle.getIndex() on BUNDLE_LIST_CHANGED. Emits BUNDLE_LOAD_REQUESTED, BUNDLE_SAVE_REQUESTED, llm:bundle-delete-requested."
+}
