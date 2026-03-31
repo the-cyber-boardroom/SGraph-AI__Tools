@@ -1,0 +1,20 @@
+/**
+ * sg-llm-infographic — host-level layout styles.
+ *
+ * Internal Shadow DOM styles are inlined in sg-llm-infographic.js.
+ * These rules style the custom element host for common layout contexts.
+ *
+ * @version 0.1.0
+ */
+
+sg-llm-infographic {
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+}
+
+/* When placed inside an sg-layout panel, fill the panel */
+sg-layout sg-llm-infographic {
+    width: 100%;
+    height: 100%;
+}

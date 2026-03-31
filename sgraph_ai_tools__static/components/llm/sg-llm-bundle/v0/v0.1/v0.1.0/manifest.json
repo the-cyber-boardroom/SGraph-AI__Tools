@@ -1,0 +1,20 @@
+{
+    "name": "sg-llm-bundle",
+    "version": "0.1.0",
+    "description": "Headless bundle orchestrator. Captures reality+config+response into localStorage bundles. parent_id fork tree. Auto-save option.",
+    "files": ["sg-llm-bundle.js"],
+    "exports": {
+        "sg-llm-bundle.js": ["SgLlmBundle"]
+    },
+    "customElements": {
+        "sg-llm-bundle": "sg-llm-bundle.js"
+    },
+    "dependencies": {
+        "sg-llm-events": "/components/llm/sg-llm-events/v0/v0.1/v0.1.0/sg-llm-events.js"
+    },
+    "compatibleWith": {
+        "sg-llm-events":  ">=0.1.0",
+        "sg-llm-reality": ">=0.1.0"
+    },
+    "notes": "Storage: localStorage keys 'sg-llm-bundles' (full bundles) and 'sg-llm-bundles-index' (lightweight index). Vault storage deferred to v0.1.1 surgical override."
+}
