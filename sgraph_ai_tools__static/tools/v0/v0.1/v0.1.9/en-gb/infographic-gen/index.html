@@ -1,0 +1,261 @@
+<!DOCTYPE html>
+<html lang="en-GB">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Infographic Generator — tools.sgraph.ai</title>
+    <meta name="description" content="Turn text into SVG infographics using fast nano models via OpenRouter. Describe your content, choose a style, export the result.">
+    <link rel="icon" type="image/svg+xml" href="../../_common/favicon.svg">
+    <link rel="stylesheet" href="../../_common/css/tools.css">
+    <style>
+        html, body {
+            height: 100%;
+            margin: 0;
+            overflow: hidden;
+        }
+        body {
+            display: flex;
+            flex-direction: column;
+        }
+        sg-site-header { flex-shrink: 0; }
+
+        /* ── Connection bar (top strip, full width) ─────────────────────── */
+        #conn-bar {
+            flex-shrink: 0;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            padding: 8px 14px;
+            background: #0d0d1a;
+            border-bottom: 1px solid #1a1a3a;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            font-size: 13px;
+            flex-wrap: wrap;
+        }
+        #conn-bar label {
+            font-size: 11px;
+            font-weight: 600;
+            color: #a0aec0;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            white-space: nowrap;
+        }
+        #conn-bar input[type="password"] {
+            flex: 1;
+            min-width: 160px;
+            max-width: 320px;
+            background: #111122;
+            border: 1px solid #333d5a;
+            border-radius: 4px;
+            color: #e2e8f0;
+            padding: 5px 10px;
+            font-size: 13px;
+            outline: none;
+        }
+        #conn-bar input:focus { border-color: #4ECDC4; }
+
+        #conn-bar sg-llm-model-picker {
+            flex: 1;
+            min-width: 200px;
+            max-width: 380px;
+        }
+
+        #connect-btn {
+            background: #4ECDC4;
+            color: #0d0d1a;
+            border: none;
+            border-radius: 4px;
+            padding: 6px 16px;
+            font-size: 13px;
+            font-weight: 700;
+            cursor: pointer;
+            white-space: nowrap;
+        }
+        #connect-btn:hover { opacity: 0.85; }
+        #connect-btn:disabled { opacity: 0.5; cursor: default; }
+
+        #conn-status {
+            font-size: 12px;
+            white-space: nowrap;
+        }
+        #conn-status.ok    { color: #4ECDC4; }
+        #conn-status.error { color: #ff6b6b; }
+
+        /* ── Event bus + layout container ─────────────────────────────────── */
+        #bus {
+            flex: 1;
+            display: grid;
+            grid-template-columns: 36% 1fr;
+            grid-template-rows: 1fr auto;
+            grid-template-areas:
+                "reality     infographic"
+                "stats       infographic";
+            gap: 1px;
+            background: #1a1a2e;
+            min-height: 0;
+            overflow: hidden;
+        }
+
+        #bus > * { background: #0d0d1a; overflow: hidden; min-height: 0; }
+
+        sg-llm-request,
+        sg-llm-bundle     { display: none !important; }
+
+        sg-llm-reality     { grid-area: reality; overflow: hidden; }
+        sg-llm-stats       { grid-area: stats; overflow: auto; max-height: 130px; }
+        sg-llm-infographic { grid-area: infographic; overflow: hidden; }
+    </style>
+</head>
+<body>
+
+<script type="module" src="/components/site-header/v1/v1.0/v1.0.2/sg-site-header.js"></script>
+<sg-site-header site="Tools" home-url="../../"></sg-site-header>
+
+<!-- ── Connection bar ── -->
+<div id="conn-bar">
+    <label>OpenRouter Key</label>
+    <input type="password" id="api-key" placeholder="sk-or-v1-…" autocomplete="off" spellcheck="false">
+
+    <label>Model</label>
+    <!-- sg-llm-model-picker is NOT inside #bus so it doesn't share the event scope.
+         We read its value manually on connect. -->
+    <sg-llm-model-picker id="model-picker" provider="openrouter"></sg-llm-model-picker>
+
+    <button id="connect-btn">Connect</button>
+    <span id="conn-status"></span>
+</div>
+
+<!-- ── Event bus: all sg-llm-* are direct children so parentElement = #bus ── -->
+<div id="bus">
+    <sg-llm-request></sg-llm-request>
+    <sg-llm-bundle auto-save></sg-llm-bundle>
+    <sg-llm-reality></sg-llm-reality>
+    <sg-llm-stats></sg-llm-stats>
+    <sg-llm-infographic style-preset="executive" orientation="landscape"></sg-llm-infographic>
+</div>
+
+<script type="module">
+import '/components/llm/sg-llm-events/v0/v0.1/v0.1.0/sg-llm-events.js';
+import '/components/llm/sg-llm-request/v0/v0.1/v0.1.0/sg-llm-request.js';
+import '/components/llm/sg-llm-bundle/v0/v0.1/v0.1.0/sg-llm-bundle.js';
+import '/components/llm/sg-llm-reality/v0/v0.1/v0.1.0/sg-llm-reality.js';
+import '/components/llm/sg-llm-stats/v0/v0.1/v0.1.0/sg-llm-stats.js';
+import '/components/llm/sg-llm-infographic/v0/v0.1/v0.1.0/sg-llm-infographic.js';
+import '/components/llm/sg-llm-model-picker/v0/v0.1/v0.1.0/sg-llm-model-picker.js';
+
+import { SGL_LLM } from '/components/llm/sg-llm-events/v0/v0.1/v0.1.0/sg-llm-events.js';
+
+// ── Nano model shortlist ────────────────────────────────────────────────────
+// These are fast, cheap OpenRouter models that reliably follow the "output ONLY
+// raw SVG" instruction. Ordered by recommended quality for infographic tasks.
+const NANO_MODELS = [
+    'qwen/qwen-2.5-72b-instruct',
+    'qwen/qwen-2.5-7b-instruct',
+    'google/gemini-flash-1.5-8b',
+    'google/gemini-2.0-flash-lite',
+    'meta-llama/llama-3.2-3b-instruct:free',
+    'meta-llama/llama-3.2-1b-instruct:free',
+    'mistralai/mistral-7b-instruct',
+    'microsoft/phi-4-mini-instruct',
+    'deepseek/deepseek-r1-distill-qwen-7b',
+];
+
+const bus        = document.getElementById('bus');
+const apiKeyEl   = document.getElementById('api-key');
+const modelPicker = document.getElementById('model-picker');
+const connectBtn = document.getElementById('connect-btn');
+const statusEl   = document.getElementById('conn-status');
+
+// Pre-populate the model picker with the nano shortlist before it tries to
+// call the OpenRouter /v1/models endpoint (which needs auth).
+await customElements.whenDefined('sg-llm-model-picker');
+
+// Bypass the live fetch: directly set the options by calling internal method
+// We'll do it by patching the select element inside the shadow root.
+function seedNanoModels() {
+    const shadow = modelPicker.shadowRoot;
+    if (!shadow) return;
+    const sel = shadow.querySelector('select');
+    if (!sel) return;
+    sel.innerHTML = NANO_MODELS.map(m => `<option value="${m}">${m}</option>`).join('');
+    // Default to the first model
+    sel.value = NANO_MODELS[0];
+    // Hide the refresh button — we manage the list here
+    const btn = shadow.querySelector('#refresh-btn');
+    if (btn) btn.style.display = 'none';
+}
+seedNanoModels();
+
+// ── Connect handler ─────────────────────────────────────────────────────────
+connectBtn.addEventListener('click', async () => {
+    const apiKey = apiKeyEl.value.trim();
+    const model  = modelPicker.getModel();
+
+    if (!apiKey) {
+        setStatus('OpenRouter key required', 'error');
+        return;
+    }
+    if (!model) {
+        setStatus('Select a model', 'error');
+        return;
+    }
+
+    setStatus('Connecting…', '');
+    connectBtn.disabled = true;
+
+    // Verify key with a lightweight models list call
+    try {
+        const res = await fetch('https://openrouter.ai/api/v1/models', {
+            headers: { Authorization: `Bearer ${apiKey}` },
+        });
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        setStatus(`Connected ✓  (${model})`, 'ok');
+    } catch (err) {
+        setStatus(`Error: ${err.message}`, 'error');
+        connectBtn.disabled = false;
+        return;
+    }
+
+    connectBtn.disabled = false;
+
+    // Fire llm:connected on #bus so all child components are informed
+    bus.dispatchEvent(new CustomEvent(SGL_LLM.CONNECTED, {
+        detail: { provider: 'openrouter', model, apiKey, baseUrl: '' },
+        bubbles: true,
+    }));
+});
+
+// ── Inject infographic system prompt into reality ───────────────────────────
+await customElements.whenDefined('sg-llm-infographic');
+await customElements.whenDefined('sg-llm-reality');
+
+const infographic = bus.querySelector('sg-llm-infographic');
+const reality     = bus.querySelector('sg-llm-reality');
+
+function injectSystemPrompt() {
+    const prompt = infographic.getSystemPrompt?.();
+    if (!prompt || !reality) return;
+    const state = reality.getState?.();
+    if (!state) return;
+    const sysBlock = state.blocks?.find(b => b.type === 'system');
+    if (sysBlock) {
+        sysBlock.content = prompt;
+        reality.setState?.({ blocks: state.blocks });
+    }
+}
+
+injectSystemPrompt();
+
+// Re-inject when infographic style changes
+const styleSelect = infographic.shadowRoot?.querySelector('.inf-style-select');
+if (styleSelect) styleSelect.addEventListener('change', injectSystemPrompt);
+
+// ── Helper ──────────────────────────────────────────────────────────────────
+function setStatus(text, type) {
+    statusEl.textContent = text;
+    statusEl.className = type;
+}
+</script>
+
+</body>
+</html>
