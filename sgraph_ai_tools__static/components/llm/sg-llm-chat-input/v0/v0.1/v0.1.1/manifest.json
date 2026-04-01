@@ -1,0 +1,15 @@
+{
+  "name": "sg-llm-chat-input",
+  "version": "0.1.1",
+  "tag": "sg-llm-chat-input",
+  "class": "SgLlmChatInput",
+  "file": "sg-llm-chat-input.js",
+  "description": "Chat message input bar. Textarea stays active during streaming (bug fix). Fixed clipboard image paste via shadowRoot.activeElement.",
+  "changes": [
+    "Textarea remains writable during in-flight requests — only Send disabled, Cancel shown",
+    "Fixed clipboard image paste detection using shadowRoot.activeElement"
+  ],
+  "dependencies": [
+    "/components/llm/sg-llm-events/v0/v0.1/v0.1.0/sg-llm-events.js"
+  ]
+}
