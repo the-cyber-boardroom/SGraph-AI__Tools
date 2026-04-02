@@ -1,0 +1,223 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>sg-llm-response-inspector v0.1.0 tests</title>
+    <style>
+        body { font-family: monospace; background: #0d0d1a; color: #e2e8f0; padding: 20px; }
+        h1   { font-size: 14px; color: #7c9ef8; margin-bottom: 16px; }
+        h2   { font-size: 12px; color: #64748b; margin: 20px 0 10px; text-transform: uppercase; letter-spacing: 0.06em; }
+        .pass { color: #4ade80; }
+        .fail { color: #f87171; }
+        #summary { margin-top: 16px; font-size: 13px; border-top: 1px solid #1e2035; padding-top: 12px; }
+        #demo-wrap { margin-top: 24px; border: 1px solid #1e2035; border-radius: 6px; overflow: hidden; height: 480px; }
+        sg-llm-response-inspector { display: block; width: 100%; height: 100%; }
+    </style>
+</head>
+<body>
+<h1>sg-llm-response-inspector v0.1.0 — unit tests + demo</h1>
+<div id="log"></div>
+<div id="summary"></div>
+
+<h2>Interactive Demo</h2>
+<div style="margin-bottom:8px;font-size:11px;color:#64748b;">
+    <button id="btn-fire-streaming" style="padding:4px 10px;background:#1e2035;border:1px solid #2d3748;border-radius:4px;color:#94a3b8;font-family:monospace;font-size:11px;cursor:pointer;margin-right:6px;">Fire streaming response (with images)</button>
+    <button id="btn-fire-nonstreaming" style="padding:4px 10px;background:#1e2035;border:1px solid #2d3748;border-radius:4px;color:#94a3b8;font-family:monospace;font-size:11px;cursor:pointer;margin-right:6px;">Fire non-streaming response</button>
+    <button id="btn-clear" style="padding:4px 10px;background:#1e2035;border:1px solid #2d3748;border-radius:4px;color:#94a3b8;font-family:monospace;font-size:11px;cursor:pointer;">Clear</button>
+</div>
+<div id="demo-wrap"></div>
+
+<script type="module">
+import { SGL_LLM } from '/components/llm/sg-llm-events/v0/v0.1/v0.1.0/sg-llm-events.js';
+import '/components/llm/sg-llm-response-inspector/v0/v0.1/v0.1.0/sg-llm-response-inspector.js';
+
+const log  = document.getElementById('log');
+let passes = 0, fails = 0;
+
+function assert(label, condition, detail = '') {
+    const ok  = !!condition;
+    const div = document.createElement('div');
+    div.className = ok ? 'pass' : 'fail';
+    div.textContent = `${ok ? '✓' : '✗'} ${label}${detail ? ' — ' + detail : ''}`;
+    log.appendChild(div);
+    ok ? passes++ : fails++;
+}
+
+function wait(ms = 0) { return new Promise(r => setTimeout(r, ms)); }
+
+// ── Sample data ────────────────────────────────────────────────────────────────
+const SAMPLE_IMG_B64 = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==';
+
+const STREAMING_DETAIL = {
+    content:          'Hello, here is your answer with an attached image.',
+    promptTokens:     42,
+    completionTokens: 18,
+    latencyMs:        1234,
+    model:            'openai/gpt-4o',
+    finishReason:     'stop',
+    images: [
+        { type: 'image_url', image_url: { url: SAMPLE_IMG_B64 } },
+    ],
+    rawChunks: [
+        { id: 'c1', choices: [{ delta: { role: 'assistant', content: '' } }], model: 'openai/gpt-4o', created: 1711000000 },
+        { id: 'c1', choices: [{ delta: { content: 'Hello, here is' }, finish_reason: null }], usage: null },
+        { id: 'c1', choices: [{ delta: { content: ' your answer with an attached image.' }, finish_reason: null }] },
+        { id: 'c1', choices: [{ delta: { images: [{ type: 'image_url', image_url: { url: SAMPLE_IMG_B64 } }] }, finish_reason: null }] },
+        { id: 'c1', choices: [{ delta: {}, finish_reason: 'stop' }], usage: { prompt_tokens: 42, completion_tokens: 18 } },
+    ],
+    rawResponse: null,
+};
+
+const NON_STREAMING_DETAIL = {
+    content:          'This is a non-streaming response.',
+    promptTokens:     10,
+    completionTokens: 8,
+    latencyMs:        890,
+    model:            'anthropic/claude-3-5-sonnet',
+    finishReason:     'end_turn',
+    images:           [],
+    rawChunks:        [],
+    rawResponse: {
+        id: 'msg_abc123',
+        type: 'message',
+        role: 'assistant',
+        model: 'claude-3-5-sonnet-20241022',
+        content: [{ type: 'text', text: 'This is a non-streaming response.' }],
+        stop_reason: 'end_turn',
+        usage: { input_tokens: 10, output_tokens: 8 },
+    },
+};
+
+// ── 1. Registration ────────────────────────────────────────────────────────────
+assert('Custom element registered',
+    customElements.get('sg-llm-response-inspector') != null);
+assert('window.SgLlmResponseInspector exported',
+    typeof window.SgLlmResponseInspector === 'function');
+
+// ── 2. Initial empty state ─────────────────────────────────────────────────────
+const bus = document.createElement('div');
+bus.setAttribute('data-llm-bus', '');
+document.body.appendChild(bus);
+
+const ri = document.createElement('sg-llm-response-inspector');
+bus.appendChild(ri);
+await wait(10);
+
+assert('Shadow root created', ri.shadowRoot != null);
+assert('getData() null initially', ri.getData() === null);
+assert('Empty state shown initially', ri.shadowRoot.querySelector('.ri-empty') != null);
+
+// ── 3. After REQUEST_COMPLETE event ───────────────────────────────────────────
+bus.dispatchEvent(new CustomEvent(SGL_LLM.REQUEST_COMPLETE, {
+    detail: STREAMING_DETAIL,
+    bubbles: true,
+}));
+await wait(10);
+
+assert('getData() returns detail after event', ri.getData() === STREAMING_DETAIL);
+assert('Empty state gone after event', ri.shadowRoot.querySelector('.ri-empty') === null);
+assert('Tabs rendered', ri.shadowRoot.querySelector('.ri-tabs') != null);
+assert('Summary tab active by default',
+    ri.shadowRoot.querySelector('.ri-tab.active')?.dataset?.tab === 'summary');
+assert('Summary panel active',
+    ri.shadowRoot.querySelector('.ri-panel.active') != null);
+
+// ── 4. Summary panel content ──────────────────────────────────────────────────
+const activePanel = ri.shadowRoot.querySelector('.ri-panel.active');
+assert('Summary panel shows model',
+    activePanel.textContent.includes('openai/gpt-4o'));
+assert('Summary panel shows finish_reason',
+    activePanel.textContent.includes('stop'));
+assert('Summary panel shows latency',
+    activePanel.textContent.includes('1234'));
+
+// ── 5. Image badge on tabs ─────────────────────────────────────────────────────
+const imageTabBadge = ri.shadowRoot.querySelector('.ri-tab[data-tab="images"] .ri-badge');
+assert('Images tab has badge', imageTabBadge != null);
+assert('Images badge shows count 1', imageTabBadge?.textContent?.trim() === '1');
+
+// ── 6. Chunk badge ─────────────────────────────────────────────────────────────
+const chunkBadge = ri.shadowRoot.querySelector('.ri-tab[data-tab="chunks"] .ri-badge');
+assert('Chunks tab has badge', chunkBadge != null);
+assert('Chunks badge shows 5', chunkBadge?.textContent?.trim() === '5');
+
+// ── 7. clear() resets ─────────────────────────────────────────────────────────
+ri.clear();
+await wait(10);
+assert('clear() resets getData() to null', ri.getData() === null);
+assert('clear() shows empty state', ri.shadowRoot.querySelector('.ri-empty') != null);
+
+// ── 8. data-llm-bus bus resolution ────────────────────────────────────────────
+// The bus div has [data-llm-bus] — event fired on it should reach component
+ri.clear();
+bus.dispatchEvent(new CustomEvent(SGL_LLM.REQUEST_COMPLETE, {
+    detail: NON_STREAMING_DETAIL,
+    bubbles: true,
+}));
+await wait(10);
+assert('Component receives events via data-llm-bus ancestor', ri.getData() != null);
+assert('Non-streaming response model shown',
+    ri.shadowRoot.querySelector('.ri-panel.active')?.textContent?.includes('claude'));
+
+// ── 9. Non-streaming: chunks panel ───────────────────────────────────────────
+// Click chunks tab manually
+const chunksTab = ri.shadowRoot.querySelector('.ri-tab[data-tab="chunks"]');
+chunksTab.click();
+await wait(10);
+const chunksPanel = ri.shadowRoot.querySelector('.ri-panel.active');
+assert('Chunks panel active after click', chunksPanel?.dataset?.panel === 'chunks');
+assert('Non-streaming note shown', chunksPanel?.textContent?.includes('Non-streaming'));
+
+// ── 10. Full data tab renders JSON tree ───────────────────────────────────────
+bus.dispatchEvent(new CustomEvent(SGL_LLM.REQUEST_COMPLETE, {
+    detail: STREAMING_DETAIL,
+    bubbles: true,
+}));
+await wait(10);
+const fulldataTab = ri.shadowRoot.querySelector('.ri-tab[data-tab="fulldata"]');
+fulldataTab.click();
+await wait(10);
+const fullPanel = ri.shadowRoot.querySelector('.ri-panel.active');
+assert('Full Data panel active', fullPanel?.dataset?.panel === 'fulldata');
+assert('JSON tree rendered', fullPanel?.querySelector('.ri-tree') != null);
+assert('Expand/Collapse controls present',
+    fullPanel?.querySelector('.ri-tree-controls') != null);
+
+// ── Summary ────────────────────────────────────────────────────────────────────
+document.getElementById('summary').innerHTML =
+    `<strong class="${fails === 0 ? 'pass' : 'fail'}">${passes} passed, ${fails} failed</strong>`;
+
+// ── Interactive demo ───────────────────────────────────────────────────────────
+ri.remove();
+bus.remove();
+
+const demo = document.createElement('sg-llm-response-inspector');
+const demoWrap = document.getElementById('demo-wrap');
+demoWrap.appendChild(demo);
+// Note: demo doesn't have data-llm-bus parent; falls back to parentElement
+demoWrap.setAttribute('data-llm-bus', '');
+await wait(10);
+
+document.getElementById('btn-fire-streaming').addEventListener('click', () => {
+    demoWrap.dispatchEvent(new CustomEvent(SGL_LLM.REQUEST_COMPLETE, {
+        detail: STREAMING_DETAIL,
+        bubbles: false,
+    }));
+    // directly call via bus (demoWrap is not the parentElement of demo here...)
+    demo.parentElement.dispatchEvent(new CustomEvent(SGL_LLM.REQUEST_COMPLETE, {
+        detail: STREAMING_DETAIL,
+        bubbles: true,
+    }));
+});
+document.getElementById('btn-fire-nonstreaming').addEventListener('click', () => {
+    demo.parentElement.dispatchEvent(new CustomEvent(SGL_LLM.REQUEST_COMPLETE, {
+        detail: NON_STREAMING_DETAIL,
+        bubbles: true,
+    }));
+});
+document.getElementById('btn-clear').addEventListener('click', () => {
+    demo.clear();
+});
+</script>
+</body>
+</html>
