@@ -410,18 +410,90 @@ EXAMPLES.forEach(ex => {
     exBar.appendChild(btn);
 });
 
-bus.appendChild(exBar);
-
+// Headless orchestrators stay as direct children of bus — parentElement = bus
+// ensures sg-llm-request and sg-llm-bundle share the same event scope.
 const request = document.createElement('sg-llm-request');
 request.style.display = 'none';
 const bundle = document.createElement('sg-llm-bundle');
 bundle.setAttribute('auto-save', '');
 bundle.style.display = 'none';
+bus.appendChild(request);
+bus.appendChild(bundle);
+
+// Inner resizable layout fills the rest of bus (column: Examples | Prompt | Stats)
+const innerLayout = document.createElement('sg-layout');
+innerLayout.style.cssText = 'flex:1; min-height:0; display:block; overflow:hidden;';
+bus.appendChild(innerLayout);
+
+const innerReady = new Promise(resolve => innerLayout.events.on(SGL_EVENTS.LAYOUT_READY, resolve));
+innerLayout.setLayout({
+    type: 'column', id: 'inner-root', sizes: [0.12, 0.68, 0.20],
+    children: [
+        {
+            type: 'stack', id: 's-inner-examples', activeTab: 0,
+            tabs: [{ type: 'tab', id: 't-inner-examples', title: 'Examples',
+                     tag: 'div', state: {}, locked: false, closable: true }],
+        },
+        {
+            type: 'stack', id: 's-inner-reality', activeTab: 0,
+            tabs: [{ type: 'tab', id: 't-inner-reality', title: 'Prompt',
+                     tag: 'div', state: {}, locked: true, closable: false }],
+        },
+        {
+            type: 'stack', id: 's-inner-stats', activeTab: 0,
+            tabs: [{ type: 'tab', id: 't-inner-stats', title: 'Stats',
+                     tag: 'div', state: {}, locked: false, closable: true }],
+        },
+    ],
+});
+await innerReady;
+
+const examplesPanel  = innerLayout.getPanelElement('t-inner-examples');
+const realityPanelEl = innerLayout.getPanelElement('t-inner-reality');
+const statsPanelEl   = innerLayout.getPanelElement('t-inner-stats');
+
+// Mount content into panels (inline styles — CSS doesn't cross shadow boundary)
+examplesPanel.style.cssText  = 'height:100%; overflow:hidden; display:block;';
+examplesPanel.appendChild(exBar);
+
 const reality = document.createElement('sg-llm-reality');
-reality.style.cssText = 'flex:1; min-height:0; overflow:hidden; display:block;';
+reality.style.cssText = 'height:100%; overflow:hidden; display:block;';
+realityPanelEl.style.cssText = 'height:100%; overflow:hidden; display:block;';
+realityPanelEl.appendChild(reality);
+
 const stats = document.createElement('sg-llm-stats');
-stats.style.cssText = 'flex-shrink:0; overflow:auto; max-height:140px; display:block;';
-[request, bundle, reality, stats].forEach(el => bus.appendChild(el));
+stats.style.cssText = 'height:100%; overflow:auto; display:block;';
+statsPanelEl.style.cssText = 'height:100%; overflow:hidden; display:block;';
+statsPanelEl.appendChild(stats);
+
+// ── Inner layout event bridges ────────────────────────────────────────────────
+// reality and stats listen on their parentElement (the panel divs).
+// Events fired by request/bundle on bus need forwarding DOWN to those panels.
+// Events fired by reality/stats bubble UP through innerLayout to bus naturally.
+
+// bus → realityPanelEl: all events reality listens for
+for (const evt of [
+    SGL_LLM.CONNECTED, SGL_LLM.MODEL_CHANGED,
+    SGL_LLM.REQUEST_START, SGL_LLM.REQUEST_COMPLETE, SGL_LLM.REQUEST_ERROR, SGL_LLM.REQUEST_CANCEL,
+    SGL_LLM.ATTACHMENT_ADDED, SGL_LLM.ATTACHMENT_REMOVED, SGL_LLM.ATTACHMENTS_CLEARED,
+    SGL_LLM.BUNDLE_LOADED, SGL_LLM.MEMORY_UPDATED,
+]) {
+    bus.addEventListener(evt, e => {
+        if (realityPanelEl.contains(e.target)) return; // bubbled from reality — skip
+        realityPanelEl.dispatchEvent(new CustomEvent(evt, { detail: e.detail, bubbles: false }));
+    });
+}
+
+// bus → statsPanelEl: all events stats listens for
+for (const evt of [
+    SGL_LLM.REALITY_CHANGED,
+    SGL_LLM.REQUEST_START, SGL_LLM.REQUEST_COMPLETE, SGL_LLM.REQUEST_ERROR, SGL_LLM.REQUEST_CANCEL,
+]) {
+    bus.addEventListener(evt, e => {
+        if (statsPanelEl.contains(e.target)) return; // bubbled from stats — skip
+        statsPanelEl.dispatchEvent(new CustomEvent(evt, { detail: e.detail, bubbles: false }));
+    });
+}
 
 // Right panel: infographic (separate parentElement — bridged below)
 const infographicWrap = document.createElement('div');
