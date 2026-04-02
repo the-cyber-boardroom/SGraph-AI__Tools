@@ -619,7 +619,6 @@ for (const evtName of BRIDGE_EVENTS) {
 bus.addEventListener(SGL_LLM.REQUEST_START, () => {
     const model = modelPicker.getModel();
     const title = model.split('/').pop().substring(0, 35);
-    placeholder.style.display = 'none';
 
     // Use tag:'div' so _mountNewElement appends it to layout and assigns the slot correctly
     const tabId = layout.addTabToStack('s-right', { tag: 'div', title });
