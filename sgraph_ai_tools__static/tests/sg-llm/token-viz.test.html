@@ -1,0 +1,233 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>sg-llm-token-viz tests</title>
+    <style>
+        body { font-family: monospace; background: #0d0d1a; color: #e2e8f0; padding: 20px; }
+        h1   { font-size: 14px; color: #7c9ef8; margin-bottom: 16px; }
+        .pass { color: #4ade80; }
+        .fail { color: #f87171; }
+        .info { color: #94a3b8; font-size: 11px; margin: 4px 0; }
+        #summary { margin-top: 16px; font-size: 13px; border-top: 1px solid #1e2035; padding-top: 12px; }
+        #bus { display: none; }
+    </style>
+</head>
+<body>
+<h1>sg-llm-token-viz — unit tests</h1>
+<div id="log"></div>
+<div id="summary"></div>
+<div id="bus"></div>
+
+<script type="module">
+import '/components/llm/sg-llm-events/v0/v0.1/v0.1.0/sg-llm-events.js';
+import '/components/llm/sg-llm-token-viz/v0/v0.1/v0.1.0/sg-llm-token-viz.js';
+
+const log     = document.getElementById('log');
+const bus     = document.getElementById('bus');
+let passes = 0, fails = 0;
+
+function assert(label, condition, detail = '') {
+    const ok  = !!condition;
+    const div = document.createElement('div');
+    div.className = ok ? 'pass' : 'fail';
+    div.textContent = `${ok ? '✓' : '✗'} ${label}${detail ? ' — ' + detail : ''}`;
+    log.appendChild(div);
+    ok ? passes++ : fails++;
+}
+
+function emit(name, detail = {}) {
+    bus.dispatchEvent(new CustomEvent(name, { detail, bubbles: true, composed: true }));
+}
+
+function wait(ms = 0) { return new Promise(r => setTimeout(r, ms)); }
+
+// ── Setup ────────────────────────────────────────────────────────────────────
+
+const viz = document.createElement('sg-llm-token-viz');
+bus.appendChild(viz);
+await wait(10);
+
+// ── 1. Custom element registered ─────────────────────────────────────────────
+assert('Custom element registered',
+    customElements.get('sg-llm-token-viz') != null);
+
+// ── 2. window export ─────────────────────────────────────────────────────────
+assert('window.SgLlmTokenViz exported',
+    typeof window.SgLlmTokenViz === 'function');
+
+// ── 3. Shadow root with content ───────────────────────────────────────────────
+assert('Shadow root has content',
+    viz.shadowRoot && viz.shadowRoot.querySelector('.tv-root') != null);
+
+// ── 4. Initial getStats() ─────────────────────────────────────────────────────
+const initial = viz.getStats();
+assert('getStats() returns history array',
+    Array.isArray(initial.history));
+assert('getStats() initial history empty',
+    initial.history.length === 0);
+assert('getStats() returns session object',
+    typeof initial.session === 'object');
+assert('getStats() session starts at zero',
+    initial.session.requests === 0 && initial.session.promptTokens === 0);
+
+// ── 5. SEND event → breakdown estimated ──────────────────────────────────────
+const messages = [
+    { role: 'system',    content: 'You are a helpful assistant. Answer concisely.' },
+    { role: 'user',      content: 'What is 2+2?' },
+    { role: 'assistant', content: 'The answer is 4.' },
+    { role: 'user',      content: 'And what is 3+3?' },
+];
+
+emit('llm:send', { messages, model: 'claude-sonnet-4-6', provider: 'anthropic' });
+await wait(10);
+
+// Check that shadow DOM updated with request info
+const reqContent = viz.shadowRoot.querySelector('#tv-req-content');
+assert('Request content rendered after SEND',
+    reqContent && reqContent.innerHTML.includes('estimating'));
+
+// ── 6. REQUEST_COMPLETE → actual totals recorded ──────────────────────────────
+emit('llm:request-complete', {
+    promptTokens: 420,
+    completionTokens: 85,
+    model: 'claude-sonnet-4-6',
+    latencyMs: 1200,
+    finishReason: 'stop',
+});
+await wait(10);
+
+const stats1 = viz.getStats();
+assert('History grows after REQUEST_COMPLETE',
+    stats1.history.length === 1);
+assert('Correct promptTokens recorded',
+    stats1.history[0].promptTokens === 420);
+assert('Correct completionTokens recorded',
+    stats1.history[0].completionTokens === 85);
+assert('Session.requests incremented',
+    stats1.session.requests === 1);
+assert('Session.promptTokens accumulated',
+    stats1.session.promptTokens === 420);
+
+// ── 7. Cost estimation for known model ────────────────────────────────────────
+// claude-sonnet-4-6: $3.00/M input, $15.00/M output
+// 420 * 3/1M + 85 * 15/1M = 0.00126 + 0.001275 = 0.002535
+const cost1 = stats1.history[0].cost;
+assert('Cost estimated for known model',
+    cost1 != null && cost1 > 0,
+    `cost=${cost1?.toFixed(6)}`);
+assert('Cost roughly correct (claude-sonnet-4-6)',
+    cost1 > 0.001 && cost1 < 0.01,
+    `got $${cost1?.toFixed(6)}`);
+
+// ── 8. Second request — session accumulates ───────────────────────────────────
+emit('llm:send', { messages: [{ role: 'user', content: 'Follow-up question here' }], model: 'claude-sonnet-4-6' });
+emit('llm:request-complete', { promptTokens: 200, completionTokens: 50, model: 'claude-sonnet-4-6' });
+await wait(10);
+
+const stats2 = viz.getStats();
+assert('History length 2 after second request',
+    stats2.history.length === 2);
+assert('Session totals accumulate correctly',
+    stats2.session.promptTokens === 620 && stats2.session.completionTokens === 135);
+assert('Session request count = 2',
+    stats2.session.requests === 2);
+
+// ── 9. Sparkline renders after 2+ requests ────────────────────────────────────
+const svg = viz.shadowRoot.querySelector('svg.sparkline');
+assert('Sparkline SVG rendered after 2 requests',
+    svg != null);
+const polyline = svg?.querySelector('polyline');
+assert('Sparkline polyline element present',
+    polyline != null);
+const pts = polyline?.getAttribute('points') ?? '';
+assert('Sparkline polyline has points',
+    pts.includes(','));
+
+// ── 10. Breakdown includes system tokens ──────────────────────────────────────
+// The messages we sent had a system prompt — history[0] should have systemToks > 0
+assert('Breakdown tracks system tokens',
+    stats2.history[0].breakdown.systemToks > 0,
+    `systemToks=${stats2.history[0].breakdown.systemToks}`);
+
+// ── 11. History tracks prior assistant turns ──────────────────────────────────
+// messages had one prior user+assistant pair before the last user msg
+assert('Breakdown tracks history tokens (prior turns)',
+    stats2.history[0].breakdown.historyToks > 0,
+    `historyToks=${stats2.history[0].breakdown.historyToks}`);
+
+// ── 12. Image attachment counted ─────────────────────────────────────────────
+const msgWithImg = [
+    { role: 'user', content: [
+        { type: 'text', text: 'What is in this image?' },
+        { type: 'image_url', image_url: { url: 'data:image/png;base64,abc' } },
+    ]},
+];
+emit('llm:send', { messages: msgWithImg, model: 'gpt-4o' });
+emit('llm:request-complete', { promptTokens: 1000, completionTokens: 120, model: 'gpt-4o' });
+await wait(10);
+
+const stats3 = viz.getStats();
+assert('Image count tracked in breakdown',
+    stats3.history[2].breakdown.imageCount === 1,
+    `imageCount=${stats3.history[2].breakdown.imageCount}`);
+
+// ── 13. Unknown model → cost is 0 ────────────────────────────────────────────
+emit('llm:send', { messages: [{ role: 'user', content: 'Hello' }], model: 'some-custom-model' });
+emit('llm:request-complete', { promptTokens: 10, completionTokens: 5, model: 'some-custom-model' });
+await wait(10);
+
+const stats4 = viz.getStats();
+assert('Unknown model produces null/0 cost',
+    stats4.history[3].cost === 0 || stats4.history[3].cost === null,
+    `cost=${stats4.history[3].cost}`);
+
+// ── 14. REQUEST_ERROR clears pending ─────────────────────────────────────────
+emit('llm:send', { messages: [{ role: 'user', content: 'Will error' }], model: 'gpt-4o' });
+await wait(5);
+emit('llm:request-error', { error: 'Network timeout' });
+await wait(10);
+
+const stats5 = viz.getStats();
+assert('Failed request not added to history',
+    stats5.history.length === 4); // still 4, not 5
+
+// ── 15. clear() resets everything ────────────────────────────────────────────
+viz.clear();
+await wait(10);
+
+const statsAfterClear = viz.getStats();
+assert('clear() empties history',
+    statsAfterClear.history.length === 0);
+assert('clear() resets session totals',
+    statsAfterClear.session.requests === 0 && statsAfterClear.session.promptTokens === 0);
+
+// ── 16. Session cost accumulates correctly ────────────────────────────────────
+// Two known-model requests after clear
+emit('llm:send', { messages: [{ role: 'user', content: 'A' }], model: 'gpt-4o-mini' });
+emit('llm:request-complete', { promptTokens: 1000, completionTokens: 500, model: 'gpt-4o-mini' });
+emit('llm:send', { messages: [{ role: 'user', content: 'B' }], model: 'gpt-4o-mini' });
+emit('llm:request-complete', { promptTokens: 1000, completionTokens: 500, model: 'gpt-4o-mini' });
+await wait(10);
+
+// gpt-4o-mini: $0.15/M in + $0.60/M out
+// per request: 1000*0.15/1M + 500*0.60/1M = 0.00015 + 0.0003 = 0.00045
+// x2 = 0.0009
+const statsSession = viz.getStats();
+assert('Session cost sums across requests',
+    statsSession.session.cost > 0 && statsSession.session.cost < 0.01,
+    `total cost=$${statsSession.session.cost.toFixed(6)}`);
+
+// ── 17. Shadow DOM shows token counts after complete ─────────────────────────
+const totalsEl = viz.shadowRoot.querySelector('.totals-row');
+assert('Totals row rendered in shadow DOM',
+    totalsEl != null);
+assert('Totals row shows token numbers',
+    totalsEl?.textContent.includes('1,000') || totalsEl?.textContent.includes('1000'));
+
+// ── Summary ───────────────────────────────────────────────────────────────────
+const sumEl = document.getElementById('summary');
+sumEl.innerHTML = `<strong class="${fails === 0 ? 'pass' : 'fail'}">${passes} passed, ${fails} failed</strong>`;
+</script>
+</body>
+</html>
