@@ -79,10 +79,10 @@ import { SgLayout }   from '/core/sg-layout/v0.1.0/sg-layout.js';
 import { SGL_EVENTS } from '/core/sg-layout/v0.1.0/sg-layout-events.js';
 
 import '/components/llm/sg-llm-events/v0/v0.1/v0.1.0/sg-llm-events.js';
-import '/components/llm/sg-llm-request/v0/v0.1/v0.1.0/sg-llm-request.js';
-import '/components/llm/sg-llm-bundle/v0/v0.1/v0.1.0/sg-llm-bundle.js';
+import '/components/llm/sg-llm-request/v0/v0.1/v0.1.1/sg-llm-request.js';
+import '/components/llm/sg-llm-bundle/v0/v0.1/v0.1.1/sg-llm-bundle.js';
 import '/components/llm/sg-llm-reality/v0/v0.1/v0.1.0/sg-llm-reality.js';
-import '/components/llm/sg-llm-stats/v0/v0.1/v0.1.0/sg-llm-stats.js';
+import '/components/llm/sg-llm-stats/v0/v0.1/v0.1.1/sg-llm-stats.js';
 import '/components/llm/sg-llm-infographic/v0/v0.1/v0.1.0/sg-llm-infographic.js';
 import '/components/llm/sg-llm-model-picker/v0/v0.1/v0.1.0/sg-llm-model-picker.js';
 
@@ -370,6 +370,7 @@ const rightPanel = layout.getPanelElement('t-infographic');
 
 // Left panel: shared event bus (all non-infographic sg-llm components)
 const bus = document.createElement('div');
+bus.setAttribute('data-llm-bus', '');  // v0.1.1 components walk up to this for event scoping
 bus.style.cssText = 'display:flex; flex-direction:column; height:100%; overflow:hidden; background:#0d0d1a;';
 leftPanel.style.cssText = 'overflow:hidden; height:100%; display:block;';
 leftPanel.appendChild(bus);
@@ -484,16 +485,7 @@ for (const evt of [
     });
 }
 
-// bus → statsPanelEl: all events stats listens for
-for (const evt of [
-    SGL_LLM.REALITY_CHANGED,
-    SGL_LLM.REQUEST_START, SGL_LLM.REQUEST_COMPLETE, SGL_LLM.REQUEST_ERROR, SGL_LLM.REQUEST_CANCEL,
-]) {
-    bus.addEventListener(evt, e => {
-        if (statsPanelEl.contains(e.target)) return; // bubbled from stats — skip
-        statsPanelEl.dispatchEvent(new CustomEvent(evt, { detail: e.detail, bubbles: false }));
-    });
-}
+// sg-llm-stats v0.1.1 uses data-llm-bus walk-up — no bridge needed for stats.
 
 // Right panel: infographic (separate parentElement — bridged below)
 const infographicWrap = document.createElement('div');
@@ -570,17 +562,27 @@ for (const evtName of BRIDGE_EVENTS) {
 // On request start, clear any previous image overlay
 bus.addEventListener(SGL_LLM.REQUEST_START, () => hideImageOverlay());
 
-// On completion, check if the response is image data (base64 PNG/JPG)
-// Image models return base64 bytes; extract and show via <img>.
+// On completion, check if the response contains image data and display it.
+// v0.1.1 request extracts images from delta.images/response content[] into e.detail.images.
 bus.addEventListener(SGL_LLM.REQUEST_COMPLETE, e => {
+    // 1. Check e.detail.images (populated by sg-llm-request v0.1.1 from delta.images/content[])
+    const images = e.detail?.images;
+    if (images?.length > 0) {
+        const img = images[0];
+        let src = null;
+        if (img.type === 'image_url' && img.image_url?.url) {
+            src = img.image_url.url;  // already a data URL: "data:image/jpeg;base64,..."
+        } else if (img.type === 'image' && img.source?.data) {
+            src = `data:${img.source.media_type || 'image/jpeg'};base64,${img.source.data}`;
+        }
+        if (src) { showImageOverlay(src); return; }
+    }
+    // 2. Fallback: scan text content for inline base64 / markdown image / bare URL
     const content = e.detail?.content || '';
-    // Match inline base64 data URL: data:image/png;base64,…
     const b64Match = content.match(/data:image\/[^;'"]+;base64,[A-Za-z0-9+/=]+/);
     if (b64Match) { showImageOverlay(b64Match[0]); return; }
-    // Match markdown image: ![…](url)
     const mdMatch = content.match(/!\[.*?\]\((https?:\/\/[^\s)]+)\)/);
     if (mdMatch) { showImageOverlay(mdMatch[1]); return; }
-    // Match bare https URL pointing to an image
     const urlMatch = content.match(/https?:\/\/\S+\.(?:png|jpg|jpeg|webp|gif)/i);
     if (urlMatch) { showImageOverlay(urlMatch[0]); }
 });
