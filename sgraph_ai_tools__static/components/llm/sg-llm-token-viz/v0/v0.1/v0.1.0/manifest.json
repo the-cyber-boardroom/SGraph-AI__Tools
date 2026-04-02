@@ -1,0 +1,24 @@
+{
+  "name": "sg-llm-token-viz",
+  "version": "0.1.0",
+  "tag": "sg-llm-token-viz",
+  "class": "SgLlmTokenViz",
+  "file": "sg-llm-token-viz.js",
+  "description": "Token breakdown visualiser. Stacked bar by section (system/history/current/images), cost estimate, context growth sparkline, session totals. Makes one-shot feedback loop token consumption visible.",
+  "events": {
+    "consumes": [
+      "llm:send — { messages[], model } — analyse breakdown",
+      "llm:request-start — transition to in-flight state",
+      "llm:request-complete — { promptTokens, completionTokens, model } — finalise",
+      "llm:request-error — clear in-flight state",
+      "llm:request-cancel — clear in-flight state"
+    ]
+  },
+  "api": {
+    "getStats": "Returns { history: Array, session: Object }",
+    "clear": "Reset all history and session totals"
+  },
+  "dependencies": [
+    "/components/llm/sg-llm-events/v0/v0.1/v0.1.0/sg-llm-events.js"
+  ]
+}
