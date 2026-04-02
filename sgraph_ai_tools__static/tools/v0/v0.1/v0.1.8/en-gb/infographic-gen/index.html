@@ -428,7 +428,7 @@ bus.appendChild(innerLayout);
 
 const innerReady = new Promise(resolve => innerLayout.events.on(SGL_EVENTS.LAYOUT_READY, resolve));
 innerLayout.setLayout({
-    type: 'column', id: 'inner-root', sizes: [0.12, 0.68, 0.20],
+    type: 'column', id: 'inner-root', sizes: [0.10, 0.58, 0.14, 0.18],
     children: [
         {
             type: 'stack', id: 's-inner-examples', activeTab: 0,
@@ -438,6 +438,11 @@ innerLayout.setLayout({
         {
             type: 'stack', id: 's-inner-reality', activeTab: 0,
             tabs: [{ type: 'tab', id: 't-inner-reality', title: 'Prompt',
+                     tag: 'div', state: {}, locked: true, closable: false }],
+        },
+        {
+            type: 'stack', id: 's-inner-actions', activeTab: 0,
+            tabs: [{ type: 'tab', id: 't-inner-actions', title: 'Actions',
                      tag: 'div', state: {}, locked: true, closable: false }],
         },
         {
@@ -451,6 +456,7 @@ await innerReady;
 
 const examplesPanel  = innerLayout.getPanelElement('t-inner-examples');
 const realityPanelEl = innerLayout.getPanelElement('t-inner-reality');
+const actionsPanelEl = innerLayout.getPanelElement('t-inner-actions');
 const statsPanelEl   = innerLayout.getPanelElement('t-inner-stats');
 
 // Mount content into panels (inline styles — CSS doesn't cross shadow boundary)
@@ -461,6 +467,43 @@ const reality = document.createElement('sg-llm-reality');
 reality.style.cssText = 'height:100%; overflow:hidden; display:block;';
 realityPanelEl.style.cssText = 'height:100%; overflow:hidden; display:block;';
 realityPanelEl.appendChild(reality);
+
+// ── Actions panel: + block buttons + Send (always visible even when Prompt is collapsed)
+const actionsBar = document.createElement('div');
+actionsBar.style.cssText = [
+    'display:flex', 'align-items:center', 'justify-content:space-between',
+    'gap:8px', 'padding:8px 10px', 'height:100%', 'box-sizing:border-box',
+    'background:#0a0a18', 'font-family:system-ui,sans-serif',
+].join(';');
+
+const addBtnsWrap = document.createElement('div');
+addBtnsWrap.style.cssText = 'display:flex; align-items:center; gap:5px; flex-wrap:wrap;';
+for (const type of ['system', 'context', 'history', 'memory', 'question']) {
+    const btn = document.createElement('button');
+    btn.textContent = `+ ${type[0].toUpperCase() + type.slice(1)}`;
+    btn.style.cssText = [
+        'background:#1a1a3a', 'border:1px solid #333d5a', 'border-radius:4px',
+        'color:#e2e8f0', 'padding:4px 10px', 'font-size:12px', 'cursor:pointer',
+    ].join(';');
+    btn.addEventListener('click', () => reality._addBlock?.(type));
+    addBtnsWrap.appendChild(btn);
+}
+
+const sendBtn = document.createElement('button');
+sendBtn.innerHTML = '&#9658; Send';
+sendBtn.style.cssText = [
+    'background:#1d4ed8', 'border:none', 'border-radius:6px',
+    'color:#fff', 'padding:8px 22px', 'font-size:14px', 'font-weight:600',
+    'cursor:pointer', 'flex-shrink:0',
+].join(';');
+sendBtn.addEventListener('click', () => {
+    reality.shadowRoot?.getElementById('send-btn')?.click();
+});
+
+actionsBar.appendChild(addBtnsWrap);
+actionsBar.appendChild(sendBtn);
+actionsPanelEl.style.cssText = 'height:100%; overflow:hidden; display:block;';
+actionsPanelEl.appendChild(actionsBar);
 
 const stats = document.createElement('sg-llm-stats');
 stats.style.cssText = 'height:100%; overflow:auto; display:block;';
