@@ -4,30 +4,22 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Infographic Generator — tools.sgraph.ai</title>
-    <meta name="description" content="Turn text into SVG infographics with a one-shot LLM request. Choose a style preset, describe your content, and export the result.">
+    <meta name="description" content="Turn text into SVG infographics with nano LLM models via OpenRouter. Build your prompt, choose a style, export the result.">
     <link rel="icon" type="image/svg+xml" href="../../_common/favicon.svg">
     <link rel="stylesheet" href="../../_common/css/tools.css">
+    <link rel="stylesheet" href="/core/sg-layout/v0.1.0/sg-layout.css">
     <style>
-        html, body {
-            height: 100%;
-            margin: 0;
-            overflow: hidden;
-        }
-        body {
-            display: flex;
-            flex-direction: column;
-        }
-        sg-site-header {
-            flex-shrink: 0;
-        }
+        html, body { height: 100%; margin: 0; overflow: hidden; }
+        body { display: flex; flex-direction: column; }
+        sg-site-header { flex-shrink: 0; }
 
-        /* ── Connection bar ────────────────────────────────────────────── */
+        /* ── Connection bar ────────────────────────────────────────────────── */
         #conn-bar {
             flex-shrink: 0;
             display: flex;
             align-items: center;
             gap: 10px;
-            padding: 8px 14px;
+            padding: 7px 14px;
             background: #0d0d1a;
             border-bottom: 1px solid #1a1a3a;
             font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
@@ -35,36 +27,19 @@
             flex-wrap: wrap;
         }
         #conn-bar label {
-            font-size: 11px;
-            font-weight: 600;
-            color: #a0aec0;
-            text-transform: uppercase;
-            letter-spacing: 0.05em;
-            white-space: nowrap;
+            font-size: 11px; font-weight: 600; color: #a0aec0;
+            text-transform: uppercase; letter-spacing: 0.05em; white-space: nowrap;
         }
         #conn-bar input[type="password"] {
-            flex: 1;
-            min-width: 160px;
-            max-width: 320px;
-            background: #111122;
-            border: 1px solid #333d5a;
-            border-radius: 4px;
-            color: #e2e8f0;
-            padding: 5px 10px;
-            font-size: 13px;
-            outline: none;
+            flex: 1; min-width: 140px; max-width: 280px;
+            background: #111122; border: 1px solid #333d5a; border-radius: 4px;
+            color: #e2e8f0; padding: 5px 10px; font-size: 13px; outline: none;
         }
         #conn-bar input:focus { border-color: #4ECDC4; }
-        #conn-bar sg-llm-model-picker { flex: 1; min-width: 200px; max-width: 380px; }
+        #conn-bar sg-llm-model-picker { flex: 1; min-width: 180px; max-width: 360px; }
         #connect-btn {
-            background: #4ECDC4;
-            color: #0d0d1a;
-            border: none;
-            border-radius: 4px;
-            padding: 6px 16px;
-            font-size: 13px;
-            font-weight: 700;
-            cursor: pointer;
+            background: #4ECDC4; color: #0d0d1a; border: none; border-radius: 4px;
+            padding: 5px 16px; font-size: 13px; font-weight: 700; cursor: pointer;
             white-space: nowrap;
         }
         #connect-btn:hover { opacity: 0.85; }
@@ -73,35 +48,34 @@
         #conn-status.ok    { color: #4ECDC4; }
         #conn-status.error { color: #ff6b6b; }
 
-        /* ── Event bus + layout container ─────────────────────────────── */
-        #bus {
+        /* ── sg-layout wrapper ─────────────────────────────────────────────── */
+        #layout-wrap {
             flex: 1;
-            display: grid;
-            grid-template-columns: 36% 1fr;
-            grid-template-rows: 1fr auto;
-            grid-template-areas:
-                "reality     infographic"
-                "stats       infographic";
-            gap: 1px;
-            background: #1a1a2e;
             min-height: 0;
-            overflow: hidden;
+            position: relative;
         }
+        #layout-wrap sg-layout { width: 100%; height: 100%; display: block; }
 
-        /* ── Panel base ────────────────────────────────────────────────── */
-        #bus > * {
+        /* ── Left bus panel ────────────────────────────────────────────────── */
+        #bus {
+            display: flex;
+            flex-direction: column;
+            height: 100%;
+            overflow: hidden;
             background: #0d0d1a;
-            overflow: hidden;
-            min-height: 0;
         }
+        #bus sg-llm-request,
+        #bus sg-llm-bundle { display: none !important; }
+        #bus sg-llm-reality { flex: 1; min-height: 0; overflow: hidden; }
+        #bus sg-llm-stats   { flex-shrink: 0; overflow: auto; max-height: 140px; }
 
-        /* ── Grid area assignments ─────────────────────────────────────── */
-        sg-llm-request,
-        sg-llm-bundle     { display: none !important; }
-
-        sg-llm-reality     { grid-area: reality; overflow: hidden; }
-        sg-llm-stats       { grid-area: stats; overflow: auto; max-height: 130px; }
-        sg-llm-infographic { grid-area: infographic; overflow: hidden; }
+        /* ── Right infographic panel ───────────────────────────────────────── */
+        #infographic-wrap {
+            height: 100%;
+            overflow: hidden;
+            background: #0d0d1a;
+        }
+        #infographic-wrap sg-llm-infographic { height: 100%; display: block; }
     </style>
 </head>
 <body>
@@ -109,7 +83,7 @@
 <script type="module" src="/components/site-header/v1/v1.0/v1.0.2/sg-site-header.js"></script>
 <sg-site-header site="Tools" home-url="../../"></sg-site-header>
 
-<!-- ── Connection bar (outside #bus so model-picker doesn't share the event scope) ── -->
+<!-- ── Connection bar ── -->
 <div id="conn-bar">
     <label>OpenRouter Key</label>
     <input type="password" id="api-key" placeholder="sk-or-v1-…" autocomplete="off" spellcheck="false">
@@ -119,16 +93,13 @@
     <span id="conn-status"></span>
 </div>
 
-<!-- ── Event bus: all sg-llm-* are direct children so they share this as parentElement ── -->
-<div id="bus">
-    <sg-llm-request></sg-llm-request>
-    <sg-llm-bundle auto-save></sg-llm-bundle>
-    <sg-llm-reality></sg-llm-reality>
-    <sg-llm-stats></sg-llm-stats>
-    <sg-llm-infographic style-preset="executive" orientation="landscape"></sg-llm-infographic>
-</div>
+<!-- ── sg-layout content area ── -->
+<div id="layout-wrap"></div>
 
 <script type="module">
+import { SgLayout }   from '/core/sg-layout/v0.1.0/sg-layout.js';
+import { SGL_EVENTS } from '/core/sg-layout/v0.1.0/sg-layout-events.js';
+
 import '/components/llm/sg-llm-events/v0/v0.1/v0.1.0/sg-llm-events.js';
 import '/components/llm/sg-llm-request/v0/v0.1/v0.1.0/sg-llm-request.js';
 import '/components/llm/sg-llm-bundle/v0/v0.1/v0.1.0/sg-llm-bundle.js';
@@ -136,51 +107,220 @@ import '/components/llm/sg-llm-reality/v0/v0.1/v0.1.0/sg-llm-reality.js';
 import '/components/llm/sg-llm-stats/v0/v0.1/v0.1.0/sg-llm-stats.js';
 import '/components/llm/sg-llm-infographic/v0/v0.1/v0.1.0/sg-llm-infographic.js';
 import '/components/llm/sg-llm-model-picker/v0/v0.1/v0.1.0/sg-llm-model-picker.js';
+
 import { SGL_LLM } from '/components/llm/sg-llm-events/v0/v0.1/v0.1.0/sg-llm-events.js';
 
-// ── Nano model shortlist ────────────────────────────────────────────────────
-// Fast, cheap OpenRouter models that reliably follow "output ONLY raw SVG".
+// ── Constants ────────────────────────────────────────────────────────────────
+
+const STORAGE_KEY = 'sg-infographic-gen-v1';
+
+// Curated models known to follow "output ONLY raw SVG" instructions reliably.
+// Updated to use correct OpenRouter model slugs (avoids 404 "No endpoints found").
 const NANO_MODELS = [
+    'google/gemini-2.0-flash-001',
+    'google/gemini-2.5-flash-preview',
     'qwen/qwen-2.5-72b-instruct',
     'qwen/qwen-2.5-7b-instruct',
-    'google/gemini-flash-1.5-8b',
-    'google/gemini-2.0-flash-lite',
-    'meta-llama/llama-3.2-3b-instruct:free',
-    'meta-llama/llama-3.2-1b-instruct:free',
-    'mistralai/mistral-7b-instruct',
-    'microsoft/phi-4-mini-instruct',
-    'deepseek/deepseek-r1-distill-qwen-7b',
+    'meta-llama/llama-3.3-70b-instruct',
+    'meta-llama/llama-3.1-8b-instruct:free',
+    'mistralai/mistral-small-3.1-24b-instruct',
+    'deepseek/deepseek-chat-v3-0324',
+    'anthropic/claude-haiku-4-5-20251001',
 ];
 
-const bus        = document.getElementById('bus');
-const apiKeyEl   = document.getElementById('api-key');
-const modelPicker = document.getElementById('model-picker');
-const connectBtn = document.getElementById('connect-btn');
-const statusEl   = document.getElementById('conn-status');
+// Default reality blocks — serverless architecture infographic example
+function makeDefaultBlocks() {
+    const ts = Date.now();
+    return [
+        {
+            id: `block-${ts}-sys`,
+            type: 'system', enabled: true,
+            content: '', // filled by injectSystemPrompt() once infographic is ready
+        },
+        {
+            id: `block-${ts}-ctx`,
+            type: 'context', enabled: true,
+            label: 'AWS Serverless Architecture',
+            content:
+`AWS Serverless Application — component list and data flow:
 
-// Seed the picker with the nano shortlist (no live fetch until key is entered)
+Ingress:
+  • CloudFront — CDN, caches static assets and API responses at the edge
+  • API Gateway — REST + WebSocket endpoints, request throttling, auth integration
+
+Compute:
+  • Lambda (Node.js / Python) — stateless functions triggered by API Gateway, EventBridge, SQS
+
+Data:
+  • DynamoDB — primary NoSQL store, on-demand capacity, single-digit ms latency
+  • S3 — object storage for uploads, bundles, static site assets
+  • ElastiCache (optional) — Redis cache layer for hot data
+
+Auth:
+  • Cognito — user pools + identity pools, JWT tokens validated at API Gateway
+
+Async / Events:
+  • EventBridge — event bus routing between services and third-party webhooks
+  • SQS — FIFO and standard queues for decoupled async processing
+  • SNS — fan-out notifications to multiple subscribers
+
+Observability:
+  • CloudWatch — logs, metrics, alarms, dashboards
+  • X-Ray — distributed tracing across Lambda + API Gateway
+
+Key data flows:
+  1. Browser → CloudFront → API Gateway → Lambda → DynamoDB / S3
+  2. Lambda → EventBridge → SQS → Lambda  (async event-driven processing)
+  3. Cognito JWT → API Gateway authoriser → Lambda
+  4. Lambda → SNS → email / SMS / other Lambdas
+
+Serverless benefits: zero infrastructure management, auto-scaling to millions of requests,
+pay-per-execution pricing, built-in HA across 3 AZs.`,
+        },
+        {
+            id: `block-${ts}-q`,
+            type: 'question', enabled: true,
+            content: 'Create an infographic that visualises this AWS serverless architecture. Show all components, their connections, and the main data flows. Use clear labels and visual groupings for each layer (Ingress, Compute, Data, Auth, Async, Observability). Highlight the key serverless benefits.',
+            _imageCount: 0,
+        },
+    ];
+}
+
+// ── DOM refs ─────────────────────────────────────────────────────────────────
+
+const apiKeyEl    = document.getElementById('api-key');
+const modelPicker = document.getElementById('model-picker');
+const connectBtn  = document.getElementById('connect-btn');
+const statusEl    = document.getElementById('conn-status');
+const layoutWrap  = document.getElementById('layout-wrap');
+
+// ── localStorage helpers ──────────────────────────────────────────────────────
+
+function loadPrefs() {
+    try { return JSON.parse(localStorage.getItem(STORAGE_KEY) || '{}'); } catch { return {}; }
+}
+function savePrefs(patch) {
+    const cur = loadPrefs();
+    localStorage.setItem(STORAGE_KEY, JSON.stringify({ ...cur, ...patch }));
+}
+
+// ── Restore persisted values ──────────────────────────────────────────────────
+
+const prefs = loadPrefs();
+if (prefs.apiKey) apiKeyEl.value = prefs.apiKey;
+
+// ── Model picker — seed with nano shortlist ───────────────────────────────────
+
 await customElements.whenDefined('sg-llm-model-picker');
-(function seedNanoModels() {
-    const sel = modelPicker.shadowRoot?.querySelector('select');
+
+(function seedPicker() {
+    const shadow = modelPicker.shadowRoot;
+    if (!shadow) return;
+    const sel = shadow.querySelector('select');
     if (!sel) return;
     sel.innerHTML = NANO_MODELS.map(m => `<option value="${m}">${m}</option>`).join('');
-    const btn = modelPicker.shadowRoot?.querySelector('#refresh-btn');
-    if (btn) btn.style.display = 'none';
+    const refreshBtn = shadow.querySelector('#refresh-btn');
+    if (refreshBtn) refreshBtn.style.display = 'none';
 })();
 
-// ── Connect ─────────────────────────────────────────────────────────────────
+// Restore saved model selection
+if (prefs.model && NANO_MODELS.includes(prefs.model)) {
+    modelPicker.setModel(prefs.model);
+}
+
+// ── Build sg-layout ──────────────────────────────────────────────────────────
+
+const layout = document.createElement('sg-layout');
+layout.style.cssText = 'display:block; width:100%; height:100%;';
+layoutWrap.appendChild(layout);
+
+layout.setLayout({
+    type: 'row', id: 'root', sizes: [0.36, 0.64],
+    children: [
+        {
+            type: 'stack', id: 's-left', activeTab: 0,
+            tabs: [{ type: 'tab', id: 't-builder', title: 'Prompt Builder',
+                     tag: 'div', state: {}, locked: true, closable: false }],
+        },
+        {
+            type: 'stack', id: 's-right', activeTab: 0,
+            tabs: [{ type: 'tab', id: 't-infographic', title: 'Infographic',
+                     tag: 'div', state: {}, locked: true, closable: false }],
+        },
+    ],
+});
+
+// Wait for panels to be ready
+await new Promise(resolve => layout.events.on(SGL_EVENTS.LAYOUT_READY, resolve));
+
+const leftPanel  = layout.getPanelElement('t-builder');
+const rightPanel = layout.getPanelElement('t-infographic');
+
+// ── Mount sg-llm components ───────────────────────────────────────────────────
+
+// Left panel: shared event bus (all non-infographic sg-llm components)
+const bus = document.createElement('div');
+bus.id = 'bus';
+leftPanel.appendChild(bus);
+leftPanel.style.cssText = 'overflow:hidden; height:100%;';
+
+const request    = document.createElement('sg-llm-request');
+const bundle     = document.createElement('sg-llm-bundle');
+bundle.setAttribute('auto-save', '');
+const reality    = document.createElement('sg-llm-reality');
+const stats      = document.createElement('sg-llm-stats');
+[request, bundle, reality, stats].forEach(el => bus.appendChild(el));
+
+// Right panel: infographic (separate parentElement — bridged below)
+const infographicWrap = document.createElement('div');
+infographicWrap.id = 'infographic-wrap';
+rightPanel.appendChild(infographicWrap);
+rightPanel.style.cssText = 'overflow:hidden; height:100%;';
+
+const infographic = document.createElement('sg-llm-infographic');
+infographic.setAttribute('style-preset', 'executive');
+infographic.setAttribute('orientation', 'landscape');
+infographicWrap.appendChild(infographic);
+
+// ── Event bridge: bus → infographic ──────────────────────────────────────────
+// sg-llm-infographic listens on its parentElement (infographicWrap).
+// sg-llm-request fires events on its parentElement (#bus).
+// Bridge forwards the request lifecycle events across the two scopes.
+
+const BRIDGE_EVENTS = [
+    SGL_LLM.REQUEST_START, SGL_LLM.REQUEST_CHUNK,
+    SGL_LLM.REQUEST_COMPLETE, SGL_LLM.REQUEST_ERROR, SGL_LLM.REQUEST_CANCEL,
+];
+for (const evtName of BRIDGE_EVENTS) {
+    bus.addEventListener(evtName, e => {
+        infographicWrap.dispatchEvent(
+            new CustomEvent(evtName, { detail: e.detail, bubbles: false })
+        );
+    });
+}
+
+// ── Connect handler ───────────────────────────────────────────────────────────
+
 connectBtn.addEventListener('click', async () => {
     const apiKey = apiKeyEl.value.trim();
     const model  = modelPicker.getModel();
     if (!apiKey) { setStatus('OpenRouter key required', 'error'); return; }
+
     setStatus('Connecting…', '');
     connectBtn.disabled = true;
+
     try {
         const res = await fetch('https://openrouter.ai/api/v1/models', {
             headers: { Authorization: `Bearer ${apiKey}` },
         });
         if (!res.ok) throw new Error(`HTTP ${res.status}`);
+
+        // Persist credentials
+        savePrefs({ apiKey, model });
+
         setStatus(`Connected ✓  (${model})`, 'ok');
+
+        // Notify the bus (sg-llm-request + sg-llm-stats + sg-llm-reality receive this)
         bus.dispatchEvent(new CustomEvent(SGL_LLM.CONNECTED, {
             detail: { provider: 'openrouter', model, apiKey, baseUrl: '' },
             bubbles: true,
@@ -191,21 +331,24 @@ connectBtn.addEventListener('click', async () => {
     connectBtn.disabled = false;
 });
 
+// Save model choice whenever the picker changes
+modelPicker.shadowRoot?.querySelector('select')?.addEventListener('change', () => {
+    savePrefs({ model: modelPicker.getModel() });
+});
+
 function setStatus(text, type) {
     statusEl.textContent = text;
     statusEl.className = type;
 }
 
-// ── Inject infographic system prompt into reality ────────────────────────────
+// ── Inject infographic system prompt into reality ─────────────────────────────
+
 await customElements.whenDefined('sg-llm-infographic');
 await customElements.whenDefined('sg-llm-reality');
 
-const infographic = bus.querySelector('sg-llm-infographic');
-const reality     = bus.querySelector('sg-llm-reality');
-
 function injectSystemPrompt() {
     const prompt = infographic.getSystemPrompt?.();
-    if (!prompt || !reality) return;
+    if (!prompt) return;
     const state = reality.getState?.();
     if (!state) return;
     const sysBlock = state.blocks?.find(b => b.type === 'system');
@@ -214,8 +357,18 @@ function injectSystemPrompt() {
         reality.setState?.({ blocks: state.blocks });
     }
 }
+
+// ── Pre-populate reality with default blocks ──────────────────────────────────
+
+// Allow the reality component one tick to render, then set state
+await new Promise(r => setTimeout(r, 0));
+
+reality.setState?.({ blocks: makeDefaultBlocks() });
+
+// Inject style-specific system prompt into the system block
 injectSystemPrompt();
 
+// Re-inject when infographic style changes
 const styleSelect = infographic.shadowRoot?.querySelector('.inf-style-select');
 if (styleSelect) styleSelect.addEventListener('change', injectSystemPrompt);
 </script>
