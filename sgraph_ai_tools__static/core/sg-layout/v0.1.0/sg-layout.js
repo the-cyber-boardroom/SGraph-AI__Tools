@@ -1,6 +1,8 @@
 /**
  * sg-layout.js
  * Fractal window management Web Component.
+ * v0.1.4 — fix _normaliseTree to handle stack/tab nodes (adds type/id/state if missing).
+ *           Allows setLayout() with minimal JSON (tabs don't need type:'tab' or id).
  * v0.1.3 — drag to dock (within one layout).
  * v0.1.2 — fractal registration (nested sg-layout, depth tracking, nested serialisation).
  * v0.1.1 — tab stacks (multiple tabs per panel, click to switch, close tab).
@@ -1707,9 +1709,21 @@ class SgLayout extends HTMLElement {
      */
     _normaliseTree(node) {
         if (!node) return node;
+        // Ensure every node has an id
+        if (!node.id) node.id = uid();
         if (node.type === 'row' || node.type === 'column') {
             node.sizes = normaliseSizes(node.sizes, node.children.length);
             node.children.forEach(c => this._normaliseTree(c));
+        } else if (node.type === 'stack') {
+            // Normalise tabs: add type, id, state if missing
+            if (!Array.isArray(node.tabs)) node.tabs = [];
+            if (node.activeTab == null) node.activeTab = 0;
+            node.tabs = node.tabs.map(t => {
+                if (!t.type)  t.type  = 'tab';
+                if (!t.id)    t.id    = uid();
+                if (!t.state) t.state = {};
+                return t;
+            });
         }
         return node;
     }
