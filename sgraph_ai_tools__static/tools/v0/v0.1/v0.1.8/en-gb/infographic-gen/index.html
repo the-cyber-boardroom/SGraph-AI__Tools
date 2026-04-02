@@ -108,18 +108,74 @@ const NANO_MODELS = [
 
 // Default reality blocks — serverless architecture infographic example
 function makeDefaultBlocks() {
-    const ts = Date.now();
-    return [
-        {
-            id: `block-${ts}-sys`,
-            type: 'system', enabled: true,
-            content: '', // filled by injectSystemPrompt() once infographic is ready
-        },
-        {
-            id: `block-${ts}-ctx`,
-            type: 'context', enabled: true,
-            label: 'AWS Serverless Architecture',
-            content:
+    return makeExampleBlocks('serverless');
+}
+
+// ── Example presets ───────────────────────────────────────────────────────────
+
+const EXAMPLES = [
+    {
+        id: 'shapes',
+        label: 'Simple shapes',
+        complexity: 1,
+        context: null,
+        question: 'Create a colourful geometric composition: large teal circle on the left, overlapping orange rectangle in the centre, small purple triangle on the right. Add a bold title "Geometry" at the top. White background, clean minimal style.',
+    },
+    {
+        id: 'barchart',
+        label: 'Bar chart',
+        complexity: 2,
+        context: `Monthly ARR for a SaaS startup (USD):
+Jan: $12,000 | Feb: $18,500 | Mar: $25,200 | Apr: $31,000
+May: $28,400 | Jun: $42,800 | Jul: $51,300 | Aug: $63,000`,
+        question: 'Create a bar chart visualising this monthly ARR data. Use teal bars on a dark background. Label each bar with its value. Add a title "Monthly ARR Growth" and a subtle upward-trend annotation.',
+    },
+    {
+        id: 'piechart',
+        label: 'Pie chart',
+        complexity: 2,
+        context: `Cloud provider market share 2024:
+AWS: 32% | Azure: 23% | Google Cloud: 12% | Alibaba: 4% | Others: 29%`,
+        question: 'Create a pie chart of cloud provider market share. Use distinct colours for each slice. Add percentage labels and a legend. Title: "Cloud Market Share 2024".',
+    },
+    {
+        id: 'flowchart',
+        label: 'Flow / pipeline',
+        complexity: 3,
+        context: null,
+        question: 'Create a CI/CD pipeline flowchart with these stages: Code Commit → Lint & Format → Unit Tests → Build & Package → Integration Tests → Deploy to Staging → Smoke Tests → Deploy to Production → Monitor. Use green for passing stages, amber for warnings, connect with arrows. Dark background.',
+    },
+    {
+        id: 'timeline',
+        label: 'Timeline',
+        complexity: 3,
+        context: `AI milestones:
+2017: Transformer paper ("Attention is All You Need")
+2018: BERT, GPT-1
+2019: GPT-2
+2020: GPT-3 (175B params)
+2022: ChatGPT launch, Stable Diffusion
+2023: GPT-4, Claude, Llama
+2024: Gemini, Claude 3, Llama 3
+2025: Reasoning models (o3, R1), multimodal agents`,
+        question: 'Create a horizontal timeline of these AI milestones. Use a dark background with a glowing teal timeline line. Each milestone as a labelled node above/below the line alternating. Title: "The AI Revolution 2017–2025".',
+    },
+    {
+        id: 'comparison',
+        label: 'Comparison table',
+        complexity: 3,
+        context: `API protocol comparison:
+REST: Simple, stateless, wide support, cacheable, verbose JSON
+GraphQL: Flexible queries, single endpoint, over/under-fetch solved, complex setup
+gRPC: Binary protocol, very fast, streaming, strong types, harder to debug
+WebSocket: Real-time, bidirectional, persistent connection, stateful`,
+        question: 'Create a visual comparison table of REST vs GraphQL vs gRPC vs WebSocket across: Performance, Flexibility, Type Safety, Real-time Support, Ease of Use, Best For. Use colour-coded ratings (green/amber/red dots or bars). Dark background, clear column headers.',
+    },
+    {
+        id: 'serverless',
+        label: 'Architecture',
+        complexity: 4,
+        context:
 `AWS Serverless Application — component list and data flow:
 
 Ingress:
@@ -154,14 +210,54 @@ Key data flows:
 
 Serverless benefits: zero infrastructure management, auto-scaling to millions of requests,
 pay-per-execution pricing, built-in HA across 3 AZs.`,
-        },
-        {
-            id: `block-${ts}-q`,
-            type: 'question', enabled: true,
-            content: 'Create an infographic that visualises this AWS serverless architecture. Show all components, their connections, and the main data flows. Use clear labels and visual groupings for each layer (Ingress, Compute, Data, Auth, Async, Observability). Highlight the key serverless benefits.',
-            _imageCount: 0,
-        },
+        question: 'Create an infographic that visualises this AWS serverless architecture. Show all components, their connections, and the main data flows. Use clear labels and visual groupings for each layer (Ingress, Compute, Data, Auth, Async, Observability). Highlight the key serverless benefits.',
+    },
+    {
+        id: 'agentic',
+        label: 'Rich infographic',
+        complexity: 5,
+        context:
+`The Agentic AI Revolution — key themes for a business infographic:
+
+Market shift:
+  • Agentic GenAI will create more custom applications than ever before
+  • Niche expertise can now scale from boutique to thousands of organisations
+  • Security tools become high-value targets, making secure-by-design critical
+
+The three maturity stages (Wardley Map):
+  • Explorer (Large Models): Discovery, prototyping, rapid innovation
+  • Villager (Constrained Models): Maturing practices, increasing reliability
+  • Town Planner (Minimal/No Model): Well-engineered, tested, refined to essentials
+
+Case study — SG/Send:
+  • Built with 20+ agents
+  • Delivers REST APIs, CLIs, and 17 locales
+  • Demonstrates the agentic blueprint in production
+
+Opportunity:
+  • Every OWASP Top 10 domain is now a viable foundation for a standalone startup
+  • 10+ new startup niches opening up`,
+        question: `Create a rich, professional business infographic titled "The Agentic AI Revolution".
+
+Layout: two-column. Left column: "The Market Shift" section with 3 key points each having an icon placeholder (use SVG shapes/symbols — no raster images). Right column: "The Agentic Blueprint" showing the 3 Wardley maturity stages as a progression diagram. Bottom strip: case study box + opportunity stats.
+
+Style: white background, bold dark headings, accent colour #4ECDC4 (teal), colourful icon backgrounds using circles with SVG symbols (gears, shield, rocket, brain, building). Use rounded rectangles for callout boxes. Make it visually rich with subtle gradient fills on section backgrounds.`,
+    },
+];
+
+function makeExampleBlocks(exampleId) {
+    const ex = EXAMPLES.find(e => e.id === exampleId) || EXAMPLES.find(e => e.id === 'serverless');
+    const ts = Date.now();
+    const blocks = [
+        { id: `block-${ts}-sys`, type: 'system', enabled: true, content: '' },
     ];
+    if (ex.context) {
+        blocks.push({ id: `block-${ts}-ctx`, type: 'context', enabled: true,
+                      label: ex.label, content: ex.context });
+    }
+    blocks.push({ id: `block-${ts}-q`, type: 'question', enabled: true,
+                  content: ex.question, _imageCount: 0 });
+    return blocks;
 }
 
 // ── DOM refs ─────────────────────────────────────────────────────────────────
@@ -243,6 +339,44 @@ const bus = document.createElement('div');
 bus.style.cssText = 'display:flex; flex-direction:column; height:100%; overflow:hidden; background:#0d0d1a;';
 leftPanel.style.cssText = 'overflow:hidden; height:100%; display:block;';
 leftPanel.appendChild(bus);
+
+// ── Examples bar ─────────────────────────────────────────────────────────────
+// Must use inline styles — inside sg-layout shadow boundary.
+
+const exBar = document.createElement('div');
+exBar.style.cssText = [
+    'display:flex', 'align-items:center', 'gap:6px', 'flex-shrink:0',
+    'padding:6px 10px', 'background:#0a0a18', 'border-bottom:1px solid #1a1a3a',
+    'overflow-x:auto', 'scrollbar-width:thin',
+].join(';');
+
+const exLabel = document.createElement('span');
+exLabel.textContent = 'Examples:';
+exLabel.style.cssText = 'font-size:11px;font-weight:600;color:#a0aec0;text-transform:uppercase;letter-spacing:0.05em;white-space:nowrap;font-family:system-ui,sans-serif;';
+exBar.appendChild(exLabel);
+
+// Complexity dot colours
+const COMPLEXITY_COLOUR = ['', '#4ECDC4', '#4ECDC4', '#f6c90e', '#f6c90e', '#ff6b6b'];
+
+EXAMPLES.forEach(ex => {
+    const btn = document.createElement('button');
+    const dot = COMPLEXITY_COLOUR[ex.complexity] || '#a0aec0';
+    btn.style.cssText = [
+        'background:#1a1a3a', 'border:1px solid #333d5a', 'border-radius:4px',
+        'color:#e2e8f0', 'padding:3px 9px', 'font-size:12px', 'cursor:pointer',
+        'white-space:nowrap', 'font-family:system-ui,sans-serif',
+        'display:flex', 'align-items:center', 'gap:5px',
+    ].join(';');
+    btn.innerHTML = `<span style="width:7px;height:7px;border-radius:50%;background:${dot};display:inline-block;flex-shrink:0"></span>${ex.label}`;
+    btn.title = `Complexity ${ex.complexity}/5`;
+    btn.addEventListener('click', () => {
+        reality.setState?.({ blocks: makeExampleBlocks(ex.id) });
+        injectSystemPrompt();
+    });
+    exBar.appendChild(btn);
+});
+
+bus.appendChild(exBar);
 
 const request = document.createElement('sg-llm-request');
 request.style.display = 'none';
