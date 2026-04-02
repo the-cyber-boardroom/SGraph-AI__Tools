@@ -52,30 +52,8 @@
         #layout-wrap {
             flex: 1;
             min-height: 0;
-            position: relative;
         }
-        #layout-wrap sg-layout { width: 100%; height: 100%; display: block; }
-
-        /* ── Left bus panel ────────────────────────────────────────────────── */
-        #bus {
-            display: flex;
-            flex-direction: column;
-            height: 100%;
-            overflow: hidden;
-            background: #0d0d1a;
-        }
-        #bus sg-llm-request,
-        #bus sg-llm-bundle { display: none !important; }
-        #bus sg-llm-reality { flex: 1; min-height: 0; overflow: hidden; }
-        #bus sg-llm-stats   { flex-shrink: 0; overflow: auto; max-height: 140px; }
-
-        /* ── Right infographic panel ───────────────────────────────────────── */
-        #infographic-wrap {
-            height: 100%;
-            overflow: hidden;
-            background: #0d0d1a;
-        }
-        #infographic-wrap sg-llm-infographic { height: 100%; display: block; }
+        #layout-wrap sg-layout { display: block; width: 100%; height: 100%; }
     </style>
 </head>
 <body>
@@ -231,8 +209,10 @@ if (prefs.model && NANO_MODELS.includes(prefs.model)) {
 // ── Build sg-layout ──────────────────────────────────────────────────────────
 
 const layout = document.createElement('sg-layout');
-layout.style.cssText = 'display:block; width:100%; height:100%;';
 layoutWrap.appendChild(layout);
+
+// Register LAYOUT_READY listener BEFORE setLayout() to avoid race condition
+const layoutReady = new Promise(resolve => layout.events.on(SGL_EVENTS.LAYOUT_READY, resolve));
 
 layout.setLayout({
     type: 'row', id: 'root', sizes: [0.36, 0.64],
@@ -250,36 +230,41 @@ layout.setLayout({
     ],
 });
 
-// Wait for panels to be ready
-await new Promise(resolve => layout.events.on(SGL_EVENTS.LAYOUT_READY, resolve));
+await layoutReady;
 
 const leftPanel  = layout.getPanelElement('t-builder');
 const rightPanel = layout.getPanelElement('t-infographic');
 
 // ── Mount sg-llm components ───────────────────────────────────────────────────
+// Inline styles required — CSS rules in <style> don't cross sg-layout's Shadow DOM.
 
 // Left panel: shared event bus (all non-infographic sg-llm components)
 const bus = document.createElement('div');
-bus.id = 'bus';
+bus.style.cssText = 'display:flex; flex-direction:column; height:100%; overflow:hidden; background:#0d0d1a;';
+leftPanel.style.cssText = 'overflow:hidden; height:100%; display:block;';
 leftPanel.appendChild(bus);
-leftPanel.style.cssText = 'overflow:hidden; height:100%;';
 
-const request    = document.createElement('sg-llm-request');
-const bundle     = document.createElement('sg-llm-bundle');
+const request = document.createElement('sg-llm-request');
+request.style.display = 'none';
+const bundle = document.createElement('sg-llm-bundle');
 bundle.setAttribute('auto-save', '');
-const reality    = document.createElement('sg-llm-reality');
-const stats      = document.createElement('sg-llm-stats');
+bundle.style.display = 'none';
+const reality = document.createElement('sg-llm-reality');
+reality.style.cssText = 'flex:1; min-height:0; overflow:hidden; display:block;';
+const stats = document.createElement('sg-llm-stats');
+stats.style.cssText = 'flex-shrink:0; overflow:auto; max-height:140px; display:block;';
 [request, bundle, reality, stats].forEach(el => bus.appendChild(el));
 
 // Right panel: infographic (separate parentElement — bridged below)
 const infographicWrap = document.createElement('div');
-infographicWrap.id = 'infographic-wrap';
+infographicWrap.style.cssText = 'height:100%; overflow:hidden; background:#0d0d1a; display:block;';
+rightPanel.style.cssText = 'overflow:hidden; height:100%; display:block;';
 rightPanel.appendChild(infographicWrap);
-rightPanel.style.cssText = 'overflow:hidden; height:100%;';
 
 const infographic = document.createElement('sg-llm-infographic');
 infographic.setAttribute('style-preset', 'executive');
 infographic.setAttribute('orientation', 'landscape');
+infographic.style.cssText = 'height:100%; display:block;';
 infographicWrap.appendChild(infographic);
 
 // ── Event bridge: bus → infographic ──────────────────────────────────────────
