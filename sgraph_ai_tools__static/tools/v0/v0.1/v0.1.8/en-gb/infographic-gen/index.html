@@ -527,8 +527,23 @@ styleDropdown.addEventListener('change', () => {
 styleWrap.appendChild(styleLabel);
 styleWrap.appendChild(styleDropdown);
 
+// activeRequests tracks in-flight requests; declared here (before stopBtn closure)
+const activeRequests = new Map(); // panelEl → cancelFn
+
+const stopBtn = document.createElement('button');
+stopBtn.textContent = '■ Stop';
+stopBtn.style.cssText = [
+    'background:#7f1d1d', 'border:none', 'border-radius:6px',
+    'color:#fca5a5', 'padding:8px 18px', 'font-size:13px', 'font-weight:600',
+    'cursor:pointer', 'flex-shrink:0', 'display:none',
+].join(';');
+stopBtn.addEventListener('click', () => {
+    for (const cancel of activeRequests.values()) cancel();
+});
+
 actionsBar.appendChild(addBtnsWrap);
 actionsBar.appendChild(styleWrap);
+actionsBar.appendChild(stopBtn);
 actionsBar.appendChild(sendBtn);
 actionsPanelEl.style.cssText = 'height:100%; overflow:hidden; display:block;';
 actionsPanelEl.appendChild(actionsBar);
@@ -596,37 +611,35 @@ const refInfographic = document.createElement('sg-llm-infographic');
 refInfographic.style.display = 'none';
 document.body.appendChild(refInfographic);
 
-// Tracks the panel element for the in-flight request
-let currentResultEl = null;
+// ── Multi-request system ──────────────────────────────────────────────────────
+// sg-llm-request._busy prevents a second SEND on the same bus.
+// Each Send spawns its own mini-bus (div on document.body) + fresh sg-llm-request.
+// A capture-phase listener on bus intercepts SEND before the static request sees it.
 
-// ── Event bridge: bus → currentResultEl ──────────────────────────────────────
-// NOTE: addTabToStack with {tag:'div'} (not config.el) is required — _mountNewElement
-// appends the element to layout and assigns its slot. Passing config.el only sets
-// the slot attribute without appending, so the content never appears.
-const BRIDGE_EVENTS = [
-    SGL_LLM.REQUEST_START, SGL_LLM.REQUEST_CHUNK,
-    SGL_LLM.REQUEST_COMPLETE, SGL_LLM.REQUEST_ERROR, SGL_LLM.REQUEST_CANCEL,
-];
-for (const evtName of BRIDGE_EVENTS) {
-    bus.addEventListener(evtName, e => {
-        if (currentResultEl) {
-            currentResultEl.dispatchEvent(new CustomEvent(evtName, { detail: e.detail, bubbles: false }));
-        }
-    });
+function updateStopBtn() {
+    stopBtn.style.display = activeRequests.size > 0 ? 'inline-block' : 'none';
+    stopBtn.textContent = activeRequests.size > 1
+        ? `■ Stop all (${activeRequests.size})` : '■ Stop';
 }
 
-// On REQUEST_START: open a new tab, populate it, start elapsed-time counter
-bus.addEventListener(SGL_LLM.REQUEST_START, () => {
-    const model = modelPicker.getModel();
-    const title = model.split('/').pop().substring(0, 35);
+function extractImageSrc(detail) {
+    const images = detail?.images;
+    if (images?.length > 0) {
+        const im = images[0];
+        if (im.type === 'image_url' && im.image_url?.url) return im.image_url.url;
+        if (im.type === 'image' && im.source?.data)
+            return `data:${im.source.media_type || 'image/jpeg'};base64,${im.source.data}`;
+    }
+    const txt = detail?.content || '';
+    const m = txt.match(/data:image\/[^;'"]+;base64,[A-Za-z0-9+/=]+/)
+           || txt.match(/!\[.*?\]\((https?:\/\/[^\s)]+)\)/)
+           || txt.match(/https?:\/\/\S+\.(?:png|jpg|jpeg|webp|gif)/i);
+    return m ? (m[1] || m[0]) : null;
+}
 
-    // Use tag:'div' so _mountNewElement appends it to layout and assigns the slot correctly
-    const tabId = layout.addTabToStack('s-right', { tag: 'div', title });
-    const panelEl = layout.getPanelElement(tabId);
+function setupResultPanel(panelEl, model) {
     panelEl.style.cssText = 'height:100%; overflow:hidden; background:#0d0d1a; display:block; position:relative;';
-
     if (isImageModel(model)) {
-        // Loading state with elapsed-time counter
         const loadingDiv = document.createElement('div');
         loadingDiv.dataset.role = 'loading';
         loadingDiv.style.cssText = [
@@ -643,21 +656,17 @@ bus.addEventListener(SGL_LLM.REQUEST_START, () => {
         loadingDiv.appendChild(loadMsg);
         loadingDiv.appendChild(elapsedEl);
         panelEl.appendChild(loadingDiv);
-
         const t0 = Date.now();
         const timer = setInterval(() => {
             elapsedEl.textContent = `${Math.floor((Date.now() - t0) / 1000)}s elapsed`;
         }, 1000);
         panelEl._clearTimer = () => clearInterval(timer);
-
-        // Image + export button (hidden until image arrives)
         const img = document.createElement('img');
         img.style.cssText = [
             'display:none', 'position:absolute', 'inset:0', 'margin:auto',
             'max-width:100%', 'max-height:100%', 'object-fit:contain', 'width:auto', 'height:auto',
         ].join(';');
         panelEl.appendChild(img);
-
         const exportBtn = document.createElement('button');
         exportBtn.textContent = 'Export PNG';
         exportBtn.style.cssText = [
@@ -667,67 +676,96 @@ bus.addEventListener(SGL_LLM.REQUEST_START, () => {
             'font-size:13px', 'cursor:pointer', 'font-family:system-ui,sans-serif',
         ].join(';');
         exportBtn.addEventListener('click', () => {
-            if (!img.src) return;
+            const i = panelEl.querySelector('img');
+            if (!i?.src) return;
             const a = document.createElement('a');
-            a.href = img.src;
-            a.download = `infographic-${model.split('/').pop()}.png`;
+            a.href = i.src; a.download = `infographic-${model.split('/').pop()}.png`;
             a.click();
         });
         panelEl.appendChild(exportBtn);
     } else {
-        // SVG model: sg-llm-infographic listens on panelEl and renders SVG
         const inf = document.createElement('sg-llm-infographic');
         inf.setAttribute('style-preset', refInfographic.getCurrentStyle?.() || 'executive');
         inf.setAttribute('orientation', 'landscape');
         inf.style.cssText = 'height:100%; display:block;';
         panelEl.appendChild(inf);
     }
+}
 
-    currentResultEl = panelEl;
-});
+// Capture-phase SEND interceptor — fires before sg-llm-request (bubble phase)
+bus.addEventListener(SGL_LLM.SEND, e => {
+    e.stopImmediatePropagation(); // block the static request from handling this SEND
 
-// On REQUEST_COMPLETE: show image in the current result panel
-bus.addEventListener(SGL_LLM.REQUEST_COMPLETE, e => {
-    if (!currentResultEl) return;
-    currentResultEl._clearTimer?.();
+    const model  = modelPicker.getModel();
+    const apiKey = apiKeyEl.value.trim();
+    if (!apiKey) return;
 
-    const img = currentResultEl.querySelector('img');
-    if (!img) return; // SVG tab — sg-llm-infographic handles rendering internally
+    // Create result tab (tag:'div' ensures _mountNewElement appends it to layout)
+    const tabId  = layout.addTabToStack('s-right', { tag: 'div', title: model.split('/').pop().substring(0, 35) });
+    const panelEl = layout.getPanelElement(tabId);
+    setupResultPanel(panelEl, model);
 
-    // Extract image src: check v0.1.1 images[], then scan text content
-    const images = e.detail?.images;
-    let src = null;
-    if (images?.length > 0) {
-        const im = images[0];
-        if (im.type === 'image_url' && im.image_url?.url) src = im.image_url.url;
-        else if (im.type === 'image' && im.source?.data)
-            src = `data:${im.source.media_type || 'image/jpeg'};base64,${im.source.data}`;
+    // Isolated mini-bus + fresh sg-llm-request for this request
+    const miniBus = document.createElement('div');
+    document.body.appendChild(miniBus);
+    miniBus.appendChild(document.createElement('sg-llm-request'));
+
+    // Prime the mini-request with connection config
+    miniBus.dispatchEvent(new CustomEvent(SGL_LLM.CONNECTED, {
+        detail: { provider: 'openrouter', model, apiKey, baseUrl: '' },
+    }));
+
+    // Bridge REQUEST_* → panelEl (for sg-llm-infographic) + → bus (for stats/bundle)
+    for (const evt of [SGL_LLM.REQUEST_START, SGL_LLM.REQUEST_CHUNK,
+                        SGL_LLM.REQUEST_COMPLETE, SGL_LLM.REQUEST_ERROR, SGL_LLM.REQUEST_CANCEL]) {
+        miniBus.addEventListener(evt, ev => {
+            panelEl.dispatchEvent(new CustomEvent(evt, { detail: ev.detail, bubbles: false }));
+            bus.dispatchEvent(new CustomEvent(evt, { detail: ev.detail, bubbles: false }));
+        });
     }
-    if (!src) {
-        const txt = e.detail?.content || '';
-        const m = txt.match(/data:image\/[^;'"]+;base64,[A-Za-z0-9+/=]+/)
-               || txt.match(/!\[.*?\]\((https?:\/\/[^\s)]+)\)/)
-               || txt.match(/https?:\/\/\S+\.(?:png|jpg|jpeg|webp|gif)/i);
-        if (m) src = m[1] || m[0];
-    }
-    if (src) {
-        currentResultEl.querySelector('[data-role="loading"]')?.remove();
-        img.src = src;
-        img.style.display = 'block';
-        const btn = currentResultEl.querySelector('button');
-        if (btn) btn.style.display = 'block';
-    }
-});
 
-// On error: stop timer and show message in loading area
-bus.addEventListener(SGL_LLM.REQUEST_ERROR, e => {
-    if (!currentResultEl) return;
-    currentResultEl._clearTimer?.();
-    const loadingDiv = currentResultEl.querySelector('[data-role="loading"]');
-    if (loadingDiv) {
-        loadingDiv.innerHTML = `<div style="color:#fc8181;font-size:14px;font-family:system-ui;">Error: ${e.detail?.error || 'Request failed'}</div>`;
-    }
-});
+    const finish = () => {
+        panelEl._clearTimer?.();
+        activeRequests.delete(panelEl);
+        updateStopBtn();
+        setTimeout(() => miniBus.remove(), 0);
+    };
+
+    miniBus.addEventListener(SGL_LLM.REQUEST_COMPLETE, ev => {
+        const src = extractImageSrc(ev.detail);
+        if (src) {
+            panelEl.querySelector('[data-role="loading"]')?.remove();
+            const img = panelEl.querySelector('img');
+            if (img) { img.src = src; img.style.display = 'block'; }
+            const btn = panelEl.querySelector('button');
+            if (btn) btn.style.display = 'block';
+        }
+        finish();
+    });
+
+    miniBus.addEventListener(SGL_LLM.REQUEST_ERROR, ev => {
+        const loadDiv = panelEl.querySelector('[data-role="loading"]');
+        if (loadDiv) loadDiv.innerHTML =
+            `<div style="color:#fc8181;font-size:14px;font-family:system-ui;">Error: ${ev.detail?.error || 'Request failed'}</div>`;
+        finish();
+    });
+
+    miniBus.addEventListener(SGL_LLM.REQUEST_CANCEL, () => {
+        const loadDiv = panelEl.querySelector('[data-role="loading"]');
+        if (loadDiv) loadDiv.textContent = 'Cancelled';
+        finish();
+    });
+
+    // Register for Stop button
+    activeRequests.set(panelEl, () =>
+        miniBus.dispatchEvent(new CustomEvent(SGL_LLM.CANCEL, { bubbles: false })));
+    updateStopBtn();
+
+    // Fire the request on the mini-bus
+    miniBus.dispatchEvent(new CustomEvent(SGL_LLM.SEND, {
+        detail: { ...e.detail, model }, bubbles: false,
+    }));
+}, true); // capture phase
 
 // ── Connect handler ───────────────────────────────────────────────────────────
 
