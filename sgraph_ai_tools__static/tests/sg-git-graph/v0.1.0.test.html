@@ -1,0 +1,218 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>sg-git-graph v0.1.0 tests</title>
+    <style>
+        body { font-family: monospace; background: #0d0d1a; color: #e2e8f0; padding: 20px; }
+        h1   { font-size: 14px; color: #7c9ef8; margin-bottom: 16px; }
+        h2   { font-size: 12px; color: #64748b; margin: 20px 0 10px; text-transform: uppercase; letter-spacing: 0.06em; }
+        .pass { color: #4ade80; }
+        .fail { color: #f87171; }
+        #summary { margin-top: 16px; font-size: 13px; border-top: 1px solid #1e2035; padding-top: 12px; }
+
+        /* Demo graph */
+        #demo-wrap {
+            margin-top: 24px;
+            border: 1px solid #1e2035;
+            border-radius: 6px;
+            overflow: hidden;
+            height: 380px;
+        }
+        sg-git-graph { display: block; width: 100%; height: 100%; }
+    </style>
+</head>
+<body>
+<h1>sg-git-graph v0.1.0 — unit tests + demo</h1>
+<div id="log"></div>
+<div id="summary"></div>
+
+<h2>Interactive Demo</h2>
+<div id="demo-wrap"></div>
+<div id="event-log" style="margin-top:8px;font-size:10px;color:#64748b;"></div>
+
+<script type="module">
+import '/components/sg-git-graph/v0/v0.1/v0.1.0/sg-git-graph.js';
+
+const log  = document.getElementById('log');
+let passes = 0, fails = 0;
+
+function assert(label, condition, detail = '') {
+    const ok  = !!condition;
+    const div = document.createElement('div');
+    div.className = ok ? 'pass' : 'fail';
+    div.textContent = `${ok ? '✓' : '✗'} ${label}${detail ? ' — ' + detail : ''}`;
+    log.appendChild(div);
+    ok ? passes++ : fails++;
+}
+
+function wait(ms = 0) { return new Promise(r => setTimeout(r, ms)); }
+
+// ── Sample graph data ──────────────────────────────────────────────────────
+const SAMPLE_GRAPH = {
+    branches: [
+        { id: 'main',    label: 'main',           color: '#7c9ef8' },
+        { id: 'exp-a',   label: 'experiment-a',   color: '#4ade80' },
+        { id: 'exp-b',   label: 'experiment-b',   color: '#f472b6' },
+        { id: 'hotfix',  label: 'hotfix',          color: '#fb923c' },
+    ],
+    commits: [
+        { id: 'c1', branch: 'main',   message: 'Initial bundle: system prompt + context', author: 'dinis',  timestamp: '2026-03-01T10:00:00Z', parents: [] },
+        { id: 'c2', branch: 'main',   message: 'Add architecture context block',           author: 'dinis',  timestamp: '2026-03-01T11:30:00Z', parents: ['c1'] },
+        { id: 'c3', branch: 'main',   message: 'Add security requirements',                author: 'claude', timestamp: '2026-03-01T12:00:00Z', parents: ['c2'] },
+        { id: 'c4', branch: 'exp-a',  message: 'Try microservices approach',               author: 'claude', timestamp: '2026-03-02T09:00:00Z', parents: ['c3'], branchPoint: true },
+        { id: 'c5', branch: 'exp-b',  message: 'Try monolith approach',                   author: 'claude', timestamp: '2026-03-02T09:05:00Z', parents: ['c3'], branchPoint: true },
+        { id: 'c6', branch: 'exp-a',  message: 'Refine: add service mesh diagram',         author: 'claude', timestamp: '2026-03-02T10:00:00Z', parents: ['c4'] },
+        { id: 'c7', branch: 'exp-b',  message: 'Refine: add modular monolith pattern',     author: 'claude', timestamp: '2026-03-02T10:30:00Z', parents: ['c5'], abandoned: true },
+        { id: 'c8', branch: 'main',   message: 'Merge experiment-a: microservices wins',   author: 'dinis',  timestamp: '2026-03-03T08:00:00Z', parents: ['c3', 'c6'], merge: true },
+        { id: 'c9', branch: 'hotfix', message: 'Fix typo in system prompt',                author: 'dinis',  timestamp: '2026-03-03T09:00:00Z', parents: ['c8'] },
+        { id: 'c10',branch: 'main',   message: 'Prune stale context, add findings',        author: 'dinis',  timestamp: '2026-03-03T10:00:00Z', parents: ['c8', 'c9'], merge: true },
+        { id: 'c11',branch: 'main',   message: 'Final bundle: focused, 620 tokens',        author: 'dinis',  timestamp: '2026-03-04T09:00:00Z', parents: ['c10'] },
+    ],
+};
+
+// ── Tests ──────────────────────────────────────────────────────────────────
+
+// 1. Registration
+assert('Custom element registered',
+    customElements.get('sg-git-graph') != null);
+
+assert('window.SgGitGraph exported',
+    typeof window.SgGitGraph === 'function');
+
+// 2. Shadow root
+const g = document.createElement('sg-git-graph');
+document.body.appendChild(g);
+await wait(10);
+
+assert('Shadow root has content',
+    g.shadowRoot && g.shadowRoot.querySelector('.gg-root') != null);
+assert('Toolbar rendered',
+    g.shadowRoot.querySelector('.gg-toolbar') != null);
+assert('Detail panel rendered',
+    g.shadowRoot.querySelector('.gg-detail') != null);
+
+// 3. setGraph() renders SVG
+g.setGraph(SAMPLE_GRAPH);
+await wait(10);
+
+const svg = g.shadowRoot.querySelector('svg.gg-svg');
+assert('SVG rendered after setGraph()',
+    svg != null);
+
+const nodes = g.shadowRoot.querySelectorAll('.gg-node');
+assert('Correct number of commit nodes rendered',
+    nodes.length === SAMPLE_GRAPH.commits.length,
+    `got ${nodes.length}, expected ${SAMPLE_GRAPH.commits.length}`);
+
+const edges = g.shadowRoot.querySelectorAll('.gg-edge');
+assert('Edges rendered',
+    edges.length > 0, `got ${edges.length}`);
+
+// 4. Branch legend
+const legendItems = g.shadowRoot.querySelectorAll('.gg-legend-item');
+assert('Branch legend items rendered',
+    legendItems.length === SAMPLE_GRAPH.branches.length,
+    `got ${legendItems.length}`);
+
+// 5. Abandoned commits have class
+const abandonedNodes = g.shadowRoot.querySelectorAll('.gg-node.abandoned');
+assert('Abandoned commit has abandoned class',
+    abandonedNodes.length === 1); // c7 is abandoned
+
+// 6. getSelected() initially null
+assert('getSelected() null before any click',
+    g.getSelected() === null);
+
+// 7. Programmatic commit selection via click
+let selectedEvt = null;
+g.addEventListener('sg-git-graph:commit-selected', e => { selectedEvt = e.detail; }, { once: true });
+
+// Simulate click on first node
+const firstNode = g.shadowRoot.querySelector('.gg-node');
+firstNode.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+await wait(10);
+
+assert('commit-selected event fired on node click',
+    selectedEvt != null);
+assert('Event detail contains commit object',
+    selectedEvt?.commit?.id != null);
+assert('getSelected() returns commit after click',
+    g.getSelected() != null);
+assert('Selected node has selected class',
+    g.shadowRoot.querySelector('.gg-node.selected') != null);
+
+// 8. Detail panel shows commit info
+const detail = g.shadowRoot.querySelector('#gg-detail');
+assert('Detail panel not empty after selection',
+    !detail.classList.contains('empty'));
+assert('Detail shows commit message',
+    detail.textContent.includes('Initial bundle'));
+
+// 9. clearSelection()
+let deselEvt = false;
+g.addEventListener('sg-git-graph:commit-deselected', () => { deselEvt = true; }, { once: true });
+g.clearSelection();
+await wait(10);
+
+assert('clearSelection() removes selected class',
+    g.shadowRoot.querySelector('.gg-node.selected') === null);
+assert('clearSelection() fires commit-deselected event',
+    deselEvt);
+assert('getSelected() null after clearSelection()',
+    g.getSelected() === null);
+assert('Detail panel returns to empty state',
+    g.shadowRoot.querySelector('.gg-detail.empty') != null);
+
+// 10. graph attribute loads on connect
+const g2 = document.createElement('sg-git-graph');
+g2.setAttribute('graph', JSON.stringify({
+    branches: [{ id: 'main', label: 'main', color: '#7c9ef8' }],
+    commits: [
+        { id: 'a', branch: 'main', message: 'First',  parents: [] },
+        { id: 'b', branch: 'main', message: 'Second', parents: ['a'] },
+    ],
+}));
+document.body.appendChild(g2);
+await wait(10);
+
+assert('graph attribute auto-loads on connect',
+    g2.shadowRoot.querySelectorAll('.gg-node').length === 2);
+
+// 11. setGraph() with merge commit renders correctly
+const mergeNodes = g.shadowRoot.querySelectorAll('circle[stroke="#fff"]');
+assert('Merge commits have distinct stroke',
+    mergeNodes.length > 0);
+
+// 12. SVG dimensions non-zero
+const svgW = parseInt(svg.getAttribute('width'),  10);
+const svgH = parseInt(svg.getAttribute('height'), 10);
+assert('SVG width > 0',  svgW > 0,  `w=${svgW}`);
+assert('SVG height > 0', svgH > 0,  `h=${svgH}`);
+
+// 13. Edge paths use curve for cross-lane connections
+const paths = g.shadowRoot.querySelectorAll('.gg-edge');
+const hasCurve = Array.from(paths).some(p => p.getAttribute('d')?.includes('C '));
+assert('Cross-lane edges use cubic bezier curves', hasCurve);
+
+// ── Summary ────────────────────────────────────────────────────────────────
+document.getElementById('summary').innerHTML =
+    `<strong class="${fails === 0 ? 'pass' : 'fail'}">${passes} passed, ${fails} failed</strong>`;
+
+// ── Interactive demo ───────────────────────────────────────────────────────
+g.remove(); g2.remove(); // clean up test elements
+
+const demo = document.createElement('sg-git-graph');
+document.getElementById('demo-wrap').appendChild(demo);
+demo.setGraph(SAMPLE_GRAPH);
+
+const evLog = document.getElementById('event-log');
+demo.addEventListener('sg-git-graph:commit-selected', e => {
+    evLog.textContent = `Selected: ${e.detail.commit.id} — "${e.detail.commit.message}"`;
+});
+demo.addEventListener('sg-git-graph:commit-deselected', () => {
+    evLog.textContent = 'Deselected';
+});
+</script>
+</body>
+</html>
