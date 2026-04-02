@@ -503,7 +503,32 @@ sendBtn.addEventListener('click', () => {
     reality.shadowRoot?.getElementById('send-btn')?.click();
 });
 
+// Style selector (affects system prompt injected before sending)
+const styleWrap = document.createElement('div');
+styleWrap.style.cssText = 'display:flex; align-items:center; gap:5px;';
+const styleLabel = document.createElement('span');
+styleLabel.textContent = 'Style:';
+styleLabel.style.cssText = 'font-size:11px; color:#a0aec0; font-weight:600; text-transform:uppercase; letter-spacing:0.05em;';
+const styleDropdown = document.createElement('select');
+styleDropdown.style.cssText = [
+    'background:#1a1a3a', 'border:1px solid #333d5a', 'border-radius:4px',
+    'color:#e2e8f0', 'padding:3px 6px', 'font-size:12px', 'cursor:pointer',
+].join(';');
+for (const s of ['executive', 'technical', 'playful', 'minimal', 'bold', 'data']) {
+    const opt = document.createElement('option');
+    opt.value = s;
+    opt.textContent = s[0].toUpperCase() + s.slice(1);
+    styleDropdown.appendChild(opt);
+}
+styleDropdown.addEventListener('change', () => {
+    refInfographic.setStyle?.(styleDropdown.value);
+    injectSystemPrompt();
+});
+styleWrap.appendChild(styleLabel);
+styleWrap.appendChild(styleDropdown);
+
 actionsBar.appendChild(addBtnsWrap);
+actionsBar.appendChild(styleWrap);
 actionsBar.appendChild(sendBtn);
 actionsPanelEl.style.cssText = 'height:100%; overflow:hidden; display:block;';
 actionsPanelEl.appendChild(actionsBar);
@@ -533,104 +558,120 @@ for (const evt of [
 
 // sg-llm-stats v0.1.1 uses data-llm-bus walk-up — no bridge needed for stats.
 
-// Right panel: infographic (separate parentElement — bridged below)
-const infographicWrap = document.createElement('div');
-infographicWrap.style.cssText = 'height:100%; overflow:hidden; background:#0d0d1a; display:block;';
-rightPanel.style.cssText = 'overflow:hidden; height:100%; display:block;';
-rightPanel.appendChild(infographicWrap);
+// ── Right panel: dynamic result tabs ─────────────────────────────────────────
+// Each request adds a new tab named after the model used.
+// Previous results stay in their own tabs (drag them side by side via sg-layout).
 
-const infographic = document.createElement('sg-llm-infographic');
-infographic.setAttribute('style-preset', 'executive');
-infographic.setAttribute('orientation', 'landscape');
-infographic.style.cssText = 'height:100%; display:block;';
-infographicWrap.appendChild(infographic);
+rightPanel.style.cssText = 'overflow:hidden; height:100%; display:block; background:#0d0d1a;';
 
-// ── Image display overlay (for PNG-returning models) ──────────────────────────
-// Sits on top of sg-llm-infographic. Shown when a model returns base64 image
-// data instead of SVG text (e.g. Gemini flash image, Flux, GPT-5-image).
-
-const imgOverlay = document.createElement('div');
-imgOverlay.style.cssText = [
-    'display:none', 'position:absolute', 'inset:0', 'background:#0d0d1a',
-    'align-items:center', 'justify-content:center', 'overflow:auto', 'z-index:10',
+// Placeholder shown until the first request fires
+const placeholder = document.createElement('div');
+placeholder.style.cssText = [
+    'height:100%', 'display:flex', 'align-items:center', 'justify-content:center',
+    'color:#4a5568', 'font-size:16px', 'font-family:system-ui,sans-serif',
 ].join(';');
-infographicWrap.style.position = 'relative';
-infographicWrap.appendChild(imgOverlay);
+placeholder.textContent = 'Send a prompt to generate an infographic';
+rightPanel.appendChild(placeholder);
 
-const imgEl = document.createElement('img');
-imgEl.style.cssText = 'max-width:100%; max-height:100%; object-fit:contain; display:block;';
-imgOverlay.appendChild(imgEl);
+// Hidden reference infographic — lives on document.body (not in bus) so it
+// doesn't receive bridge events. Used only for getCurrentStyle() / getSystemPrompt().
+const refInfographic = document.createElement('sg-llm-infographic');
+refInfographic.style.display = 'none';
+document.body.appendChild(refInfographic);
 
-// Export PNG button for image overlay (bridges into infographic export bar via event)
-const imgExportBtn = document.createElement('button');
-imgExportBtn.textContent = 'Export PNG';
-imgExportBtn.style.cssText = [
-    'position:absolute', 'bottom:10px', 'left:50%', 'transform:translateX(-50%)',
-    'background:#1a1a3a', 'color:#4ECDC4', 'border:1px solid #4ECDC4',
-    'border-radius:4px', 'padding:6px 16px', 'font-size:13px', 'cursor:pointer',
-    'font-family:system-ui,sans-serif',
-].join(';');
-imgExportBtn.addEventListener('click', () => {
-    if (!imgEl.src) return;
-    const a = document.createElement('a');
-    a.href = imgEl.src;
-    a.download = 'infographic.png';
-    a.click();
-});
-imgOverlay.appendChild(imgExportBtn);
+// Tracks the result container for the in-flight request
+let currentResultEl = null;
 
-function showImageOverlay(src) {
-    imgEl.src = src;
-    imgOverlay.style.display = 'flex';
+// ── Helper: build a result container for one request ─────────────────────────
+function createResultContainer(model) {
+    const div = document.createElement('div');
+    div.style.cssText = 'height:100%; overflow:hidden; background:#0d0d1a; display:block; position:relative;';
+
+    if (isImageModel(model)) {
+        const img = document.createElement('img');
+        img.style.cssText = [
+            'display:none', 'max-width:100%', 'max-height:100%', 'object-fit:contain',
+            'position:absolute', 'inset:0', 'margin:auto',
+        ].join(';');
+        div.appendChild(img);
+
+        const btn = document.createElement('button');
+        btn.textContent = 'Export PNG';
+        btn.style.cssText = [
+            'display:none', 'position:absolute', 'bottom:10px', 'left:50%',
+            'transform:translateX(-50%)', 'background:#1a1a3a', 'color:#4ECDC4',
+            'border:1px solid #4ECDC4', 'border-radius:4px', 'padding:6px 16px',
+            'font-size:13px', 'cursor:pointer', 'font-family:system-ui,sans-serif',
+        ].join(';');
+        btn.addEventListener('click', () => {
+            if (!img.src) return;
+            const a = document.createElement('a');
+            a.href = img.src;
+            a.download = `infographic-${model.split('/').pop()}.png`;
+            a.click();
+        });
+        div.appendChild(btn);
+    } else {
+        const inf = document.createElement('sg-llm-infographic');
+        inf.setAttribute('style-preset', refInfographic.getCurrentStyle?.() || 'executive');
+        inf.setAttribute('orientation', 'landscape');
+        inf.style.cssText = 'height:100%; display:block;';
+        div.appendChild(inf);
+    }
+    return div;
 }
-function hideImageOverlay() {
-    imgOverlay.style.display = 'none';
-    imgEl.src = '';
-}
 
-// ── Event bridge: bus → infographic ──────────────────────────────────────────
-// sg-llm-infographic listens on its parentElement (infographicWrap).
-// sg-llm-request fires events on its parentElement (#bus).
-// Bridge forwards the request lifecycle events across the two scopes.
-
+// ── Event bridge: bus → currentResultEl ──────────────────────────────────────
 const BRIDGE_EVENTS = [
     SGL_LLM.REQUEST_START, SGL_LLM.REQUEST_CHUNK,
     SGL_LLM.REQUEST_COMPLETE, SGL_LLM.REQUEST_ERROR, SGL_LLM.REQUEST_CANCEL,
 ];
 for (const evtName of BRIDGE_EVENTS) {
     bus.addEventListener(evtName, e => {
-        infographicWrap.dispatchEvent(
-            new CustomEvent(evtName, { detail: e.detail, bubbles: false })
-        );
+        if (currentResultEl) {
+            currentResultEl.dispatchEvent(new CustomEvent(evtName, { detail: e.detail, bubbles: false }));
+        }
     });
 }
 
-// On request start, clear any previous image overlay
-bus.addEventListener(SGL_LLM.REQUEST_START, () => hideImageOverlay());
+// On REQUEST_START: open a new tab for this model's result
+bus.addEventListener(SGL_LLM.REQUEST_START, () => {
+    const model = modelPicker.getModel();
+    const title = model.split('/').pop().substring(0, 35);
+    placeholder.style.display = 'none';
+    const resultDiv = createResultContainer(model);
+    layout.addTabToStack('s-right', { el: resultDiv, title });
+    currentResultEl = resultDiv;
+});
 
-// On completion, check if the response contains image data and display it.
-// v0.1.1 request extracts images from delta.images/response content[] into e.detail.images.
+// On REQUEST_COMPLETE: render image data into the current result container
 bus.addEventListener(SGL_LLM.REQUEST_COMPLETE, e => {
-    // 1. Check e.detail.images (populated by sg-llm-request v0.1.1 from delta.images/content[])
+    if (!currentResultEl) return;
+    const img = currentResultEl.querySelector('img');
+    if (!img) return; // SVG tab — sg-llm-infographic handles rendering internally
+
+    // Extract image src from v0.1.1 images[] or scan text content as fallback
     const images = e.detail?.images;
+    let src = null;
     if (images?.length > 0) {
-        const img = images[0];
-        let src = null;
-        if (img.type === 'image_url' && img.image_url?.url) {
-            src = img.image_url.url;  // already a data URL: "data:image/jpeg;base64,..."
-        } else if (img.type === 'image' && img.source?.data) {
-            src = `data:${img.source.media_type || 'image/jpeg'};base64,${img.source.data}`;
-        }
-        if (src) { showImageOverlay(src); return; }
+        const im = images[0];
+        if (im.type === 'image_url' && im.image_url?.url) src = im.image_url.url;
+        else if (im.type === 'image' && im.source?.data)
+            src = `data:${im.source.media_type || 'image/jpeg'};base64,${im.source.data}`;
     }
-    // 2. Fallback: scan text content for inline base64 / markdown image / bare URL
-    const content = e.detail?.content || '';
-    const b64Match = content.match(/data:image\/[^;'"]+;base64,[A-Za-z0-9+/=]+/);
-    if (b64Match) { showImageOverlay(b64Match[0]); return; }
-    const mdMatch = content.match(/!\[.*?\]\((https?:\/\/[^\s)]+)\)/);
-    if (mdMatch) { showImageOverlay(mdMatch[1]); return; }
-    const urlMatch = content.match(/https?:\/\/\S+\.(?:png|jpg|jpeg|webp|gif)/i);
-    if (urlMatch) { showImageOverlay(urlMatch[0]); }
+    if (!src) {
+        const txt = e.detail?.content || '';
+        const m = txt.match(/data:image\/[^;'"]+;base64,[A-Za-z0-9+/=]+/)
+               || txt.match(/!\[.*?\]\((https?:\/\/[^\s)]+)\)/)
+               || txt.match(/https?:\/\/\S+\.(?:png|jpg|jpeg|webp|gif)/i);
+        if (m) src = m[1] || m[0];
+    }
+    if (src) {
+        img.src = src;
+        img.style.display = 'block';
+        const btn = currentResultEl.querySelector('button');
+        if (btn) btn.style.display = 'block';
+    }
 });
 
 // ── Connect handler ───────────────────────────────────────────────────────────
@@ -665,11 +706,13 @@ connectBtn.addEventListener('click', async () => {
     connectBtn.disabled = false;
 });
 
-// Save model choice + re-inject system prompt whenever the picker changes
+// Save model choice + re-connect + re-inject system prompt whenever the picker changes
 modelPicker.shadowRoot?.querySelector('select')?.addEventListener('change', () => {
     const m = modelPicker.getModel();
     savePrefs({ model: m });
     injectSystemPrompt(); // swap SVG ↔ image system prompt
+    // Auto-connect with the newly selected model if a key is already entered
+    if (apiKeyEl.value.trim()) connectBtn.click();
 });
 
 function setStatus(text, type) {
@@ -697,10 +740,10 @@ function injectSystemPrompt() {
     let prompt;
     if (isImageModel(currentModel)) {
         // Image models don't need SVG instructions — use image-style prompts
-        const style = infographic.getCurrentStyle?.() || 'executive';
+        const style = refInfographic.getCurrentStyle?.() || 'executive';
         prompt = IMAGE_SYSTEM_PROMPTS[style] || IMAGE_SYSTEM_PROMPTS.executive;
     } else {
-        prompt = infographic.getSystemPrompt?.();
+        prompt = refInfographic.getSystemPrompt?.();
     }
     if (!prompt) return;
     const state = reality.getState?.();
@@ -722,9 +765,8 @@ reality.setState?.({ blocks: makeDefaultBlocks() });
 // Inject style-specific system prompt into the system block
 injectSystemPrompt();
 
-// Re-inject when infographic style changes
-const styleSelect = infographic.shadowRoot?.querySelector('.inf-style-select');
-if (styleSelect) styleSelect.addEventListener('change', injectSystemPrompt);
+// Sync Actions pane style dropdown with refInfographic on startup
+if (refInfographic.getCurrentStyle) styleDropdown.value = refInfographic.getCurrentStyle();
 </script>
 
 </body>
