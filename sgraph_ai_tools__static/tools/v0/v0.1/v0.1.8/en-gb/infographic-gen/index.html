@@ -92,11 +92,33 @@ import { SGL_LLM } from '/components/llm/sg-llm-events/v0/v0.1/v0.1.0/sg-llm-eve
 
 const STORAGE_KEY = 'sg-infographic-gen-v1';
 
-// Curated models known to follow "output ONLY raw SVG" instructions reliably.
-// Updated to use correct OpenRouter model slugs (avoids 404 "No endpoints found").
-const NANO_MODELS = [
+// Image-generating models — return base64 PNG/JPG bytes, NOT SVG text.
+// Displayed with an <img> tag; system prompt must NOT require SVG output.
+const IMAGE_MODELS = [
+    // ── Google Nano Banana (Gemini image models) ──────────────────────────────
+    'google/gemini-3.1-flash-image-preview',   // ← default
+    'google/gemini-2.5-flash-image',
+    'google/gemini-3-pro-image-preview',
     'google/gemini-2.0-flash-001',
-    'google/gemini-2.5-flash-preview',
+    // ── OpenAI image models ───────────────────────────────────────────────────
+    'openai/gpt-5-image-mini',
+    'openai/gpt-5-image',
+    // ── Sourceful Riverflow ───────────────────────────────────────────────────
+    'sourceful/riverflow-v2-fast',
+    'sourceful/riverflow-v2-fast-preview',
+    'sourceful/riverflow-v2-standard-preview',
+    'sourceful/riverflow-v2-pro',
+    'sourceful/riverflow-v2-max-preview',
+    // ── ByteDance ─────────────────────────────────────────────────────────────
+    'bytedance/seedream-4.5',
+    // ── Black Forest Labs (Flux) ──────────────────────────────────────────────
+    'black-forest-labs/flux-2-pro',
+    'black-forest-labs/flux-2-flex',
+    'black-forest-labs/flux-2-klein',
+];
+
+// SVG text models — output raw <svg>…</svg> which sg-llm-infographic extracts.
+const SVG_MODELS = [
     'qwen/qwen-2.5-72b-instruct',
     'qwen/qwen-2.5-7b-instruct',
     'meta-llama/llama-3.3-70b-instruct',
@@ -105,6 +127,14 @@ const NANO_MODELS = [
     'deepseek/deepseek-chat-v3-0324',
     'anthropic/claude-haiku-4-5-20251001',
 ];
+
+const ALL_MODELS = [...IMAGE_MODELS, ...SVG_MODELS];
+const DEFAULT_MODEL = 'google/gemini-3.1-flash-image-preview';
+
+/** Returns true if the given model slug generates raster image bytes (PNG/JPG). */
+function isImageModel(model) {
+    return IMAGE_MODELS.includes(model);
+}
 
 // Default reality blocks — serverless architecture infographic example
 function makeDefaultBlocks() {
@@ -292,15 +322,19 @@ await customElements.whenDefined('sg-llm-model-picker');
     if (!shadow) return;
     const sel = shadow.querySelector('select');
     if (!sel) return;
-    sel.innerHTML = NANO_MODELS.map(m => `<option value="${m}">${m}</option>`).join('');
+    // Two visual groups separated by a disabled divider option
+    sel.innerHTML =
+        '<option disabled style="color:#666;background:#0d0d1a">── Image models (PNG output) ──</option>' +
+        IMAGE_MODELS.map(m => `<option value="${m}">${m}</option>`).join('') +
+        '<option disabled style="color:#666;background:#0d0d1a">── SVG text models ──</option>' +
+        SVG_MODELS.map(m => `<option value="${m}">${m}</option>`).join('');
     const refreshBtn = shadow.querySelector('#refresh-btn');
     if (refreshBtn) refreshBtn.style.display = 'none';
 })();
 
-// Restore saved model selection
-if (prefs.model && NANO_MODELS.includes(prefs.model)) {
-    modelPicker.setModel(prefs.model);
-}
+// Restore saved model, or default to the recommended image model
+const savedModel = prefs.model && ALL_MODELS.includes(prefs.model) ? prefs.model : DEFAULT_MODEL;
+modelPicker.setModel(savedModel);
 
 // ── Build sg-layout ──────────────────────────────────────────────────────────
 
@@ -401,6 +435,49 @@ infographic.setAttribute('orientation', 'landscape');
 infographic.style.cssText = 'height:100%; display:block;';
 infographicWrap.appendChild(infographic);
 
+// ── Image display overlay (for PNG-returning models) ──────────────────────────
+// Sits on top of sg-llm-infographic. Shown when a model returns base64 image
+// data instead of SVG text (e.g. Gemini flash image, Flux, GPT-5-image).
+
+const imgOverlay = document.createElement('div');
+imgOverlay.style.cssText = [
+    'display:none', 'position:absolute', 'inset:0', 'background:#0d0d1a',
+    'align-items:center', 'justify-content:center', 'overflow:auto', 'z-index:10',
+].join(';');
+infographicWrap.style.position = 'relative';
+infographicWrap.appendChild(imgOverlay);
+
+const imgEl = document.createElement('img');
+imgEl.style.cssText = 'max-width:100%; max-height:100%; object-fit:contain; display:block;';
+imgOverlay.appendChild(imgEl);
+
+// Export PNG button for image overlay (bridges into infographic export bar via event)
+const imgExportBtn = document.createElement('button');
+imgExportBtn.textContent = 'Export PNG';
+imgExportBtn.style.cssText = [
+    'position:absolute', 'bottom:10px', 'left:50%', 'transform:translateX(-50%)',
+    'background:#1a1a3a', 'color:#4ECDC4', 'border:1px solid #4ECDC4',
+    'border-radius:4px', 'padding:6px 16px', 'font-size:13px', 'cursor:pointer',
+    'font-family:system-ui,sans-serif',
+].join(';');
+imgExportBtn.addEventListener('click', () => {
+    if (!imgEl.src) return;
+    const a = document.createElement('a');
+    a.href = imgEl.src;
+    a.download = 'infographic.png';
+    a.click();
+});
+imgOverlay.appendChild(imgExportBtn);
+
+function showImageOverlay(src) {
+    imgEl.src = src;
+    imgOverlay.style.display = 'flex';
+}
+function hideImageOverlay() {
+    imgOverlay.style.display = 'none';
+    imgEl.src = '';
+}
+
 // ── Event bridge: bus → infographic ──────────────────────────────────────────
 // sg-llm-infographic listens on its parentElement (infographicWrap).
 // sg-llm-request fires events on its parentElement (#bus).
@@ -417,6 +494,24 @@ for (const evtName of BRIDGE_EVENTS) {
         );
     });
 }
+
+// On request start, clear any previous image overlay
+bus.addEventListener(SGL_LLM.REQUEST_START, () => hideImageOverlay());
+
+// On completion, check if the response is image data (base64 PNG/JPG)
+// Image models return base64 bytes; extract and show via <img>.
+bus.addEventListener(SGL_LLM.REQUEST_COMPLETE, e => {
+    const content = e.detail?.content || '';
+    // Match inline base64 data URL: data:image/png;base64,…
+    const b64Match = content.match(/data:image\/[^;'"]+;base64,[A-Za-z0-9+/=]+/);
+    if (b64Match) { showImageOverlay(b64Match[0]); return; }
+    // Match markdown image: ![…](url)
+    const mdMatch = content.match(/!\[.*?\]\((https?:\/\/[^\s)]+)\)/);
+    if (mdMatch) { showImageOverlay(mdMatch[1]); return; }
+    // Match bare https URL pointing to an image
+    const urlMatch = content.match(/https?:\/\/\S+\.(?:png|jpg|jpeg|webp|gif)/i);
+    if (urlMatch) { showImageOverlay(urlMatch[0]); }
+});
 
 // ── Connect handler ───────────────────────────────────────────────────────────
 
@@ -450,9 +545,11 @@ connectBtn.addEventListener('click', async () => {
     connectBtn.disabled = false;
 });
 
-// Save model choice whenever the picker changes
+// Save model choice + re-inject system prompt whenever the picker changes
 modelPicker.shadowRoot?.querySelector('select')?.addEventListener('change', () => {
-    savePrefs({ model: modelPicker.getModel() });
+    const m = modelPicker.getModel();
+    savePrefs({ model: m });
+    injectSystemPrompt(); // swap SVG ↔ image system prompt
 });
 
 function setStatus(text, type) {
@@ -465,8 +562,26 @@ function setStatus(text, type) {
 await customElements.whenDefined('sg-llm-infographic');
 await customElements.whenDefined('sg-llm-reality');
 
+// Image model system prompts — no SVG requirement; describe image style instead.
+const IMAGE_SYSTEM_PROMPTS = {
+    executive: 'You are a professional infographic designer. Create a high-quality, publication-ready infographic image. Use a clean dark navy background (#0d1b2a), white headings, teal and blue-grey accents. Clear layout with visual groupings, icons, and data callouts. Render as a landscape image.',
+    technical: 'You are a technical diagram specialist. Create a detailed architecture or flow diagram as a crisp image. Dark background, colour-coded nodes and connections, clear labels. Landscape orientation.',
+    playful: 'You are a creative designer. Create a vibrant, engaging infographic with bold colours, rounded shapes, playful icons, and an energetic layout. Bright colours on white or cream background.',
+    minimal: 'You are a minimalist designer. Create a clean, spacious infographic with generous whitespace, a single teal accent colour, and only essential information. White background, simple typography.',
+    bold: 'You are a bold graphic designer. Create a high-contrast, impactful infographic with large text, strong geometric shapes, black background with neon accents.',
+    data: 'You are a data visualisation expert. Create a data-focused image with charts, graphs, or tables. Clean light background, clear axis labels, consistent colour scale.',
+};
+
 function injectSystemPrompt() {
-    const prompt = infographic.getSystemPrompt?.();
+    const currentModel = modelPicker.getModel();
+    let prompt;
+    if (isImageModel(currentModel)) {
+        // Image models don't need SVG instructions — use image-style prompts
+        const style = infographic.getCurrentStyle?.() || 'executive';
+        prompt = IMAGE_SYSTEM_PROMPTS[style] || IMAGE_SYSTEM_PROMPTS.executive;
+    } else {
+        prompt = infographic.getSystemPrompt?.();
+    }
     if (!prompt) return;
     const state = reality.getState?.();
     if (!state) return;
