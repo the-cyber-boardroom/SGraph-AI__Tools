@@ -564,13 +564,30 @@ for (const evt of [
 
 rightPanel.style.cssText = 'overflow:hidden; height:100%; display:block; background:#0d0d1a;';
 
-// Placeholder shown until the first request fires
+// Placeholder shown until the first request fires (point a: instructions for user)
 const placeholder = document.createElement('div');
 placeholder.style.cssText = [
-    'height:100%', 'display:flex', 'align-items:center', 'justify-content:center',
-    'color:#4a5568', 'font-size:16px', 'font-family:system-ui,sans-serif',
+    'height:100%', 'display:flex', 'flex-direction:column',
+    'align-items:center', 'justify-content:center', 'gap:14px',
+    'color:#4a5568', 'font-family:system-ui,sans-serif', 'padding:40px',
+    'box-sizing:border-box', 'text-align:center',
 ].join(';');
-placeholder.textContent = 'Send a prompt to generate an infographic';
+placeholder.innerHTML = `
+  <div style="font-size:22px;font-weight:700;color:#e2e8f0;">🎨 Infographic Generator</div>
+  <div style="font-size:14px;color:#718096;max-width:440px;line-height:1.6;">
+    Each time you press <strong style="color:#4ECDC4">Send</strong>, a new result tab opens here
+    named after the model — so you never lose a previous result.
+  </div>
+  <div style="font-size:13px;color:#4a5568;max-width:440px;line-height:1.7;text-align:left;">
+    <strong style="color:#a0aec0;">Quick start:</strong><br>
+    1. Enter your <strong>OpenRouter API key</strong> and click Connect<br>
+    2. Pick a <strong>model</strong> — image models (Gemini, Flux, GPT-5-image) return PNGs;<br>
+    &nbsp;&nbsp;&nbsp;SVG models return editable vector graphics<br>
+    3. Choose a <strong>Style</strong> in the Actions pane, load an <strong>Example</strong>, edit the prompt<br>
+    4. Press <strong style="color:#4ECDC4">▶ Send</strong> — result appears as a new tab here<br>
+    5. <strong>Drag tabs</strong> side by side to compare models
+  </div>
+`;
 rightPanel.appendChild(placeholder);
 
 // Hidden reference infographic — lives on document.body (not in bus) so it
@@ -579,49 +596,13 @@ const refInfographic = document.createElement('sg-llm-infographic');
 refInfographic.style.display = 'none';
 document.body.appendChild(refInfographic);
 
-// Tracks the result container for the in-flight request
+// Tracks the panel element for the in-flight request
 let currentResultEl = null;
 
-// ── Helper: build a result container for one request ─────────────────────────
-function createResultContainer(model) {
-    const div = document.createElement('div');
-    div.style.cssText = 'height:100%; overflow:hidden; background:#0d0d1a; display:block; position:relative;';
-
-    if (isImageModel(model)) {
-        const img = document.createElement('img');
-        img.style.cssText = [
-            'display:none', 'max-width:100%', 'max-height:100%', 'object-fit:contain',
-            'position:absolute', 'inset:0', 'margin:auto',
-        ].join(';');
-        div.appendChild(img);
-
-        const btn = document.createElement('button');
-        btn.textContent = 'Export PNG';
-        btn.style.cssText = [
-            'display:none', 'position:absolute', 'bottom:10px', 'left:50%',
-            'transform:translateX(-50%)', 'background:#1a1a3a', 'color:#4ECDC4',
-            'border:1px solid #4ECDC4', 'border-radius:4px', 'padding:6px 16px',
-            'font-size:13px', 'cursor:pointer', 'font-family:system-ui,sans-serif',
-        ].join(';');
-        btn.addEventListener('click', () => {
-            if (!img.src) return;
-            const a = document.createElement('a');
-            a.href = img.src;
-            a.download = `infographic-${model.split('/').pop()}.png`;
-            a.click();
-        });
-        div.appendChild(btn);
-    } else {
-        const inf = document.createElement('sg-llm-infographic');
-        inf.setAttribute('style-preset', refInfographic.getCurrentStyle?.() || 'executive');
-        inf.setAttribute('orientation', 'landscape');
-        inf.style.cssText = 'height:100%; display:block;';
-        div.appendChild(inf);
-    }
-    return div;
-}
-
 // ── Event bridge: bus → currentResultEl ──────────────────────────────────────
+// NOTE: addTabToStack with {tag:'div'} (not config.el) is required — _mountNewElement
+// appends the element to layout and assigns its slot. Passing config.el only sets
+// the slot attribute without appending, so the content never appears.
 const BRIDGE_EVENTS = [
     SGL_LLM.REQUEST_START, SGL_LLM.REQUEST_CHUNK,
     SGL_LLM.REQUEST_COMPLETE, SGL_LLM.REQUEST_ERROR, SGL_LLM.REQUEST_CANCEL,
@@ -634,23 +615,86 @@ for (const evtName of BRIDGE_EVENTS) {
     });
 }
 
-// On REQUEST_START: open a new tab for this model's result
+// On REQUEST_START: open a new tab, populate it, start elapsed-time counter
 bus.addEventListener(SGL_LLM.REQUEST_START, () => {
     const model = modelPicker.getModel();
     const title = model.split('/').pop().substring(0, 35);
-    placeholder.style.display = 'none';
-    const resultDiv = createResultContainer(model);
-    layout.addTabToStack('s-right', { el: resultDiv, title });
-    currentResultEl = resultDiv;
+
+    // Use tag:'div' so _mountNewElement appends it to layout and assigns the slot correctly
+    const tabId = layout.addTabToStack('s-right', { tag: 'div', title });
+    const panelEl = layout.getPanelElement(tabId);
+    panelEl.style.cssText = 'height:100%; overflow:hidden; background:#0d0d1a; display:block; position:relative;';
+
+    if (isImageModel(model)) {
+        // Loading state with elapsed-time counter
+        const loadingDiv = document.createElement('div');
+        loadingDiv.dataset.role = 'loading';
+        loadingDiv.style.cssText = [
+            'position:absolute', 'inset:0', 'display:flex', 'flex-direction:column',
+            'align-items:center', 'justify-content:center', 'gap:8px',
+            'color:#718096', 'font-family:system-ui,sans-serif',
+        ].join(';');
+        const loadMsg = document.createElement('div');
+        loadMsg.style.cssText = 'font-size:15px;';
+        loadMsg.textContent = 'Generating image…';
+        const elapsedEl = document.createElement('div');
+        elapsedEl.style.cssText = 'font-size:13px; color:#4a5568;';
+        elapsedEl.textContent = '0s elapsed';
+        loadingDiv.appendChild(loadMsg);
+        loadingDiv.appendChild(elapsedEl);
+        panelEl.appendChild(loadingDiv);
+
+        const t0 = Date.now();
+        const timer = setInterval(() => {
+            elapsedEl.textContent = `${Math.floor((Date.now() - t0) / 1000)}s elapsed`;
+        }, 1000);
+        panelEl._clearTimer = () => clearInterval(timer);
+
+        // Image + export button (hidden until image arrives)
+        const img = document.createElement('img');
+        img.style.cssText = [
+            'display:none', 'position:absolute', 'inset:0', 'margin:auto',
+            'max-width:100%', 'max-height:100%', 'object-fit:contain', 'width:auto', 'height:auto',
+        ].join(';');
+        panelEl.appendChild(img);
+
+        const exportBtn = document.createElement('button');
+        exportBtn.textContent = 'Export PNG';
+        exportBtn.style.cssText = [
+            'display:none', 'position:absolute', 'bottom:10px', 'left:50%',
+            'transform:translateX(-50%)', 'background:#1a1a3a', 'color:#4ECDC4',
+            'border:1px solid #4ECDC4', 'border-radius:4px', 'padding:6px 16px',
+            'font-size:13px', 'cursor:pointer', 'font-family:system-ui,sans-serif',
+        ].join(';');
+        exportBtn.addEventListener('click', () => {
+            if (!img.src) return;
+            const a = document.createElement('a');
+            a.href = img.src;
+            a.download = `infographic-${model.split('/').pop()}.png`;
+            a.click();
+        });
+        panelEl.appendChild(exportBtn);
+    } else {
+        // SVG model: sg-llm-infographic listens on panelEl and renders SVG
+        const inf = document.createElement('sg-llm-infographic');
+        inf.setAttribute('style-preset', refInfographic.getCurrentStyle?.() || 'executive');
+        inf.setAttribute('orientation', 'landscape');
+        inf.style.cssText = 'height:100%; display:block;';
+        panelEl.appendChild(inf);
+    }
+
+    currentResultEl = panelEl;
 });
 
-// On REQUEST_COMPLETE: render image data into the current result container
+// On REQUEST_COMPLETE: show image in the current result panel
 bus.addEventListener(SGL_LLM.REQUEST_COMPLETE, e => {
     if (!currentResultEl) return;
+    currentResultEl._clearTimer?.();
+
     const img = currentResultEl.querySelector('img');
     if (!img) return; // SVG tab — sg-llm-infographic handles rendering internally
 
-    // Extract image src from v0.1.1 images[] or scan text content as fallback
+    // Extract image src: check v0.1.1 images[], then scan text content
     const images = e.detail?.images;
     let src = null;
     if (images?.length > 0) {
@@ -667,10 +711,21 @@ bus.addEventListener(SGL_LLM.REQUEST_COMPLETE, e => {
         if (m) src = m[1] || m[0];
     }
     if (src) {
+        currentResultEl.querySelector('[data-role="loading"]')?.remove();
         img.src = src;
         img.style.display = 'block';
         const btn = currentResultEl.querySelector('button');
         if (btn) btn.style.display = 'block';
+    }
+});
+
+// On error: stop timer and show message in loading area
+bus.addEventListener(SGL_LLM.REQUEST_ERROR, e => {
+    if (!currentResultEl) return;
+    currentResultEl._clearTimer?.();
+    const loadingDiv = currentResultEl.querySelector('[data-role="loading"]');
+    if (loadingDiv) {
+        loadingDiv.innerHTML = `<div style="color:#fc8181;font-size:14px;font-family:system-ui;">Error: ${e.detail?.error || 'Request failed'}</div>`;
     }
 });
 
