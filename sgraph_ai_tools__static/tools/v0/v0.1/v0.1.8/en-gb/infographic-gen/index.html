@@ -336,6 +336,9 @@ await customElements.whenDefined('sg-llm-model-picker');
 const savedModel = prefs.model && ALL_MODELS.includes(prefs.model) ? prefs.model : DEFAULT_MODEL;
 modelPicker.setModel(savedModel);
 
+// Auto-connect on load if a key was previously saved
+if (prefs.apiKey) connectBtn.click();
+
 // ── Build sg-layout ──────────────────────────────────────────────────────────
 
 const layout = document.createElement('sg-layout');
