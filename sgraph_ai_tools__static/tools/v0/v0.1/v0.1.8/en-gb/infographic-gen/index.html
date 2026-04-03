@@ -138,7 +138,14 @@ function isImageModel(model) {
 
 // Default reality blocks — serverless architecture infographic example
 function makeDefaultBlocks() {
-    return makeExampleBlocks('serverless');
+    const ts = Date.now();
+    return [
+        {
+            id: `block-${ts}-sys`, type: 'system', enabled: true,
+            content: 'You are a professional infographic designer. Create a high-quality, publication-ready infographic image. Use a clean dark navy background (#0d1b2a), white headings, teal and blue-grey accents. Clear layout with visual groupings, icons, and data callouts. Render as a landscape image.',
+        },
+        { id: `block-${ts}-q`, type: 'question', enabled: true, content: '', _imageCount: 0 },
+    ];
 }
 
 // ── Example presets ───────────────────────────────────────────────────────────
@@ -503,30 +510,6 @@ sendBtn.addEventListener('click', () => {
     reality.shadowRoot?.getElementById('send-btn')?.click();
 });
 
-// Style selector (affects system prompt injected before sending)
-const styleWrap = document.createElement('div');
-styleWrap.style.cssText = 'display:flex; align-items:center; gap:5px;';
-const styleLabel = document.createElement('span');
-styleLabel.textContent = 'Style:';
-styleLabel.style.cssText = 'font-size:11px; color:#a0aec0; font-weight:600; text-transform:uppercase; letter-spacing:0.05em;';
-const styleDropdown = document.createElement('select');
-styleDropdown.style.cssText = [
-    'background:#1a1a3a', 'border:1px solid #333d5a', 'border-radius:4px',
-    'color:#e2e8f0', 'padding:3px 6px', 'font-size:12px', 'cursor:pointer',
-].join(';');
-for (const s of ['executive', 'technical', 'playful', 'minimal', 'bold', 'data']) {
-    const opt = document.createElement('option');
-    opt.value = s;
-    opt.textContent = s[0].toUpperCase() + s.slice(1);
-    styleDropdown.appendChild(opt);
-}
-styleDropdown.addEventListener('change', () => {
-    refInfographic.setStyle?.(styleDropdown.value);
-    injectSystemPrompt();
-});
-styleWrap.appendChild(styleLabel);
-styleWrap.appendChild(styleDropdown);
-
 // activeRequests tracks in-flight requests; declared here (before stopBtn closure)
 const activeRequests = new Map(); // panelEl → cancelFn
 
@@ -542,7 +525,6 @@ stopBtn.addEventListener('click', () => {
 });
 
 actionsBar.appendChild(addBtnsWrap);
-actionsBar.appendChild(styleWrap);
 actionsBar.appendChild(stopBtn);
 actionsBar.appendChild(sendBtn);
 actionsPanelEl.style.cssText = 'height:100%; overflow:hidden; display:block;';
@@ -598,7 +580,7 @@ placeholder.innerHTML = `
     1. Enter your <strong>OpenRouter API key</strong> and click Connect<br>
     2. Pick a <strong>model</strong> — image models (Gemini, Flux, GPT-5-image) return PNGs;<br>
     &nbsp;&nbsp;&nbsp;SVG models return editable vector graphics<br>
-    3. Choose a <strong>Style</strong> in the Actions pane, load an <strong>Example</strong>, edit the prompt<br>
+    3. Load an <strong>Example</strong> from the Examples pane, or write your own prompt<br>
     4. Press <strong style="color:#4ECDC4">▶ Send</strong> — result appears as a new tab here<br>
     5. <strong>Drag tabs</strong> side by side to compare models
   </div>
@@ -644,17 +626,39 @@ function setupResultPanel(panelEl, model) {
         loadingDiv.dataset.role = 'loading';
         loadingDiv.style.cssText = [
             'position:absolute', 'inset:0', 'display:flex', 'flex-direction:column',
-            'align-items:center', 'justify-content:center', 'gap:8px',
+            'align-items:center', 'justify-content:center', 'gap:10px',
             'color:#718096', 'font-family:system-ui,sans-serif',
         ].join(';');
+
+        // Model name
+        const modelNameEl = document.createElement('div');
+        modelNameEl.style.cssText = 'font-size:12px;color:#4a5568;font-weight:600;letter-spacing:0.05em;';
+        modelNameEl.textContent = model;
+
+        // Spinner + status text
         const loadMsg = document.createElement('div');
-        loadMsg.style.cssText = 'font-size:15px;';
+        loadMsg.style.cssText = 'font-size:15px;color:#a0aec0;';
         loadMsg.textContent = 'Generating image…';
+
+        // Elapsed timer
         const elapsedEl = document.createElement('div');
         elapsedEl.style.cssText = 'font-size:13px; color:#4a5568;';
         elapsedEl.textContent = '0s elapsed';
+
+        // Per-tab cancel button
+        const cancelBtn = document.createElement('button');
+        cancelBtn.textContent = '■ Cancel';
+        cancelBtn.style.cssText = [
+            'background:#7f1d1d', 'border:none', 'border-radius:6px',
+            'color:#fca5a5', 'padding:6px 16px', 'font-size:13px', 'font-weight:600',
+            'cursor:pointer', 'margin-top:4px',
+        ].join(';');
+        cancelBtn.addEventListener('click', () => panelEl._cancel?.());
+
+        loadingDiv.appendChild(modelNameEl);
         loadingDiv.appendChild(loadMsg);
         loadingDiv.appendChild(elapsedEl);
+        loadingDiv.appendChild(cancelBtn);
         panelEl.appendChild(loadingDiv);
         const t0 = Date.now();
         const timer = setInterval(() => {
@@ -669,6 +673,7 @@ function setupResultPanel(panelEl, model) {
         panelEl.appendChild(img);
         const exportBtn = document.createElement('button');
         exportBtn.textContent = 'Export PNG';
+        exportBtn.dataset.role = 'export';
         exportBtn.style.cssText = [
             'display:none', 'position:absolute', 'bottom:10px', 'left:50%',
             'transform:translateX(-50%)', 'background:#1a1a3a', 'color:#4ECDC4',
@@ -726,6 +731,7 @@ bus.addEventListener(SGL_LLM.SEND, e => {
 
     const finish = () => {
         panelEl._clearTimer?.();
+        panelEl._cancel = null;
         activeRequests.delete(panelEl);
         updateStopBtn();
         setTimeout(() => miniBus.remove(), 0);
@@ -737,8 +743,11 @@ bus.addEventListener(SGL_LLM.SEND, e => {
             panelEl.querySelector('[data-role="loading"]')?.remove();
             const img = panelEl.querySelector('img');
             if (img) { img.src = src; img.style.display = 'block'; }
-            const btn = panelEl.querySelector('button');
+            const btn = panelEl.querySelector('[data-role="export"]');
             if (btn) btn.style.display = 'block';
+        } else {
+            const loadDiv = panelEl.querySelector('[data-role="loading"]');
+            if (loadDiv) loadDiv.innerHTML = '<div style="color:#a0aec0;font-size:14px;text-align:center;padding:20px;">No image returned by model.<br><span style=\'font-size:12px;color:#4a5568;\'>Try a different model or check your prompt.</span></div>';
         }
         finish();
     });
@@ -756,9 +765,10 @@ bus.addEventListener(SGL_LLM.SEND, e => {
         finish();
     });
 
-    // Register for Stop button
-    activeRequests.set(panelEl, () =>
-        miniBus.dispatchEvent(new CustomEvent(SGL_LLM.CANCEL, { bubbles: false })));
+    // Register for Stop button + per-tab cancel
+    const cancelFn = () => miniBus.dispatchEvent(new CustomEvent(SGL_LLM.CANCEL, { bubbles: false }));
+    activeRequests.set(panelEl, cancelFn);
+    panelEl._cancel = cancelFn;
     updateStopBtn();
 
     // Fire the request on the mini-bus
@@ -832,9 +842,8 @@ function injectSystemPrompt() {
     const currentModel = modelPicker.getModel();
     let prompt;
     if (isImageModel(currentModel)) {
-        // Image models don't need SVG instructions — use image-style prompts
-        const style = refInfographic.getCurrentStyle?.() || 'executive';
-        prompt = IMAGE_SYSTEM_PROMPTS[style] || IMAGE_SYSTEM_PROMPTS.executive;
+        // Image models don't need SVG instructions — use fixed image-style prompt
+        prompt = IMAGE_SYSTEM_PROMPTS.executive;
     } else {
         prompt = refInfographic.getSystemPrompt?.();
     }
@@ -858,8 +867,6 @@ reality.setState?.({ blocks: makeDefaultBlocks() });
 // Inject style-specific system prompt into the system block
 injectSystemPrompt();
 
-// Sync Actions pane style dropdown with refInfographic on startup
-if (refInfographic.getCurrentStyle) styleDropdown.value = refInfographic.getCurrentStyle();
 </script>
 
 </body>
