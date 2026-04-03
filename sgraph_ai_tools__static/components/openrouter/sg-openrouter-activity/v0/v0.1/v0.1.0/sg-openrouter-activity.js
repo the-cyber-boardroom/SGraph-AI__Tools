@@ -237,25 +237,14 @@ export class SgOpenrouterActivity extends HTMLElement {
             this._rawJson = null;
             this._showEmpty('Connect admin key to see activity');
         };
-
-        const bus = this._bus();
-        bus.addEventListener('or:admin-connected',    this._onAdminConnected);
-        bus.addEventListener('or:admin-disconnected', this._onAdminDisconnected);
+        // Use document directly — sg-layout shadow DOM blocks parentElement walking
+        document.addEventListener('or:admin-connected',    this._onAdminConnected);
+        document.addEventListener('or:admin-disconnected', this._onAdminDisconnected);
     }
 
     _teardownBus() {
-        const bus = this._bus();
-        bus.removeEventListener('or:admin-connected',    this._onAdminConnected);
-        bus.removeEventListener('or:admin-disconnected', this._onAdminDisconnected);
-    }
-
-    _bus() {
-        let el = this.parentElement;
-        while (el) {
-            if (el.hasAttribute('data-llm-bus')) return el;
-            el = el.parentElement;
-        }
-        return document;
+        document.removeEventListener('or:admin-connected',    this._onAdminConnected);
+        document.removeEventListener('or:admin-disconnected', this._onAdminDisconnected);
     }
 
     // ── Fetch ─────────────────────────────────────────────────────────────────
