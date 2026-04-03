@@ -139,6 +139,8 @@ import '/components/openrouter/sg-openrouter-balance/v0/v0.1/v0.1.0/sg-openroute
 import '/components/openrouter/sg-openrouter-usage/v0/v0.1/v0.1.0/sg-openrouter-usage.js';
 import '/components/openrouter/sg-openrouter-models/v0/v0.1/v0.1.0/sg-openrouter-models.js';
 import '/components/openrouter/sg-openrouter-key-manager/v0/v0.1/v0.1.0/sg-openrouter-key-manager.js';
+import '/components/openrouter/sg-openrouter-generation/v0/v0.1/v0.1.0/sg-openrouter-generation.js';
+import '/components/openrouter/sg-openrouter-model-detail/v0/v0.1/v0.1.0/sg-openrouter-model-detail.js';
 import { SGL_LLM } from '/components/llm/sg-llm-events/v0/v0.1/v0.1.0/sg-llm-events.js';
 import {
     parseVaultKey,
@@ -469,15 +471,17 @@ const LAYOUT = {
                 {
                     type: 'stack',
                     tabs: [
-                        { tag: 'sg-or-user-connect',    title: 'Connect' },
-                        { tag: 'sg-openrouter-balance', title: 'Balance' },
-                        { tag: 'sg-openrouter-usage',   title: 'Usage'   },
+                        { tag: 'sg-or-user-connect',        title: 'Connect'    },
+                        { tag: 'sg-openrouter-balance',     title: 'Balance'    },
+                        { tag: 'sg-openrouter-usage',       title: 'Usage'      },
+                        { tag: 'sg-openrouter-generation',  title: 'Generation' },
                     ],
                 },
                 {
                     type: 'stack',
                     tabs: [
-                        { tag: 'sg-openrouter-models', title: 'Models' },
+                        { tag: 'sg-openrouter-models',       title: 'Models'      },
+                        { tag: 'sg-openrouter-model-detail', title: 'Model Detail' },
                     ],
                 },
             ],
