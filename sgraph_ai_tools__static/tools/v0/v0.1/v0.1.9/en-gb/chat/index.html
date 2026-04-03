@@ -65,6 +65,8 @@ import '/components/llm/sg-llm-token-viz/v0/v0.1/v0.1.1/sg-llm-token-viz.js';
 import '/components/llm/sg-llm-response-inspector/v0/v0.1/v0.1.0/sg-llm-response-inspector.js';
 import '/components/openrouter/sg-openrouter-balance/v0/v0.1/v0.1.0/sg-openrouter-balance.js';
 import '/components/openrouter/sg-openrouter-models/v0/v0.1/v0.1.0/sg-openrouter-models.js';
+import '/components/openrouter/sg-openrouter-usage/v0/v0.1/v0.1.0/sg-openrouter-usage.js';
+import '/components/openrouter/sg-openrouter-key-manager/v0/v0.1/v0.1.0/sg-openrouter-key-manager.js';
 
 // ── Layout definition ──────────────────────────────────────────────────────
 // Three-column chat layout (from arch brief v0.19.17):
@@ -92,8 +94,9 @@ const LAYOUT = {
                 {
                     type: 'stack',
                     tabs: [
-                        { tag: 'sg-llm-stats',           title: 'Stats',   locked: true },
+                        { tag: 'sg-llm-stats',            title: 'Stats',   locked: true },
                         { tag: 'sg-openrouter-balance',   title: 'Credits' },
+                        { tag: 'sg-openrouter-usage',     title: 'Usage'   },
                     ],
                 },
             ],
@@ -124,8 +127,9 @@ const LAYOUT = {
                 {
                     type: 'stack',
                     tabs: [
-                        { tag: 'sg-llm-bundle-list',   title: 'Bundles', locked: true },
-                        { tag: 'sg-openrouter-models', title: 'Models' },
+                        { tag: 'sg-llm-bundle-list',        title: 'Bundles', locked: true },
+                        { tag: 'sg-openrouter-models',      title: 'Models'  },
+                        { tag: 'sg-openrouter-key-manager', title: 'Keys'    },
                     ],
                 },
                 {
