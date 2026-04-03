@@ -61,6 +61,7 @@
  *     text files were forwarded; audio/video/PDF were silently dropped.
  *     sg-llm-request v0.1.2+ translates these to the correct per-provider format.
  *   - _addBubble shows type-specific icons: 📄 PDF, 🎵 audio, 🎬 video.
+ *   - Temporary debug logging in _onBundleLoaded() to diagnose chat restore.
  *
  * Changes from v0.1.6:
  *   - Bundle restore: skip setState() when bundle.chat has no turns and no
@@ -548,11 +549,23 @@ export class SgLlmChatHistory extends HTMLElement {
 
     _onBundleLoaded(e) {
         const bundle = e.detail?.bundle;
-        if (!bundle?.chat) return;
-        // Don't wipe the current chat for bundles that have no chat state
-        // (e.g. bundles saved by older versions before getState() existed).
+        console.group('[sg-llm-chat-history] _onBundleLoaded');
+        console.log('bundle received:', !!bundle);
+        console.log('bundle.chat:', bundle?.chat);
+        if (!bundle?.chat) {
+            console.warn('→ skip: no bundle.chat field');
+            console.groupEnd();
+            return;
+        }
         const { turns = [], systemPrompt = '' } = bundle.chat;
-        if (!turns.length && !systemPrompt) return;
+        console.log('turns.length:', turns.length, '| systemPrompt:', systemPrompt || '(empty)');
+        if (!turns.length && !systemPrompt) {
+            console.warn('→ skip: empty turns and no systemPrompt');
+            console.groupEnd();
+            return;
+        }
+        console.log('→ calling setState with', turns.length, 'turns');
+        console.groupEnd();
         this.setState(bundle.chat);
     }
 
