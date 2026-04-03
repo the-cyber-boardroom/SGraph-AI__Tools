@@ -64,18 +64,28 @@ const STORAGE_KEY = 'sg-infographic-simple-v1';
 const IMAGE_MODELS = [
     'google/gemini-3.1-flash-image-preview',
     'google/gemini-2.5-flash-image',
+    'google/gemini-3-pro-image-preview',
     'google/gemini-2.0-flash-001',
     'openai/gpt-5-image-mini',
     'openai/gpt-5-image',
     'sourceful/riverflow-v2-fast',
-    'black-forest-labs/flux-2-pro',
+    'sourceful/riverflow-v2-fast-preview',
+    'sourceful/riverflow-v2-standard-preview',
+    'sourceful/riverflow-v2-pro',
+    'sourceful/riverflow-v2-max-preview',
     'bytedance/seedream-4.5',
+    'black-forest-labs/flux-2-pro',
+    'black-forest-labs/flux-2-flex',
+    'black-forest-labs/flux-2-klein',
 ];
 const SVG_MODELS = [
     'qwen/qwen-2.5-72b-instruct',
+    'qwen/qwen-2.5-7b-instruct',
     'meta-llama/llama-3.3-70b-instruct',
-    'anthropic/claude-haiku-4-5-20251001',
+    'meta-llama/llama-3.1-8b-instruct:free',
+    'mistralai/mistral-small-3.1-24b-instruct',
     'deepseek/deepseek-chat-v3-0324',
+    'anthropic/claude-haiku-4-5-20251001',
 ];
 const ALL_MODELS    = [...IMAGE_MODELS, ...SVG_MODELS];
 const DEFAULT_MODEL = 'google/gemini-3.1-flash-image-preview';
