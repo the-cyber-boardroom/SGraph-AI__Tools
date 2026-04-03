@@ -614,33 +614,89 @@ function setupLoadingState(imgPanel, model) {
 }
 
 /**
- * Populates the details panel with model info. Returns an updater function.
+ * Populates the details panel with model info + request context. Returns an updater function.
  * @param {HTMLElement} detailsPanel
  * @param {string} model
- * @returns {{ update: (detail: object, durationMs: number) => void }}
+ * @param {{ systemPrompt?: string, doc?: object, direction?: string }} ctx
+ * @returns {{ update: (detail: object) => void }}
  */
-function setupDetailsPanel(detailsPanel, model) {
+function setupDetailsPanel(detailsPanel, model, ctx = {}) {
     detailsPanel.style.cssText = 'height:100%;overflow:auto;background:#0a0a18;display:block;padding:12px;box-sizing:border-box;font-family:system-ui,sans-serif;';
 
-    const row = (label, value, id) => {
+    const lbl = text => {
         const d = document.createElement('div');
-        d.style.cssText = 'margin-bottom:8px;';
-        d.innerHTML = `<div style="font-size:10px;font-weight:600;color:#4a5568;text-transform:uppercase;letter-spacing:0.05em;margin-bottom:2px;">${label}</div>`
-                    + `<div id="${id}" style="font-size:13px;color:#a0aec0;">—</div>`;
+        d.style.cssText = 'font-size:10px;font-weight:600;color:#4a5568;text-transform:uppercase;letter-spacing:0.05em;margin-bottom:3px;margin-top:10px;';
+        d.textContent = text;
         detailsPanel.appendChild(d);
-        return d.querySelector(`#${id}`);
+        return d;
+    };
+    const val = (text, id) => {
+        const d = document.createElement('div');
+        d.style.cssText = 'font-size:13px;color:#a0aec0;margin-bottom:4px;';
+        if (id) d.id = id;
+        d.textContent = text || '—';
+        detailsPanel.appendChild(d);
+        return d;
+    };
+    const editArea = (content, placeholder, rows = 3) => {
+        const ta = document.createElement('textarea');
+        ta.value = content || '';
+        ta.placeholder = placeholder || '';
+        ta.rows = rows;
+        ta.style.cssText = [
+            'width:100%', 'box-sizing:border-box', 'resize:vertical',
+            'background:#111122', 'border:1px solid #1a1a3a', 'border-radius:4px',
+            'color:#a0aec0', 'padding:6px 8px', 'font-size:11px', 'line-height:1.5',
+            'outline:none', 'font-family:system-ui,sans-serif', 'margin-bottom:4px',
+        ].join(';');
+        ta.addEventListener('focus', () => ta.style.borderColor = '#4ECDC4');
+        ta.addEventListener('blur',  () => ta.style.borderColor = '#1a1a3a');
+        detailsPanel.appendChild(ta);
+        return ta;
+    };
+    const sep = () => {
+        const hr = document.createElement('hr');
+        hr.style.cssText = 'border:none;border-top:1px solid #1a1a3a;margin:10px 0 4px;';
+        detailsPanel.appendChild(hr);
     };
 
-    const modelEl    = row('Model',    model, `d-model-${fractalCounter}`);
-    const durationEl = row('Duration', '—',   `d-dur-${fractalCounter}`);
-    const tokensEl   = row('Tokens',   '—',   `d-tok-${fractalCounter}`);
-    modelEl.textContent = model.split('/').pop();
+    // ── Stats ────────────────────────────────────────────────────────────────
+    lbl('Model');
+    const modelEl = val(model.split('/').pop());
     modelEl.title = model;
+    lbl('Duration');
+    const durationEl = val('—');
+    lbl('Tokens');
+    const tokensEl = val('—');
 
-    const sep = document.createElement('hr');
-    sep.style.cssText = 'border:none;border-top:1px solid #1a1a3a;margin:10px 0;';
-    detailsPanel.appendChild(sep);
+    sep();
 
+    // ── Request context (editable) ────────────────────────────────────────────
+    lbl('System Prompt');
+    const sysEl = editArea(ctx.systemPrompt, 'System prompt…', 4);
+
+    if (ctx.doc) {
+        lbl('Document');
+        const docNameEl = document.createElement('div');
+        docNameEl.style.cssText = 'font-size:12px;color:#4ECDC4;word-break:break-all;margin-bottom:2px;';
+        docNameEl.textContent = ctx.doc.name;
+        detailsPanel.appendChild(docNameEl);
+        if (ctx.doc.textContent) {
+            const est = document.createElement('div');
+            est.style.cssText = 'font-size:11px;color:#4a5568;margin-bottom:4px;';
+            est.textContent = `~${Math.round(ctx.doc.textContent.length / 4).toLocaleString()} tokens`;
+            detailsPanel.appendChild(est);
+        }
+    }
+
+    if (ctx.direction) {
+        lbl('Direction');
+        editArea(ctx.direction, 'Direction…', 2);
+    }
+
+    sep();
+
+    // ── Export ────────────────────────────────────────────────────────────────
     const exportBtn = document.createElement('button');
     exportBtn.textContent = isImageModel(model) ? '⬇ Export PNG' : '⬇ Export SVG';
     exportBtn.dataset.role = 'export';
@@ -654,8 +710,7 @@ function setupDetailsPanel(detailsPanel, model) {
     const t0 = Date.now();
     return {
         update(detail) {
-            const ms = Date.now() - t0;
-            durationEl.textContent = `${(ms / 1000).toFixed(1)}s`;
+            durationEl.textContent = `${((Date.now() - t0) / 1000).toFixed(1)}s`;
             const usage = detail?.usage;
             if (usage) {
                 const total = (usage.prompt_tokens || 0) + (usage.completion_tokens || 0);
@@ -705,6 +760,13 @@ bus.addEventListener(SGL_LLM.SEND, async e => {
         ? `📄 ${model.split('/').pop().substring(0, 28)}`
         : model.split('/').pop().substring(0, 35);
 
+    // Pre-compute context so it can be shown in the details panel immediately
+    const sysPrompt   = advTextarea.value.trim() || (isDocMode ? DOCUMENT_SYSTEM_PROMPT : DEFAULT_SYSTEM_PROMPT);
+    const direction   = isDocMode
+        ? (directionTextarea.value.trim() || 'Create an infographic that visualises the key information from this document.')
+        : null;
+    const docSnapshot = isDocMode ? { name: currentDoc.name, type: currentDoc.type, textContent: currentDoc.textContent } : null;
+
     // Create a new result tab in the right stack
     const tabId   = layout.addTabToStack('s-right', { tag: 'div', title: tabTitle });
     const panelEl = layout.getPanelElement(tabId);
@@ -712,7 +774,7 @@ bus.addEventListener(SGL_LLM.SEND, async e => {
     // Fractal inner layout (async — awaited before firing mini-bus SEND)
     const { imgPanel, detailsPanel } = await setupResultFractal(panelEl, model);
     setupLoadingState(imgPanel, model);
-    const detailsCtl = setupDetailsPanel(detailsPanel, model);
+    const detailsCtl = setupDetailsPanel(detailsPanel, model, { systemPrompt: sysPrompt, doc: docSnapshot, direction });
 
     // Wire export button (after we have the imgPanel ref)
     const exportBtn = detailsPanel.querySelector('[data-role="export"]');
@@ -780,8 +842,6 @@ bus.addEventListener(SGL_LLM.SEND, async e => {
     // Assemble messages and fire on mini-bus
     let messages;
     if (isDocMode) {
-        const sysPrompt = advTextarea.value.trim() || DOCUMENT_SYSTEM_PROMPT;
-        const direction = directionTextarea.value.trim() || 'Create an infographic that visualises the key information from this document.';
         const userContent = [];
         if (currentDoc.type === 'image') {
             userContent.push({ type: 'image_url', image_url: { url: currentDoc.dataUrl } });
@@ -799,7 +859,6 @@ bus.addEventListener(SGL_LLM.SEND, async e => {
             { role: 'user', content: userContent },
         ];
     } else {
-        const sysPrompt = advTextarea.value.trim() || DEFAULT_SYSTEM_PROMPT;
         messages = [
             { role: 'system', content: sysPrompt },
             { role: 'user', content: [{ type: 'text', text: textarea.value.trim() }] },
