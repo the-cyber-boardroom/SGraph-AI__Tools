@@ -1,0 +1,633 @@
+<!DOCTYPE html>
+<html lang="en-GB">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>OpenRouter — tools.sgraph.ai</title>
+    <meta name="description" content="OpenRouter account management. View balance, usage, models and manage provisioned API keys. All credentials encrypted locally.">
+    <link rel="icon" type="image/svg+xml" href="../../../_common/favicon.svg">
+    <link rel="stylesheet" href="../../../_common/css/tools.css">
+    <style>
+        html, body {
+            height: 100%;
+            margin: 0;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
+        sg-site-header { flex-shrink: 0; }
+
+        /* ── Two-section layout ─────────────────────────────────────── */
+        .or-tool {
+            flex: 1;
+            display: flex;
+            min-height: 0;
+            gap: 0;
+        }
+
+        .or-section {
+            display: flex;
+            flex-direction: column;
+            min-height: 0;
+            min-width: 0;
+            border-right: 1px solid #1e2035;
+        }
+        .or-section:last-child { border-right: none; }
+        .or-section--user  { flex: 0 0 62%; }
+        .or-section--admin { flex: 0 0 38%; }
+
+        /* ── Section header ─────────────────────────────────────────── */
+        .or-section-header {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            padding: 6px 10px;
+            background: #0a0a18;
+            border-bottom: 1px solid #1e2035;
+            flex-shrink: 0;
+        }
+        .or-section-title {
+            font-family: monospace;
+            font-size: 10px;
+            letter-spacing: 0.08em;
+            color: #374151;
+            text-transform: uppercase;
+        }
+        .or-section-title span { color: #3b82f6; }
+        .or-lock-status {
+            font-family: monospace;
+            font-size: 10px;
+            margin-left: auto;
+        }
+        .or-lock-status.locked   { color: #374151; }
+        .or-lock-status.unlocked { color: #4ade80; }
+
+        /* ── Tabs ───────────────────────────────────────────────────── */
+        .or-tabs {
+            display: flex;
+            gap: 0;
+            background: #0d0d1a;
+            border-bottom: 1px solid #1e2035;
+            flex-shrink: 0;
+        }
+        .or-tab {
+            background: none;
+            border: none;
+            border-bottom: 2px solid transparent;
+            color: #374151;
+            cursor: pointer;
+            font-family: monospace;
+            font-size: 11px;
+            padding: 6px 12px;
+            transition: all 0.1s;
+            white-space: nowrap;
+        }
+        .or-tab:hover { color: #64748b; }
+        .or-tab.active { border-bottom-color: #3b82f6; color: #93c5fd; }
+
+        /* ── Panels ─────────────────────────────────────────────────── */
+        .or-panels {
+            flex: 1;
+            min-height: 0;
+            position: relative;
+        }
+        .or-panel {
+            position: absolute;
+            inset: 0;
+            display: none;
+            overflow: hidden;
+        }
+        .or-panel.active { display: flex; flex-direction: column; }
+
+        /* ── Vault panel ─────────────────────────────────────────────── */
+        .vault-panel {
+            padding: 16px;
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+            font-family: monospace;
+            background: #0d0d1a;
+            height: 100%;
+            overflow-y: auto;
+        }
+        .vault-panel::-webkit-scrollbar { width: 6px; }
+        .vault-panel::-webkit-scrollbar-track { background: #0d0d1a; }
+        .vault-panel::-webkit-scrollbar-thumb { background: #1e2035; border-radius: 3px; }
+
+        .vault-title {
+            font-size: 10px;
+            letter-spacing: 0.06em;
+            color: #374151;
+            text-transform: uppercase;
+            padding-bottom: 8px;
+            border-bottom: 1px solid #1e2035;
+        }
+        .vault-description {
+            font-size: 11px;
+            color: #374151;
+            line-height: 1.5;
+        }
+        .vault-description em { color: #64748b; font-style: normal; }
+
+        .vault-field { display: flex; flex-direction: column; gap: 4px; }
+        .vault-label { font-size: 10px; color: #374151; letter-spacing: 0.04em; }
+        .vault-input {
+            background: #12122a;
+            border: 1px solid #1e2035;
+            border-radius: 4px;
+            color: #c8d0e0;
+            font-family: monospace;
+            font-size: 12px;
+            padding: 6px 10px;
+        }
+        .vault-input:focus { outline: none; border-color: #3b82f6; }
+        .vault-input::placeholder { color: #1e2035; }
+        .vault-input.error { border-color: #ef4444; }
+
+        .vault-row { display: flex; gap: 6px; align-items: center; }
+        .vault-btn {
+            background: #12122a;
+            border: 1px solid #1e2035;
+            border-radius: 4px;
+            color: #c8d0e0;
+            cursor: pointer;
+            font-family: monospace;
+            font-size: 11px;
+            padding: 5px 12px;
+            white-space: nowrap;
+        }
+        .vault-btn:hover  { border-color: #3b82f6; color: #60a5fa; }
+        .vault-btn.primary { background: #1e3a6e; border-color: #3b82f6; color: #93c5fd; }
+        .vault-btn.primary:hover { background: #2a4d8e; }
+        .vault-btn.danger  { border-color: #7f1d1d; color: #f87171; }
+        .vault-btn.danger:hover  { background: #3d0a0a; }
+
+        .vault-status {
+            font-size: 11px;
+            padding: 6px 10px;
+            border-radius: 4px;
+            border: 1px solid;
+            display: none;
+        }
+        .vault-status.ok   { display: block; color: #4ade80; border-color: #166534; background: #0a1a0d; }
+        .vault-status.err  { display: block; color: #f87171; border-color: #7f1d1d; background: #1a0808; }
+        .vault-status.info { display: block; color: #60a5fa; border-color: #1e3a6e; background: #0a1228; }
+
+        .vault-divider {
+            border: none;
+            border-top: 1px solid #1e2035;
+            margin: 4px 0;
+        }
+
+        .vault-saved-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+            font-size: 10px;
+            padding: 2px 8px;
+            border-radius: 3px;
+            border: 1px solid #166534;
+            color: #4ade80;
+            background: #0a1a0d;
+        }
+        .vault-no-vault {
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+            font-size: 10px;
+            padding: 2px 8px;
+            border-radius: 3px;
+            border: 1px solid #1e2035;
+            color: #374151;
+        }
+
+        /* Headless bus */
+        sg-llm-request, sg-llm-bundle { display: none !important; }
+
+        /* Force OR components to fill panel */
+        .or-panel sg-openrouter-balance,
+        .or-panel sg-openrouter-usage,
+        .or-panel sg-openrouter-models,
+        .or-panel sg-openrouter-key-manager {
+            display: block;
+            width: 100%;
+            height: 100%;
+        }
+    </style>
+</head>
+<body>
+
+<script type="module" src="/components/site-header/v1/v1.0/v1.0.2/sg-site-header.js"></script>
+<sg-site-header site="Tools" home-url="../../../"></sg-site-header>
+
+<!--
+    User section has a data-llm-bus div — balance, usage and models
+    listen for llm:connected / llm:disconnected on this bus.
+    Admin section (key-manager) is standalone — no bus needed.
+-->
+<div class="or-tool">
+
+    <!-- ══════════════════════════════════════════════════════
+         USER SECTION
+         Vault stores: { apiKey } encrypted with user token
+         ══════════════════════════════════════════════════════ -->
+    <div class="or-section or-section--user" data-llm-bus id="user-bus">
+
+        <!-- Headless bus components -->
+        <sg-llm-request></sg-llm-request>
+
+        <div class="or-section-header">
+            <span class="or-section-title"><span>OpenRouter</span> User</span>
+            <span class="or-lock-status locked" id="user-lock-status">⬤ disconnected</span>
+        </div>
+        <div class="or-tabs" id="user-tabs">
+            <button class="or-tab active" data-panel="user-vault">Vault</button>
+            <button class="or-tab"        data-panel="user-balance">Balance</button>
+            <button class="or-tab"        data-panel="user-usage">Usage</button>
+            <button class="or-tab"        data-panel="user-models">Models</button>
+        </div>
+        <div class="or-panels">
+
+            <!-- Vault panel -->
+            <div class="or-panel active" id="user-vault">
+                <div class="vault-panel">
+                    <div class="vault-title">User Vault</div>
+                    <div class="vault-description">
+                        Your OpenRouter API key is encrypted with AES-256-GCM and stored
+                        locally. Enter a <em>token</em> (passphrase) to lock/unlock the vault.
+                        The key never leaves your device.
+                    </div>
+
+                    <div id="user-vault-badge-row" style="display:flex;align-items:center;gap:8px">
+                        <!-- populated by JS -->
+                    </div>
+
+                    <hr class="vault-divider">
+
+                    <div class="vault-field">
+                        <label class="vault-label">OPENROUTER API KEY</label>
+                        <input class="vault-input" type="password" id="user-api-key"
+                            placeholder="sk-or-v1-…" autocomplete="off" spellcheck="false">
+                    </div>
+
+                    <div class="vault-field">
+                        <label class="vault-label">VAULT TOKEN (passphrase to encrypt/decrypt)</label>
+                        <input class="vault-input" type="password" id="user-vault-token"
+                            placeholder="enter a memorable passphrase" autocomplete="off">
+                    </div>
+
+                    <div class="vault-row">
+                        <button class="vault-btn primary" id="user-connect-btn">Connect</button>
+                        <button class="vault-btn" id="user-save-btn">Save to Vault</button>
+                        <button class="vault-btn" id="user-load-btn">Load from Vault</button>
+                        <button class="vault-btn danger" id="user-clear-vault-btn">Clear Vault</button>
+                    </div>
+
+                    <div class="vault-status" id="user-vault-status"></div>
+                </div>
+            </div>
+
+            <!-- Balance panel -->
+            <div class="or-panel" id="user-balance">
+                <sg-openrouter-balance></sg-openrouter-balance>
+            </div>
+
+            <!-- Usage panel -->
+            <div class="or-panel" id="user-usage">
+                <sg-openrouter-usage></sg-openrouter-usage>
+            </div>
+
+            <!-- Models panel -->
+            <div class="or-panel" id="user-models">
+                <sg-openrouter-models></sg-openrouter-models>
+            </div>
+
+        </div>
+    </div>
+
+    <!-- ══════════════════════════════════════════════════════
+         ADMIN SECTION
+         Vault stores: { managementKey } encrypted with admin token
+         ══════════════════════════════════════════════════════ -->
+    <div class="or-section or-section--admin" id="admin-section">
+
+        <div class="or-section-header">
+            <span class="or-section-title"><span>OpenRouter</span> Admin</span>
+            <span class="or-lock-status locked" id="admin-lock-status">⬤ disconnected</span>
+        </div>
+        <div class="or-tabs" id="admin-tabs">
+            <button class="or-tab active" data-panel="admin-vault">Vault</button>
+            <button class="or-tab"        data-panel="admin-keys">Keys</button>
+        </div>
+        <div class="or-panels">
+
+            <!-- Vault panel -->
+            <div class="or-panel active" id="admin-vault">
+                <div class="vault-panel">
+                    <div class="vault-title">Admin Vault</div>
+                    <div class="vault-description">
+                        Your OpenRouter <em>management key</em> is stored separately from your
+                        user key. Management keys can create, modify and revoke provisioned
+                        sub-keys but cannot make completion API calls.
+                        Obtain one at <em>openrouter.ai/settings/management-keys</em>.
+                    </div>
+
+                    <div id="admin-vault-badge-row" style="display:flex;align-items:center;gap:8px">
+                        <!-- populated by JS -->
+                    </div>
+
+                    <hr class="vault-divider">
+
+                    <div class="vault-field">
+                        <label class="vault-label">MANAGEMENT KEY</label>
+                        <input class="vault-input" type="password" id="admin-mgmt-key"
+                            placeholder="sk-or-v1-mgmt-…" autocomplete="off" spellcheck="false">
+                    </div>
+
+                    <div class="vault-field">
+                        <label class="vault-label">VAULT TOKEN (passphrase to encrypt/decrypt)</label>
+                        <input class="vault-input" type="password" id="admin-vault-token"
+                            placeholder="enter a memorable passphrase" autocomplete="off">
+                    </div>
+
+                    <div class="vault-row">
+                        <button class="vault-btn primary" id="admin-connect-btn">Connect</button>
+                        <button class="vault-btn" id="admin-save-btn">Save to Vault</button>
+                        <button class="vault-btn" id="admin-load-btn">Load from Vault</button>
+                        <button class="vault-btn danger" id="admin-clear-vault-btn">Clear Vault</button>
+                    </div>
+
+                    <div class="vault-status" id="admin-vault-status"></div>
+                </div>
+            </div>
+
+            <!-- Keys panel -->
+            <div class="or-panel" id="admin-keys">
+                <sg-openrouter-key-manager id="key-manager"></sg-openrouter-key-manager>
+            </div>
+
+        </div>
+    </div>
+
+</div>
+
+<script type="module">
+import '/components/llm/sg-llm-events/v0/v0.1/v0.1.0/sg-llm-events.js';
+import '/components/llm/sg-llm-request/v0/v0.1/v0.1.2/sg-llm-request.js';
+import '/components/openrouter/sg-openrouter-balance/v0/v0.1/v0.1.0/sg-openrouter-balance.js';
+import '/components/openrouter/sg-openrouter-usage/v0/v0.1/v0.1.0/sg-openrouter-usage.js';
+import '/components/openrouter/sg-openrouter-models/v0/v0.1/v0.1.0/sg-openrouter-models.js';
+import '/components/openrouter/sg-openrouter-key-manager/v0/v0.1/v0.1.0/sg-openrouter-key-manager.js';
+import { SGL_LLM } from '/components/llm/sg-llm-events/v0/v0.1/v0.1.0/sg-llm-events.js';
+
+// ── Vault Store ──────────────────────────────────────────────────────────────
+// AES-256-GCM with PBKDF2-SHA-256 key derivation.
+// Persists { salt, iv, ciphertext } as a JSON blob in localStorage.
+
+class VaultStore {
+    /**
+     * @param {string} storageKey  localStorage key to store the encrypted blob under
+     */
+    constructor(storageKey) {
+        this._lsKey = storageKey;
+    }
+
+    /** Encrypt config and save to localStorage. */
+    async save(token, config) {
+        const salt = crypto.getRandomValues(new Uint8Array(16));
+        const iv   = crypto.getRandomValues(new Uint8Array(12));
+        const key  = await this._deriveKey(token, salt);
+        const pt   = new TextEncoder().encode(JSON.stringify(config));
+        const ct   = await crypto.subtle.encrypt({ name: 'AES-GCM', iv }, key, pt);
+        localStorage.setItem(this._lsKey, JSON.stringify({
+            v:    1,
+            salt: _b64enc(salt),
+            iv:   _b64enc(iv),
+            ct:   _b64enc(new Uint8Array(ct)),
+        }));
+    }
+
+    /**
+     * Decrypt and return config. Throws if token is wrong or no vault saved.
+     * @returns {Object}
+     */
+    async load(token) {
+        const raw = localStorage.getItem(this._lsKey);
+        if (!raw) throw new Error('No vault saved');
+        const { salt, iv, ct } = JSON.parse(raw);
+        const key = await this._deriveKey(token, _b64dec(salt));
+        const pt  = await crypto.subtle.decrypt(
+            { name: 'AES-GCM', iv: _b64dec(iv) },
+            key,
+            _b64dec(ct),
+        );
+        return JSON.parse(new TextDecoder().decode(pt));
+    }
+
+    /** True if an encrypted blob exists in localStorage. */
+    hasSaved() {
+        return !!localStorage.getItem(this._lsKey);
+    }
+
+    /** Remove encrypted blob from localStorage. */
+    clear() {
+        localStorage.removeItem(this._lsKey);
+    }
+
+    async _deriveKey(token, salt) {
+        const raw = new TextEncoder().encode(token);
+        const km  = await crypto.subtle.importKey('raw', raw, 'PBKDF2', false, ['deriveKey']);
+        return crypto.subtle.deriveKey(
+            { name: 'PBKDF2', salt, iterations: 200_000, hash: 'SHA-256' },
+            km,
+            { name: 'AES-GCM', length: 256 },
+            false,
+            ['encrypt', 'decrypt'],
+        );
+    }
+}
+
+function _b64enc(buf) {
+    return btoa(String.fromCharCode(...buf));
+}
+function _b64dec(str) {
+    return Uint8Array.from(atob(str), c => c.charCodeAt(0));
+}
+
+// ── Vault instances ──────────────────────────────────────────────────────────
+const userVault  = new VaultStore('sg-or-user-vault');
+const adminVault = new VaultStore('sg-or-admin-vault');
+
+// ── Tab switching ────────────────────────────────────────────────────────────
+function initTabs(tabsEl) {
+    tabsEl.querySelectorAll('.or-tab').forEach(btn => {
+        btn.addEventListener('click', () => {
+            const panelId = btn.dataset.panel;
+            tabsEl.querySelectorAll('.or-tab').forEach(b => b.classList.remove('active'));
+            btn.classList.add('active');
+            tabsEl.closest('.or-section')
+                  .querySelectorAll('.or-panel')
+                  .forEach(p => p.classList.toggle('active', p.id === panelId));
+        });
+    });
+}
+initTabs(document.getElementById('user-tabs'));
+initTabs(document.getElementById('admin-tabs'));
+
+// ── Vault badge rows ─────────────────────────────────────────────────────────
+function renderBadge(rowEl, hasSaved) {
+    rowEl.innerHTML = hasSaved
+        ? '<span class="vault-saved-badge">⬤ vault saved</span>'
+        : '<span class="vault-no-vault">○ no vault</span>';
+}
+renderBadge(document.getElementById('user-vault-badge-row'),  userVault.hasSaved());
+renderBadge(document.getElementById('admin-vault-badge-row'), adminVault.hasSaved());
+
+// ── Vault status helper ───────────────────────────────────────────────────────
+function setVaultStatus(el, msg, type) {
+    el.textContent  = msg;
+    el.className    = `vault-status ${type}`;
+}
+
+// ── USER SECTION ─────────────────────────────────────────────────────────────
+const userBus       = document.getElementById('user-bus');
+const userLockEl    = document.getElementById('user-lock-status');
+const userApiKeyEl  = document.getElementById('user-api-key');
+const userTokenEl   = document.getElementById('user-vault-token');
+const userStatusEl  = document.getElementById('user-vault-status');
+
+let _userConnected  = false;
+
+function userConnect(apiKey) {
+    if (!apiKey) { setVaultStatus(userStatusEl, 'API key is required', 'err'); return; }
+    _userConnected = true;
+    userLockEl.textContent = '⬤ connected';
+    userLockEl.className   = 'or-lock-status unlocked';
+    userBus.dispatchEvent(new CustomEvent(SGL_LLM.CONNECTED, {
+        bubbles: true,
+        detail:  { provider: 'openrouter', apiKey },
+    }));
+}
+
+function userDisconnect() {
+    if (!_userConnected) return;
+    _userConnected = false;
+    userLockEl.textContent = '⬤ disconnected';
+    userLockEl.className   = 'or-lock-status locked';
+    userBus.dispatchEvent(new CustomEvent(SGL_LLM.DISCONNECTED, { bubbles: true }));
+}
+
+document.getElementById('user-connect-btn').addEventListener('click', () => {
+    userConnect(userApiKeyEl.value.trim());
+});
+userApiKeyEl.addEventListener('keydown', e => {
+    if (e.key === 'Enter') userConnect(userApiKeyEl.value.trim());
+});
+
+document.getElementById('user-save-btn').addEventListener('click', async () => {
+    const apiKey = userApiKeyEl.value.trim();
+    const token  = userTokenEl.value.trim();
+    if (!apiKey)  { setVaultStatus(userStatusEl, 'Enter an API key to save', 'err'); return; }
+    if (!token)   { setVaultStatus(userStatusEl, 'Enter a vault token (passphrase)', 'err'); return; }
+    try {
+        await userVault.save(token, { apiKey });
+        renderBadge(document.getElementById('user-vault-badge-row'), true);
+        setVaultStatus(userStatusEl, 'Vault saved — credentials encrypted with your token', 'ok');
+    } catch (err) {
+        setVaultStatus(userStatusEl, `Save failed: ${err.message}`, 'err');
+    }
+});
+
+document.getElementById('user-load-btn').addEventListener('click', async () => {
+    const token = userTokenEl.value.trim();
+    if (!token) { setVaultStatus(userStatusEl, 'Enter your vault token to load', 'err'); return; }
+    try {
+        const config = await userVault.load(token);
+        userApiKeyEl.value = config.apiKey ?? '';
+        setVaultStatus(userStatusEl, 'Vault loaded — click Connect to activate', 'ok');
+        userApiKeyEl.classList.remove('error');
+    } catch (err) {
+        userApiKeyEl.classList.add('error');
+        setVaultStatus(userStatusEl, 'Wrong token or no vault saved', 'err');
+    }
+});
+
+document.getElementById('user-clear-vault-btn').addEventListener('click', () => {
+    if (!confirm('Clear user vault? This only removes the saved encrypted key from this device.')) return;
+    userVault.clear();
+    renderBadge(document.getElementById('user-vault-badge-row'), false);
+    userDisconnect();
+    setVaultStatus(userStatusEl, 'Vault cleared', 'info');
+});
+
+// ── ADMIN SECTION ─────────────────────────────────────────────────────────────
+const adminLockEl   = document.getElementById('admin-lock-status');
+const adminKeyEl    = document.getElementById('admin-mgmt-key');
+const adminTokenEl  = document.getElementById('admin-vault-token');
+const adminStatusEl = document.getElementById('admin-vault-status');
+const keyManager    = document.getElementById('key-manager');
+
+function adminConnect(mgmtKey) {
+    if (!mgmtKey) { setVaultStatus(adminStatusEl, 'Management key is required', 'err'); return; }
+    adminLockEl.textContent = '⬤ connected';
+    adminLockEl.className   = 'or-lock-status unlocked';
+    // Inject key directly into the key-manager component
+    // sg-openrouter-key-manager stores its key internally but we can drive it
+    // by setting the input value and triggering a connect click
+    customElements.whenDefined('sg-openrouter-key-manager').then(() => {
+        const input = keyManager.shadowRoot?.querySelector('.km-auth-input');
+        const btn   = keyManager.shadowRoot?.querySelector('#km-connect-btn');
+        if (input && btn) {
+            input.value = mgmtKey;
+            btn.click();
+        }
+    });
+}
+
+document.getElementById('admin-connect-btn').addEventListener('click', () => {
+    adminConnect(adminKeyEl.value.trim());
+});
+adminKeyEl.addEventListener('keydown', e => {
+    if (e.key === 'Enter') adminConnect(adminKeyEl.value.trim());
+});
+
+document.getElementById('admin-save-btn').addEventListener('click', async () => {
+    const mgmtKey = adminKeyEl.value.trim();
+    const token   = adminTokenEl.value.trim();
+    if (!mgmtKey) { setVaultStatus(adminStatusEl, 'Enter a management key to save', 'err'); return; }
+    if (!token)   { setVaultStatus(adminStatusEl, 'Enter a vault token (passphrase)', 'err'); return; }
+    try {
+        await adminVault.save(token, { managementKey: mgmtKey });
+        renderBadge(document.getElementById('admin-vault-badge-row'), true);
+        setVaultStatus(adminStatusEl, 'Vault saved — management key encrypted with your token', 'ok');
+    } catch (err) {
+        setVaultStatus(adminStatusEl, `Save failed: ${err.message}`, 'err');
+    }
+});
+
+document.getElementById('admin-load-btn').addEventListener('click', async () => {
+    const token = adminTokenEl.value.trim();
+    if (!token) { setVaultStatus(adminStatusEl, 'Enter your vault token to load', 'err'); return; }
+    try {
+        const config = await adminVault.load(token);
+        adminKeyEl.value = config.managementKey ?? '';
+        setVaultStatus(adminStatusEl, 'Vault loaded — click Connect to activate', 'ok');
+        adminKeyEl.classList.remove('error');
+    } catch (err) {
+        adminKeyEl.classList.add('error');
+        setVaultStatus(adminStatusEl, 'Wrong token or no vault saved', 'err');
+    }
+});
+
+document.getElementById('admin-clear-vault-btn').addEventListener('click', () => {
+    if (!confirm('Clear admin vault? This only removes the saved encrypted key from this device.')) return;
+    adminVault.clear();
+    renderBadge(document.getElementById('admin-vault-badge-row'), false);
+    adminLockEl.textContent = '⬤ disconnected';
+    adminLockEl.className   = 'or-lock-status locked';
+    setVaultStatus(adminStatusEl, 'Vault cleared', 'info');
+});
+</script>
+
+</body>
+</html>
