@@ -22,14 +22,14 @@
             display: flex;
             align-items: center;
             gap: 8px;
-            padding: 6px 10px;
+            padding: 5px 10px;
             background: #08080f;
             border-bottom: 1px solid #1e2035;
             flex-shrink: 0;
             font-family: monospace;
             font-size: 11px;
         }
-        .or-vault-label { color: #374151; white-space: nowrap; }
+        .or-vault-label { color: #374151; white-space: nowrap; font-size: 10px; }
         .or-vault-input {
             flex: 1;
             background: #12122a;
@@ -38,7 +38,7 @@
             color: #c8d0e0;
             font-family: monospace;
             font-size: 11px;
-            padding: 4px 8px;
+            padding: 3px 8px;
             min-width: 0;
         }
         .or-vault-input:focus { outline: none; border-color: #3b82f6; }
@@ -46,14 +46,14 @@
         .or-vault-input.ok  { border-color: #166534; }
         .or-vault-input.err { border-color: #7f1d1d; }
         .or-api-url {
-            width: 200px;
+            width: 190px;
             background: #12122a;
             border: 1px solid #1e2035;
             border-radius: 4px;
-            color: #64748b;
+            color: #374151;
             font-family: monospace;
             font-size: 11px;
-            padding: 4px 8px;
+            padding: 3px 8px;
         }
         .or-api-url:focus { outline: none; border-color: #3b82f6; color: #c8d0e0; }
         .or-vault-btn {
@@ -64,28 +64,22 @@
             cursor: pointer;
             font-family: monospace;
             font-size: 11px;
-            padding: 4px 12px;
+            padding: 3px 12px;
             white-space: nowrap;
         }
         .or-vault-btn:hover { background: #2a4d8e; }
         .or-vault-btn:disabled { opacity: 0.4; cursor: not-allowed; }
-        .or-vault-status {
-            font-size: 10px;
-            white-space: nowrap;
-            display: flex;
-            gap: 8px;
-            align-items: center;
-        }
         .or-vault-pill {
-            padding: 2px 7px;
+            padding: 1px 7px;
             border-radius: 3px;
             border: 1px solid;
             font-size: 10px;
+            white-space: nowrap;
         }
         .or-vault-pill.ok   { color: #4ade80; border-color: #166534; background: #0a1a0d; }
         .or-vault-pill.warn { color: #fbbf24; border-color: #92400e; background: #1a0e00; }
         .or-vault-pill.err  { color: #f87171; border-color: #7f1d1d; background: #1a0808; }
-        .or-vault-pill.idle { color: #374151; border-color: #1e2035; background: transparent; }
+        .or-vault-pill.idle { color: #374151; border-color: #1e2035; }
         .or-vault-spinner {
             display: inline-block;
             width: 9px; height: 9px;
@@ -93,172 +87,20 @@
             border-top-color: #3b82f6;
             border-radius: 50%;
             animation: spin 0.7s linear infinite;
-            vertical-align: middle;
         }
         @keyframes spin { to { transform: rotate(360deg); } }
 
-        /* ── Two-section layout ─────────────────────────────────────── */
-        .or-tool {
+        /* ── sg-layout host ─────────────────────────────────────────── */
+        #llm-bus {
             flex: 1;
-            display: flex;
-            min-height: 0;
-        }
-        .or-section {
             display: flex;
             flex-direction: column;
             min-height: 0;
-            min-width: 0;
-            border-right: 1px solid #1e2035;
         }
-        .or-section:last-child { border-right: none; }
-        .or-section--user  { flex: 0 0 62%; }
-        .or-section--admin { flex: 0 0 38%; }
-
-        /* ── Section header ─────────────────────────────────────────── */
-        .or-section-header {
-            display: flex;
-            align-items: center;
-            gap: 10px;
-            padding: 5px 10px;
-            background: #0a0a18;
-            border-bottom: 1px solid #1e2035;
-            flex-shrink: 0;
-        }
-        .or-section-title {
-            font-family: monospace;
-            font-size: 10px;
-            letter-spacing: 0.08em;
-            color: #374151;
-            text-transform: uppercase;
-        }
-        .or-section-title span { color: #3b82f6; }
-        .or-conn-status {
-            font-family: monospace;
-            font-size: 10px;
-            margin-left: auto;
-        }
-        .or-conn-status.on  { color: #4ade80; }
-        .or-conn-status.off { color: #374151; }
-
-        /* Section-level manual key override (collapsed by default) */
-        .or-manual-row {
-            display: flex;
-            gap: 6px;
-            align-items: center;
-            padding: 5px 10px;
-            background: #0a0a18;
-            border-bottom: 1px solid #1e2035;
-            flex-shrink: 0;
-        }
-        .or-manual-label { font-family: monospace; font-size: 10px; color: #374151; white-space: nowrap; }
-        .or-manual-input {
-            flex: 1;
-            background: #12122a;
-            border: 1px solid #1e2035;
-            border-radius: 3px;
-            color: #c8d0e0;
-            font-family: monospace;
-            font-size: 11px;
-            padding: 3px 7px;
-        }
-        .or-manual-input:focus { outline: none; border-color: #3b82f6; }
-        .or-manual-input::placeholder { color: #1e2035; }
-        .or-connect-btn {
-            background: #12122a;
-            border: 1px solid #1e2035;
-            border-radius: 3px;
-            color: #64748b;
-            cursor: pointer;
-            font-family: monospace;
-            font-size: 10px;
-            padding: 3px 8px;
-            white-space: nowrap;
-        }
-        .or-connect-btn:hover { border-color: #3b82f6; color: #60a5fa; }
-
-        /* ── Tabs ───────────────────────────────────────────────────── */
-        .or-tabs {
-            display: flex;
-            background: #0d0d1a;
-            border-bottom: 1px solid #1e2035;
-            flex-shrink: 0;
-        }
-        .or-tab {
-            background: none;
-            border: none;
-            border-bottom: 2px solid transparent;
-            color: #374151;
-            cursor: pointer;
-            font-family: monospace;
-            font-size: 11px;
-            padding: 6px 12px;
-            transition: all 0.1s;
-            white-space: nowrap;
-        }
-        .or-tab:hover { color: #64748b; }
-        .or-tab.active { border-bottom-color: #3b82f6; color: #93c5fd; }
-
-        /* ── Panels ─────────────────────────────────────────────────── */
-        .or-panels {
-            flex: 1;
-            min-height: 0;
-            position: relative;
-        }
-        .or-panel {
-            position: absolute;
-            inset: 0;
-            display: none;
-            overflow: hidden;
-        }
-        .or-panel.active { display: flex; flex-direction: column; }
+        sg-layout { flex: 1; min-height: 0; }
 
         /* Headless */
         sg-llm-request { display: none !important; }
-
-        /* Force OR components to fill panel */
-        .or-panel > sg-openrouter-balance,
-        .or-panel > sg-openrouter-usage,
-        .or-panel > sg-openrouter-models,
-        .or-panel > sg-openrouter-key-manager {
-            display: block;
-            width: 100%;
-            height: 100%;
-        }
-
-        /* ── Vault path info panel ──────────────────────────────────── */
-        .or-vault-info-panel {
-            padding: 14px 16px;
-            font-family: monospace;
-            font-size: 11px;
-            color: #374151;
-            background: #0d0d1a;
-            height: 100%;
-            overflow-y: auto;
-            display: flex;
-            flex-direction: column;
-            gap: 14px;
-        }
-        .or-vault-info-panel::-webkit-scrollbar { width: 6px; }
-        .or-vault-info-panel::-webkit-scrollbar-thumb { background: #1e2035; border-radius: 3px; }
-        .or-vi-title { color: #374151; font-size: 10px; letter-spacing: 0.06em; text-transform: uppercase; border-bottom: 1px solid #1e2035; padding-bottom: 6px; }
-        .or-vi-desc  { color: #374151; font-size: 11px; line-height: 1.6; }
-        .or-vi-desc em { color: #64748b; font-style: normal; }
-        .or-vi-path  {
-            background: #12122a;
-            border: 1px solid #1e2035;
-            border-radius: 4px;
-            padding: 8px 10px;
-            color: #60a5fa;
-            font-size: 11px;
-        }
-        .or-vi-path-label { color: #374151; font-size: 10px; margin-bottom: 3px; }
-        .or-vi-status-row { display: flex; align-items: center; gap: 8px; }
-        .or-vi-kv { display: flex; flex-direction: column; gap: 6px; }
-        .or-vi-row { display: flex; justify-content: space-between; align-items: baseline; }
-        .or-vi-key { color: #374151; font-size: 10px; }
-        .or-vi-val { color: #64748b; font-size: 11px; word-break: break-all; max-width: 70%; text-align: right; }
-        .or-vi-val.ok  { color: #4ade80; }
-        .or-vi-val.err { color: #f87171; }
     </style>
 </head>
 <body>
@@ -266,17 +108,7 @@
 <script type="module" src="/components/site-header/v1/v1.0/v1.0.2/sg-site-header.js"></script>
 <sg-site-header site="Tools" home-url="../../../"></sg-site-header>
 
-<!--
-    Shared vault bar loads credentials for both sections from the same vault,
-    using two different paths:
-      openrouter/user/config.json  → { apiKey }
-      openrouter/admin/config.json → { managementKey }
-
-    User section has data-llm-bus for sg-openrouter-* components.
-    Admin section (key-manager) is standalone — no bus needed.
--->
-
-<!-- ── Vault bar (shared) ─────────────────────────────────────────────── -->
+<!-- ── Vault bar ─────────────────────────────────────────────────────────── -->
 <div class="or-vault-bar">
     <span class="or-vault-label">VAULT KEY</span>
     <input class="or-vault-input" type="password" id="vault-key-input"
@@ -284,149 +116,23 @@
     <input class="or-api-url" type="text" id="vault-api-url"
         value="https://send.sgraph.ai" spellcheck="false">
     <button class="or-vault-btn" id="vault-load-btn">Load from Vault</button>
-    <div class="or-vault-status" id="vault-status">
-        <span class="or-vault-pill idle" id="vault-user-pill">user: —</span>
-        <span class="or-vault-pill idle" id="vault-admin-pill">admin: —</span>
-    </div>
+    <span class="or-vault-pill idle" id="vault-user-pill">user: —</span>
+    <span class="or-vault-pill idle" id="vault-admin-pill">admin: —</span>
 </div>
 
-<div class="or-tool">
-
-    <!-- ══════════════════════════════════════════════════════
-         USER SECTION  — data-llm-bus for balance/usage/models
-         Vault path: openrouter/user/config.json → { apiKey }
-         ══════════════════════════════════════════════════════ -->
-    <div class="or-section or-section--user" data-llm-bus id="user-bus">
-
-        <sg-llm-request></sg-llm-request>
-
-        <div class="or-section-header">
-            <span class="or-section-title"><span>OpenRouter</span> User</span>
-            <span class="or-conn-status off" id="user-conn-status">⬤ disconnected</span>
-        </div>
-
-        <!-- Manual override row (always visible as fallback) -->
-        <div class="or-manual-row">
-            <span class="or-manual-label">API KEY</span>
-            <input class="or-manual-input" type="password" id="user-api-key"
-                placeholder="sk-or-v1-… (or load from vault above)"
-                autocomplete="off" spellcheck="false">
-            <button class="or-connect-btn" id="user-connect-btn">Connect</button>
-        </div>
-
-        <div class="or-tabs" id="user-tabs">
-            <button class="or-tab active" data-panel="user-vault-info">Vault</button>
-            <button class="or-tab"        data-panel="user-balance">Balance</button>
-            <button class="or-tab"        data-panel="user-usage">Usage</button>
-            <button class="or-tab"        data-panel="user-models">Models</button>
-        </div>
-        <div class="or-panels">
-
-            <div class="or-panel active" id="user-vault-info">
-                <div class="or-vault-info-panel">
-                    <div class="or-vi-title">Vault Configuration</div>
-                    <div class="or-vi-desc">
-                        User credentials are read from your vault at the path below.
-                        Enter your vault key above and click <em>Load from Vault</em>.
-                        You can also type the API key manually in the bar above.
-                    </div>
-                    <div>
-                        <div class="or-vi-path-label">VAULT PATH</div>
-                        <div class="or-vi-path">openrouter/user/config.json</div>
-                    </div>
-                    <div>
-                        <div class="or-vi-path-label">EXPECTED FILE FORMAT</div>
-                        <div class="or-vi-path" style="color:#c8d0e0">{ "apiKey": "sk-or-v1-…" }</div>
-                    </div>
-                    <div class="or-vi-kv" id="user-vault-kv">
-                        <div class="or-vi-row">
-                            <span class="or-vi-key">status</span>
-                            <span class="or-vi-val" id="user-vault-kv-status">waiting for vault load</span>
-                        </div>
-                        <div class="or-vi-row">
-                            <span class="or-vi-key">file id</span>
-                            <span class="or-vi-val" id="user-vault-kv-fileid">—</span>
-                        </div>
-                    </div>
-                </div>
-            </div>
-
-            <div class="or-panel" id="user-balance">
-                <sg-openrouter-balance></sg-openrouter-balance>
-            </div>
-            <div class="or-panel" id="user-usage">
-                <sg-openrouter-usage></sg-openrouter-usage>
-            </div>
-            <div class="or-panel" id="user-models">
-                <sg-openrouter-models></sg-openrouter-models>
-            </div>
-        </div>
-    </div>
-
-    <!-- ══════════════════════════════════════════════════════
-         ADMIN SECTION  — key-manager is standalone (no bus)
-         Vault path: openrouter/admin/config.json → { managementKey }
-         ══════════════════════════════════════════════════════ -->
-    <div class="or-section or-section--admin">
-
-        <div class="or-section-header">
-            <span class="or-section-title"><span>OpenRouter</span> Admin</span>
-            <span class="or-conn-status off" id="admin-conn-status">⬤ disconnected</span>
-        </div>
-
-        <!-- Manual override row -->
-        <div class="or-manual-row">
-            <span class="or-manual-label">MGMT KEY</span>
-            <input class="or-manual-input" type="password" id="admin-mgmt-key"
-                placeholder="sk-or-v1-mgmt-… (or load from vault above)"
-                autocomplete="off" spellcheck="false">
-            <button class="or-connect-btn" id="admin-connect-btn">Connect</button>
-        </div>
-
-        <div class="or-tabs" id="admin-tabs">
-            <button class="or-tab active" data-panel="admin-vault-info">Vault</button>
-            <button class="or-tab"        data-panel="admin-keys">Keys</button>
-        </div>
-        <div class="or-panels">
-
-            <div class="or-panel active" id="admin-vault-info">
-                <div class="or-vault-info-panel">
-                    <div class="or-vi-title">Vault Configuration</div>
-                    <div class="or-vi-desc">
-                        Admin credentials are read from your vault at the path below.
-                        The management key is separate from your user API key —
-                        obtain one at <em>openrouter.ai/settings/management-keys</em>.
-                    </div>
-                    <div>
-                        <div class="or-vi-path-label">VAULT PATH</div>
-                        <div class="or-vi-path">openrouter/admin/config.json</div>
-                    </div>
-                    <div>
-                        <div class="or-vi-path-label">EXPECTED FILE FORMAT</div>
-                        <div class="or-vi-path" style="color:#c8d0e0">{ "managementKey": "sk-or-v1-mgmt-…" }</div>
-                    </div>
-                    <div class="or-vi-kv">
-                        <div class="or-vi-row">
-                            <span class="or-vi-key">status</span>
-                            <span class="or-vi-val" id="admin-vault-kv-status">waiting for vault load</span>
-                        </div>
-                        <div class="or-vi-row">
-                            <span class="or-vi-key">file id</span>
-                            <span class="or-vi-val" id="admin-vault-kv-fileid">—</span>
-                        </div>
-                    </div>
-                </div>
-            </div>
-
-            <div class="or-panel" id="admin-keys">
-                <sg-openrouter-key-manager id="key-manager"></sg-openrouter-key-manager>
-            </div>
-        </div>
-    </div>
-
+<!--
+    data-llm-bus: sg-openrouter-* components walk ancestor chain to find this.
+    sg-layout manages the resizable / draggable panels.
+    The two inline components sg-or-user-connect and sg-or-admin-connect
+    listen for 'or:vault-loaded' on document and auto-connect.
+-->
+<div id="llm-bus" data-llm-bus>
+    <sg-llm-request></sg-llm-request>
+    <sg-layout id="layout"></sg-layout>
 </div>
 
 <script type="module">
+import '/core/sg-layout/v0.1.0/sg-layout.js';
 import '/components/llm/sg-llm-events/v0/v0.1/v0.1.0/sg-llm-events.js';
 import '/components/llm/sg-llm-request/v0/v0.1/v0.1.2/sg-llm-request.js';
 import '/components/openrouter/sg-openrouter-balance/v0/v0.1/v0.1.0/sg-openrouter-balance.js';
@@ -442,21 +148,356 @@ import {
     readFile,
 } from '/core/vault-client/v1/v1.0/v1.0.0/sg-vault-client.js';
 
-// ── Tab switching ────────────────────────────────────────────────────────────
-document.querySelectorAll('.or-tabs').forEach(tabsEl => {
-    tabsEl.querySelectorAll('.or-tab').forEach(btn => {
-        btn.addEventListener('click', () => {
-            const panelId = btn.dataset.panel;
-            tabsEl.querySelectorAll('.or-tab').forEach(b => b.classList.remove('active'));
-            btn.classList.add('active');
-            tabsEl.closest('.or-section')
-                  .querySelectorAll('.or-panel')
-                  .forEach(p => p.classList.toggle('active', p.id === panelId));
+// ── CSS shared across both inline connect components ─────────────────────────
+const CONNECT_CSS = `
+:host {
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+    min-height: 0;
+    font-family: monospace;
+    font-size: 12px;
+    background: #0d0d1a;
+    color: #c8d0e0;
+    overflow-y: auto;
+}
+:host::-webkit-scrollbar { width: 6px; }
+:host::-webkit-scrollbar-thumb { background: #1e2035; border-radius: 3px; }
+
+.cp { padding: 14px 16px; display: flex; flex-direction: column; gap: 14px; }
+
+.cp-title { font-size: 10px; letter-spacing: 0.06em; color: #374151;
+    text-transform: uppercase; border-bottom: 1px solid #1e2035; padding-bottom: 8px; }
+
+.cp-status {
+    display: flex; align-items: center; gap: 8px; font-size: 11px;
+}
+.cp-dot { font-size: 10px; }
+.cp-dot.on  { color: #4ade80; }
+.cp-dot.off { color: #374151; }
+.cp-label { color: #64748b; }
+
+.cp-field { display: flex; flex-direction: column; gap: 4px; }
+.cp-field-label { font-size: 10px; color: #374151; letter-spacing: 0.03em; }
+.cp-input {
+    background: #12122a;
+    border: 1px solid #1e2035;
+    border-radius: 4px;
+    color: #c8d0e0;
+    font-family: monospace;
+    font-size: 11px;
+    padding: 5px 10px;
+}
+.cp-input:focus { outline: none; border-color: #3b82f6; }
+.cp-input::placeholder { color: #1e2035; }
+.cp-input.ok  { border-color: #166534; }
+.cp-input.err { border-color: #7f1d1d; }
+
+.cp-row { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; }
+.cp-btn {
+    background: #12122a; border: 1px solid #1e2035; border-radius: 4px;
+    color: #64748b; cursor: pointer; font-family: monospace; font-size: 11px;
+    padding: 5px 12px; white-space: nowrap;
+}
+.cp-btn:hover { border-color: #3b82f6; color: #60a5fa; }
+.cp-btn.primary { background: #1e3a6e; border-color: #3b82f6; color: #93c5fd; }
+.cp-btn.primary:hover { background: #2a4d8e; }
+.cp-btn.danger  { border-color: #7f1d1d; color: #f87171; }
+.cp-btn.danger:hover  { background: #3d0a0a; }
+
+.cp-divider { border: none; border-top: 1px solid #1e2035; }
+
+.cp-info { display: flex; flex-direction: column; gap: 6px; }
+.cp-info-row { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; }
+.cp-info-key { font-size: 10px; color: #374151; white-space: nowrap; }
+.cp-info-val { font-size: 11px; color: #64748b; word-break: break-all; text-align: right; }
+.cp-info-val.ok  { color: #4ade80; }
+.cp-info-val.err { color: #f87171; }
+
+.cp-path {
+    background: #12122a; border: 1px solid #1e2035; border-radius: 4px;
+    padding: 6px 10px; color: #60a5fa; font-size: 11px;
+}
+.cp-path-label { font-size: 10px; color: #374151; margin-bottom: 3px; }
+.cp-example { color: #c8d0e0; }
+`;
+
+// ── sg-or-user-connect ───────────────────────────────────────────────────────
+// Manages the user API key. Walks [data-llm-bus] ancestor to fire llm:connected.
+// Listens for 'or:vault-loaded' on document.
+
+class SgOrUserConnect extends HTMLElement {
+    constructor() {
+        super();
+        this._connected = false;
+        this._shadow = this.attachShadow({ mode: 'open' });
+    }
+
+    connectedCallback() {
+        this._render();
+        this._onVaultLoaded = e => {
+            const { apiKey, userFileId, userStatus } = e.detail;
+            this._setFileId(userFileId);
+            if (apiKey) {
+                this._shadow.querySelector('.cp-input').value = apiKey;
+                this._shadow.querySelector('.cp-input').classList.add('ok');
+                this._setStatus('loaded from vault', 'ok');
+                this._connect(apiKey);
+            } else {
+                this._setStatus(userStatus || 'not found in vault', 'err');
+            }
+        };
+        document.addEventListener('or:vault-loaded', this._onVaultLoaded);
+    }
+
+    disconnectedCallback() {
+        document.removeEventListener('or:vault-loaded', this._onVaultLoaded);
+    }
+
+    _render() {
+        this._shadow.innerHTML = `<style>${CONNECT_CSS}</style>
+<div class="cp">
+    <div class="cp-title">User Connection</div>
+    <div class="cp-status">
+        <span class="cp-dot off" id="dot">⬤</span>
+        <span class="cp-label" id="lbl">disconnected</span>
+    </div>
+    <div class="cp-field">
+        <span class="cp-field-label">API KEY</span>
+        <input class="cp-input" type="password"
+            placeholder="sk-or-v1-… or load from vault" autocomplete="off" spellcheck="false">
+    </div>
+    <div class="cp-row">
+        <button class="cp-btn primary" id="conn-btn">Connect</button>
+        <button class="cp-btn danger"  id="disc-btn">Disconnect</button>
+    </div>
+    <hr class="cp-divider">
+    <div class="cp-path-label">VAULT PATH</div>
+    <div class="cp-path">openrouter/user/config.json</div>
+    <div class="cp-path-label" style="margin-top:8px">EXPECTED FORMAT</div>
+    <div class="cp-path cp-example">{ "apiKey": "sk-or-v1-…" }</div>
+    <div class="cp-info">
+        <div class="cp-info-row">
+            <span class="cp-info-key">vault file id</span>
+            <span class="cp-info-val" id="file-id">—</span>
+        </div>
+        <div class="cp-info-row">
+            <span class="cp-info-key">vault status</span>
+            <span class="cp-info-val" id="vault-st">waiting</span>
+        </div>
+    </div>
+</div>`;
+
+        const input  = this._shadow.querySelector('.cp-input');
+        this._shadow.querySelector('#conn-btn').addEventListener('click', () => {
+            this._connect(input.value.trim());
         });
-    });
+        input.addEventListener('keydown', e => {
+            if (e.key === 'Enter') this._connect(input.value.trim());
+        });
+        this._shadow.querySelector('#disc-btn').addEventListener('click', () => {
+            this._disconnect();
+        });
+    }
+
+    _connect(apiKey) {
+        if (!apiKey) { this._setStatus('API key required', 'err'); return; }
+        this._connected = true;
+        this._shadow.querySelector('#dot').className = 'cp-dot on';
+        this._shadow.querySelector('#lbl').textContent = 'connected';
+        const bus = this._bus();
+        bus.dispatchEvent(new CustomEvent(SGL_LLM.CONNECTED, {
+            bubbles: true,
+            detail:  { provider: 'openrouter', apiKey },
+        }));
+    }
+
+    _disconnect() {
+        if (!this._connected) return;
+        this._connected = false;
+        this._shadow.querySelector('#dot').className = 'cp-dot off';
+        this._shadow.querySelector('#lbl').textContent = 'disconnected';
+        this._bus().dispatchEvent(new CustomEvent(SGL_LLM.DISCONNECTED, { bubbles: true }));
+    }
+
+    _setFileId(id)  { const el = this._shadow.querySelector('#file-id'); if (el) el.textContent = id || '—'; }
+    _setStatus(msg, type) {
+        const el = this._shadow.querySelector('#vault-st');
+        if (!el) return;
+        el.textContent = msg;
+        el.className   = `cp-info-val ${type}`;
+    }
+
+    _bus() {
+        let el = this.parentElement;
+        while (el) {
+            if (el.hasAttribute('data-llm-bus')) return el;
+            el = el.parentElement;
+        }
+        return document;
+    }
+}
+customElements.define('sg-or-user-connect', SgOrUserConnect);
+
+// ── sg-or-admin-connect ──────────────────────────────────────────────────────
+// Manages the management key. Drives sg-openrouter-key-manager via shadow DOM.
+// Listens for 'or:vault-loaded' on document.
+
+class SgOrAdminConnect extends HTMLElement {
+    constructor() {
+        super();
+        this._connected = false;
+        this._shadow = this.attachShadow({ mode: 'open' });
+    }
+
+    connectedCallback() {
+        this._render();
+        this._onVaultLoaded = e => {
+            const { managementKey, adminFileId, adminStatus } = e.detail;
+            this._setFileId(adminFileId);
+            if (managementKey) {
+                this._shadow.querySelector('.cp-input').value = managementKey;
+                this._shadow.querySelector('.cp-input').classList.add('ok');
+                this._setStatus('loaded from vault', 'ok');
+                this._connect(managementKey);
+            } else {
+                this._setStatus(adminStatus || 'not found in vault', 'err');
+            }
+        };
+        document.addEventListener('or:vault-loaded', this._onVaultLoaded);
+    }
+
+    disconnectedCallback() {
+        document.removeEventListener('or:vault-loaded', this._onVaultLoaded);
+    }
+
+    _render() {
+        this._shadow.innerHTML = `<style>${CONNECT_CSS}</style>
+<div class="cp">
+    <div class="cp-title">Admin Connection</div>
+    <div class="cp-status">
+        <span class="cp-dot off" id="dot">⬤</span>
+        <span class="cp-label" id="lbl">disconnected</span>
+    </div>
+    <div class="cp-field">
+        <span class="cp-field-label">MANAGEMENT KEY</span>
+        <input class="cp-input" type="password"
+            placeholder="sk-or-v1-mgmt-… or load from vault" autocomplete="off" spellcheck="false">
+    </div>
+    <div class="cp-row">
+        <button class="cp-btn primary" id="conn-btn">Connect</button>
+        <button class="cp-btn danger"  id="disc-btn">Disconnect</button>
+    </div>
+    <hr class="cp-divider">
+    <div class="cp-path-label">VAULT PATH</div>
+    <div class="cp-path">openrouter/admin/config.json</div>
+    <div class="cp-path-label" style="margin-top:8px">EXPECTED FORMAT</div>
+    <div class="cp-path cp-example">{ "managementKey": "sk-or-v1-mgmt-…" }</div>
+    <div class="cp-info">
+        <div class="cp-info-row">
+            <span class="cp-info-key">vault file id</span>
+            <span class="cp-info-val" id="file-id">—</span>
+        </div>
+        <div class="cp-info-row">
+            <span class="cp-info-key">vault status</span>
+            <span class="cp-info-val" id="vault-st">waiting</span>
+        </div>
+    </div>
+</div>`;
+
+        const input = this._shadow.querySelector('.cp-input');
+        this._shadow.querySelector('#conn-btn').addEventListener('click', () => {
+            this._connect(input.value.trim());
+        });
+        input.addEventListener('keydown', e => {
+            if (e.key === 'Enter') this._connect(input.value.trim());
+        });
+        this._shadow.querySelector('#disc-btn').addEventListener('click', () => {
+            this._disconnect();
+        });
+    }
+
+    _connect(mgmtKey) {
+        if (!mgmtKey) { this._setStatus('Management key required', 'err'); return; }
+        this._connected = true;
+        this._shadow.querySelector('#dot').className = 'cp-dot on';
+        this._shadow.querySelector('#lbl').textContent = 'connected';
+        // Drive key-manager component via its shadow DOM
+        customElements.whenDefined('sg-openrouter-key-manager').then(() => {
+            const km    = document.querySelector('sg-openrouter-key-manager');
+            const input = km?.shadowRoot?.querySelector('.km-auth-input');
+            const btn   = km?.shadowRoot?.querySelector('#km-connect-btn');
+            if (input && btn) { input.value = mgmtKey; btn.click(); }
+        });
+    }
+
+    _disconnect() {
+        if (!this._connected) return;
+        this._connected = false;
+        this._shadow.querySelector('#dot').className = 'cp-dot off';
+        this._shadow.querySelector('#lbl').textContent = 'disconnected';
+    }
+
+    _setFileId(id)  { const el = this._shadow.querySelector('#file-id'); if (el) el.textContent = id || '—'; }
+    _setStatus(msg, type) {
+        const el = this._shadow.querySelector('#vault-st');
+        if (!el) return;
+        el.textContent = msg;
+        el.className   = `cp-info-val ${type}`;
+    }
+}
+customElements.define('sg-or-admin-connect', SgOrAdminConnect);
+
+// ── Layout ───────────────────────────────────────────────────────────────────
+//
+//  ┌─────────────────────────────────────┬──────────────────────────┐
+//  │  USER (62%)                         │  ADMIN (38%)             │
+//  │  ─────────                          │  ───────                 │
+//  │  Connect | Balance | Usage  (top)   │  Connect | Keys          │
+//  │  Models                    (bottom) │                          │
+//  └─────────────────────────────────────┴──────────────────────────┘
+
+const LAYOUT = {
+    type: 'row',
+    sizes: [0.62, 0.38],
+    children: [
+        // User section — two-row column
+        {
+            type: 'column',
+            sizes: [0.45, 0.55],
+            children: [
+                {
+                    type: 'stack',
+                    tabs: [
+                        { tag: 'sg-or-user-connect',    title: 'Connect' },
+                        { tag: 'sg-openrouter-balance', title: 'Balance' },
+                        { tag: 'sg-openrouter-usage',   title: 'Usage'   },
+                    ],
+                },
+                {
+                    type: 'stack',
+                    tabs: [
+                        { tag: 'sg-openrouter-models', title: 'Models' },
+                    ],
+                },
+            ],
+        },
+        // Admin section — single column
+        {
+            type: 'stack',
+            tabs: [
+                { tag: 'sg-or-admin-connect',       title: 'Connect' },
+                { tag: 'sg-openrouter-key-manager', title: 'Keys'    },
+            ],
+        },
+    ],
+};
+
+customElements.whenDefined('sg-layout').then(() => {
+    document.getElementById('layout').setLayout(LAYOUT);
 });
 
-// ── Vault loading ────────────────────────────────────────────────────────────
+// ── Vault bar logic ──────────────────────────────────────────────────────────
 const vaultKeyInput  = document.getElementById('vault-key-input');
 const vaultApiInput  = document.getElementById('vault-api-url');
 const vaultLoadBtn   = document.getElementById('vault-load-btn');
@@ -465,23 +506,20 @@ const vaultAdminPill = document.getElementById('vault-admin-pill');
 
 function setPill(el, text, state) {
     el.textContent = text;
-    el.className = `or-vault-pill ${state}`;
+    el.className   = `or-vault-pill ${state}`;
 }
 
 vaultLoadBtn.addEventListener('click', loadFromVault);
 vaultKeyInput.addEventListener('keydown', e => { if (e.key === 'Enter') loadFromVault(); });
 
 async function loadFromVault() {
-    const rawKey    = vaultKeyInput.value.trim();
+    const rawKey     = vaultKeyInput.value.trim();
     const apiBaseUrl = vaultApiInput.value.trim() || 'https://send.sgraph.ai';
     if (!rawKey) { vaultKeyInput.classList.add('err'); return; }
     vaultKeyInput.classList.remove('ok', 'err');
-
     vaultLoadBtn.disabled = true;
-    setPill(vaultUserPill,  'user: …', 'idle');
+    setPill(vaultUserPill,  'user: …',  'idle');
     setPill(vaultAdminPill, 'admin: …', 'idle');
-    document.getElementById('user-vault-kv-status').textContent  = 'loading…';
-    document.getElementById('admin-vault-kv-status').textContent = 'loading…';
 
     let vault;
     try {
@@ -491,114 +529,53 @@ async function loadFromVault() {
         vaultKeyInput.classList.add('ok');
     } catch (err) {
         vaultKeyInput.classList.add('err');
-        setPill(vaultUserPill,  `user: ${err.message}`, 'err');
-        setPill(vaultAdminPill, `admin: ${err.message}`, 'err');
+        setPill(vaultUserPill,  `user: ${_short(err)}`,  'err');
+        setPill(vaultAdminPill, `admin: ${_short(err)}`, 'err');
         vaultLoadBtn.disabled = false;
         return;
     }
 
-    // Load both paths in parallel
-    await Promise.allSettled([
-        loadUserConfig(vault),
-        loadAdminConfig(vault),
+    const [userResult, adminResult] = await Promise.allSettled([
+        _readPath(vault, 'openrouter/user/config.json'),
+        _readPath(vault, 'openrouter/admin/config.json'),
     ]);
+
+    const userOk  = userResult.status  === 'fulfilled';
+    const adminOk = adminResult.status === 'fulfilled';
+    const { config: userConfig,  fileId: userFileId  } = userOk  ? userResult.value  : {};
+    const { config: adminConfig, fileId: adminFileId } = adminOk ? adminResult.value : {};
+
+    setPill(vaultUserPill,  userOk  ? 'user: ✓'  : `user: ${_short(userResult.reason)}`,  userOk  ? 'ok' : 'warn');
+    setPill(vaultAdminPill, adminOk ? 'admin: ✓' : `admin: ${_short(adminResult.reason)}`, adminOk ? 'ok' : 'warn');
+
+    // Broadcast to connect components
+    document.dispatchEvent(new CustomEvent('or:vault-loaded', {
+        detail: {
+            apiKey:        userConfig?.apiKey        ?? null,
+            managementKey: adminConfig?.managementKey ?? null,
+            userFileId,
+            adminFileId,
+            userStatus:    userOk  ? 'loaded ✓' : _short(userResult.reason),
+            adminStatus:   adminOk ? 'loaded ✓' : _short(adminResult.reason),
+        },
+    }));
 
     vaultLoadBtn.disabled = false;
 }
 
-async function loadUserConfig(vault) {
-    const statusEl = document.getElementById('user-vault-kv-status');
-    const fileIdEl = document.getElementById('user-vault-kv-fileid');
-    try {
-        const fileId = await deriveFileIdForPath(vault, 'openrouter/user/config.json');
-        fileIdEl.textContent = fileId;
-        const raw    = await readFile(vault, fileId);
-        const config = JSON.parse(new TextDecoder().decode(raw));
-        if (!config.apiKey) throw new Error('apiKey not found in config');
-        document.getElementById('user-api-key').value = config.apiKey;
-        statusEl.textContent = 'loaded ✓';
-        statusEl.className   = 'or-vi-val ok';
-        setPill(vaultUserPill, 'user: ✓', 'ok');
-        userConnect(config.apiKey);
-    } catch (err) {
-        statusEl.textContent = err.message;
-        statusEl.className   = 'or-vi-val err';
-        setPill(vaultUserPill, `user: ${_shortErr(err)}`, 'warn');
-    }
+async function _readPath(vault, path) {
+    const fileId = await deriveFileIdForPath(vault, path);
+    const raw    = await readFile(vault, fileId);
+    const config = JSON.parse(new TextDecoder().decode(raw));
+    return { config, fileId };
 }
 
-async function loadAdminConfig(vault) {
-    const statusEl = document.getElementById('admin-vault-kv-status');
-    const fileIdEl = document.getElementById('admin-vault-kv-fileid');
-    try {
-        const fileId = await deriveFileIdForPath(vault, 'openrouter/admin/config.json');
-        fileIdEl.textContent = fileId;
-        const raw    = await readFile(vault, fileId);
-        const config = JSON.parse(new TextDecoder().decode(raw));
-        if (!config.managementKey) throw new Error('managementKey not found in config');
-        document.getElementById('admin-mgmt-key').value = config.managementKey;
-        statusEl.textContent = 'loaded ✓';
-        statusEl.className   = 'or-vi-val ok';
-        setPill(vaultAdminPill, 'admin: ✓', 'ok');
-        adminConnect(config.managementKey);
-    } catch (err) {
-        statusEl.textContent = err.message;
-        statusEl.className   = 'or-vi-val err';
-        setPill(vaultAdminPill, `admin: ${_shortErr(err)}`, 'warn');
-    }
+function _short(err) {
+    const m = String(err?.message ?? err);
+    if (m.includes('404') || m.toLowerCase().includes('not found')) return 'not in vault';
+    if (m.includes('decrypt') || m.includes('401') || m.includes('403')) return 'wrong key';
+    return m.slice(0, 20);
 }
-
-function _shortErr(err) {
-    const m = err.message;
-    if (m.includes('404') || m.includes('not found')) return 'not in vault';
-    if (m.includes('decrypt') || m.includes('401'))   return 'wrong key';
-    return m.slice(0, 24);
-}
-
-// ── User connect ─────────────────────────────────────────────────────────────
-const userBus      = document.getElementById('user-bus');
-const userConnEl   = document.getElementById('user-conn-status');
-let   _userActive  = false;
-
-function userConnect(apiKey) {
-    if (!apiKey) return;
-    _userActive = true;
-    userConnEl.textContent = '⬤ connected';
-    userConnEl.className   = 'or-conn-status on';
-    userBus.dispatchEvent(new CustomEvent(SGL_LLM.CONNECTED, {
-        bubbles: true,
-        detail:  { provider: 'openrouter', apiKey },
-    }));
-}
-
-document.getElementById('user-connect-btn').addEventListener('click', () => {
-    userConnect(document.getElementById('user-api-key').value.trim());
-});
-document.getElementById('user-api-key').addEventListener('keydown', e => {
-    if (e.key === 'Enter') userConnect(document.getElementById('user-api-key').value.trim());
-});
-
-// ── Admin connect ─────────────────────────────────────────────────────────────
-const adminConnEl = document.getElementById('admin-conn-status');
-const keyManager  = document.getElementById('key-manager');
-
-function adminConnect(mgmtKey) {
-    if (!mgmtKey) return;
-    adminConnEl.textContent = '⬤ connected';
-    adminConnEl.className   = 'or-conn-status on';
-    customElements.whenDefined('sg-openrouter-key-manager').then(() => {
-        const input = keyManager.shadowRoot?.querySelector('.km-auth-input');
-        const btn   = keyManager.shadowRoot?.querySelector('#km-connect-btn');
-        if (input && btn) { input.value = mgmtKey; btn.click(); }
-    });
-}
-
-document.getElementById('admin-connect-btn').addEventListener('click', () => {
-    adminConnect(document.getElementById('admin-mgmt-key').value.trim());
-});
-document.getElementById('admin-mgmt-key').addEventListener('keydown', e => {
-    if (e.key === 'Enter') adminConnect(document.getElementById('admin-mgmt-key').value.trim());
-});
 </script>
 
 </body>
