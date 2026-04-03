@@ -121,7 +121,8 @@ export async function writeVaultFile(vault, filePath, content, options = {}) {
     await _putObject(apiBaseUrl, vaultId, keys.writeKey, commitId, commitCipher);
 
     // 7. Update ref
-    const refData   = { schema: 'ref_v1', head: commitId, branch_id: branchId };
+    // Ref format matches SGVaultRefManager.writeRef: { commit_id }
+    const refData   = { commit_id: commitId };
     const refCipher = await _encrypt(encKey, new TextEncoder().encode(JSON.stringify(refData)));
     await _putRef(apiBaseUrl, vaultId, keys.writeKey, keys.refFileId, refCipher);
 
