@@ -260,6 +260,7 @@ export class SgOpenrouterGeneration extends HTMLElement {
         on(SGL_LLM.CONNECTED,        this._onConnected);
         on(SGL_LLM.DISCONNECTED,     this._onDisconnected);
         on(SGL_LLM.REQUEST_COMPLETE, this._onRequestComplete);
+        on('or:generation-selected', this._onGenerationSelected);
     }
 
     _onConnected(e) {
@@ -276,6 +277,15 @@ export class SgOpenrouterGeneration extends HTMLElement {
         if (!id) return;
         const badge = this._shadow.querySelector('.og-auto-badge');
         if (badge) { badge.textContent = 'auto'; badge.style.display = 'inline'; }
+        this._shadow.querySelector('.og-id-input').value = id;
+        this._fetch(id);
+    }
+
+    _onGenerationSelected(e) {
+        const id = e.detail?.id;
+        if (!id) return;
+        const badge = this._shadow.querySelector('.og-auto-badge');
+        if (badge) { badge.textContent = 'selected'; badge.style.display = 'inline'; }
         this._shadow.querySelector('.og-id-input').value = id;
         this._fetch(id);
     }
