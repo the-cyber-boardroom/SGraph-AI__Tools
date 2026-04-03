@@ -1,0 +1,152 @@
+/* =============================================================================
+   tools.sgraph.ai — Shared CSS Design Tokens + Base Styles
+   v0.1.0
+
+   Used by all tools pages. Locale HTML files reference via ../_common/css/tools.css
+   ============================================================================= */
+
+/* --- Reset --- */
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+/* --- Design Tokens --- */
+:root {
+    --sg-bg:          #0f0f23;
+    --sg-bg-card:     #1a1a2e;
+    --sg-border:      #1e293b;
+    --sg-text:        #f0f0f5;
+    --sg-text-muted:  #94a3b8;
+    --sg-text-dim:    #64748b;
+    --sg-accent:      #4ecdc4;
+    --sg-accent-bg:   rgba(78, 205, 196, 0.1);
+    --sg-accent-border: rgba(78, 205, 196, 0.3);
+    --sg-error:       #e94560;
+    --sg-error-bg:    rgba(233, 69, 96, 0.1);
+    --sg-error-border: rgba(233, 69, 96, 0.3);
+    --sg-font:        -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    --sg-font-mono:   'SF Mono', 'Fira Code', 'Cascadia Code', monospace;
+    --sg-radius:      6px;
+    --sg-radius-pill:  9999px;
+}
+
+/* --- Base --- */
+body {
+    font-family: var(--sg-font);
+    background: var(--sg-bg);
+    color: var(--sg-text);
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+}
+
+/* --- Buttons --- */
+.btn {
+    padding: 0.5rem 1.25rem;
+    border-radius: var(--sg-radius);
+    border: 1px solid var(--sg-accent);
+    background: var(--sg-accent-bg);
+    color: var(--sg-accent);
+    font-weight: 600;
+    font-size: 0.875rem;
+    cursor: pointer;
+    font-family: inherit;
+    transition: background 100ms;
+}
+
+.btn:hover {
+    background: rgba(78, 205, 196, 0.2);
+}
+
+.btn:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
+.btn--secondary {
+    background: transparent;
+    border-color: #334155;
+    color: var(--sg-text-muted);
+    font-size: 0.75rem;
+    padding: 0.375rem 0.75rem;
+}
+
+.btn--secondary:hover {
+    border-color: var(--sg-text-muted);
+    color: var(--sg-text);
+}
+
+/* --- Badge --- */
+.badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.375rem;
+    padding: 0.375rem 0.75rem;
+    background: var(--sg-accent-bg);
+    border: 1px solid var(--sg-accent-border);
+    border-radius: var(--sg-radius-pill);
+    color: var(--sg-accent);
+    font-size: 0.8125rem;
+    font-weight: 600;
+}
+
+/* --- Forms --- */
+.field {
+    display: flex;
+    flex-direction: column;
+    gap: 0.375rem;
+}
+
+.field label {
+    font-size: 0.8125rem;
+    font-weight: 600;
+    color: var(--sg-text-muted);
+}
+
+.field input {
+    padding: 0.5rem 0.75rem;
+    background: var(--sg-bg-card);
+    color: var(--sg-text);
+    border: 1px solid var(--sg-border);
+    border-radius: var(--sg-radius);
+    font-size: 0.875rem;
+    font-family: inherit;
+    outline: none;
+    width: 280px;
+}
+
+.field input:focus {
+    border-color: var(--sg-accent);
+}
+
+/* --- Status Messages --- */
+.status {
+    padding: 0.5rem 0.75rem;
+    border-radius: var(--sg-radius);
+    font-size: 0.8125rem;
+    margin-bottom: 1rem;
+    display: none;
+}
+
+.status--success {
+    display: block;
+    background: var(--sg-accent-bg);
+    border: 1px solid var(--sg-accent-border);
+    color: var(--sg-accent);
+}
+
+.status--error {
+    display: block;
+    background: var(--sg-error-bg);
+    border: 1px solid var(--sg-error-border);
+    color: var(--sg-error);
+}
+
+/* --- Cards --- */
+.card {
+    background: var(--sg-bg-card);
+    border: 1px solid var(--sg-border);
+    border-radius: 8px;
+    padding: 1.5rem;
+}
+
+/* --- Utility --- */
+.hidden { display: none !important; }
