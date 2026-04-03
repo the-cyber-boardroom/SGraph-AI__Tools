@@ -4,54 +4,56 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Infographic Generator — tools.sgraph.ai</title>
-    <meta name="description" content="Turn text into SVG infographics with a one-shot LLM request. Choose a style preset, describe your content, and export the result.">
+    <meta name="description" content="Turn text into SVG infographics with nano LLM models via OpenRouter. Build your prompt, choose a style, export the result.">
     <link rel="icon" type="image/svg+xml" href="../../_common/favicon.svg">
     <link rel="stylesheet" href="../../_common/css/tools.css">
+    <link rel="stylesheet" href="/core/sg-layout/v0.1.0/sg-layout.css">
     <style>
-        html, body {
-            height: 100%;
-            margin: 0;
-            overflow: hidden;
-        }
-        body {
-            display: flex;
-            flex-direction: column;
-        }
-        sg-site-header {
+        html, body { height: 100%; margin: 0; overflow: hidden; }
+        body { display: flex; flex-direction: column; }
+        sg-site-header { flex-shrink: 0; }
+
+        /* ── Connection bar ────────────────────────────────────────────────── */
+        #conn-bar {
             flex-shrink: 0;
-        }
-
-        /* ── Event bus + layout container ─────────────────────────────── */
-        #bus {
-            flex: 1;
-            display: grid;
-            grid-template-columns: 36% 1fr;
-            grid-template-rows: auto 1fr auto;
-            grid-template-areas:
-                "connection  infographic"
-                "reality     infographic"
-                "stats       infographic";
-            gap: 1px;
-            background: #1a1a2e;
-            min-height: 0;
-            overflow: hidden;
-        }
-
-        /* ── Panel base ────────────────────────────────────────────────── */
-        #bus > * {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            padding: 7px 14px;
             background: #0d0d1a;
-            overflow: hidden;
+            border-bottom: 1px solid #1a1a3a;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            font-size: 13px;
+            flex-wrap: wrap;
+        }
+        #conn-bar label {
+            font-size: 11px; font-weight: 600; color: #a0aec0;
+            text-transform: uppercase; letter-spacing: 0.05em; white-space: nowrap;
+        }
+        #conn-bar input[type="password"] {
+            flex: 1; min-width: 140px; max-width: 280px;
+            background: #111122; border: 1px solid #333d5a; border-radius: 4px;
+            color: #e2e8f0; padding: 5px 10px; font-size: 13px; outline: none;
+        }
+        #conn-bar input:focus { border-color: #4ECDC4; }
+        #conn-bar sg-llm-model-picker { flex: 1; min-width: 180px; max-width: 360px; }
+        #connect-btn {
+            background: #4ECDC4; color: #0d0d1a; border: none; border-radius: 4px;
+            padding: 5px 16px; font-size: 13px; font-weight: 700; cursor: pointer;
+            white-space: nowrap;
+        }
+        #connect-btn:hover { opacity: 0.85; }
+        #connect-btn:disabled { opacity: 0.5; cursor: default; }
+        #conn-status { font-size: 12px; white-space: nowrap; }
+        #conn-status.ok    { color: #4ECDC4; }
+        #conn-status.error { color: #ff6b6b; }
+
+        /* ── sg-layout wrapper ─────────────────────────────────────────────── */
+        #layout-wrap {
+            flex: 1;
             min-height: 0;
         }
-
-        /* ── Grid area assignments ─────────────────────────────────────── */
-        sg-llm-request,
-        sg-llm-bundle     { display: none !important; }
-
-        sg-llm-connection  { grid-area: connection; overflow: auto; max-height: 160px; }
-        sg-llm-reality     { grid-area: reality; overflow: hidden; }
-        sg-llm-stats       { grid-area: stats; overflow: auto; max-height: 130px; }
-        sg-llm-infographic { grid-area: infographic; overflow: hidden; }
+        #layout-wrap sg-layout { display: block; width: 100%; height: 100%; }
     </style>
 </head>
 <body>
@@ -59,71 +61,805 @@
 <script type="module" src="/components/site-header/v1/v1.0/v1.0.2/sg-site-header.js"></script>
 <sg-site-header site="Tools" home-url="../../"></sg-site-header>
 
-<!-- ── Event bus: all sg-llm-* are direct children so they share this as parentElement ── -->
-<div id="bus">
-
-    <!-- Headless orchestrators -->
-    <sg-llm-request></sg-llm-request>
-    <sg-llm-bundle auto-save></sg-llm-bundle>
-
-    <!-- Left column: provider settings -->
-    <sg-llm-connection></sg-llm-connection>
-
-    <!-- Left column: reality constructor -->
-    <sg-llm-reality></sg-llm-reality>
-
-    <!-- Left column: token/cost metrics -->
-    <sg-llm-stats></sg-llm-stats>
-
-    <!-- Right: infographic renderer (full height) -->
-    <sg-llm-infographic style-preset="executive" orientation="landscape"></sg-llm-infographic>
-
+<!-- ── Connection bar ── -->
+<div id="conn-bar">
+    <label>OpenRouter Key</label>
+    <input type="password" id="api-key" placeholder="sk-or-v1-…" autocomplete="off" spellcheck="false">
+    <label>Model</label>
+    <sg-llm-model-picker id="model-picker" provider="openrouter"></sg-llm-model-picker>
+    <button id="connect-btn">Connect</button>
+    <span id="conn-status"></span>
 </div>
 
-<script type="module">
-// Import all sg-llm components — custom elements self-register on import
-import '/components/llm/sg-llm-events/v0/v0.1/v0.1.0/sg-llm-events.js';
-import '/components/llm/sg-llm-request/v0/v0.1/v0.1.0/sg-llm-request.js';
-import '/components/llm/sg-llm-bundle/v0/v0.1/v0.1.0/sg-llm-bundle.js';
-import '/components/llm/sg-llm-connection/v0/v0.1/v0.1.0/sg-llm-connection.js';
-import '/components/llm/sg-llm-reality/v0/v0.1/v0.1.0/sg-llm-reality.js';
-import '/components/llm/sg-llm-stats/v0/v0.1/v0.1.0/sg-llm-stats.js';
-import '/components/llm/sg-llm-infographic/v0/v0.1/v0.1.0/sg-llm-infographic.js';
+<!-- ── sg-layout content area ── -->
+<div id="layout-wrap"></div>
 
-// Pre-configure the system block with the infographic prompt once connected
+<script type="module">
+import { SgLayout }   from '/core/sg-layout/v0.1.0/sg-layout.js';
+import { SGL_EVENTS } from '/core/sg-layout/v0.1.0/sg-layout-events.js';
+
+import '/components/llm/sg-llm-events/v0/v0.1/v0.1.0/sg-llm-events.js';
+import '/components/llm/sg-llm-request/v0/v0.1/v0.1.1/sg-llm-request.js';
+import '/components/llm/sg-llm-bundle/v0/v0.1/v0.1.1/sg-llm-bundle.js';
+import '/components/llm/sg-llm-reality/v0/v0.1/v0.1.0/sg-llm-reality.js';
+import '/components/llm/sg-llm-stats/v0/v0.1/v0.1.1/sg-llm-stats.js';
+import '/components/llm/sg-llm-infographic/v0/v0.1/v0.1.0/sg-llm-infographic.js';
+import '/components/llm/sg-llm-model-picker/v0/v0.1/v0.1.0/sg-llm-model-picker.js';
+
 import { SGL_LLM } from '/components/llm/sg-llm-events/v0/v0.1/v0.1.0/sg-llm-events.js';
 
-const bus = document.getElementById('bus');
+// ── Constants ────────────────────────────────────────────────────────────────
 
-// When the infographic component loads, inject its system prompt into the reality
-customElements.whenDefined('sg-llm-infographic').then(() => {
-    customElements.whenDefined('sg-llm-reality').then(() => {
-        const infographic = bus.querySelector('sg-llm-infographic');
-        const reality     = bus.querySelector('sg-llm-reality');
+const STORAGE_KEY = 'sg-infographic-gen-v1';
 
-        if (!infographic || !reality) return;
+// Image-generating models — return base64 PNG/JPG bytes, NOT SVG text.
+// Displayed with an <img> tag; system prompt must NOT require SVG output.
+const IMAGE_MODELS = [
+    // ── Google Nano Banana (Gemini image models) ──────────────────────────────
+    'google/gemini-3.1-flash-image-preview',   // ← default
+    'google/gemini-2.5-flash-image',
+    'google/gemini-3-pro-image-preview',
+    'google/gemini-2.0-flash-001',
+    // ── OpenAI image models ───────────────────────────────────────────────────
+    'openai/gpt-5-image-mini',
+    'openai/gpt-5-image',
+    // ── Sourceful Riverflow ───────────────────────────────────────────────────
+    'sourceful/riverflow-v2-fast',
+    'sourceful/riverflow-v2-fast-preview',
+    'sourceful/riverflow-v2-standard-preview',
+    'sourceful/riverflow-v2-pro',
+    'sourceful/riverflow-v2-max-preview',
+    // ── ByteDance ─────────────────────────────────────────────────────────────
+    'bytedance/seedream-4.5',
+    // ── Black Forest Labs (Flux) ──────────────────────────────────────────────
+    'black-forest-labs/flux-2-pro',
+    'black-forest-labs/flux-2-flex',
+    'black-forest-labs/flux-2-klein',
+];
 
-        // Listen for style changes and update system block accordingly
-        const styleSelect = infographic.shadowRoot?.querySelector('.inf-style-select');
-        function injectSystemPrompt() {
-            const prompt = infographic.getSystemPrompt();
-            // Set the system block content if reality exposes a setState API
-            const state = reality.getState?.();
-            if (!state) return;
-            const sysBlock = state.blocks?.find(b => b.type === 'system');
-            if (sysBlock) {
-                sysBlock.content = prompt;
-                reality.setState?.({ blocks: state.blocks });
-            }
-        }
+// SVG text models — output raw <svg>…</svg> which sg-llm-infographic extracts.
+const SVG_MODELS = [
+    'qwen/qwen-2.5-72b-instruct',
+    'qwen/qwen-2.5-7b-instruct',
+    'meta-llama/llama-3.3-70b-instruct',
+    'meta-llama/llama-3.1-8b-instruct:free',
+    'mistralai/mistral-small-3.1-24b-instruct',
+    'deepseek/deepseek-chat-v3-0324',
+    'anthropic/claude-haiku-4-5-20251001',
+];
 
-        // Inject on first load
-        injectSystemPrompt();
+const ALL_MODELS = [...IMAGE_MODELS, ...SVG_MODELS];
+const DEFAULT_MODEL = 'google/gemini-3.1-flash-image-preview';
 
-        // Re-inject when style changes
-        if (styleSelect) styleSelect.addEventListener('change', injectSystemPrompt);
-    });
+/** Returns true if the given model slug generates raster image bytes (PNG/JPG). */
+function isImageModel(model) {
+    return IMAGE_MODELS.includes(model);
+}
+
+// Default reality blocks — serverless architecture infographic example
+function makeDefaultBlocks() {
+    return makeExampleBlocks('serverless');
+}
+
+// ── Example presets ───────────────────────────────────────────────────────────
+
+const EXAMPLES = [
+    {
+        id: 'shapes',
+        label: 'Simple shapes',
+        complexity: 1,
+        context: null,
+        question: 'Create a colourful geometric composition: large teal circle on the left, overlapping orange rectangle in the centre, small purple triangle on the right. Add a bold title "Geometry" at the top. White background, clean minimal style.',
+    },
+    {
+        id: 'barchart',
+        label: 'Bar chart',
+        complexity: 2,
+        context: `Monthly ARR for a SaaS startup (USD):
+Jan: $12,000 | Feb: $18,500 | Mar: $25,200 | Apr: $31,000
+May: $28,400 | Jun: $42,800 | Jul: $51,300 | Aug: $63,000`,
+        question: 'Create a bar chart visualising this monthly ARR data. Use teal bars on a dark background. Label each bar with its value. Add a title "Monthly ARR Growth" and a subtle upward-trend annotation.',
+    },
+    {
+        id: 'piechart',
+        label: 'Pie chart',
+        complexity: 2,
+        context: `Cloud provider market share 2024:
+AWS: 32% | Azure: 23% | Google Cloud: 12% | Alibaba: 4% | Others: 29%`,
+        question: 'Create a pie chart of cloud provider market share. Use distinct colours for each slice. Add percentage labels and a legend. Title: "Cloud Market Share 2024".',
+    },
+    {
+        id: 'flowchart',
+        label: 'Flow / pipeline',
+        complexity: 3,
+        context: null,
+        question: 'Create a CI/CD pipeline flowchart with these stages: Code Commit → Lint & Format → Unit Tests → Build & Package → Integration Tests → Deploy to Staging → Smoke Tests → Deploy to Production → Monitor. Use green for passing stages, amber for warnings, connect with arrows. Dark background.',
+    },
+    {
+        id: 'timeline',
+        label: 'Timeline',
+        complexity: 3,
+        context: `AI milestones:
+2017: Transformer paper ("Attention is All You Need")
+2018: BERT, GPT-1
+2019: GPT-2
+2020: GPT-3 (175B params)
+2022: ChatGPT launch, Stable Diffusion
+2023: GPT-4, Claude, Llama
+2024: Gemini, Claude 3, Llama 3
+2025: Reasoning models (o3, R1), multimodal agents`,
+        question: 'Create a horizontal timeline of these AI milestones. Use a dark background with a glowing teal timeline line. Each milestone as a labelled node above/below the line alternating. Title: "The AI Revolution 2017–2025".',
+    },
+    {
+        id: 'comparison',
+        label: 'Comparison table',
+        complexity: 3,
+        context: `API protocol comparison:
+REST: Simple, stateless, wide support, cacheable, verbose JSON
+GraphQL: Flexible queries, single endpoint, over/under-fetch solved, complex setup
+gRPC: Binary protocol, very fast, streaming, strong types, harder to debug
+WebSocket: Real-time, bidirectional, persistent connection, stateful`,
+        question: 'Create a visual comparison table of REST vs GraphQL vs gRPC vs WebSocket across: Performance, Flexibility, Type Safety, Real-time Support, Ease of Use, Best For. Use colour-coded ratings (green/amber/red dots or bars). Dark background, clear column headers.',
+    },
+    {
+        id: 'serverless',
+        label: 'Architecture',
+        complexity: 4,
+        context:
+`AWS Serverless Application — component list and data flow:
+
+Ingress:
+  • CloudFront — CDN, caches static assets and API responses at the edge
+  • API Gateway — REST + WebSocket endpoints, request throttling, auth integration
+
+Compute:
+  • Lambda (Node.js / Python) — stateless functions triggered by API Gateway, EventBridge, SQS
+
+Data:
+  • DynamoDB — primary NoSQL store, on-demand capacity, single-digit ms latency
+  • S3 — object storage for uploads, bundles, static site assets
+  • ElastiCache (optional) — Redis cache layer for hot data
+
+Auth:
+  • Cognito — user pools + identity pools, JWT tokens validated at API Gateway
+
+Async / Events:
+  • EventBridge — event bus routing between services and third-party webhooks
+  • SQS — FIFO and standard queues for decoupled async processing
+  • SNS — fan-out notifications to multiple subscribers
+
+Observability:
+  • CloudWatch — logs, metrics, alarms, dashboards
+  • X-Ray — distributed tracing across Lambda + API Gateway
+
+Key data flows:
+  1. Browser → CloudFront → API Gateway → Lambda → DynamoDB / S3
+  2. Lambda → EventBridge → SQS → Lambda  (async event-driven processing)
+  3. Cognito JWT → API Gateway authoriser → Lambda
+  4. Lambda → SNS → email / SMS / other Lambdas
+
+Serverless benefits: zero infrastructure management, auto-scaling to millions of requests,
+pay-per-execution pricing, built-in HA across 3 AZs.`,
+        question: 'Create an infographic that visualises this AWS serverless architecture. Show all components, their connections, and the main data flows. Use clear labels and visual groupings for each layer (Ingress, Compute, Data, Auth, Async, Observability). Highlight the key serverless benefits.',
+    },
+    {
+        id: 'agentic',
+        label: 'Rich infographic',
+        complexity: 5,
+        context:
+`The Agentic AI Revolution — key themes for a business infographic:
+
+Market shift:
+  • Agentic GenAI will create more custom applications than ever before
+  • Niche expertise can now scale from boutique to thousands of organisations
+  • Security tools become high-value targets, making secure-by-design critical
+
+The three maturity stages (Wardley Map):
+  • Explorer (Large Models): Discovery, prototyping, rapid innovation
+  • Villager (Constrained Models): Maturing practices, increasing reliability
+  • Town Planner (Minimal/No Model): Well-engineered, tested, refined to essentials
+
+Case study — SG/Send:
+  • Built with 20+ agents
+  • Delivers REST APIs, CLIs, and 17 locales
+  • Demonstrates the agentic blueprint in production
+
+Opportunity:
+  • Every OWASP Top 10 domain is now a viable foundation for a standalone startup
+  • 10+ new startup niches opening up`,
+        question: `Create a rich, professional business infographic titled "The Agentic AI Revolution".
+
+Layout: two-column. Left column: "The Market Shift" section with 3 key points each having an icon placeholder (use SVG shapes/symbols — no raster images). Right column: "The Agentic Blueprint" showing the 3 Wardley maturity stages as a progression diagram. Bottom strip: case study box + opportunity stats.
+
+Style: white background, bold dark headings, accent colour #4ECDC4 (teal), colourful icon backgrounds using circles with SVG symbols (gears, shield, rocket, brain, building). Use rounded rectangles for callout boxes. Make it visually rich with subtle gradient fills on section backgrounds.`,
+    },
+];
+
+function makeExampleBlocks(exampleId) {
+    const ex = EXAMPLES.find(e => e.id === exampleId) || EXAMPLES.find(e => e.id === 'serverless');
+    const ts = Date.now();
+    const blocks = [
+        { id: `block-${ts}-sys`, type: 'system', enabled: true, content: '' },
+    ];
+    if (ex.context) {
+        blocks.push({ id: `block-${ts}-ctx`, type: 'context', enabled: true,
+                      label: ex.label, content: ex.context });
+    }
+    blocks.push({ id: `block-${ts}-q`, type: 'question', enabled: true,
+                  content: ex.question, _imageCount: 0 });
+    return blocks;
+}
+
+// ── DOM refs ─────────────────────────────────────────────────────────────────
+
+const apiKeyEl    = document.getElementById('api-key');
+const modelPicker = document.getElementById('model-picker');
+const connectBtn  = document.getElementById('connect-btn');
+const statusEl    = document.getElementById('conn-status');
+const layoutWrap  = document.getElementById('layout-wrap');
+
+// ── localStorage helpers ──────────────────────────────────────────────────────
+
+function loadPrefs() {
+    try { return JSON.parse(localStorage.getItem(STORAGE_KEY) || '{}'); } catch { return {}; }
+}
+function savePrefs(patch) {
+    const cur = loadPrefs();
+    localStorage.setItem(STORAGE_KEY, JSON.stringify({ ...cur, ...patch }));
+}
+
+// ── Restore persisted values ──────────────────────────────────────────────────
+
+const prefs = loadPrefs();
+if (prefs.apiKey) apiKeyEl.value = prefs.apiKey;
+
+// ── Model picker — seed with nano shortlist ───────────────────────────────────
+
+await customElements.whenDefined('sg-llm-model-picker');
+
+(function seedPicker() {
+    const shadow = modelPicker.shadowRoot;
+    if (!shadow) return;
+    const sel = shadow.querySelector('select');
+    if (!sel) return;
+    // Two visual groups separated by a disabled divider option
+    sel.innerHTML =
+        '<option disabled style="color:#666;background:#0d0d1a">── Image models (PNG output) ──</option>' +
+        IMAGE_MODELS.map(m => `<option value="${m}">${m}</option>`).join('') +
+        '<option disabled style="color:#666;background:#0d0d1a">── SVG text models ──</option>' +
+        SVG_MODELS.map(m => `<option value="${m}">${m}</option>`).join('');
+    const refreshBtn = shadow.querySelector('#refresh-btn');
+    if (refreshBtn) refreshBtn.style.display = 'none';
+})();
+
+// Restore saved model, or default to the recommended image model
+const savedModel = prefs.model && ALL_MODELS.includes(prefs.model) ? prefs.model : DEFAULT_MODEL;
+modelPicker.setModel(savedModel);
+
+// Auto-connect on load if a key was previously saved
+if (prefs.apiKey) connectBtn.click();
+
+// ── Build sg-layout ──────────────────────────────────────────────────────────
+
+const layout = document.createElement('sg-layout');
+layoutWrap.appendChild(layout);
+
+// Register LAYOUT_READY listener BEFORE setLayout() to avoid race condition
+const layoutReady = new Promise(resolve => layout.events.on(SGL_EVENTS.LAYOUT_READY, resolve));
+
+layout.setLayout({
+    type: 'row', id: 'root', sizes: [0.36, 0.64],
+    children: [
+        {
+            type: 'stack', id: 's-left', activeTab: 0,
+            tabs: [{ type: 'tab', id: 't-builder', title: 'Prompt Builder',
+                     tag: 'div', state: {}, locked: true, closable: false }],
+        },
+        {
+            type: 'stack', id: 's-right', activeTab: 0,
+            tabs: [{ type: 'tab', id: 't-infographic', title: 'Infographic',
+                     tag: 'div', state: {}, locked: true, closable: false }],
+        },
+    ],
 });
+
+await layoutReady;
+
+const leftPanel  = layout.getPanelElement('t-builder');
+const rightPanel = layout.getPanelElement('t-infographic');
+
+// ── Mount sg-llm components ───────────────────────────────────────────────────
+// Inline styles required — CSS rules in <style> don't cross sg-layout's Shadow DOM.
+
+// Left panel: shared event bus (all non-infographic sg-llm components)
+const bus = document.createElement('div');
+bus.setAttribute('data-llm-bus', '');  // v0.1.1 components walk up to this for event scoping
+bus.style.cssText = 'display:flex; flex-direction:column; height:100%; overflow:hidden; background:#0d0d1a;';
+leftPanel.style.cssText = 'overflow:hidden; height:100%; display:block;';
+leftPanel.appendChild(bus);
+
+// ── Examples bar ─────────────────────────────────────────────────────────────
+// Must use inline styles — inside sg-layout shadow boundary.
+
+const exBar = document.createElement('div');
+exBar.style.cssText = [
+    'display:flex', 'align-items:center', 'gap:6px', 'flex-shrink:0',
+    'padding:6px 10px', 'background:#0a0a18', 'border-bottom:1px solid #1a1a3a',
+    'overflow-x:auto', 'scrollbar-width:thin',
+].join(';');
+
+const exLabel = document.createElement('span');
+exLabel.textContent = 'Examples:';
+exLabel.style.cssText = 'font-size:11px;font-weight:600;color:#a0aec0;text-transform:uppercase;letter-spacing:0.05em;white-space:nowrap;font-family:system-ui,sans-serif;';
+exBar.appendChild(exLabel);
+
+// Complexity dot colours
+const COMPLEXITY_COLOUR = ['', '#4ECDC4', '#4ECDC4', '#f6c90e', '#f6c90e', '#ff6b6b'];
+
+EXAMPLES.forEach(ex => {
+    const btn = document.createElement('button');
+    const dot = COMPLEXITY_COLOUR[ex.complexity] || '#a0aec0';
+    btn.style.cssText = [
+        'background:#1a1a3a', 'border:1px solid #333d5a', 'border-radius:4px',
+        'color:#e2e8f0', 'padding:3px 9px', 'font-size:12px', 'cursor:pointer',
+        'white-space:nowrap', 'font-family:system-ui,sans-serif',
+        'display:flex', 'align-items:center', 'gap:5px',
+    ].join(';');
+    btn.innerHTML = `<span style="width:7px;height:7px;border-radius:50%;background:${dot};display:inline-block;flex-shrink:0"></span>${ex.label}`;
+    btn.title = `Complexity ${ex.complexity}/5`;
+    btn.addEventListener('click', () => {
+        reality.setState?.({ blocks: makeExampleBlocks(ex.id) });
+        injectSystemPrompt();
+    });
+    exBar.appendChild(btn);
+});
+
+// Headless orchestrators stay as direct children of bus — parentElement = bus
+// ensures sg-llm-request and sg-llm-bundle share the same event scope.
+const request = document.createElement('sg-llm-request');
+request.style.display = 'none';
+const bundle = document.createElement('sg-llm-bundle');
+bundle.setAttribute('auto-save', '');
+bundle.style.display = 'none';
+bus.appendChild(request);
+bus.appendChild(bundle);
+
+// Inner resizable layout fills the rest of bus (column: Examples | Prompt | Stats)
+const innerLayout = document.createElement('sg-layout');
+innerLayout.style.cssText = 'flex:1; min-height:0; display:block; overflow:hidden;';
+bus.appendChild(innerLayout);
+
+const innerReady = new Promise(resolve => innerLayout.events.on(SGL_EVENTS.LAYOUT_READY, resolve));
+innerLayout.setLayout({
+    type: 'column', id: 'inner-root', sizes: [0.10, 0.58, 0.14, 0.18],
+    children: [
+        {
+            type: 'stack', id: 's-inner-examples', activeTab: 0,
+            tabs: [{ type: 'tab', id: 't-inner-examples', title: 'Examples',
+                     tag: 'div', state: {}, locked: false, closable: true }],
+        },
+        {
+            type: 'stack', id: 's-inner-reality', activeTab: 0,
+            tabs: [{ type: 'tab', id: 't-inner-reality', title: 'Prompt',
+                     tag: 'div', state: {}, locked: true, closable: false }],
+        },
+        {
+            type: 'stack', id: 's-inner-actions', activeTab: 0,
+            tabs: [{ type: 'tab', id: 't-inner-actions', title: 'Actions',
+                     tag: 'div', state: {}, locked: true, closable: false }],
+        },
+        {
+            type: 'stack', id: 's-inner-stats', activeTab: 0,
+            tabs: [{ type: 'tab', id: 't-inner-stats', title: 'Stats',
+                     tag: 'div', state: {}, locked: false, closable: true }],
+        },
+    ],
+});
+await innerReady;
+
+const examplesPanel  = innerLayout.getPanelElement('t-inner-examples');
+const realityPanelEl = innerLayout.getPanelElement('t-inner-reality');
+const actionsPanelEl = innerLayout.getPanelElement('t-inner-actions');
+const statsPanelEl   = innerLayout.getPanelElement('t-inner-stats');
+
+// Mount content into panels (inline styles — CSS doesn't cross shadow boundary)
+examplesPanel.style.cssText  = 'height:100%; overflow:hidden; display:block;';
+examplesPanel.appendChild(exBar);
+
+const reality = document.createElement('sg-llm-reality');
+reality.style.cssText = 'height:100%; overflow:hidden; display:block;';
+realityPanelEl.style.cssText = 'height:100%; overflow:hidden; display:block;';
+realityPanelEl.appendChild(reality);
+
+// ── Actions panel: + block buttons + Send (always visible even when Prompt is collapsed)
+const actionsBar = document.createElement('div');
+actionsBar.style.cssText = [
+    'display:flex', 'align-items:center', 'justify-content:space-between',
+    'gap:8px', 'padding:8px 10px', 'height:100%', 'box-sizing:border-box',
+    'background:#0a0a18', 'font-family:system-ui,sans-serif',
+].join(';');
+
+const addBtnsWrap = document.createElement('div');
+addBtnsWrap.style.cssText = 'display:flex; align-items:center; gap:5px; flex-wrap:wrap;';
+for (const type of ['system', 'context', 'history', 'memory', 'question']) {
+    const btn = document.createElement('button');
+    btn.textContent = `+ ${type[0].toUpperCase() + type.slice(1)}`;
+    btn.style.cssText = [
+        'background:#1a1a3a', 'border:1px solid #333d5a', 'border-radius:4px',
+        'color:#e2e8f0', 'padding:4px 10px', 'font-size:12px', 'cursor:pointer',
+    ].join(';');
+    btn.addEventListener('click', () => reality._addBlock?.(type));
+    addBtnsWrap.appendChild(btn);
+}
+
+const sendBtn = document.createElement('button');
+sendBtn.innerHTML = '&#9658; Send';
+sendBtn.style.cssText = [
+    'background:#1d4ed8', 'border:none', 'border-radius:6px',
+    'color:#fff', 'padding:8px 22px', 'font-size:14px', 'font-weight:600',
+    'cursor:pointer', 'flex-shrink:0',
+].join(';');
+sendBtn.addEventListener('click', () => {
+    reality.shadowRoot?.getElementById('send-btn')?.click();
+});
+
+// Style selector (affects system prompt injected before sending)
+const styleWrap = document.createElement('div');
+styleWrap.style.cssText = 'display:flex; align-items:center; gap:5px;';
+const styleLabel = document.createElement('span');
+styleLabel.textContent = 'Style:';
+styleLabel.style.cssText = 'font-size:11px; color:#a0aec0; font-weight:600; text-transform:uppercase; letter-spacing:0.05em;';
+const styleDropdown = document.createElement('select');
+styleDropdown.style.cssText = [
+    'background:#1a1a3a', 'border:1px solid #333d5a', 'border-radius:4px',
+    'color:#e2e8f0', 'padding:3px 6px', 'font-size:12px', 'cursor:pointer',
+].join(';');
+for (const s of ['executive', 'technical', 'playful', 'minimal', 'bold', 'data']) {
+    const opt = document.createElement('option');
+    opt.value = s;
+    opt.textContent = s[0].toUpperCase() + s.slice(1);
+    styleDropdown.appendChild(opt);
+}
+styleDropdown.addEventListener('change', () => {
+    refInfographic.setStyle?.(styleDropdown.value);
+    injectSystemPrompt();
+});
+styleWrap.appendChild(styleLabel);
+styleWrap.appendChild(styleDropdown);
+
+// activeRequests tracks in-flight requests; declared here (before stopBtn closure)
+const activeRequests = new Map(); // panelEl → cancelFn
+
+const stopBtn = document.createElement('button');
+stopBtn.textContent = '■ Stop';
+stopBtn.style.cssText = [
+    'background:#7f1d1d', 'border:none', 'border-radius:6px',
+    'color:#fca5a5', 'padding:8px 18px', 'font-size:13px', 'font-weight:600',
+    'cursor:pointer', 'flex-shrink:0', 'display:none',
+].join(';');
+stopBtn.addEventListener('click', () => {
+    for (const cancel of activeRequests.values()) cancel();
+});
+
+actionsBar.appendChild(addBtnsWrap);
+actionsBar.appendChild(styleWrap);
+actionsBar.appendChild(stopBtn);
+actionsBar.appendChild(sendBtn);
+actionsPanelEl.style.cssText = 'height:100%; overflow:hidden; display:block;';
+actionsPanelEl.appendChild(actionsBar);
+
+const stats = document.createElement('sg-llm-stats');
+stats.style.cssText = 'height:100%; overflow:auto; display:block;';
+statsPanelEl.style.cssText = 'height:100%; overflow:hidden; display:block;';
+statsPanelEl.appendChild(stats);
+
+// ── Inner layout event bridges ────────────────────────────────────────────────
+// reality and stats listen on their parentElement (the panel divs).
+// Events fired by request/bundle on bus need forwarding DOWN to those panels.
+// Events fired by reality/stats bubble UP through innerLayout to bus naturally.
+
+// bus → realityPanelEl: all events reality listens for
+for (const evt of [
+    SGL_LLM.CONNECTED, SGL_LLM.MODEL_CHANGED,
+    SGL_LLM.REQUEST_START, SGL_LLM.REQUEST_COMPLETE, SGL_LLM.REQUEST_ERROR, SGL_LLM.REQUEST_CANCEL,
+    SGL_LLM.ATTACHMENT_ADDED, SGL_LLM.ATTACHMENT_REMOVED, SGL_LLM.ATTACHMENTS_CLEARED,
+    SGL_LLM.BUNDLE_LOADED, SGL_LLM.MEMORY_UPDATED,
+]) {
+    bus.addEventListener(evt, e => {
+        if (realityPanelEl.contains(e.target)) return; // bubbled from reality — skip
+        realityPanelEl.dispatchEvent(new CustomEvent(evt, { detail: e.detail, bubbles: false }));
+    });
+}
+
+// sg-llm-stats v0.1.1 uses data-llm-bus walk-up — no bridge needed for stats.
+
+// ── Right panel: dynamic result tabs ─────────────────────────────────────────
+// Each request adds a new tab named after the model used.
+// Previous results stay in their own tabs (drag them side by side via sg-layout).
+
+rightPanel.style.cssText = 'overflow:hidden; height:100%; display:block; background:#0d0d1a;';
+
+// Placeholder shown until the first request fires (point a: instructions for user)
+const placeholder = document.createElement('div');
+placeholder.style.cssText = [
+    'height:100%', 'display:flex', 'flex-direction:column',
+    'align-items:center', 'justify-content:center', 'gap:14px',
+    'color:#4a5568', 'font-family:system-ui,sans-serif', 'padding:40px',
+    'box-sizing:border-box', 'text-align:center',
+].join(';');
+placeholder.innerHTML = `
+  <div style="font-size:22px;font-weight:700;color:#e2e8f0;">🎨 Infographic Generator</div>
+  <div style="font-size:14px;color:#718096;max-width:440px;line-height:1.6;">
+    Each time you press <strong style="color:#4ECDC4">Send</strong>, a new result tab opens here
+    named after the model — so you never lose a previous result.
+  </div>
+  <div style="font-size:13px;color:#4a5568;max-width:440px;line-height:1.7;text-align:left;">
+    <strong style="color:#a0aec0;">Quick start:</strong><br>
+    1. Enter your <strong>OpenRouter API key</strong> and click Connect<br>
+    2. Pick a <strong>model</strong> — image models (Gemini, Flux, GPT-5-image) return PNGs;<br>
+    &nbsp;&nbsp;&nbsp;SVG models return editable vector graphics<br>
+    3. Choose a <strong>Style</strong> in the Actions pane, load an <strong>Example</strong>, edit the prompt<br>
+    4. Press <strong style="color:#4ECDC4">▶ Send</strong> — result appears as a new tab here<br>
+    5. <strong>Drag tabs</strong> side by side to compare models
+  </div>
+`;
+rightPanel.appendChild(placeholder);
+
+// Hidden reference infographic — lives on document.body (not in bus) so it
+// doesn't receive bridge events. Used only for getCurrentStyle() / getSystemPrompt().
+const refInfographic = document.createElement('sg-llm-infographic');
+refInfographic.style.display = 'none';
+document.body.appendChild(refInfographic);
+
+// ── Multi-request system ──────────────────────────────────────────────────────
+// sg-llm-request._busy prevents a second SEND on the same bus.
+// Each Send spawns its own mini-bus (div on document.body) + fresh sg-llm-request.
+// A capture-phase listener on bus intercepts SEND before the static request sees it.
+
+function updateStopBtn() {
+    stopBtn.style.display = activeRequests.size > 0 ? 'inline-block' : 'none';
+    stopBtn.textContent = activeRequests.size > 1
+        ? `■ Stop all (${activeRequests.size})` : '■ Stop';
+}
+
+function extractImageSrc(detail) {
+    const images = detail?.images;
+    if (images?.length > 0) {
+        const im = images[0];
+        if (im.type === 'image_url' && im.image_url?.url) return im.image_url.url;
+        if (im.type === 'image' && im.source?.data)
+            return `data:${im.source.media_type || 'image/jpeg'};base64,${im.source.data}`;
+    }
+    const txt = detail?.content || '';
+    const m = txt.match(/data:image\/[^;'"]+;base64,[A-Za-z0-9+/=]+/)
+           || txt.match(/!\[.*?\]\((https?:\/\/[^\s)]+)\)/)
+           || txt.match(/https?:\/\/\S+\.(?:png|jpg|jpeg|webp|gif)/i);
+    return m ? (m[1] || m[0]) : null;
+}
+
+function setupResultPanel(panelEl, model) {
+    panelEl.style.cssText = 'height:100%; overflow:hidden; background:#0d0d1a; display:block; position:relative;';
+    if (isImageModel(model)) {
+        const loadingDiv = document.createElement('div');
+        loadingDiv.dataset.role = 'loading';
+        loadingDiv.style.cssText = [
+            'position:absolute', 'inset:0', 'display:flex', 'flex-direction:column',
+            'align-items:center', 'justify-content:center', 'gap:8px',
+            'color:#718096', 'font-family:system-ui,sans-serif',
+        ].join(';');
+        const loadMsg = document.createElement('div');
+        loadMsg.style.cssText = 'font-size:15px;';
+        loadMsg.textContent = 'Generating image…';
+        const elapsedEl = document.createElement('div');
+        elapsedEl.style.cssText = 'font-size:13px; color:#4a5568;';
+        elapsedEl.textContent = '0s elapsed';
+        loadingDiv.appendChild(loadMsg);
+        loadingDiv.appendChild(elapsedEl);
+        panelEl.appendChild(loadingDiv);
+        const t0 = Date.now();
+        const timer = setInterval(() => {
+            elapsedEl.textContent = `${Math.floor((Date.now() - t0) / 1000)}s elapsed`;
+        }, 1000);
+        panelEl._clearTimer = () => clearInterval(timer);
+        const img = document.createElement('img');
+        img.style.cssText = [
+            'display:none', 'position:absolute', 'inset:0', 'margin:auto',
+            'max-width:100%', 'max-height:100%', 'object-fit:contain', 'width:auto', 'height:auto',
+        ].join(';');
+        panelEl.appendChild(img);
+        const exportBtn = document.createElement('button');
+        exportBtn.textContent = 'Export PNG';
+        exportBtn.style.cssText = [
+            'display:none', 'position:absolute', 'bottom:10px', 'left:50%',
+            'transform:translateX(-50%)', 'background:#1a1a3a', 'color:#4ECDC4',
+            'border:1px solid #4ECDC4', 'border-radius:4px', 'padding:6px 16px',
+            'font-size:13px', 'cursor:pointer', 'font-family:system-ui,sans-serif',
+        ].join(';');
+        exportBtn.addEventListener('click', () => {
+            const i = panelEl.querySelector('img');
+            if (!i?.src) return;
+            const a = document.createElement('a');
+            a.href = i.src; a.download = `infographic-${model.split('/').pop()}.png`;
+            a.click();
+        });
+        panelEl.appendChild(exportBtn);
+    } else {
+        const inf = document.createElement('sg-llm-infographic');
+        inf.setAttribute('style-preset', refInfographic.getCurrentStyle?.() || 'executive');
+        inf.setAttribute('orientation', 'landscape');
+        inf.style.cssText = 'height:100%; display:block;';
+        panelEl.appendChild(inf);
+    }
+}
+
+// Capture-phase SEND interceptor — fires before sg-llm-request (bubble phase)
+bus.addEventListener(SGL_LLM.SEND, e => {
+    e.stopImmediatePropagation(); // block the static request from handling this SEND
+
+    const model  = modelPicker.getModel();
+    const apiKey = apiKeyEl.value.trim();
+    if (!apiKey) return;
+
+    // Create result tab (tag:'div' ensures _mountNewElement appends it to layout)
+    const tabId  = layout.addTabToStack('s-right', { tag: 'div', title: model.split('/').pop().substring(0, 35) });
+    const panelEl = layout.getPanelElement(tabId);
+    setupResultPanel(panelEl, model);
+
+    // Isolated mini-bus + fresh sg-llm-request for this request
+    const miniBus = document.createElement('div');
+    document.body.appendChild(miniBus);
+    miniBus.appendChild(document.createElement('sg-llm-request'));
+
+    // Prime the mini-request with connection config
+    miniBus.dispatchEvent(new CustomEvent(SGL_LLM.CONNECTED, {
+        detail: { provider: 'openrouter', model, apiKey, baseUrl: '' },
+    }));
+
+    // Bridge REQUEST_* → panelEl (for sg-llm-infographic) + → bus (for stats/bundle)
+    for (const evt of [SGL_LLM.REQUEST_START, SGL_LLM.REQUEST_CHUNK,
+                        SGL_LLM.REQUEST_COMPLETE, SGL_LLM.REQUEST_ERROR, SGL_LLM.REQUEST_CANCEL]) {
+        miniBus.addEventListener(evt, ev => {
+            panelEl.dispatchEvent(new CustomEvent(evt, { detail: ev.detail, bubbles: false }));
+            bus.dispatchEvent(new CustomEvent(evt, { detail: ev.detail, bubbles: false }));
+        });
+    }
+
+    const finish = () => {
+        panelEl._clearTimer?.();
+        activeRequests.delete(panelEl);
+        updateStopBtn();
+        setTimeout(() => miniBus.remove(), 0);
+    };
+
+    miniBus.addEventListener(SGL_LLM.REQUEST_COMPLETE, ev => {
+        const src = extractImageSrc(ev.detail);
+        if (src) {
+            panelEl.querySelector('[data-role="loading"]')?.remove();
+            const img = panelEl.querySelector('img');
+            if (img) { img.src = src; img.style.display = 'block'; }
+            const btn = panelEl.querySelector('button');
+            if (btn) btn.style.display = 'block';
+        }
+        finish();
+    });
+
+    miniBus.addEventListener(SGL_LLM.REQUEST_ERROR, ev => {
+        const loadDiv = panelEl.querySelector('[data-role="loading"]');
+        if (loadDiv) loadDiv.innerHTML =
+            `<div style="color:#fc8181;font-size:14px;font-family:system-ui;">Error: ${ev.detail?.error || 'Request failed'}</div>`;
+        finish();
+    });
+
+    miniBus.addEventListener(SGL_LLM.REQUEST_CANCEL, () => {
+        const loadDiv = panelEl.querySelector('[data-role="loading"]');
+        if (loadDiv) loadDiv.textContent = 'Cancelled';
+        finish();
+    });
+
+    // Register for Stop button
+    activeRequests.set(panelEl, () =>
+        miniBus.dispatchEvent(new CustomEvent(SGL_LLM.CANCEL, { bubbles: false })));
+    updateStopBtn();
+
+    // Fire the request on the mini-bus
+    miniBus.dispatchEvent(new CustomEvent(SGL_LLM.SEND, {
+        detail: { ...e.detail, model }, bubbles: false,
+    }));
+}, true); // capture phase
+
+// ── Connect handler ───────────────────────────────────────────────────────────
+
+connectBtn.addEventListener('click', async () => {
+    const apiKey = apiKeyEl.value.trim();
+    const model  = modelPicker.getModel();
+    if (!apiKey) { setStatus('OpenRouter key required', 'error'); return; }
+
+    setStatus('Connecting…', '');
+    connectBtn.disabled = true;
+
+    try {
+        const res = await fetch('https://openrouter.ai/api/v1/models', {
+            headers: { Authorization: `Bearer ${apiKey}` },
+        });
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+
+        // Persist credentials
+        savePrefs({ apiKey, model });
+
+        setStatus(`Connected ✓  (${model})`, 'ok');
+
+        // Notify the bus (sg-llm-request + sg-llm-stats + sg-llm-reality receive this)
+        bus.dispatchEvent(new CustomEvent(SGL_LLM.CONNECTED, {
+            detail: { provider: 'openrouter', model, apiKey, baseUrl: '' },
+            bubbles: true,
+        }));
+    } catch (err) {
+        setStatus(`Error: ${err.message}`, 'error');
+    }
+    connectBtn.disabled = false;
+});
+
+// Save model choice + re-connect + re-inject system prompt whenever the picker changes
+modelPicker.shadowRoot?.querySelector('select')?.addEventListener('change', () => {
+    const m = modelPicker.getModel();
+    savePrefs({ model: m });
+    injectSystemPrompt(); // swap SVG ↔ image system prompt
+    // Auto-connect with the newly selected model if a key is already entered
+    if (apiKeyEl.value.trim()) connectBtn.click();
+});
+
+function setStatus(text, type) {
+    statusEl.textContent = text;
+    statusEl.className = type;
+}
+
+// ── Inject infographic system prompt into reality ─────────────────────────────
+
+await customElements.whenDefined('sg-llm-infographic');
+await customElements.whenDefined('sg-llm-reality');
+
+// Image model system prompts — no SVG requirement; describe image style instead.
+const IMAGE_SYSTEM_PROMPTS = {
+    executive: 'You are a professional infographic designer. Create a high-quality, publication-ready infographic image. Use a clean dark navy background (#0d1b2a), white headings, teal and blue-grey accents. Clear layout with visual groupings, icons, and data callouts. Render as a landscape image.',
+    technical: 'You are a technical diagram specialist. Create a detailed architecture or flow diagram as a crisp image. Dark background, colour-coded nodes and connections, clear labels. Landscape orientation.',
+    playful: 'You are a creative designer. Create a vibrant, engaging infographic with bold colours, rounded shapes, playful icons, and an energetic layout. Bright colours on white or cream background.',
+    minimal: 'You are a minimalist designer. Create a clean, spacious infographic with generous whitespace, a single teal accent colour, and only essential information. White background, simple typography.',
+    bold: 'You are a bold graphic designer. Create a high-contrast, impactful infographic with large text, strong geometric shapes, black background with neon accents.',
+    data: 'You are a data visualisation expert. Create a data-focused image with charts, graphs, or tables. Clean light background, clear axis labels, consistent colour scale.',
+};
+
+function injectSystemPrompt() {
+    const currentModel = modelPicker.getModel();
+    let prompt;
+    if (isImageModel(currentModel)) {
+        // Image models don't need SVG instructions — use image-style prompts
+        const style = refInfographic.getCurrentStyle?.() || 'executive';
+        prompt = IMAGE_SYSTEM_PROMPTS[style] || IMAGE_SYSTEM_PROMPTS.executive;
+    } else {
+        prompt = refInfographic.getSystemPrompt?.();
+    }
+    if (!prompt) return;
+    const state = reality.getState?.();
+    if (!state) return;
+    const sysBlock = state.blocks?.find(b => b.type === 'system');
+    if (sysBlock) {
+        sysBlock.content = prompt;
+        reality.setState?.({ blocks: state.blocks });
+    }
+}
+
+// ── Pre-populate reality with default blocks ──────────────────────────────────
+
+// Allow the reality component one tick to render, then set state
+await new Promise(r => setTimeout(r, 0));
+
+reality.setState?.({ blocks: makeDefaultBlocks() });
+
+// Inject style-specific system prompt into the system block
+injectSystemPrompt();
+
+// Sync Actions pane style dropdown with refInfographic on startup
+if (refInfographic.getCurrentStyle) styleDropdown.value = refInfographic.getCurrentStyle();
 </script>
 
 </body>
