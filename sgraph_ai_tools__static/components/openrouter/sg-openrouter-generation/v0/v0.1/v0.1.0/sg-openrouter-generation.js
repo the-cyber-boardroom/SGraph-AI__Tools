@@ -17,6 +17,8 @@
  *   llm:connected        — { provider, apiKey } → stores key (openrouter only)
  *   llm:disconnected     — clears key
  *   llm:request-complete — auto-captures generation ID from rawResponse.id
+ *   or:admin-connected   — { managementKey } → fallback key if no user key
+ *   or:generation-selected — { id } — from sg-openrouter-activity row click
  *
  * Attributes: (none)
  *
@@ -217,8 +219,9 @@ function _fmtTok(n) {
 export class SgOpenrouterGeneration extends HTMLElement {
     constructor() {
         super();
-        this._apiKey = '';
-        this._data   = null;
+        this._apiKey  = '';
+        this._data    = null;
+        this._showRaw = false;
         this._boundHandlers = {};
         this._shadow = this.attachShadow({ mode: 'open' });
     }
@@ -261,11 +264,17 @@ export class SgOpenrouterGeneration extends HTMLElement {
         on(SGL_LLM.DISCONNECTED,     this._onDisconnected);
         on(SGL_LLM.REQUEST_COMPLETE, this._onRequestComplete);
         on('or:generation-selected', this._onGenerationSelected);
+        on('or:admin-connected',     this._onAdminConnected);
     }
 
     _onConnected(e) {
         if (e.detail?.provider !== 'openrouter') { this._apiKey = ''; return; }
         this._apiKey = e.detail?.apiKey ?? '';
+    }
+
+    _onAdminConnected(e) {
+        // Use management key as fallback if no user API key
+        if (!this._apiKey) this._apiKey = e.detail?.managementKey ?? '';
     }
 
     _onDisconnected() { this._apiKey = ''; }
@@ -307,6 +316,7 @@ export class SgOpenrouterGeneration extends HTMLElement {
             const json = await res.json();
             this._data = json.data ?? json;
             this._renderData();
+            if (this._showRaw) this._renderRaw();
         } catch (err) {
             console.warn('[sg-openrouter-generation] error:', err.message);
             this._renderError(err.message);
@@ -316,16 +326,32 @@ export class SgOpenrouterGeneration extends HTMLElement {
     // ── Render ─────────────────────────────────────────────────────────────
 
     _renderShell() {
-        this._shadow.innerHTML = `<style>${CSS}</style>
+        this._shadow.innerHTML = `<style>${CSS}
+.og-raw {
+    flex: 1; overflow-y: auto; min-height: 0; padding: 10px;
+    font-family: monospace; font-size: 11px; line-height: 1.5;
+    display: none;
+}
+.og-raw::-webkit-scrollbar { width: 6px; }
+.og-raw::-webkit-scrollbar-thumb { background: #1e2035; border-radius: 3px; }
+.og-raw pre { margin: 0; white-space: pre-wrap; word-break: break-word; color: #c8d0e0; }
+.og-raw .jk { color: #93c5fd; }
+.og-raw .js { color: #4ade80; }
+.og-raw .jn { color: #fbbf24; }
+.og-raw .jb { color: #a78bfa; }
+.og-btn.active { border-color: #3b82f6; color: #60a5fa; background: #0d1a3d; }
+</style>
 <div class="og-toolbar">
     <input class="og-id-input" type="text" placeholder="Generation ID (gen-…)" spellcheck="false">
     <span class="og-auto-badge" style="display:none">auto</span>
     <button class="og-btn primary" id="og-fetch-btn">Fetch</button>
+    <button class="og-btn" id="og-raw-btn" title="Toggle raw JSON">{ }</button>
     <button class="og-btn" id="og-clear-btn">Clear</button>
 </div>
 <div class="og-scroll" id="og-content">
     <div class="og-state">Waiting for a generation…<br><span style="color:#1e2035;font-size:10px">Send a request or paste a generation ID above</span></div>
-</div>`;
+</div>
+<div class="og-raw" id="og-raw"></div>`;
 
         const input = this._shadow.querySelector('.og-id-input');
         this._shadow.querySelector('#og-fetch-btn').addEventListener('click', () => {
@@ -333,6 +359,13 @@ export class SgOpenrouterGeneration extends HTMLElement {
         });
         input.addEventListener('keydown', e => { if (e.key === 'Enter') this._fetch(input.value.trim()); });
         this._shadow.querySelector('#og-clear-btn').addEventListener('click', () => this.clear());
+        this._shadow.querySelector('#og-raw-btn').addEventListener('click', () => {
+            this._showRaw = !this._showRaw;
+            this._shadow.querySelector('#og-raw-btn').classList.toggle('active', this._showRaw);
+            this._shadow.querySelector('#og-content').style.display = this._showRaw ? 'none' : '';
+            this._shadow.querySelector('#og-raw').style.display     = this._showRaw ? '' : 'none';
+            if (this._showRaw && this._data) this._renderRaw();
+        });
     }
 
     _renderState(msg, isError = false) {
@@ -432,13 +465,27 @@ ${sec('Cost', [
 ])}`;
     }
 
+    _renderRaw() {
+        const el = this._shadow.querySelector('#og-raw');
+        if (!el || !this._data) return;
+        const json = JSON.stringify(this._data, null, 2);
+        const hl   = json
+            .replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')
+            .replace(/("(\\u[a-zA-Z0-9]{4}|\\[^u]|[^\\"])*"(\s*:)?|\b(true|false|null)\b|-?\d+(?:\.\d*)?(?:[eE][+\-]?\d+)?)/g, m => {
+                if (/^"/.test(m)) return /:$/.test(m) ? `<span class="jk">${m}</span>` : `<span class="js">${m}</span>`;
+                if (/true|false|null/.test(m)) return `<span class="jb">${m}</span>`;
+                return `<span class="jn">${m}</span>`;
+            });
+        el.innerHTML = `<pre>${hl}</pre>`;
+    }
+
     _bus() {
         let el = this.parentElement;
         while (el) {
             if (el.hasAttribute('data-llm-bus')) return el;
             el = el.parentElement;
         }
-        return this.parentElement || document;
+        return document;
     }
 }
 
