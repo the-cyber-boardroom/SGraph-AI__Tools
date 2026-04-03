@@ -64,6 +64,7 @@ import '/components/llm/sg-llm-attachment-manager/v0/v0.1/v0.1.2/sg-llm-attachme
 import '/components/llm/sg-llm-token-viz/v0/v0.1/v0.1.1/sg-llm-token-viz.js';
 import '/components/llm/sg-llm-response-inspector/v0/v0.1/v0.1.0/sg-llm-response-inspector.js';
 import '/components/openrouter/sg-openrouter-balance/v0/v0.1/v0.1.0/sg-openrouter-balance.js';
+import '/components/openrouter/sg-openrouter-models/v0/v0.1/v0.1.0/sg-openrouter-models.js';
 
 // ── Layout definition ──────────────────────────────────────────────────────
 // Three-column chat layout (from arch brief v0.19.17):
@@ -122,7 +123,10 @@ const LAYOUT = {
             children: [
                 {
                     type: 'stack',
-                    tabs: [{ tag: 'sg-llm-bundle-list', title: 'Bundles', locked: true }],
+                    tabs: [
+                        { tag: 'sg-llm-bundle-list',   title: 'Bundles', locked: true },
+                        { tag: 'sg-openrouter-models', title: 'Models' },
+                    ],
                 },
                 {
                     type: 'stack',
