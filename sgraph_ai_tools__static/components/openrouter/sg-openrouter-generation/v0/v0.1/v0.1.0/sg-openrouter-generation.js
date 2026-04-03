@@ -233,8 +233,10 @@ export class SgOpenrouterGeneration extends HTMLElement {
 
     disconnectedCallback() {
         const bus = this._bus();
-        for (const [ev, fn] of Object.entries(this._boundHandlers)) {
-            bus.removeEventListener(ev, fn);
+        for (const [ev, entry] of Object.entries(this._boundHandlers)) {
+            const target = entry.target ?? bus;
+            const fn     = entry.bound  ?? entry;
+            target.removeEventListener(ev, fn);
         }
     }
 
@@ -255,16 +257,18 @@ export class SgOpenrouterGeneration extends HTMLElement {
 
     _bindBusEvents() {
         const bus = this._bus();
-        const on  = (ev, fn) => {
+        const on  = (ev, fn, target = bus) => {
             const bound = fn.bind(this);
-            this._boundHandlers[ev] = bound;
-            bus.addEventListener(ev, bound);
+            this._boundHandlers[ev] = { bound, target };
+            target.addEventListener(ev, bound);
         };
+        // eslint-disable-next-line no-unused-vars — suppress linter
         on(SGL_LLM.CONNECTED,        this._onConnected);
         on(SGL_LLM.DISCONNECTED,     this._onDisconnected);
         on(SGL_LLM.REQUEST_COMPLETE, this._onRequestComplete);
-        on('or:generation-selected', this._onGenerationSelected);
-        on('or:admin-connected',     this._onAdminConnected);
+        // These events are dispatched on document (not bus) to cross shadow DOM boundaries
+        on('or:generation-selected', this._onGenerationSelected, document);
+        on('or:admin-connected',     this._onAdminConnected,     document);
     }
 
     _onConnected(e) {

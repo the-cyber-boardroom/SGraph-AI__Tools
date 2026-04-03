@@ -435,11 +435,9 @@ class SgOrAdminConnect extends HTMLElement {
         localStorage.setItem('or-admin-mgmt-key', mgmtKey);
         this._shadow.querySelector('#dot').className = 'cp-dot on';
         this._shadow.querySelector('#lbl').textContent = 'connected';
-        // Fire or:admin-connected on the bus for sg-openrouter-activity etc.
-        const bus = this._bus();
-        bus.dispatchEvent(new CustomEvent('or:admin-connected', {
-            bubbles: true,
-            detail:  { managementKey: mgmtKey },
+        // Dispatch on document (sg-layout shadow DOM blocks parentElement walking)
+        document.dispatchEvent(new CustomEvent('or:admin-connected', {
+            detail: { managementKey: mgmtKey },
         }));
         // Also drive key-manager component via its shadow DOM
         customElements.whenDefined('sg-openrouter-key-manager').then(() => {
@@ -455,7 +453,7 @@ class SgOrAdminConnect extends HTMLElement {
         this._connected = false;
         this._shadow.querySelector('#dot').className = 'cp-dot off';
         this._shadow.querySelector('#lbl').textContent = 'disconnected';
-        this._bus().dispatchEvent(new CustomEvent('or:admin-disconnected', { bubbles: true }));
+        document.dispatchEvent(new CustomEvent('or:admin-disconnected'));
     }
 
     _setFileId(id)  { const el = this._shadow.querySelector('#file-id'); if (el) el.textContent = id || '—'; }
@@ -489,16 +487,15 @@ const LAYOUT = {
                 {
                     type: 'stack',
                     tabs: [
-                        { tag: 'sg-or-user-connect',        title: 'Connect'    },
-                        { tag: 'sg-openrouter-balance',     title: 'Balance'    },
-                        { tag: 'sg-openrouter-usage',       title: 'Usage'      },
-                        { tag: 'sg-openrouter-generation',  title: 'Generation' },
+                        { tag: 'sg-or-user-connect',        title: 'Connect' },
+                        { tag: 'sg-openrouter-balance',     title: 'Balance' },
+                        { tag: 'sg-openrouter-usage',       title: 'Usage'   },
                     ],
                 },
                 {
                     type: 'stack',
                     tabs: [
-                        { tag: 'sg-openrouter-models',       title: 'Models'      },
+                        { tag: 'sg-openrouter-models',       title: 'Models'       },
                         { tag: 'sg-openrouter-model-detail', title: 'Model Detail' },
                     ],
                 },
@@ -507,13 +504,14 @@ const LAYOUT = {
         // Admin section — two-row column
         {
             type: 'column',
-            sizes: [0.5, 0.5],
+            sizes: [0.45, 0.55],
             children: [
                 {
                     type: 'stack',
                     tabs: [
-                        { tag: 'sg-or-admin-connect',       title: 'Connect'  },
-                        { tag: 'sg-openrouter-key-manager', title: 'Keys'     },
+                        { tag: 'sg-or-admin-connect',       title: 'Connect'    },
+                        { tag: 'sg-openrouter-key-manager', title: 'Keys'       },
+                        { tag: 'sg-openrouter-generation',  title: 'Generation' },
                     ],
                 },
                 {
