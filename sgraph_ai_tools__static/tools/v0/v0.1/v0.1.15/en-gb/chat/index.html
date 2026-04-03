@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Chat — tools.sgraph.ai</title>
-    <meta name="description" content="Multi-turn chat with any LLM. Attach images and files, maintain conversation history, export transcripts. API key stays in your browser.">
+    <meta name="description" content="Multi-turn chat with any LLM. Attach images, PDFs, audio, video and files, maintain conversation history, export transcripts. API key stays in your browser.">
     <link rel="icon" type="image/svg+xml" href="../../../_common/favicon.svg">
     <link rel="stylesheet" href="../../../_common/css/tools.css">
     <style>
@@ -53,20 +53,17 @@
 <script type="module">
 import '/components/llm/sg-llm-events/v0/v0.1/v0.1.0/sg-llm-events.js';
 import '/core/sg-layout/v0.1.0/sg-layout.js';
-import '/components/llm/sg-llm-request/v0/v0.1/v0.1.1/sg-llm-request.js';
-import '/components/llm/sg-llm-bundle/v0/v0.1/v0.1.5/sg-llm-bundle.js';
+import '/components/llm/sg-llm-request/v0/v0.1/v0.1.3/sg-llm-request.js';
+import '/components/llm/sg-llm-bundle/v0/v0.1/v0.1.7/sg-llm-bundle.js';
 import '/components/llm/sg-llm-connection/v0/v0.1/v0.1.4/sg-llm-connection.js';
-import '/components/llm/sg-llm-chat-history/v0/v0.1/v0.1.8/sg-llm-chat-history.js';
-import '/components/llm/sg-llm-chat-input/v0/v0.1/v0.1.2/sg-llm-chat-input.js';
+import '/components/llm/sg-llm-chat-history/v0/v0.1/v0.1.9/sg-llm-chat-history.js';
+import '/components/llm/sg-llm-chat-input/v0/v0.1/v0.1.3/sg-llm-chat-input.js';
 import '/components/llm/sg-llm-stats/v0/v0.1/v0.1.1/sg-llm-stats.js';
-import '/components/llm/sg-llm-bundle-list/v0/v0.1/v0.1.1/sg-llm-bundle-list.js';
-import '/components/llm/sg-llm-attachment-manager/v0/v0.1/v0.1.2/sg-llm-attachment-manager.js';
+import '/components/llm/sg-llm-bundle-list/v0/v0.1/v0.1.3/sg-llm-bundle-list.js';
+import '/components/llm/sg-llm-bundle-viewer/v0/v0.1/v0.1.0/sg-llm-bundle-viewer.js';
+import '/components/llm/sg-llm-attachment-manager/v0/v0.1/v0.1.3/sg-llm-attachment-manager.js';
 import '/components/llm/sg-llm-token-viz/v0/v0.1/v0.1.1/sg-llm-token-viz.js';
 import '/components/llm/sg-llm-response-inspector/v0/v0.1/v0.1.0/sg-llm-response-inspector.js';
-import '/components/openrouter/sg-openrouter-balance/v0/v0.1/v0.1.0/sg-openrouter-balance.js';
-import '/components/openrouter/sg-openrouter-models/v0/v0.1/v0.1.0/sg-openrouter-models.js';
-import '/components/openrouter/sg-openrouter-usage/v0/v0.1/v0.1.0/sg-openrouter-usage.js';
-import '/components/openrouter/sg-openrouter-key-manager/v0/v0.1/v0.1.0/sg-openrouter-key-manager.js';
 
 // ── Layout definition ──────────────────────────────────────────────────────
 // Three-column chat layout (from arch brief v0.19.17):
@@ -74,8 +71,8 @@ import '/components/openrouter/sg-openrouter-key-manager/v0/v0.1/v0.1.0/sg-openr
 //  ┌──────────┬──────────────────────────────┬─────────────────────────┐
 //  │Connection│         Chat History          │      Bundle List        │
 //  │          │                               │                         │
-//  │  Stats   ├──────────────────────────────┤  Token Viz | Inspector  │
-//  │          │  Chat Input | Attachments     │                         │
+//  │  Stats   ├──────────────────────────────┤  Bundle Viewer          │
+//  │          │  Chat Input | Attachments     │  Token Viz | Inspector  │
 //  └──────────┴──────────────────────────────┴─────────────────────────┘
 
 const LAYOUT = {
@@ -93,11 +90,7 @@ const LAYOUT = {
                 },
                 {
                     type: 'stack',
-                    tabs: [
-                        { tag: 'sg-llm-stats',            title: 'Stats',   locked: true },
-                        { tag: 'sg-openrouter-balance',   title: 'Credits' },
-                        { tag: 'sg-openrouter-usage',     title: 'Usage'   },
-                    ],
+                    tabs: [{ tag: 'sg-llm-stats', title: 'Stats', locked: true }],
                 },
             ],
         },
@@ -119,24 +112,21 @@ const LAYOUT = {
                 },
             ],
         },
-        // Right column: Bundle List (top) + Token Viz / Response Inspector (bottom)
+        // Right column: Bundle List (top) + Bundle Viewer / Token Viz / Inspector (bottom)
         {
             type: 'column',
-            sizes: [0.55, 0.45],
+            sizes: [0.5, 0.5],
             children: [
                 {
                     type: 'stack',
-                    tabs: [
-                        { tag: 'sg-llm-bundle-list',        title: 'Bundles', locked: true },
-                        { tag: 'sg-openrouter-models',      title: 'Models'  },
-                        { tag: 'sg-openrouter-key-manager', title: 'Keys'    },
-                    ],
+                    tabs: [{ tag: 'sg-llm-bundle-list', title: 'Bundles', locked: true }],
                 },
                 {
                     type: 'stack',
                     tabs: [
-                        { tag: 'sg-llm-token-viz',           title: 'Tokens'    },
-                        { tag: 'sg-llm-response-inspector',  title: 'Inspector' },
+                        { tag: 'sg-llm-bundle-viewer',       title: 'Bundle Data' },
+                        { tag: 'sg-llm-token-viz',           title: 'Tokens'      },
+                        { tag: 'sg-llm-response-inspector',  title: 'Inspector'   },
                     ],
                 },
             ],
