@@ -139,6 +139,9 @@ import '/components/openrouter/sg-openrouter-balance/v0/v0.1/v0.1.0/sg-openroute
 import '/components/openrouter/sg-openrouter-usage/v0/v0.1/v0.1.0/sg-openrouter-usage.js';
 import '/components/openrouter/sg-openrouter-models/v0/v0.1/v0.1.0/sg-openrouter-models.js';
 import '/components/openrouter/sg-openrouter-key-manager/v0/v0.1/v0.1.0/sg-openrouter-key-manager.js';
+import '/components/openrouter/sg-openrouter-generation/v0/v0.1/v0.1.0/sg-openrouter-generation.js';
+import '/components/openrouter/sg-openrouter-model-detail/v0/v0.1/v0.1.0/sg-openrouter-model-detail.js';
+import '/components/openrouter/sg-openrouter-activity/v0/v0.1/v0.1.0/sg-openrouter-activity.js';
 import { SGL_LLM } from '/components/llm/sg-llm-events/v0/v0.1/v0.1.0/sg-llm-events.js';
 import {
     parseVaultKey,
@@ -289,6 +292,10 @@ class SgOrUserConnect extends HTMLElement {
 </div>`;
 
         const input  = this._shadow.querySelector('.cp-input');
+        // Pre-fill from localStorage
+        const cached = localStorage.getItem('or-user-api-key');
+        if (cached) { input.value = cached; }
+
         this._shadow.querySelector('#conn-btn').addEventListener('click', () => {
             this._connect(input.value.trim());
         });
@@ -303,6 +310,7 @@ class SgOrUserConnect extends HTMLElement {
     _connect(apiKey) {
         if (!apiKey) { this._setStatus('API key required', 'err'); return; }
         this._connected = true;
+        localStorage.setItem('or-user-api-key', apiKey);
         this._shadow.querySelector('#dot').className = 'cp-dot on';
         this._shadow.querySelector('#lbl').textContent = 'connected';
         const bus = this._bus();
@@ -406,6 +414,10 @@ class SgOrAdminConnect extends HTMLElement {
 </div>`;
 
         const input = this._shadow.querySelector('.cp-input');
+        // Pre-fill from localStorage
+        const cached = localStorage.getItem('or-admin-mgmt-key');
+        if (cached) { input.value = cached; }
+
         this._shadow.querySelector('#conn-btn').addEventListener('click', () => {
             this._connect(input.value.trim());
         });
@@ -420,9 +432,16 @@ class SgOrAdminConnect extends HTMLElement {
     _connect(mgmtKey) {
         if (!mgmtKey) { this._setStatus('Management key required', 'err'); return; }
         this._connected = true;
+        localStorage.setItem('or-admin-mgmt-key', mgmtKey);
         this._shadow.querySelector('#dot').className = 'cp-dot on';
         this._shadow.querySelector('#lbl').textContent = 'connected';
-        // Drive key-manager component via its shadow DOM
+        // Fire or:admin-connected on the bus for sg-openrouter-activity etc.
+        const bus = this._bus();
+        bus.dispatchEvent(new CustomEvent('or:admin-connected', {
+            bubbles: true,
+            detail:  { managementKey: mgmtKey },
+        }));
+        // Also drive key-manager component via its shadow DOM
         customElements.whenDefined('sg-openrouter-key-manager').then(() => {
             const km    = document.querySelector('sg-openrouter-key-manager');
             const input = km?.shadowRoot?.querySelector('.km-auth-input');
@@ -436,6 +455,7 @@ class SgOrAdminConnect extends HTMLElement {
         this._connected = false;
         this._shadow.querySelector('#dot').className = 'cp-dot off';
         this._shadow.querySelector('#lbl').textContent = 'disconnected';
+        this._bus().dispatchEvent(new CustomEvent('or:admin-disconnected', { bubbles: true }));
     }
 
     _setFileId(id)  { const el = this._shadow.querySelector('#file-id'); if (el) el.textContent = id || '—'; }
@@ -469,25 +489,39 @@ const LAYOUT = {
                 {
                     type: 'stack',
                     tabs: [
-                        { tag: 'sg-or-user-connect',    title: 'Connect' },
-                        { tag: 'sg-openrouter-balance', title: 'Balance' },
-                        { tag: 'sg-openrouter-usage',   title: 'Usage'   },
+                        { tag: 'sg-or-user-connect',        title: 'Connect'    },
+                        { tag: 'sg-openrouter-balance',     title: 'Balance'    },
+                        { tag: 'sg-openrouter-usage',       title: 'Usage'      },
+                        { tag: 'sg-openrouter-generation',  title: 'Generation' },
                     ],
                 },
                 {
                     type: 'stack',
                     tabs: [
-                        { tag: 'sg-openrouter-models', title: 'Models' },
+                        { tag: 'sg-openrouter-models',       title: 'Models'      },
+                        { tag: 'sg-openrouter-model-detail', title: 'Model Detail' },
                     ],
                 },
             ],
         },
-        // Admin section — single column
+        // Admin section — two-row column
         {
-            type: 'stack',
-            tabs: [
-                { tag: 'sg-or-admin-connect',       title: 'Connect' },
-                { tag: 'sg-openrouter-key-manager', title: 'Keys'    },
+            type: 'column',
+            sizes: [0.5, 0.5],
+            children: [
+                {
+                    type: 'stack',
+                    tabs: [
+                        { tag: 'sg-or-admin-connect',       title: 'Connect'  },
+                        { tag: 'sg-openrouter-key-manager', title: 'Keys'     },
+                    ],
+                },
+                {
+                    type: 'stack',
+                    tabs: [
+                        { tag: 'sg-openrouter-activity',    title: 'Activity' },
+                    ],
+                },
             ],
         },
     ],
