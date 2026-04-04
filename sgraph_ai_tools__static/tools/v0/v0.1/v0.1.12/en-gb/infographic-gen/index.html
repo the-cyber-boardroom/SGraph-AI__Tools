@@ -54,6 +54,7 @@ import '/components/llm/sg-llm-request/v0/v0.1/v0.1.2/sg-llm-request.js';
 import '/components/llm/sg-llm-stats/v0/v0.1/v0.1.1/sg-llm-stats.js';
 import '/components/llm/sg-llm-model-picker/v0/v0.1/v0.1.0/sg-llm-model-picker.js';
 import '/components/llm/sg-llm-infographic/v0/v0.1/v0.1.0/sg-llm-infographic.js';
+import '/components/openrouter/sg-openrouter-generation/v0/v0.1/v0.1.0/sg-openrouter-generation.js';
 
 import { SGL_LLM } from '/components/llm/sg-llm-events/v0/v0.1/v0.1.0/sg-llm-events.js';
 
@@ -728,6 +729,14 @@ function setupDetailsPanel(detailsPanel, model, ctx = {}) {
     ].join(';');
     detailsPanel.appendChild(exportBtn);
 
+    sep();
+
+    // ── Generation stats (OpenRouter) ─────────────────────────────────────────
+    lbl('Generation');
+    const genEl = document.createElement('sg-openrouter-generation');
+    genEl.style.cssText = 'display:block;height:420px;flex-shrink:0;border:1px solid #1a1a3a;border-radius:4px;overflow:hidden;margin-top:4px;';
+    detailsPanel.appendChild(genEl);
+
     const t0 = Date.now();
     return {
         update(detail) {
@@ -738,6 +747,10 @@ function setupDetailsPanel(detailsPanel, model, ctx = {}) {
                 tokensEl.textContent = total > 0 ? `${total.toLocaleString()} tokens` : '—';
             }
             exportBtn.style.display = 'block';
+        },
+        showGeneration(genId, apiKey) {
+            genEl._apiKey = apiKey;
+            genEl.fetchGeneration(genId);
         },
     };
 }
@@ -840,6 +853,8 @@ bus.addEventListener(SGL_LLM.SEND, async e => {
             if (loadDiv) loadDiv.innerHTML = '<div style="color:#a0aec0;font-size:14px;text-align:center;padding:20px;">No image returned.<br><span style="font-size:12px;color:#4a5568;">Try a different model or refine your prompt.</span></div>';
         }
         detailsCtl.update(ev.detail);
+        const genId = ev.detail?.rawResponse?.id ?? ev.detail?.id ?? null;
+        if (genId) detailsCtl.showGeneration(genId, apiKey);
         finish();
     });
 
