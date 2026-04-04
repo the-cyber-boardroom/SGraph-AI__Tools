@@ -1,0 +1,91 @@
+<!DOCTYPE html>
+<html lang="en-GB">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Vault — tools.sgraph.ai</title>
+    <meta name="description" content="Browse, edit and save files in an SGraph zero-knowledge encrypted vault. Connect via vault key or simple token. API key stays in your browser.">
+    <link rel="icon" type="image/svg+xml" href="../../../_common/favicon.svg">
+    <link rel="stylesheet" href="../../../_common/css/tools.css">
+    <style>
+        html, body {
+            height: 100%;
+            margin: 0;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
+        sg-site-header { flex-shrink: 0; }
+
+        /* ── Named event bus + sg-layout ──────────────────────────────── */
+        #vault-bus {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            min-height: 0;
+        }
+        sg-layout { flex: 1; min-height: 0; }
+    </style>
+</head>
+<body>
+
+<script type="module" src="/components/site-header/v1/v1.0/v1.0.2/sg-site-header.js"></script>
+<sg-site-header site="Tools" home-url="../../../"></sg-site-header>
+
+<!--
+    All sg-vault-* components share this bus div via the data-vault-bus attribute.
+    Each component walks up its ancestor chain to find [data-vault-bus] and uses
+    it as the shared event bus for vault:connected, vault:file-select, etc.
+-->
+<div id="vault-bus" data-vault-bus>
+    <sg-layout id="layout"></sg-layout>
+</div>
+
+<script type="module">
+import '/core/sg-layout/v0.1.0/sg-layout.js';
+import '/components/vault/sg-vault-connect/v0/v0.1/v0.1.0/sg-vault-connect.js';
+import '/components/vault/sg-vault-tree/v0/v0.1/v0.1.0/sg-vault-tree.js';
+import '/components/vault/sg-vault-viewer/v0/v0.1/v0.1.0/sg-vault-viewer.js';
+
+// ── Layout definition ──────────────────────────────────────────────────────
+//
+//  ┌──────────────────────┬─────────────────────────────────────────────────┐
+//  │   Vault Connection   │             File Viewer / Editor                │
+//  │                      │                                                 │
+//  │   File Tree          │                                                 │
+//  └──────────────────────┴─────────────────────────────────────────────────┘
+
+const LAYOUT = {
+    type: 'row',
+    sizes: [0.28, 0.72],
+    children: [
+        // Left column: Connect (top) + Tree (bottom)
+        {
+            type: 'column',
+            sizes: [0.32, 0.68],
+            children: [
+                {
+                    type: 'stack',
+                    tabs: [{ tag: 'sg-vault-connect', title: 'Connection', locked: true }],
+                },
+                {
+                    type: 'stack',
+                    tabs: [{ tag: 'sg-vault-tree', title: 'Files', locked: true }],
+                },
+            ],
+        },
+        // Right column: Viewer/Editor
+        {
+            type: 'stack',
+            tabs: [{ tag: 'sg-vault-viewer', title: 'File Viewer', locked: true }],
+        },
+    ],
+};
+
+customElements.whenDefined('sg-layout').then(() => {
+    document.getElementById('layout').setLayout(LAYOUT);
+});
+</script>
+
+</body>
+</html>
