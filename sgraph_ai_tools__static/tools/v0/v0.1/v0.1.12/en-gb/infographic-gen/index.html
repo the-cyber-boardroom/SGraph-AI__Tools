@@ -389,8 +389,14 @@ dropZone.addEventListener('drop', e => {
 // ── Mode switcher ─────────────────────────────────────────────────────────────
 
 function setMode(mode) {
-    currentMode = mode;
     const isDoc = mode === 'document';
+    // Swap system prompt default when mode changes (only if still on a known default)
+    if (mode !== currentMode) {
+        const oldDefault = currentMode === 'document' ? DOCUMENT_SYSTEM_PROMPT : DEFAULT_SYSTEM_PROMPT;
+        const newDefault = isDoc ? DOCUMENT_SYSTEM_PROMPT : DEFAULT_SYSTEM_PROMPT;
+        if (advTextarea.value === oldDefault) advTextarea.value = newDefault;
+    }
+    currentMode = mode;
     // Toggle visibility
     templatesRow.style.display = isDoc ? 'none' : '';
     textarea.style.display     = isDoc ? 'none' : '';
@@ -479,13 +485,15 @@ const advLabel = document.createElement('div');
 advLabel.textContent = 'System Prompt Override';
 advLabel.style.cssText = 'font-size:11px;font-weight:600;color:#718096;text-transform:uppercase;letter-spacing:0.05em;padding:6px 10px 2px;font-family:system-ui,sans-serif;';
 const advTextarea = document.createElement('textarea');
-advTextarea.placeholder = DEFAULT_SYSTEM_PROMPT;
+advTextarea.value = DEFAULT_SYSTEM_PROMPT;
 advTextarea.style.cssText = [
     'resize:none', 'height:80px', 'width:100%', 'box-sizing:border-box',
     'padding:8px 10px', 'background:#111122', 'color:#a0aec0',
-    'border:none', 'outline:none', 'font-size:12px', 'line-height:1.5',
+    'border:1px solid #1a1a3a', 'outline:none', 'font-size:12px', 'line-height:1.5',
     'font-family:system-ui,sans-serif',
 ].join(';');
+advTextarea.addEventListener('focus', () => advTextarea.style.borderColor = '#4ECDC4');
+advTextarea.addEventListener('blur',  () => advTextarea.style.borderColor = '#1a1a3a');
 advancedSection.appendChild(advLabel);
 advancedSection.appendChild(advTextarea);
 bus.appendChild(advancedSection);
@@ -691,7 +699,20 @@ function setupDetailsPanel(detailsPanel, model, ctx = {}) {
 
     if (ctx.direction) {
         lbl('Direction');
-        editArea(ctx.direction, 'Direction…', 2);
+        const dirTa = document.createElement('textarea');
+        dirTa.value = ctx.direction;
+        dirTa.placeholder = 'Direction…';
+        dirTa.rows = 2;
+        dirTa.style.cssText = [
+            'width:100%', 'box-sizing:border-box', 'resize:vertical',
+            'background:#111122', 'border:1px solid #1a1a3a', 'border-left:3px solid #4ECDC4',
+            'border-radius:4px', 'color:#e2e8f0', 'padding:6px 8px',
+            'font-size:11px', 'line-height:1.5', 'outline:none',
+            'font-family:system-ui,sans-serif', 'margin-bottom:4px',
+        ].join(';');
+        dirTa.addEventListener('focus', () => dirTa.style.borderLeftColor = '#81e6d9');
+        dirTa.addEventListener('blur',  () => dirTa.style.borderLeftColor = '#4ECDC4');
+        detailsPanel.appendChild(dirTa);
     }
 
     sep();
