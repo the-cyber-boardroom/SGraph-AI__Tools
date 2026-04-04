@@ -34,9 +34,14 @@ export class SgVaultConnect extends HTMLElement {
         this._vault = null;
     }
 
+    // ── localStorage keys ──────────────────────────────────────────────────
+    static LS_KEY = 'sg-vault:last-key';
+    static LS_API = 'sg-vault:last-api';
+
     connectedCallback() {
         this._render();
         this._bindEvents();
+        this._restoreFromStorage();
     }
 
     get apiUrl() {
@@ -161,9 +166,27 @@ export class SgVaultConnect extends HTMLElement {
   <div id="status" class="vc-status"></div>
 </div>
 `;
-        // Set default API URL
+        // Set default API URL (may be overridden by _restoreFromStorage)
         const apiInput = this.shadowRoot.getElementById('api-url');
         if (apiInput) apiInput.value = this.apiUrl;
+    }
+
+    // ── LocalStorage ───────────────────────────────────────────────────────
+
+    _restoreFromStorage() {
+        try {
+            const savedKey = localStorage.getItem(SgVaultConnect.LS_KEY);
+            const savedApi = localStorage.getItem(SgVaultConnect.LS_API);
+            if (savedKey) this.shadowRoot.getElementById('vault-key').value = savedKey;
+            if (savedApi) this.shadowRoot.getElementById('api-url').value  = savedApi;
+        } catch { /* localStorage unavailable */ }
+    }
+
+    _saveToStorage(vaultKey, apiUrl) {
+        try {
+            localStorage.setItem(SgVaultConnect.LS_KEY, vaultKey);
+            localStorage.setItem(SgVaultConnect.LS_API, apiUrl);
+        } catch { /* localStorage unavailable */ }
     }
 
     // ── Events ─────────────────────────────────────────────────────────────
@@ -229,6 +252,7 @@ export class SgVaultConnect extends HTMLElement {
             }
 
             this._vault = vault;
+            this._saveToStorage(rawKey, apiBase);
             this._showConnected(keys.vaultId, apiBase, 0);
             this._emit('vault:connected', { vault, vaultId: keys.vaultId, apiBaseUrl: apiBase, keys });
 
