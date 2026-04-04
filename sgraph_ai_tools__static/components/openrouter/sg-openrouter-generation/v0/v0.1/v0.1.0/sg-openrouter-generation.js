@@ -493,5 +493,7 @@ function _esc(s) {
     return String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
 }
 
-customElements.define('sg-openrouter-generation', SgOpenrouterGeneration);
+if (!customElements.get('sg-openrouter-generation')) {
+    customElements.define('sg-openrouter-generation', SgOpenrouterGeneration);
+}
 window.SgOpenrouterGeneration = SgOpenrouterGeneration;
