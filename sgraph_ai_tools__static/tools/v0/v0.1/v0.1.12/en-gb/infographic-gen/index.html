@@ -880,7 +880,7 @@ bus.addEventListener(SGL_LLM.SEND, async e => {
         const genId = ev.detail?.rawResponse?.id
                    ?? ev.detail?.rawChunks?.find(c => c?.id)?.id
                    ?? null;
-        if (genId) detailsCtl.showGeneration(genId, apiKey);
+        if (genId) setTimeout(() => detailsCtl.showGeneration(genId, apiKey), 1500);
         finish();
     });
 
