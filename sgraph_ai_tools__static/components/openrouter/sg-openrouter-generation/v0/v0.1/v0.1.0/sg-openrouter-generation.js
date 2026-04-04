@@ -574,7 +574,6 @@ ${sec('Cost', [
     }
 }
 
-export { SgOpenrouterGeneration };
 if (!customElements.get('sg-openrouter-generation')) {
     customElements.define('sg-openrouter-generation', SgOpenrouterGeneration);
 }
