@@ -117,18 +117,24 @@ export class VirtualFileSystem {
     }
 
     // ── Public API ───────────────────────────────────────────────────────
+    //
+    // Every method accepts an optional final `opts` object. The only option
+    // used here is `requestId` — when the bus routes an inbound event to the
+    // VFS it passes the original requestId so the response event carries the
+    // same ID that the caller is waiting for.
 
     /**
      * Read a file. Returns its string content.
      * @param {string} path
+     * @param {{ requestId?: string }} [opts]
      * @returns {Promise<string>}
      */
-    async readFile(path) {
+    async readFile(path, opts = {}) {
         const p = assertValidPath(path);
         return this._op(
             SGL_VFS.READ_REQUEST,
             SGL_VFS.READ_RESPONSE,
-            { path: p },
+            { path: p, requestId: opts.requestId },
             () => this._provider.readFile(p),
         );
     }
@@ -137,30 +143,31 @@ export class VirtualFileSystem {
      * Write (create or overwrite) a file.
      * @param {string} path
      * @param {string} content
-     * @param {object} [options]
+     * @param {{ requestId?: string }} [opts]
      * @returns {Promise<void>}
      */
-    async writeFile(path, content, options = {}) {
+    async writeFile(path, content, opts = {}) {
         const p = assertValidPath(path);
         return this._op(
             SGL_VFS.WRITE_REQUEST,
             SGL_VFS.WRITE_RESPONSE,
-            { path: p, size: typeof content === 'string' ? content.length : 0 },
-            () => this._provider.writeFile(p, content, options),
+            { path: p, size: typeof content === 'string' ? content.length : 0, requestId: opts.requestId },
+            () => this._provider.writeFile(p, content, opts),
         );
     }
 
     /**
      * Delete a file.
      * @param {string} path
+     * @param {{ requestId?: string }} [opts]
      * @returns {Promise<void>}
      */
-    async deleteFile(path) {
+    async deleteFile(path, opts = {}) {
         const p = assertValidPath(path);
         return this._op(
             SGL_VFS.DELETE_REQUEST,
             SGL_VFS.DELETE_RESPONSE,
-            { path: p },
+            { path: p, requestId: opts.requestId },
             () => this._provider.deleteFile(p),
         );
     }
@@ -168,14 +175,15 @@ export class VirtualFileSystem {
     /**
      * List folder contents.
      * @param {string} path
+     * @param {{ requestId?: string }} [opts]
      * @returns {Promise<Array>}
      */
-    async listFolder(path) {
+    async listFolder(path, opts = {}) {
         const p = assertValidPath(path);
         return this._op(
             SGL_VFS.LIST_REQUEST,
             SGL_VFS.LIST_RESPONSE,
-            { path: p },
+            { path: p, requestId: opts.requestId },
             () => this._provider.listFolder(p),
         );
     }
@@ -183,14 +191,15 @@ export class VirtualFileSystem {
     /**
      * Stat a path.
      * @param {string} path
+     * @param {{ requestId?: string }} [opts]
      * @returns {Promise<object>}
      */
-    async stat(path) {
+    async stat(path, opts = {}) {
         const p = assertValidPath(path);
         return this._op(
             SGL_VFS.STAT_REQUEST,
             SGL_VFS.STAT_RESPONSE,
-            { path: p },
+            { path: p, requestId: opts.requestId },
             () => this._provider.stat(p),
         );
     }
@@ -198,14 +207,15 @@ export class VirtualFileSystem {
     /**
      * Create a folder (and parents).
      * @param {string} path
+     * @param {{ requestId?: string }} [opts]
      * @returns {Promise<void>}
      */
-    async createFolder(path) {
+    async createFolder(path, opts = {}) {
         const p = assertValidPath(path);
         return this._op(
             SGL_VFS.CREATE_FOLDER_REQUEST,
             SGL_VFS.CREATE_FOLDER_RESPONSE,
-            { path: p },
+            { path: p, requestId: opts.requestId },
             () => this._provider.createFolder(p),
         );
     }
@@ -214,15 +224,16 @@ export class VirtualFileSystem {
      * Copy a file.
      * @param {string} src
      * @param {string} dst
+     * @param {{ requestId?: string }} [opts]
      * @returns {Promise<void>}
      */
-    async copyFile(src, dst) {
+    async copyFile(src, dst, opts = {}) {
         const s = assertValidPath(src);
         const d = assertValidPath(dst);
         return this._op(
             SGL_VFS.COPY_REQUEST,
             SGL_VFS.COPY_RESPONSE,
-            { path: s, src: s, dst: d },
+            { path: s, src: s, dst: d, requestId: opts.requestId },
             () => this._provider.copyFile(s, d),
         );
     }
@@ -231,15 +242,16 @@ export class VirtualFileSystem {
      * Rename/move a file.
      * @param {string} src
      * @param {string} dst
+     * @param {{ requestId?: string }} [opts]
      * @returns {Promise<void>}
      */
-    async rename(src, dst) {
+    async rename(src, dst, opts = {}) {
         const s = assertValidPath(src);
         const d = assertValidPath(dst);
         return this._op(
             SGL_VFS.RENAME_REQUEST,
             SGL_VFS.RENAME_RESPONSE,
-            { path: s, src: s, dst: d },
+            { path: s, src: s, dst: d, requestId: opts.requestId },
             () => this._provider.rename(s, d),
         );
     }
@@ -247,14 +259,15 @@ export class VirtualFileSystem {
     /**
      * Check whether a path exists.
      * @param {string} path
+     * @param {{ requestId?: string }} [opts]
      * @returns {Promise<boolean>}
      */
-    async exists(path) {
+    async exists(path, opts = {}) {
         const p = assertValidPath(path);
         return this._op(
             SGL_VFS.EXISTS_REQUEST,
             SGL_VFS.EXISTS_RESPONSE,
-            { path: p },
+            { path: p, requestId: opts.requestId },
             () => this._provider.exists(p),
         );
     }

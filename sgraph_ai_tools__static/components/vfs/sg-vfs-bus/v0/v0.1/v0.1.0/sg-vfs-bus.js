@@ -97,15 +97,15 @@ export class SgVfsBus extends HTMLElement {
 
     _listen(bus) {
         this._handlers = [
-            [SGL_VFS.READ_REQUEST,          e => this._handle(e, d => this.vfs.readFile(d.path))],
-            [SGL_VFS.WRITE_REQUEST,         e => this._handle(e, d => this.vfs.writeFile(d.path, d.content, d.options))],
-            [SGL_VFS.DELETE_REQUEST,        e => this._handle(e, d => this.vfs.deleteFile(d.path))],
-            [SGL_VFS.LIST_REQUEST,          e => this._handle(e, d => this.vfs.listFolder(d.path))],
-            [SGL_VFS.STAT_REQUEST,          e => this._handle(e, d => this.vfs.stat(d.path))],
-            [SGL_VFS.CREATE_FOLDER_REQUEST, e => this._handle(e, d => this.vfs.createFolder(d.path))],
-            [SGL_VFS.COPY_REQUEST,          e => this._handle(e, d => this.vfs.copyFile(d.src, d.dst))],
-            [SGL_VFS.RENAME_REQUEST,        e => this._handle(e, d => this.vfs.rename(d.src, d.dst))],
-            [SGL_VFS.EXISTS_REQUEST,        e => this._handle(e, d => this.vfs.exists(d.path))],
+            [SGL_VFS.READ_REQUEST,          e => this._handle(e, d => this.vfs.readFile(d.path, { requestId: d.requestId }))],
+            [SGL_VFS.WRITE_REQUEST,         e => this._handle(e, d => this.vfs.writeFile(d.path, d.content, { requestId: d.requestId }))],
+            [SGL_VFS.DELETE_REQUEST,        e => this._handle(e, d => this.vfs.deleteFile(d.path, { requestId: d.requestId }))],
+            [SGL_VFS.LIST_REQUEST,          e => this._handle(e, d => this.vfs.listFolder(d.path, { requestId: d.requestId }))],
+            [SGL_VFS.STAT_REQUEST,          e => this._handle(e, d => this.vfs.stat(d.path, { requestId: d.requestId }))],
+            [SGL_VFS.CREATE_FOLDER_REQUEST, e => this._handle(e, d => this.vfs.createFolder(d.path, { requestId: d.requestId }))],
+            [SGL_VFS.COPY_REQUEST,          e => this._handle(e, d => this.vfs.copyFile(d.src, d.dst, { requestId: d.requestId }))],
+            [SGL_VFS.RENAME_REQUEST,        e => this._handle(e, d => this.vfs.rename(d.src, d.dst, { requestId: d.requestId }))],
+            [SGL_VFS.EXISTS_REQUEST,        e => this._handle(e, d => this.vfs.exists(d.path, { requestId: d.requestId }))],
         ];
 
         for (const [event, handler] of this._handlers) {
