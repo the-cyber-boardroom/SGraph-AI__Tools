@@ -623,28 +623,53 @@ function setupLoadingState(imgPanel, model) {
 }
 
 /**
- * Populates the details panel with model info + request context. Returns an updater function.
+ * Populates the details panel with a resizable sg-layout column split:
+ *   top  — Context  (stats, editable prompts, export)
+ *   bottom — Generation (sg-openrouter-generation)
  * @param {HTMLElement} detailsPanel
  * @param {string} model
  * @param {{ systemPrompt?: string, doc?: object, direction?: string }} ctx
- * @returns {{ update: (detail: object) => void }}
+ * @returns {Promise<{ update: (detail: object) => void, showGeneration: (id: string, key: string) => void }>}
  */
-function setupDetailsPanel(detailsPanel, model, ctx = {}) {
-    detailsPanel.style.cssText = 'height:100%;overflow:auto;background:#0a0a18;display:block;padding:12px;box-sizing:border-box;font-family:system-ui,sans-serif;';
+async function setupDetailsPanel(detailsPanel, model, ctx = {}) {
+    detailsPanel.style.cssText = 'width:100%;height:100%;display:block;overflow:hidden;';
+
+    // ── Inner sg-layout: Context (top) | Generation (bottom) ─────────────────
+    const id    = ++fractalCounter;
+    const inner = document.createElement('sg-layout');
+    inner.style.cssText = 'width:100%;height:100%;display:block;';
+    detailsPanel.appendChild(inner);
+
+    const ready = new Promise(resolve => inner.events.on(SGL_EVENTS.LAYOUT_READY, resolve));
+    inner.setLayout({
+        type: 'column', id: `dl${id}`, sizes: [0.45, 0.55],
+        children: [
+            { type: 'stack', id: `dc${id}`, activeTab: 0,
+              tabs: [{ type: 'tab', id: `dct${id}`, title: 'Context', tag: 'div', locked: true, closable: false }] },
+            { type: 'stack', id: `dg${id}`, activeTab: 0,
+              tabs: [{ type: 'tab', id: `dgt${id}`, title: 'Generation', tag: 'div', locked: true, closable: false }] },
+        ],
+    });
+    await ready;
+
+    const ctxPanel = inner.getPanelElement(`dct${id}`);
+    const genPanel = inner.getPanelElement(`dgt${id}`);
+
+    // ── Helpers (append into ctxPanel) ───────────────────────────────────────
+    ctxPanel.style.cssText = 'height:100%;overflow:auto;background:#0a0a18;display:block;padding:12px;box-sizing:border-box;font-family:system-ui,sans-serif;';
 
     const lbl = text => {
         const d = document.createElement('div');
         d.style.cssText = 'font-size:10px;font-weight:600;color:#4a5568;text-transform:uppercase;letter-spacing:0.05em;margin-bottom:3px;margin-top:10px;';
         d.textContent = text;
-        detailsPanel.appendChild(d);
+        ctxPanel.appendChild(d);
         return d;
     };
-    const val = (text, id) => {
+    const val = text => {
         const d = document.createElement('div');
         d.style.cssText = 'font-size:13px;color:#a0aec0;margin-bottom:4px;';
-        if (id) d.id = id;
         d.textContent = text || '—';
-        detailsPanel.appendChild(d);
+        ctxPanel.appendChild(d);
         return d;
     };
     const editArea = (content, placeholder, rows = 3) => {
@@ -660,13 +685,13 @@ function setupDetailsPanel(detailsPanel, model, ctx = {}) {
         ].join(';');
         ta.addEventListener('focus', () => ta.style.borderColor = '#4ECDC4');
         ta.addEventListener('blur',  () => ta.style.borderColor = '#1a1a3a');
-        detailsPanel.appendChild(ta);
+        ctxPanel.appendChild(ta);
         return ta;
     };
     const sep = () => {
         const hr = document.createElement('hr');
         hr.style.cssText = 'border:none;border-top:1px solid #1a1a3a;margin:10px 0 4px;';
-        detailsPanel.appendChild(hr);
+        ctxPanel.appendChild(hr);
     };
 
     // ── Stats ────────────────────────────────────────────────────────────────
@@ -682,19 +707,19 @@ function setupDetailsPanel(detailsPanel, model, ctx = {}) {
 
     // ── Request context (editable) ────────────────────────────────────────────
     lbl('System Prompt');
-    const sysEl = editArea(ctx.systemPrompt, 'System prompt…', 4);
+    editArea(ctx.systemPrompt, 'System prompt…', 4);
 
     if (ctx.doc) {
         lbl('Document');
         const docNameEl = document.createElement('div');
         docNameEl.style.cssText = 'font-size:12px;color:#4ECDC4;word-break:break-all;margin-bottom:2px;';
         docNameEl.textContent = ctx.doc.name;
-        detailsPanel.appendChild(docNameEl);
+        ctxPanel.appendChild(docNameEl);
         if (ctx.doc.textContent) {
             const est = document.createElement('div');
             est.style.cssText = 'font-size:11px;color:#4a5568;margin-bottom:4px;';
             est.textContent = `~${Math.round(ctx.doc.textContent.length / 4).toLocaleString()} tokens`;
-            detailsPanel.appendChild(est);
+            ctxPanel.appendChild(est);
         }
     }
 
@@ -713,7 +738,7 @@ function setupDetailsPanel(detailsPanel, model, ctx = {}) {
         ].join(';');
         dirTa.addEventListener('focus', () => dirTa.style.borderLeftColor = '#81e6d9');
         dirTa.addEventListener('blur',  () => dirTa.style.borderLeftColor = '#4ECDC4');
-        detailsPanel.appendChild(dirTa);
+        ctxPanel.appendChild(dirTa);
     }
 
     sep();
@@ -727,15 +752,13 @@ function setupDetailsPanel(detailsPanel, model, ctx = {}) {
         'border:1px solid #4ECDC4', 'border-radius:4px', 'padding:7px 0',
         'font-size:13px', 'cursor:pointer', 'font-family:system-ui,sans-serif', 'margin-bottom:6px',
     ].join(';');
-    detailsPanel.appendChild(exportBtn);
+    ctxPanel.appendChild(exportBtn);
 
-    sep();
-
-    // ── Generation stats (OpenRouter) ─────────────────────────────────────────
-    lbl('Generation');
+    // ── Generation panel (full-height sg-openrouter-generation) ──────────────
+    genPanel.style.cssText = 'height:100%;display:block;overflow:hidden;';
     const genEl = document.createElement('sg-openrouter-generation');
-    genEl.style.cssText = 'display:block;height:420px;flex-shrink:0;border:1px solid #1a1a3a;border-radius:4px;overflow:hidden;margin-top:4px;';
-    detailsPanel.appendChild(genEl);
+    genEl.style.cssText = 'display:block;width:100%;height:100%;';
+    genPanel.appendChild(genEl);
 
     const t0 = Date.now();
     return {
@@ -808,7 +831,7 @@ bus.addEventListener(SGL_LLM.SEND, async e => {
     // Fractal inner layout (async — awaited before firing mini-bus SEND)
     const { imgPanel, detailsPanel } = await setupResultFractal(panelEl, model);
     setupLoadingState(imgPanel, model);
-    const detailsCtl = setupDetailsPanel(detailsPanel, model, { systemPrompt: sysPrompt, doc: docSnapshot, direction });
+    const detailsCtl = await setupDetailsPanel(detailsPanel, model, { systemPrompt: sysPrompt, doc: docSnapshot, direction });
 
     // Wire export button (after we have the imgPanel ref)
     const exportBtn = detailsPanel.querySelector('[data-role="export"]');
@@ -853,7 +876,10 @@ bus.addEventListener(SGL_LLM.SEND, async e => {
             if (loadDiv) loadDiv.innerHTML = '<div style="color:#a0aec0;font-size:14px;text-align:center;padding:20px;">No image returned.<br><span style="font-size:12px;color:#4a5568;">Try a different model or refine your prompt.</span></div>';
         }
         detailsCtl.update(ev.detail);
-        const genId = ev.detail?.rawResponse?.id ?? ev.detail?.id ?? null;
+        // rawResponse is null for streaming; ID lives in the first rawChunk with an id field
+        const genId = ev.detail?.rawResponse?.id
+                   ?? ev.detail?.rawChunks?.find(c => c?.id)?.id
+                   ?? null;
         if (genId) detailsCtl.showGeneration(genId, apiKey);
         finish();
     });
