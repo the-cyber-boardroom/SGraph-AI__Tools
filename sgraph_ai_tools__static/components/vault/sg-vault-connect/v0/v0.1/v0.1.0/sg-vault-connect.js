@@ -230,7 +230,7 @@ export class SgVaultConnect extends HTMLElement {
 
             this._vault = vault;
             this._showConnected(keys.vaultId, apiBase, 0);
-            this._emit('vault:connected', { vault, vaultId, apiBaseUrl: apiBase, keys });
+            this._emit('vault:connected', { vault, vaultId: keys.vaultId, apiBaseUrl: apiBase, keys });
 
         } catch (err) {
             this._showStatus(err.message, 'error');
