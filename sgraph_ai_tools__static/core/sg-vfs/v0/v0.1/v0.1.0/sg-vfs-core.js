@@ -78,14 +78,19 @@ export class VirtualFileSystem {
      * @returns {Promise<T>}
      */
     async _op(requestEvent, responseEvent, reqDetail, fn) {
+        // Re-use requestId from the inbound event if provided (bus routing),
+        // otherwise mint a new one (direct API call).
         const requestId = reqDetail.requestId || newRequestId();
         const timestamp = Date.now();
         const start     = performance.now();
 
-        this._emit(requestEvent, { ...reqDetail, requestId, timestamp });
+        // NOTE: we do NOT re-emit the request event here.
+        // The request was already dispatched by the caller (tool page or component),
+        // so the event viewer sees it from there. Re-emitting it would cause the
+        // sg-vfs-bus listener to trigger another readFile() call → infinite loop.
 
         try {
-            const result  = await fn();
+            const result   = await fn();
             const wallTime = Math.round(performance.now() - start);
             this._emit(responseEvent, {
                 ...reqDetail,
