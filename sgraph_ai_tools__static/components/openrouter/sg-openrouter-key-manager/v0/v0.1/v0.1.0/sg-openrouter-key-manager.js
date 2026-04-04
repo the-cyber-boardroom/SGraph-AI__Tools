@@ -314,6 +314,10 @@ export class SgOpenrouterKeyManager extends HTMLElement {
             const json = await res.json();
             this._keys = json.data ?? [];
             this._setStatus(`${this._keys.length} keys`, 'ok');
+            // Broadcast key list so activity can populate key-hash filter
+            document.dispatchEvent(new CustomEvent('or:keys-loaded', {
+                detail: { keys: this._keys.map(k => ({ hash: k.hash, name: k.name, label: k.label })) },
+            }));
         } catch (err) {
             console.warn('[sg-openrouter-key-manager] list error:', err.message);
             this._setStatus(err.message, 'err');
