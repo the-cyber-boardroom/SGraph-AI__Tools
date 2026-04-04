@@ -216,6 +216,9 @@ function _fmtTok(n) {
     return String(n);
 }
 
+const HISTORY_KEY  = 'or-generation-history';
+const HISTORY_MAX  = 50;
+
 export class SgOpenrouterGeneration extends HTMLElement {
     constructor() {
         super();
@@ -224,11 +227,13 @@ export class SgOpenrouterGeneration extends HTMLElement {
         this._showRaw = false;
         this._boundHandlers = {};
         this._shadow = this.attachShadow({ mode: 'open' });
+        this._history = this._loadHistory();
     }
 
     connectedCallback() {
         this._renderShell();
         this._bindBusEvents();
+        this._renderHistory();
     }
 
     disconnectedCallback() {
@@ -284,14 +289,75 @@ export class SgOpenrouterGeneration extends HTMLElement {
     _onDisconnected() { this._apiKey = ''; }
 
     _onRequestComplete(e) {
-        // Try to capture generation ID from the raw response
-        const raw = e.detail?.rawResponse;
-        const id  = raw?.id ?? e.detail?.id ?? null;
+        const raw   = e.detail?.rawResponse;
+        const id    = raw?.id ?? e.detail?.id ?? null;
+        const model = raw?.model ?? e.detail?.model ?? null;
         if (!id) return;
+        this._pushHistory(id, model);
         const badge = this._shadow.querySelector('.og-auto-badge');
         if (badge) { badge.textContent = 'auto'; badge.style.display = 'inline'; }
         this._shadow.querySelector('.og-id-input').value = id;
         this._fetch(id);
+    }
+
+    // ── History ────────────────────────────────────────────────────────────────
+
+    _loadHistory() {
+        try { return JSON.parse(sessionStorage.getItem(HISTORY_KEY) || '[]'); }
+        catch { return []; }
+    }
+
+    _saveHistory() {
+        try { sessionStorage.setItem(HISTORY_KEY, JSON.stringify(this._history)); } catch {}
+    }
+
+    _pushHistory(id, model) {
+        // Remove existing entry for same id, push to front
+        this._history = this._history.filter(h => h.id !== id);
+        this._history.unshift({ id, model, ts: Date.now(), cost: null });
+        if (this._history.length > HISTORY_MAX) this._history.length = HISTORY_MAX;
+        this._saveHistory();
+        this._renderHistory();
+    }
+
+    _updateHistoryCost(id, cost) {
+        const entry = this._history.find(h => h.id === id);
+        if (entry) { entry.cost = cost; this._saveHistory(); this._renderHistory(); }
+    }
+
+    _renderHistory() {
+        const el = this._shadow.querySelector('#og-history');
+        if (!el) return;
+        if (!this._history.length) {
+            el.innerHTML = '<div style="color:#374151;font-size:10px;padding:6px 8px">No captures yet</div>';
+            return;
+        }
+        el.innerHTML = '';
+        for (const h of this._history) {
+            const row = document.createElement('div');
+            row.className = 'og-hist-row' + (h.id === this._shadow.querySelector('.og-id-input')?.value ? ' active' : '');
+            const model = h.model ? h.model.split('/').pop() : '—';
+            const age   = this._relTime(h.ts);
+            const cost  = h.cost !== null ? `$${h.cost.toFixed(5)}` : '';
+            row.innerHTML = `
+                <span class="og-hist-model" title="${_esc(h.model ?? '')}">${_esc(model.slice(0, 22))}</span>
+                <span class="og-hist-meta">${_esc(age)}${cost ? ' · ' + cost : ''}</span>`;
+            row.addEventListener('click', () => {
+                this._shadow.querySelector('.og-id-input').value = h.id;
+                const badge = this._shadow.querySelector('.og-auto-badge');
+                if (badge) { badge.textContent = 'history'; badge.style.display = 'inline'; }
+                this._fetch(h.id);
+            });
+            el.appendChild(row);
+        }
+    }
+
+    _relTime(ts) {
+        const s = (Date.now() - ts) / 1000;
+        if (s < 60)    return `${Math.round(s)}s`;
+        if (s < 3600)  return `${Math.round(s/60)}m`;
+        if (s < 86400) return `${Math.round(s/3600)}h`;
+        return `${Math.round(s/86400)}d`;
     }
 
     _onGenerationSelected(e) {
@@ -321,6 +387,10 @@ export class SgOpenrouterGeneration extends HTMLElement {
             this._data = json.data ?? json;
             this._renderData();
             if (this._showRaw) this._renderRaw();
+            // Update history entry with fetched cost
+            if (this._data?.total_cost != null) {
+                this._updateHistoryCost(id, this._data.total_cost);
+            }
         } catch (err) {
             console.warn('[sg-openrouter-generation] error:', err.message);
             this._renderError(err.message);
@@ -331,6 +401,35 @@ export class SgOpenrouterGeneration extends HTMLElement {
 
     _renderShell() {
         this._shadow.innerHTML = `<style>${CSS}
+/* ── History panel ───────────────────────────────────── */
+.og-body {
+    flex: 1; display: flex; min-height: 0; overflow: hidden;
+}
+.og-history-panel {
+    width: 180px; min-width: 160px; max-width: 200px;
+    border-right: 1px solid #1e2035;
+    display: flex; flex-direction: column; flex-shrink: 0;
+}
+.og-history-title {
+    font-size: 9px; letter-spacing: 0.08em; color: #374151;
+    text-transform: uppercase; padding: 5px 8px 4px;
+    border-bottom: 1px solid #1e2035; flex-shrink: 0;
+}
+#og-history {
+    flex: 1; overflow-y: auto; min-height: 0;
+}
+#og-history::-webkit-scrollbar { width: 4px; }
+#og-history::-webkit-scrollbar-thumb { background: #1e2035; border-radius: 2px; }
+.og-hist-row {
+    padding: 5px 8px; cursor: pointer; border-bottom: 1px solid #0f0f1e;
+    transition: background 0.1s;
+    display: flex; flex-direction: column; gap: 1px;
+}
+.og-hist-row:hover { background: #12122a; }
+.og-hist-row.active { background: #1e2035; }
+.og-hist-model { font-size: 10px; color: #93c5fd; }
+.og-hist-meta  { font-size: 9px; color: #374151; }
+.og-main { flex: 1; display: flex; flex-direction: column; min-width: 0; }
 .og-raw {
     flex: 1; overflow-y: auto; min-height: 0; padding: 10px;
     font-family: monospace; font-size: 11px; line-height: 1.5;
@@ -352,10 +451,18 @@ export class SgOpenrouterGeneration extends HTMLElement {
     <button class="og-btn" id="og-raw-btn" title="Toggle raw JSON">{ }</button>
     <button class="og-btn" id="og-clear-btn">Clear</button>
 </div>
-<div class="og-scroll" id="og-content">
-    <div class="og-state">Waiting for a generation…<br><span style="color:#1e2035;font-size:10px">Send a request or paste a generation ID above</span></div>
-</div>
-<div class="og-raw" id="og-raw"></div>`;
+<div class="og-body">
+    <div class="og-history-panel">
+        <div class="og-history-title">Recent</div>
+        <div id="og-history"></div>
+    </div>
+    <div class="og-main">
+        <div class="og-scroll" id="og-content">
+            <div class="og-state">Waiting for a generation…<br><span style="color:#1e2035;font-size:10px">Send a request or paste a generation ID above</span></div>
+        </div>
+        <div class="og-raw" id="og-raw"></div>
+    </div>
+</div>`;
 
         const input = this._shadow.querySelector('.og-id-input');
         this._shadow.querySelector('#og-fetch-btn').addEventListener('click', () => {

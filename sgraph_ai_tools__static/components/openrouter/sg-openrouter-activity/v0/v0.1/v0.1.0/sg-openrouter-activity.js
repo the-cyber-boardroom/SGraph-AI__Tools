@@ -184,6 +184,21 @@ const CSS = `
 .v-free   { color: #374151; }
 .v-tok    { color: #64748b; }
 
+/* ── Key filter ──────────────────────────────────────── */
+.oa-key-select {
+    background: #12122a;
+    border: 1px solid #1e2035;
+    border-radius: 4px;
+    color: #64748b;
+    font-family: monospace;
+    font-size: 10px;
+    padding: 2px 6px;
+    max-width: 130px;
+    cursor: pointer;
+}
+.oa-key-select:focus { outline: none; border-color: #3b82f6; }
+.oa-key-select option { background: #12122a; }
+
 /* ── Pager ───────────────────────────────────────────── */
 .oa-pager {
     display: flex;
@@ -203,16 +218,18 @@ export class SgOpenrouterActivity extends HTMLElement {
 
     constructor() {
         super();
-        this._shadow   = this.attachShadow({ mode: 'open' });
-        this._mgmtKey  = null;
-        this._rows     = [];
-        this._rawJson  = null;
-        this._offset   = 0;
-        this._total    = 0;
-        this._loading  = false;
-        this._showRaw  = false;
-        this._sortCol  = 'date';
-        this._sortDesc = true;
+        this._shadow      = this.attachShadow({ mode: 'open' });
+        this._mgmtKey     = null;
+        this._rows        = [];
+        this._rawJson     = null;
+        this._offset      = 0;
+        this._total       = 0;
+        this._loading     = false;
+        this._showRaw     = false;
+        this._sortCol     = 'date';
+        this._sortDesc    = true;
+        this._keyFilter   = '';   // api_key_hash filter
+        this._availKeys   = [];   // from or:keys-loaded
     }
 
     connectedCallback() {
@@ -237,14 +254,20 @@ export class SgOpenrouterActivity extends HTMLElement {
             this._rawJson = null;
             this._showEmpty('Connect admin key to see activity');
         };
+        this._onKeysLoaded = e => {
+            this._availKeys = e.detail?.keys ?? [];
+            this._updateKeySelect();
+        };
         // Use document directly — sg-layout shadow DOM blocks parentElement walking
         document.addEventListener('or:admin-connected',    this._onAdminConnected);
         document.addEventListener('or:admin-disconnected', this._onAdminDisconnected);
+        document.addEventListener('or:keys-loaded',        this._onKeysLoaded);
     }
 
     _teardownBus() {
         document.removeEventListener('or:admin-connected',    this._onAdminConnected);
         document.removeEventListener('or:admin-disconnected', this._onAdminDisconnected);
+        document.removeEventListener('or:keys-loaded',        this._onKeysLoaded);
     }
 
     // ── Fetch ─────────────────────────────────────────────────────────────────
@@ -255,7 +278,8 @@ export class SgOpenrouterActivity extends HTMLElement {
         this._setRefreshing(true);
 
         try {
-            const url = `${ACTIVITY_URL}?limit=${PAGE_SIZE}&offset=${this._offset}`;
+            let url = `${ACTIVITY_URL}?limit=${PAGE_SIZE}&offset=${this._offset}`;
+            if (this._keyFilter) url += `&api_key_hash=${encodeURIComponent(this._keyFilter)}`;
             const res = await fetch(url, {
                 headers: { 'Authorization': `Bearer ${this._mgmtKey}` },
             });
@@ -286,6 +310,9 @@ export class SgOpenrouterActivity extends HTMLElement {
         this._shadow.innerHTML = `<style>${CSS}</style>
 <div class="oa-toolbar">
     <span class="oa-title">Activity</span>
+    <select class="oa-key-select" id="key-select" title="Filter by API key">
+        <option value="">All keys</option>
+    </select>
     <span class="oa-count" id="count"></span>
     <button class="oa-btn" id="raw-btn" title="Toggle raw JSON">{ }</button>
     <button class="oa-btn" id="refresh-btn" title="Refresh">↻</button>
@@ -300,6 +327,11 @@ export class SgOpenrouterActivity extends HTMLElement {
     <button class="oa-btn" id="next-btn">Next ›</button>
 </div>`;
 
+        this._shadow.getElementById('key-select').addEventListener('change', e => {
+            this._keyFilter = e.target.value;
+            this._offset = 0;
+            if (this._mgmtKey) this._fetch();
+        });
         this._shadow.getElementById('refresh-btn').addEventListener('click', () => {
             if (this._mgmtKey) { this._offset = 0; this._fetch(); }
         });
@@ -442,6 +474,22 @@ export class SgOpenrouterActivity extends HTMLElement {
     }
 
     // ── Helpers ───────────────────────────────────────────────────────────────
+
+    _updateKeySelect() {
+        const sel = this._shadow.getElementById('key-select');
+        if (!sel) return;
+        const current = sel.value;
+        sel.innerHTML = '<option value="">All keys</option>';
+        for (const k of this._availKeys) {
+            if (!k.hash) continue;
+            const opt = document.createElement('option');
+            opt.value       = k.hash;
+            opt.textContent = (k.label || k.name || k.hash).slice(0, 20);
+            opt.title       = k.hash;
+            if (k.hash === current) opt.selected = true;
+            sel.appendChild(opt);
+        }
+    }
 
     _sortVal(row) {
         switch (this._sortCol) {
