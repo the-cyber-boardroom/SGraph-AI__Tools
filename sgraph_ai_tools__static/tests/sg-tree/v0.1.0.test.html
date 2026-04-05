@@ -1,0 +1,727 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>sg-tree v0.1.0 — Tests + Demo</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: #0d0d1a;
+            color: #e2e8f0;
+        }
+
+        /* --- Test Results Panel --- */
+        #test-results {
+            padding: 16px 20px;
+            background: #111122;
+            border-bottom: 1px solid #222d4d;
+            font-size: 13px;
+            max-height: 300px;
+            overflow-y: auto;
+        }
+        #test-results h2 { font-size: 15px; margin-bottom: 10px; color: #4ECDC4; }
+        .test-pass { color: #4ECDC4; padding: 1px 0; }
+        .test-fail { color: #ff6b6b; font-weight: 600; padding: 1px 0; }
+        .test-summary { margin-top: 10px; font-weight: 600; font-size: 14px; padding-top: 6px; border-top: 1px solid #222d4d; }
+        .test-group { margin-top: 8px; color: #94a3b8; font-size: 11px; text-transform: uppercase; letter-spacing: 0.05em; }
+
+        /* --- Demo Layout --- */
+        #demo-container {
+            display: flex;
+            width: 100vw;
+            height: calc(100vh - 300px);
+            min-height: 400px;
+        }
+
+        #tree-panel {
+            width: 280px;
+            flex-shrink: 0;
+            border-right: 1px solid #222d4d;
+            background: #111122;
+        }
+
+        #info-panel {
+            flex: 1;
+            padding: 20px;
+            overflow-y: auto;
+        }
+
+        #info-panel h3 {
+            font-size: 14px;
+            color: #4ECDC4;
+            margin-bottom: 12px;
+        }
+
+        #event-log {
+            font-size: 12px;
+            color: #94a3b8;
+            font-family: monospace;
+            line-height: 1.6;
+            max-height: 200px;
+            overflow-y: auto;
+            background: #0d0d1a;
+            border: 1px solid #222d4d;
+            border-radius: 4px;
+            padding: 8px;
+            margin-bottom: 16px;
+        }
+
+        .controls {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+            margin-bottom: 16px;
+        }
+
+        button {
+            padding: 5px 12px;
+            background: #1a2040;
+            border: 1px solid #222d4d;
+            color: #e2e8f0;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 12px;
+        }
+        button:hover { background: #222d4d; }
+
+        #filter-input {
+            padding: 5px 10px;
+            background: #1a2040;
+            border: 1px solid #222d4d;
+            color: #e2e8f0;
+            border-radius: 4px;
+            font-size: 12px;
+            width: 200px;
+        }
+
+        .state-box {
+            font-family: monospace;
+            font-size: 11px;
+            background: #0d0d1a;
+            border: 1px solid #222d4d;
+            border-radius: 4px;
+            padding: 8px;
+            color: #94a3b8;
+            white-space: pre;
+            margin-top: 8px;
+        }
+
+        sg-tree {
+            display: block;
+            width: 100%;
+            height: 100%;
+        }
+    </style>
+</head>
+<body>
+
+<div id="test-results">
+    <h2>sg-tree v0.1.0 — Test Results</h2>
+    <div id="results"></div>
+</div>
+
+<div id="demo-container">
+    <div id="tree-panel">
+        <sg-tree id="demo-tree" selectable="single" show-root="true" indent-px="16"></sg-tree>
+    </div>
+    <div id="info-panel">
+        <h3>Event Log</h3>
+        <div id="event-log"><em>events will appear here...</em></div>
+
+        <div class="controls">
+            <button onclick="demoTree.expandAll()">Expand All</button>
+            <button onclick="demoTree.collapseAll()">Collapse All</button>
+            <button onclick="demoTree.select('file-readme')">Select README</button>
+            <button onclick="demoTree.expandPath('file-deep')">Expand Path to deep</button>
+            <button onclick="showState()">Show State</button>
+            <button onclick="restoreState()">Restore State</button>
+        </div>
+
+        <div class="controls">
+            <input id="filter-input" placeholder="Filter by label..." oninput="applyFilter(this.value)" />
+            <button onclick="clearFilter()">Clear Filter</button>
+        </div>
+
+        <h3>Layout State</h3>
+        <div id="state-box" class="state-box">—</div>
+    </div>
+</div>
+
+<script type="module">
+import { SGT_EVENTS } from '../../core/sg-tree/v0/v0.1/v0.1.0/sg-tree-events.js';
+import { SgTree }     from '../../core/sg-tree/v0/v0.1/v0.1.0/sg-tree.js';
+
+// ---------------------------------------------------------------------------
+// Test helpers
+// ---------------------------------------------------------------------------
+
+const resultsEl = document.getElementById('results');
+let passed = 0, failed = 0;
+
+function log(msg) {
+    const line = document.createElement('div');
+    line.textContent = msg;
+    resultsEl.appendChild(line);
+}
+
+function group(name) {
+    const line = document.createElement('div');
+    line.className = 'test-group';
+    line.textContent = name;
+    resultsEl.appendChild(line);
+}
+
+function assert(desc, condition) {
+    const line = document.createElement('div');
+    if (condition) {
+        line.className = 'test-pass';
+        line.textContent = `✅ ${desc}`;
+        passed++;
+    } else {
+        line.className = 'test-fail';
+        line.textContent = `❌ ${desc}`;
+        failed++;
+    }
+    resultsEl.appendChild(line);
+}
+
+function showSummary() {
+    const line = document.createElement('div');
+    line.className = 'test-summary';
+    line.textContent = `${passed} passed, ${failed} failed`;
+    line.style.color = failed === 0 ? '#4ECDC4' : '#ff6b6b';
+    resultsEl.appendChild(line);
+}
+
+// ---------------------------------------------------------------------------
+// Test tree data
+// ---------------------------------------------------------------------------
+
+const TREE_DATA = {
+    id: 'root',
+    label: 'My Project',
+    type: 'folder',
+    children: [
+        {
+            id: 'src',
+            label: 'src',
+            type: 'folder',
+            children: [
+                {
+                    id: 'components',
+                    label: 'components',
+                    type: 'folder',
+                    children: [
+                        { id: 'file-header', label: 'header.js', type: 'file' },
+                        { id: 'file-footer', label: 'footer.js', type: 'file' },
+                        {
+                            id: 'nested-folder',
+                            label: 'nested',
+                            type: 'folder',
+                            children: [
+                                { id: 'file-deep', label: 'deep.js', type: 'file' }
+                            ]
+                        },
+                    ]
+                },
+                { id: 'file-main', label: 'main.js', type: 'file', badge: '3' },
+                { id: 'file-disabled', label: 'locked.js', type: 'file', disabled: true },
+            ]
+        },
+        {
+            id: 'docs',
+            label: 'docs',
+            type: 'folder',
+            children: [
+                { id: 'file-readme', label: 'README.md', type: 'file', badge: 'new' },
+                { id: 'file-changelog', label: 'CHANGELOG.md', type: 'file' },
+            ]
+        },
+        { id: 'file-pkg', label: 'package.json', type: 'file' },
+        { id: 'file-custom', label: 'custom-item', type: 'widget' },
+    ]
+};
+
+// ---------------------------------------------------------------------------
+// Group 1: SGT_EVENTS
+// ---------------------------------------------------------------------------
+
+group('SGT_EVENTS constants');
+assert('SGT_EVENTS is frozen', Object.isFrozen(SGT_EVENTS));
+assert('NODE_SELECTED name correct',     SGT_EVENTS.NODE_SELECTED     === 'sg-tree:node-selected');
+assert('NODE_DESELECTED name correct',   SGT_EVENTS.NODE_DESELECTED   === 'sg-tree:node-deselected');
+assert('SELECTION_CHANGED name correct', SGT_EVENTS.SELECTION_CHANGED === 'sg-tree:selection-changed');
+assert('NODE_EXPANDED name correct',     SGT_EVENTS.NODE_EXPANDED     === 'sg-tree:node-expanded');
+assert('NODE_COLLAPSED name correct',    SGT_EVENTS.NODE_COLLAPSED    === 'sg-tree:node-collapsed');
+assert('NODE_ACTIVATED name correct',    SGT_EVENTS.NODE_ACTIVATED    === 'sg-tree:node-activated');
+assert('NODE_CONTEXT name correct',      SGT_EVENTS.NODE_CONTEXT      === 'sg-tree:node-context');
+assert('DATA_CHANGED name correct',      SGT_EVENTS.DATA_CHANGED      === 'sg-tree:data-changed');
+assert('READY name correct',             SGT_EVENTS.READY             === 'sg-tree:ready');
+assert('SGT_EVENTS has 9 keys',          Object.keys(SGT_EVENTS).length === 9);
+
+// ---------------------------------------------------------------------------
+// Group 2: Custom element registration
+// ---------------------------------------------------------------------------
+
+group('Custom element');
+assert('sg-tree is registered', customElements.get('sg-tree') !== undefined);
+assert('SgTree is a class',     typeof SgTree === 'function');
+assert('SgTree extends HTMLElement', SgTree.prototype instanceof HTMLElement);
+
+// ---------------------------------------------------------------------------
+// Helper: create a fresh tree for isolated tests
+// ---------------------------------------------------------------------------
+
+function makeTree(attrs = {}) {
+    const el = document.createElement('sg-tree');
+    for (const [k, v] of Object.entries(attrs)) el.setAttribute(k, v);
+    // Attach to document so connectedCallback fires and shadow DOM is interactive
+    document.body.appendChild(el);
+    return el;
+}
+
+// ---------------------------------------------------------------------------
+// Group 3: setData / getData
+// ---------------------------------------------------------------------------
+
+group('setData / getData');
+
+const t1 = makeTree();
+t1.setData(TREE_DATA);
+
+assert('getData() returns non-null after setData', t1.getData() !== null);
+assert('getData() root id correct', t1.getData().id === 'root');
+assert('getData() is deep clone (not same reference)', t1.getData() !== t1._data);
+assert('getData() children preserved', t1.getData().children.length === TREE_DATA.children.length);
+
+// Mutating returned clone does not affect internal state
+const clone = t1.getData();
+clone.label = 'MUTATED';
+assert('getData() clone is isolated from internal data', t1.getData().label !== 'MUTATED');
+
+// ---------------------------------------------------------------------------
+// Group 4: Expand / Collapse
+// ---------------------------------------------------------------------------
+
+group('expand / collapse / expandAll / collapseAll');
+
+const t2 = makeTree();
+t2.setData(TREE_DATA);
+
+// Root is auto-expanded on setData
+assert('root expanded after setData', t2.getExpandedIds().includes('root'));
+
+t2.expand('src');
+assert('expand(src) adds to expandedIds', t2.getExpandedIds().includes('src'));
+
+t2.collapse('src');
+assert('collapse(src) removes from expandedIds', !t2.getExpandedIds().includes('src'));
+
+t2.expandAll();
+const allIds = t2.getExpandedIds();
+assert('expandAll() expands root', allIds.includes('root'));
+assert('expandAll() expands src', allIds.includes('src'));
+assert('expandAll() expands components', allIds.includes('components'));
+assert('expandAll() expands nested-folder', allIds.includes('nested-folder'));
+assert('expandAll() expands docs', allIds.includes('docs'));
+
+t2.collapseAll();
+assert('collapseAll() clears all expanded ids', t2.getExpandedIds().length === 0);
+
+// ---------------------------------------------------------------------------
+// Group 5: expandPath
+// ---------------------------------------------------------------------------
+
+group('expandPath');
+
+const t3 = makeTree();
+t3.setData(TREE_DATA);
+t3.collapseAll();
+
+t3.expandPath('file-deep');
+const expanded3 = t3.getExpandedIds();
+assert('expandPath expands root ancestor', expanded3.includes('root'));
+assert('expandPath expands src ancestor', expanded3.includes('src'));
+assert('expandPath expands components ancestor', expanded3.includes('components'));
+assert('expandPath expands nested-folder ancestor', expanded3.includes('nested-folder'));
+
+// ---------------------------------------------------------------------------
+// Group 6: select + getSelectedId
+// ---------------------------------------------------------------------------
+
+group('select / getSelectedId');
+
+const t4 = makeTree();
+t4.setData(TREE_DATA);
+
+assert('getSelectedId() initially null', t4.getSelectedId() === null);
+
+t4.expandAll();
+t4.select('file-readme');
+assert('getSelectedId() returns selected id', t4.getSelectedId() === 'file-readme');
+
+// Disabled node cannot be selected
+t4.select('file-disabled');
+assert('disabled node cannot be selected', t4.getSelectedId() === 'file-readme');
+
+// ---------------------------------------------------------------------------
+// Group 7: getScrollTop / setScrollTop
+// ---------------------------------------------------------------------------
+
+group('getScrollTop / setScrollTop');
+
+const t5 = makeTree();
+Object.assign(t5.style, { width: '250px', height: '100px', position: 'fixed', top: '-200px' });
+t5.setData(TREE_DATA);
+t5.expandAll();
+
+assert('getScrollTop() returns number', typeof t5.getScrollTop() === 'number');
+t5.setScrollTop(20);
+// Note: actual scroll position may be clamped by browser if content is shorter
+assert('setScrollTop does not throw', true);
+
+// ---------------------------------------------------------------------------
+// Group 8: filter
+// ---------------------------------------------------------------------------
+
+group('filter');
+
+const t6 = makeTree();
+t6.setData(TREE_DATA);
+t6.expandAll();
+
+// Filter to show only 'README.md'
+t6.filter(node => node.label === 'README.md');
+const vis6 = t6._visible;
+const labels6 = vis6.map(v => v.node.label);
+assert('filter shows matching node', labels6.includes('README.md'));
+// Ancestor 'docs' should also be visible
+assert('filter shows ancestor of match', labels6.includes('docs'));
+// Non-matching node without matching descendants should not appear
+assert('filter hides non-matching leaf (CHANGELOG)', !labels6.includes('CHANGELOG.md'));
+
+// Clear filter
+t6.filter(null);
+const vis6b = t6._visible;
+assert('filter(null) clears filter — more rows visible', vis6b.length > vis6.length);
+
+// ---------------------------------------------------------------------------
+// Group 9: getExpandedIds / setExpandedIds
+// ---------------------------------------------------------------------------
+
+group('getExpandedIds / setExpandedIds');
+
+const t7 = makeTree();
+t7.setData(TREE_DATA);
+t7.expandAll();
+const savedIds = t7.getExpandedIds();
+
+t7.collapseAll();
+assert('collapseAll clears', t7.getExpandedIds().length === 0);
+
+t7.setExpandedIds(savedIds);
+assert('setExpandedIds restores ids count', t7.getExpandedIds().length === savedIds.length);
+assert('setExpandedIds restores specific id', t7.getExpandedIds().includes('components'));
+
+// ---------------------------------------------------------------------------
+// Group 10: getLayoutState / setLayoutState
+// ---------------------------------------------------------------------------
+
+group('getLayoutState / setLayoutState round-trip');
+
+const t8 = makeTree();
+t8.setData(TREE_DATA);
+t8.expandAll();
+t8.select('file-main');
+
+const state = t8.getLayoutState();
+assert('getLayoutState has expandedIds', Array.isArray(state.expandedIds));
+assert('getLayoutState has selectedId', state.selectedId === 'file-main');
+assert('getLayoutState has scrollTop', typeof state.scrollTop === 'number');
+
+// Restore into a fresh tree
+const t8b = makeTree();
+t8b.setData(TREE_DATA);
+t8b.setLayoutState(state);
+assert('setLayoutState restores selectedId', t8b._selectedId === 'file-main');
+assert('setLayoutState restores expandedIds count', t8b.getExpandedIds().length === state.expandedIds.length);
+
+// ---------------------------------------------------------------------------
+// Group 11: Events
+// ---------------------------------------------------------------------------
+
+group('events fire correctly');
+
+const t9 = makeTree();
+const events9 = {};
+for (const key of Object.values(SGT_EVENTS)) {
+    events9[key] = [];
+    t9.addEventListener(key, e => events9[key].push(e.detail));
+}
+
+// READY fires on connect (already connected via makeTree)
+// DATA_CHANGED fires on setData
+t9.setData(TREE_DATA);
+assert('DATA_CHANGED fires on setData', events9[SGT_EVENTS.DATA_CHANGED].length >= 1);
+assert('DATA_CHANGED detail has root', events9[SGT_EVENTS.DATA_CHANGED][0].root !== undefined);
+
+// NODE_EXPANDED fires on expand
+t9.expand('src');
+assert('NODE_EXPANDED fires', events9[SGT_EVENTS.NODE_EXPANDED].length >= 1);
+assert('NODE_EXPANDED detail has id', events9[SGT_EVENTS.NODE_EXPANDED][0].id === 'src');
+
+// NODE_COLLAPSED fires on collapse
+t9.collapse('src');
+assert('NODE_COLLAPSED fires', events9[SGT_EVENTS.NODE_COLLAPSED].length >= 1);
+assert('NODE_COLLAPSED detail has id', events9[SGT_EVENTS.NODE_COLLAPSED][0].id === 'src');
+
+// NODE_SELECTED fires on select
+t9.expandAll();
+t9.select('file-readme');
+assert('NODE_SELECTED fires', events9[SGT_EVENTS.NODE_SELECTED].length >= 1);
+assert('NODE_SELECTED detail has id', events9[SGT_EVENTS.NODE_SELECTED][0].id === 'file-readme');
+assert('NODE_SELECTED detail has path', Array.isArray(events9[SGT_EVENTS.NODE_SELECTED][0].path));
+
+// SELECTION_CHANGED fires
+assert('SELECTION_CHANGED fires', events9[SGT_EVENTS.SELECTION_CHANGED].length >= 1);
+assert('SELECTION_CHANGED has selectedIds', Array.isArray(events9[SGT_EVENTS.SELECTION_CHANGED][0].selectedIds));
+
+// NODE_DESELECTED fires when selection changes
+t9.select('file-main');
+assert('NODE_DESELECTED fires on selection change', events9[SGT_EVENTS.NODE_DESELECTED].length >= 1);
+
+// ---------------------------------------------------------------------------
+// Group 12: Keyboard navigation (simulated keydown)
+// ---------------------------------------------------------------------------
+
+group('keyboard navigation');
+
+const t10 = makeTree();
+t10.setData(TREE_DATA);
+t10.expandAll();
+
+// Focus the root element
+t10._rootEl.focus();
+t10._focusedId = t10._visible[0].node.id; // set initial focus
+
+function press(el, key) {
+    const ev = new KeyboardEvent('keydown', { key, bubbles: true, cancelable: true });
+    el._rootEl.dispatchEvent(ev);
+}
+
+const firstId = t10._visible[0].node.id;
+assert('initial focused id set', t10._focusedId === firstId);
+
+press(t10, 'ArrowDown');
+assert('ArrowDown moves focus to second row', t10._focusedId === t10._visible[1].node.id);
+
+press(t10, 'ArrowDown');
+press(t10, 'ArrowUp');
+assert('ArrowUp moves focus back', t10._focusedId === t10._visible[1].node.id);
+
+press(t10, 'Home');
+assert('Home moves focus to first row', t10._focusedId === t10._visible[0].node.id);
+
+press(t10, 'End');
+assert('End moves focus to last row', t10._focusedId === t10._visible[t10._visible.length - 1].node.id);
+
+// ArrowLeft on expanded folder collapses it
+const firstFolder = t10._visible.find(v => t10._isExpandable(v.node));
+t10._focusedId = firstFolder.node.id;
+const wasExpanded = t10._expanded.has(firstFolder.node.id);
+press(t10, 'ArrowLeft');
+if (wasExpanded) {
+    assert('ArrowLeft collapses expanded folder', !t10._expanded.has(firstFolder.node.id));
+} else {
+    assert('ArrowLeft: folder was not expanded (check)', true);
+}
+
+// ArrowRight expands a collapsed folder
+t10.collapseAll();
+t10._visible = t10._buildVisibleList(); // rebuild after collapseAll
+const collapsedFolder = t10._visible.find(v => t10._isExpandable(v.node));
+t10._focusedId = collapsedFolder.node.id;
+press(t10, 'ArrowRight');
+assert('ArrowRight expands collapsed folder', t10._expanded.has(collapsedFolder.node.id));
+
+// Enter selects focused node
+t10.expandAll();
+t10._visible = t10._buildVisibleList();
+const leafItem = t10._visible.find(v => !t10._isExpandable(v.node) && !v.node.disabled);
+t10._focusedId = leafItem.node.id;
+press(t10, 'Enter');
+assert('Enter selects focused node', t10.getSelectedId() === leafItem.node.id);
+
+// NODE_ACTIVATED fires on Enter for leaf
+const events10 = {};
+events10[SGT_EVENTS.NODE_ACTIVATED] = [];
+t10.addEventListener(SGT_EVENTS.NODE_ACTIVATED, e => events10[SGT_EVENTS.NODE_ACTIVATED].push(e.detail));
+press(t10, 'Enter');
+assert('Enter on leaf fires NODE_ACTIVATED', events10[SGT_EVENTS.NODE_ACTIVATED].length >= 1);
+
+// Space is a no-op in v0.1.0 (reserved for multi-select)
+const visCount = t10._visible.length;
+press(t10, ' ');
+assert('Space is no-op in v0.1.0 (no crash)', t10._visible.length === visCount);
+
+// ---------------------------------------------------------------------------
+// Group 13: Badge renders
+// ---------------------------------------------------------------------------
+
+group('badge rendering');
+
+const t11 = makeTree();
+t11.setData(TREE_DATA);
+t11.expandAll();
+
+// file-main has badge '3', file-readme has badge 'new'
+const row11main   = t11.shadowRoot.querySelector('.sgt-row[data-id="file-main"]');
+const row11readme = t11.shadowRoot.querySelector('.sgt-row[data-id="file-readme"]');
+
+assert('badge element exists on file-main', row11main && row11main.querySelector('.sgt-badge') !== null);
+assert('badge text on file-main is "3"', row11main && row11main.querySelector('.sgt-badge').textContent === '3');
+assert('badge element exists on file-readme', row11readme && row11readme.querySelector('.sgt-badge') !== null);
+assert('badge text on file-readme is "new"', row11readme && row11readme.querySelector('.sgt-badge').textContent === 'new');
+
+// file-header has no badge
+const row11hdr = t11.shadowRoot.querySelector('.sgt-row[data-id="file-header"]');
+assert('no badge element on file-header', row11hdr && row11hdr.querySelector('.sgt-badge') === null);
+
+// ---------------------------------------------------------------------------
+// Group 14: ARIA attributes
+// ---------------------------------------------------------------------------
+
+group('ARIA attributes');
+
+const t12 = makeTree();
+t12.setData(TREE_DATA);
+t12.expandAll();
+
+const root12 = t12.shadowRoot.querySelector('.sgt-root');
+assert('role="tree" on root', root12 && root12.getAttribute('role') === 'tree');
+assert('tabindex="0" on root', root12 && root12.getAttribute('tabindex') === '0');
+
+const row12folder = t12.shadowRoot.querySelector('.sgt-row[data-id="src"]');
+assert('role="treeitem" on row', row12folder && row12folder.getAttribute('role') === 'treeitem');
+assert('aria-expanded="true" on expanded folder', row12folder && row12folder.getAttribute('aria-expanded') === 'true');
+
+t12.collapse('src');
+const row12collapsed = t12.shadowRoot.querySelector('.sgt-row[data-id="src"]');
+assert('aria-expanded="false" on collapsed folder', row12collapsed && row12collapsed.getAttribute('aria-expanded') === 'false');
+
+t12.expandAll();
+t12.select('file-readme');
+const row12sel = t12.shadowRoot.querySelector('.sgt-row[data-id="file-readme"]');
+assert('aria-selected="true" on selected node', row12sel && row12sel.getAttribute('aria-selected') === 'true');
+
+const row12dis = t12.shadowRoot.querySelector('.sgt-row[data-id="file-disabled"]');
+assert('aria-disabled="true" on disabled node', row12dis && row12dis.getAttribute('aria-disabled') === 'true');
+
+// ---------------------------------------------------------------------------
+// Group 15: Empty tree
+// ---------------------------------------------------------------------------
+
+group('empty tree');
+
+const t13 = makeTree();
+t13.setData(null);
+assert('getData() returns null for null setData', t13.getData() === null);
+assert('getSelectedId() returns null on empty tree', t13.getSelectedId() === null);
+assert('getExpandedIds() returns [] on empty tree', t13.getExpandedIds().length === 0);
+
+// ---------------------------------------------------------------------------
+// Group 16: expandableTypes custom type
+// ---------------------------------------------------------------------------
+
+group('expandableTypes custom type');
+
+const t14 = makeTree();
+t14.expandableTypes = ['folder', 'widget'];
+const customData = {
+    id: 'root2',
+    label: 'Root',
+    type: 'widget',
+    children: [
+        { id: 'child1', label: 'child 1', type: 'file' }
+    ]
+};
+t14.setData(customData);
+assert('custom expandable type "widget" is expandable', t14._isExpandable(customData));
+assert('widget expands on expand()', (t14.expand('root2'), t14.getExpandedIds().includes('root2')));
+
+// ---------------------------------------------------------------------------
+// Group 17: _rowHeight internal property
+// ---------------------------------------------------------------------------
+
+group('internal _rowHeight property');
+const t15 = makeTree();
+assert('_rowHeight is a number', typeof t15._rowHeight === 'number');
+assert('_rowHeight default is 28', t15._rowHeight === 28);
+
+// ---------------------------------------------------------------------------
+// Group 18: Override queue
+// ---------------------------------------------------------------------------
+
+group('override queue (window._SgTreeQ)');
+assert('_SgTreeQ is object after module load', typeof window._SgTreeQ === 'object');
+assert('_SgTreeQ.push is a function', typeof window._SgTreeQ.push === 'function');
+
+let overrideCalled = false;
+window._SgTreeQ.push(() => { overrideCalled = true; });
+assert('pushing to _SgTreeQ calls fn immediately', overrideCalled);
+
+// ---------------------------------------------------------------------------
+// Summary
+// ---------------------------------------------------------------------------
+
+showSummary();
+
+// ---------------------------------------------------------------------------
+// Demo tree setup
+// ---------------------------------------------------------------------------
+
+const demoTree = document.getElementById('demo-tree');
+window.demoTree = demoTree;
+
+const eventLog = document.getElementById('event-log');
+eventLog.innerHTML = '';
+
+function logEvent(name, detail) {
+    const line = document.createElement('div');
+    line.textContent = `${name}: ${JSON.stringify(detail).slice(0, 120)}`;
+    eventLog.insertBefore(line, eventLog.firstChild);
+    if (eventLog.children.length > 20) eventLog.removeChild(eventLog.lastChild);
+}
+
+for (const [key, name] of Object.entries(SGT_EVENTS)) {
+    demoTree.addEventListener(name, e => logEvent(key, e.detail));
+}
+
+demoTree.setData(TREE_DATA);
+
+window.showState = function() {
+    const state = demoTree.getLayoutState();
+    document.getElementById('state-box').textContent = JSON.stringify(state, null, 2);
+    window._savedState = state;
+};
+
+window.restoreState = function() {
+    if (!window._savedState) { alert('Click "Show State" first.'); return; }
+    demoTree.setLayoutState(window._savedState);
+};
+
+window.applyFilter = function(val) {
+    if (!val.trim()) { demoTree.filter(null); return; }
+    demoTree.filter(node => node.label.toLowerCase().includes(val.toLowerCase()));
+};
+
+window.clearFilter = function() {
+    document.getElementById('filter-input').value = '';
+    demoTree.filter(null);
+};
+
+</script>
+</body>
+</html>
