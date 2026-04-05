@@ -1,0 +1,165 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>sg-tree v0.1.2 — Virtual Scroll Tests</title>
+<style>
+  body { font-family: monospace; background: #0d0d1a; color: #e2e8f0; padding: 20px; margin: 0; }
+  h1   { color: #4ECDC4; font-size: 16px; margin-bottom: 16px; }
+  #results { list-style: none; padding: 0; margin: 0 0 20px; }
+  #results li { padding: 4px 8px; margin: 2px 0; border-radius: 3px; font-size: 13px; }
+  .pass { background: rgba(78,205,196,0.1); color: #4ECDC4; }
+  .fail { background: rgba(255,100,100,0.1); color: #ff6b6b; }
+  #summary { font-size: 13px; color: #a0aec0; margin-bottom: 24px; }
+  #tree-container { width: 300px; height: 300px; border: 1px solid #2a2a4a; display: inline-block; vertical-align: top; }
+  .controls { display: inline-block; vertical-align: top; padding-left: 20px; font-size: 12px; }
+  button { background: #1a1a3a; border: 1px solid #2a2a4a; color: #e2e8f0; padding: 6px 14px;
+           border-radius: 4px; cursor: pointer; font-size: 12px; margin: 4px 0; display: block; }
+  button:hover { border-color: #4ECDC4; }
+  #stats { margin-top: 12px; font-size: 11px; color: #a0aec0; }
+</style>
+</head>
+<body>
+<h1>sg-tree v0.1.2 — Virtual Scroll Tests</h1>
+<ul id="results"></ul>
+<div id="summary"></div>
+
+<div id="tree-container"><sg-tree id="t" show-root="false"></sg-tree></div>
+<div class="controls">
+  <div id="stats">—</div>
+  <button onclick="scrollToMiddle()">scrollTo middle node</button>
+  <button onclick="scrollToLast()">scrollTo last node</button>
+  <button onclick="scrollToFirst()">scrollTo first node</button>
+  <button onclick="logDom()">Log DOM row count</button>
+</div>
+
+<script type="module">
+import '../../core/sg-tree/v0/v0.1/v0.1.2/sg-tree--v0.1.2.js';
+
+const results = [];
+let pass = 0, fail = 0;
+
+function assert(label, cond, detail = '') {
+    const ok = Boolean(cond);
+    results.push({ label, ok, detail });
+    if (ok) pass++; else fail++;
+}
+
+async function sleep(ms) { return new Promise(r => setTimeout(r, ms)); }
+
+const tree = document.getElementById('t');
+window._tree = tree;
+
+// Build a large flat tree (2000 leaf nodes under root)
+function buildLargeTree(count) {
+    const children = [];
+    for (let i = 0; i < count; i++) {
+        children.push({ id: `n${i}`, label: `Node ${i}`, type: 'file' });
+    }
+    return { id: 'root', label: 'Root', type: 'folder', children };
+}
+
+const LARGE = buildLargeTree(2000);
+tree.setData(structuredClone(LARGE));
+await sleep(100); // allow connectedCallback + render
+
+const rowH    = tree._rowHeight; // 28
+const viewH   = tree._viewport.clientHeight;
+const maxRows = Math.ceil(viewH / rowH) + 4 * 2; // buffer=4
+
+// --- Virtual scroll checks ---
+const domRows = () => tree._viewport.querySelectorAll('.sgt-row').length;
+
+assert('_rowHeight is 28', rowH === 28);
+assert('_visibleRange initialised', tree._visibleRange !== undefined);
+
+const rowCount = domRows();
+assert('Virtual scroll: DOM rows ≤ maxRows',
+    rowCount <= maxRows,
+    `dom=${rowCount}, max=${maxRows}`);
+
+assert('Virtual scroll: DOM rows > 0', rowCount > 0);
+
+// Total visible list should have 2000 entries (root hidden, show-root=false)
+assert('_visible list has 2000 entries', tree._visible.length === 2000);
+
+// --- scrollTo ---
+tree.scrollTo('n1000');
+await sleep(50);
+// After scroll, the viewport should be near row 1000
+const scrollAfter = tree._viewport.scrollTop;
+const expectedApprox = 1000 * rowH;
+assert('scrollTo(n1000) sets scroll near expected offset',
+    Math.abs(scrollAfter - expectedApprox) < rowH * 5,
+    `got=${scrollAfter}, expected≈${expectedApprox}`);
+
+// DOM row count should still be within virtual window
+const rowCountAfter = domRows();
+assert('Virtual scroll: DOM rows still bounded after scrollTo',
+    rowCountAfter <= maxRows,
+    `dom=${rowCountAfter}`);
+
+// --- getScrollTop / setScrollTop ---
+tree.setScrollTop(0);
+await sleep(30);
+assert('setScrollTop(0) resets scroll', tree._viewport.scrollTop === 0);
+assert('getScrollTop() returns 0 after reset', tree.getScrollTop() === 0);
+tree.setScrollTop(500);
+await sleep(30);
+assert('setScrollTop(500) sets scroll', Math.abs(tree._viewport.scrollTop - 500) < 2);
+
+// --- Filter with virtual scroll ---
+tree.filter(n => n.label.includes('999'));
+await sleep(50);
+// Nodes matching: n999, n1999 => 2 visible
+assert('filter() works with virtual scroll: 2 matches for "999"', tree._visible.length === 2);
+const filteredDomRows = domRows();
+assert('filter() renders all matching rows (small count)', filteredDomRows === 2);
+tree.filter(null);
+await sleep(30);
+assert('filter(null) restores full list', tree._visible.length === 2000);
+
+// --- setData reset ---
+tree.setData(buildLargeTree(500));
+await sleep(50);
+assert('setData resets _visible to new count', tree._visible.length === 500);
+const afterResetDom = domRows();
+assert('setData: DOM rows bounded for 500 nodes', afterResetDom <= maxRows);
+
+// --- Empty tree ---
+tree.setData({ id: 'empty', label: 'Empty', type: 'folder', children: [] });
+await sleep(30);
+const emptyRows = tree._viewport.querySelectorAll('.sgt-row').length;
+const emptyEl   = tree._viewport.querySelector('.sgt-empty');
+assert('Empty tree shows .sgt-empty element', emptyEl !== null);
+assert('Empty tree has no row elements', emptyRows === 0);
+
+// --- Render results ---
+const ul  = document.getElementById('results');
+const sum = document.getElementById('summary');
+for (const r of results) {
+    const li = document.createElement('li');
+    li.className = r.ok ? 'pass' : 'fail';
+    li.textContent = `${r.ok ? '✓' : '✗'}  ${r.label}${r.detail ? ' — ' + r.detail : ''}`;
+    ul.appendChild(li);
+}
+sum.textContent = `${pass} passed, ${fail} failed out of ${pass + fail} assertions`;
+
+// --- Interactive helpers ---
+tree.setData(buildLargeTree(2000));
+await sleep(50);
+const updateStats = () => {
+    const s = document.getElementById('stats');
+    s.textContent = `Total: ${tree._visible.length} | DOM rows: ${domRows()} | scroll: ${tree.getScrollTop()}px`;
+};
+tree._viewport.addEventListener('scroll', updateStats);
+updateStats();
+
+window.scrollToMiddle = () => { tree.scrollTo('n1000'); setTimeout(updateStats, 100); };
+window.scrollToLast   = () => { tree.scrollTo('n1999'); setTimeout(updateStats, 100); };
+window.scrollToFirst  = () => { tree.scrollTo('n0'); setTimeout(updateStats, 100); };
+window.logDom         = () => { console.log('DOM rows:', domRows(), 'scroll:', tree.getScrollTop()); updateStats(); };
+</script>
+</body>
+</html>
