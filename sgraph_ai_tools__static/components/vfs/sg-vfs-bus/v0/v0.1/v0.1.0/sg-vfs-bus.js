@@ -33,6 +33,8 @@
 
 import { VirtualFileSystem } from '/core/sg-vfs/v0/v0.1/v0.1.0/sg-vfs-core.js';
 import { MemoryProvider }    from '/core/sg-vfs/v0/v0.1/v0.1.0/sg-vfs-provider-memory.js';
+import { IndexedDbProvider } from '/core/sg-vfs/v0/v0.1/v0.1.0/sg-vfs-provider-indexeddb.js';
+import { LayeredProvider }   from '/core/sg-vfs/v0/v0.1/v0.1.0/sg-vfs-provider-layered.js';
 import { SGL_VFS }           from '/core/sg-vfs/v0/v0.1/v0.1.0/sg-vfs-events.js';
 
 export class SgVfsBus extends HTMLElement {
@@ -74,6 +76,15 @@ export class SgVfsBus extends HTMLElement {
     _makeProvider() {
         const type = this.getAttribute('provider') || 'memory';
         switch (type) {
+            case 'indexeddb':
+                return new IndexedDbProvider({ dbName: this.getAttribute('db-name') || 'sg-vfs' });
+            case 'layered': {
+                // Memory (priority 0) + IndexedDB (priority 1)
+                const layered = new LayeredProvider({ bus: this._busEl });
+                layered.addProvider(new MemoryProvider(),    0);
+                layered.addProvider(new IndexedDbProvider(), 1);
+                return layered;
+            }
             case 'memory':
             default:
                 return new MemoryProvider();
@@ -97,15 +108,15 @@ export class SgVfsBus extends HTMLElement {
 
     _listen(bus) {
         this._handlers = [
-            [SGL_VFS.READ_REQUEST,          e => this._handle(e, d => this.vfs.readFile(d.path))],
-            [SGL_VFS.WRITE_REQUEST,         e => this._handle(e, d => this.vfs.writeFile(d.path, d.content, d.options))],
-            [SGL_VFS.DELETE_REQUEST,        e => this._handle(e, d => this.vfs.deleteFile(d.path))],
-            [SGL_VFS.LIST_REQUEST,          e => this._handle(e, d => this.vfs.listFolder(d.path))],
-            [SGL_VFS.STAT_REQUEST,          e => this._handle(e, d => this.vfs.stat(d.path))],
-            [SGL_VFS.CREATE_FOLDER_REQUEST, e => this._handle(e, d => this.vfs.createFolder(d.path))],
-            [SGL_VFS.COPY_REQUEST,          e => this._handle(e, d => this.vfs.copyFile(d.src, d.dst))],
-            [SGL_VFS.RENAME_REQUEST,        e => this._handle(e, d => this.vfs.rename(d.src, d.dst))],
-            [SGL_VFS.EXISTS_REQUEST,        e => this._handle(e, d => this.vfs.exists(d.path))],
+            [SGL_VFS.READ_REQUEST,          e => this._handle(e, d => this.vfs.readFile(d.path, { requestId: d.requestId }))],
+            [SGL_VFS.WRITE_REQUEST,         e => this._handle(e, d => this.vfs.writeFile(d.path, d.content, { requestId: d.requestId }))],
+            [SGL_VFS.DELETE_REQUEST,        e => this._handle(e, d => this.vfs.deleteFile(d.path, { requestId: d.requestId }))],
+            [SGL_VFS.LIST_REQUEST,          e => this._handle(e, d => this.vfs.listFolder(d.path, { requestId: d.requestId }))],
+            [SGL_VFS.STAT_REQUEST,          e => this._handle(e, d => this.vfs.stat(d.path, { requestId: d.requestId }))],
+            [SGL_VFS.CREATE_FOLDER_REQUEST, e => this._handle(e, d => this.vfs.createFolder(d.path, { requestId: d.requestId }))],
+            [SGL_VFS.COPY_REQUEST,          e => this._handle(e, d => this.vfs.copyFile(d.src, d.dst, { requestId: d.requestId }))],
+            [SGL_VFS.RENAME_REQUEST,        e => this._handle(e, d => this.vfs.rename(d.src, d.dst, { requestId: d.requestId }))],
+            [SGL_VFS.EXISTS_REQUEST,        e => this._handle(e, d => this.vfs.exists(d.path, { requestId: d.requestId }))],
         ];
 
         for (const [event, handler] of this._handlers) {
