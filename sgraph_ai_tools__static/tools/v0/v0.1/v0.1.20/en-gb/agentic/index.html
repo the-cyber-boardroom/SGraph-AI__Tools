@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Agentic Loop — tools.sgraph.ai</title>
-    <meta name="description" content="LLM tool calling with VFS integration. Define tools, run agentic loops, execute sandboxed code. Human-in-the-loop approval, cost budget, trace timeline. Supports Gemma 4, Mistral, Llama 3 via Ollama or OpenRouter.">
+    <meta name="description" content="LLM tool calling with VFS integration, Python REPL, and structured JSON I/O. Define tools, run agentic loops, execute sandboxed JS/Python code. Human-in-the-loop approval, cost budget, trace timeline. Supports Gemma 4, Mistral, Llama 3 via Ollama or OpenRouter.">
     <link rel="icon" type="image/svg+xml" href="../../../_common/favicon.svg">
     <link rel="stylesheet" href="../../../_common/css/tools.css">
     <style>
@@ -16,7 +16,7 @@
             overflow: hidden;
         }
         sg-site-header { flex-shrink: 0; }
-        #outer { flex: 1; display: flex; flex-direction: column; min-height: 0; }
+        #outer   { flex: 1; display: flex; flex-direction: column; min-height: 0; }
         #llm-bus { flex: 1; display: flex; flex-direction: column; min-height: 0; }
         sg-layout { flex: 1; min-height: 0; }
         sg-llm-request, sg-tool-runner, sg-agentic-loop, sg-vfs-bus { display: none !important; }
@@ -29,9 +29,8 @@
 
 <div id="outer">
     <!--
-        [data-llm-bus] — LLM request + tool runner + agentic loop
+        [data-llm-bus] — LLM request + tool runner (v0.1.1, Python support) + agentic loop
         All three headless components live here.
-        sg-agentic-loop dispatches llm:agentic-start to itself then manages the rest.
     -->
     <div id="llm-bus" data-llm-bus>
         <sg-llm-request></sg-llm-request>
@@ -53,9 +52,13 @@ import '/components/llm/sg-llm-events/v0/v0.1/v0.1.1/sg-llm-events.js';
 import '/components/llm/sg-llm-request/v0/v0.1/v0.1.4/sg-llm-request.js';
 import '/components/llm/sg-llm-connection/v0/v0.1/v0.1.4/sg-llm-connection.js';
 import '/components/llm/sg-llm-stats/v0/v0.1/v0.1.1/sg-llm-stats.js';
-import '/components/agentic/sg-tool-runner/v0/v0.1/v0.1.0/sg-tool-runner.js';
+// v0.1.1: sg-tool-runner with Python support (uses SGSandbox v0.2.0)
+import '/components/agentic/sg-tool-runner/v0/v0.1/v0.1.1/sg-tool-runner.js';
 import '/components/agentic/sg-agentic-loop/v0/v0.1/v0.1.0/sg-agentic-loop.js';
 import '/components/agentic/sg-tool-definition/v0/v0.1/v0.1.0/sg-tool-definition.js';
+import '/components/agentic/sg-python-repl/v0/v0.1/v0.1.0/sg-python-repl.js';
+import '/components/agentic/sg-json-sender/v0/v0.1/v0.1.0/sg-json-sender.js';
+import '/components/agentic/sg-json-receiver/v0/v0.1/v0.1.0/sg-json-receiver.js';
 import '/components/vfs/sg-vfs-bus/v0/v0.1/v0.1.0/sg-vfs-bus.js';
 import { SGL_LLM } from '/components/llm/sg-llm-events/v0/v0.1/v0.1.1/sg-llm-events.js';
 
@@ -63,29 +66,37 @@ import { SGL_LLM } from '/components/llm/sg-llm-events/v0/v0.1/v0.1.1/sg-llm-eve
 
 const LAYOUT = {
     type: 'row',
-    sizes: [0.24, 0.48, 0.28],
+    sizes: [0.22, 0.46, 0.32],
     children: [
         // Left: connection + tool definitions
         {
-            type: 'column', sizes: [0.38, 0.62],
+            type: 'column', sizes: [0.35, 0.65],
             children: [
                 { type: 'stack', tabs: [{ tag: 'sg-llm-connection', title: 'Connection' }] },
                 { type: 'stack', tabs: [{ tag: 'sg-tool-definition', title: 'Tools' }] },
             ],
         },
-        // Centre: task + trace
+        // Centre: task + trace/JSON tabs
         {
-            type: 'column', sizes: [0.16, 0.84],
+            type: 'column', sizes: [0.14, 0.86],
             children: [
                 { type: 'stack', tabs: [{ tag: 'sg-agentic-task', title: 'Task' }] },
-                { type: 'stack', tabs: [{ tag: 'sg-agentic-trace', title: 'Trace' }] },
+                {
+                    type: 'stack',
+                    tabs: [
+                        { tag: 'sg-agentic-trace',  title: 'Trace' },
+                        { tag: 'sg-json-sender',    title: 'JSON Send' },
+                        { tag: 'sg-json-receiver',  title: 'JSON Receive' },
+                    ],
+                },
             ],
         },
-        // Right: stats + VFS
+        // Right: stats + Python REPL + VFS
         {
-            type: 'column', sizes: [0.22, 0.78],
+            type: 'column', sizes: [0.15, 0.42, 0.43],
             children: [
                 { type: 'stack', tabs: [{ tag: 'sg-llm-stats', title: 'Stats' }] },
+                { type: 'stack', tabs: [{ tag: 'sg-python-repl', title: 'Python REPL' }] },
                 { type: 'stack', tabs: [{ tag: 'sg-agentic-vfs', title: 'VFS' }] },
             ],
         },
@@ -150,23 +161,21 @@ class SgAgenticTask extends HTMLElement {
         this.shadowRoot.getElementById('run').onclick = () => {
             const task = this.shadowRoot.getElementById('task').value.trim();
             if (!task || !loop) return;
-            const maxIter = parseInt(this.shadowRoot.getElementById('max-iter').value, 10) || 10;
-            const budget  = parseFloat(this.shadowRoot.getElementById('budget').value) || 0.5;
+            const maxIter  = parseInt(this.shadowRoot.getElementById('max-iter').value, 10) || 10;
+            const budget   = parseFloat(this.shadowRoot.getElementById('budget').value) || 0.5;
             const approval = this.shadowRoot.getElementById('human-approval').checked;
             if (approval) loop.setAttribute('human-approval', '');
-            else loop.removeAttribute('human-approval');
-            // Start the loop — dispatches llm:agentic-start which the loop itself handles
-            // We call .start() directly to pass config
+            else          loop.removeAttribute('human-approval');
             loop.start(task, null, { maxIterations: maxIter, costBudget: budget });
         };
         this.shadowRoot.getElementById('stop').onclick = () => {
             document.getElementById('agentic-loop')?.stop();
         };
 
-        BUS.addEventListener(SGL_LLM.AGENTIC_START,  () => this._setState('running'));
-        BUS.addEventListener(SGL_LLM.AGENTIC_DONE,   (e) => this._setState('done', e.detail.iterations));
-        BUS.addEventListener(SGL_LLM.AGENTIC_ABORT,  (e) => this._setState('aborted', e.detail.iterations, e.detail.reason));
-        BUS.addEventListener(SGL_LLM.AGENTIC_STEP,   (e) => this._onStep(e.detail));
+        BUS.addEventListener(SGL_LLM.AGENTIC_START,             () => this._setState('running'));
+        BUS.addEventListener(SGL_LLM.AGENTIC_DONE,              (e) => this._setState('done', e.detail.iterations));
+        BUS.addEventListener(SGL_LLM.AGENTIC_ABORT,             (e) => this._setState('aborted', e.detail.iterations, e.detail.reason));
+        BUS.addEventListener(SGL_LLM.AGENTIC_STEP,              (e) => this._onStep(e.detail));
         BUS.addEventListener(SGL_LLM.AGENTIC_APPROVAL_REQUIRED, (e) => this._setState('awaiting', e.detail.iterations));
     }
     _setState(state, iter, reason) {
@@ -177,17 +186,16 @@ class SgAgenticTask extends HTMLElement {
         if (run)  run.disabled = running;
         if (stop) stop.classList.toggle('vis', running);
         if (st) {
-            if (state === 'running')  st.textContent = `Running… iter ${iter ?? '?'}`;
+            if (state === 'running')   st.textContent = `Running… iter ${iter ?? '?'}`;
             else if (state === 'awaiting') st.textContent = `Awaiting approval (iter ${iter})`;
-            else if (state === 'done')  st.textContent = `Done in ${iter} iteration${iter !== 1 ? 's' : ''}`;
-            else if (state === 'aborted') st.textContent = `Stopped: ${reason || 'aborted'}`;
+            else if (state === 'done')     st.textContent = `Done in ${iter} iteration${iter !== 1 ? 's' : ''}`;
+            else if (state === 'aborted')  st.textContent = `Stopped: ${reason || 'aborted'}`;
             else st.textContent = '';
         }
     }
-    _onStep(detail) {
-        const st = this.shadowRoot.getElementById('status');
-        if (!st) return;
+    _onStep() {
         const loop = document.getElementById('agentic-loop');
+        const st   = this.shadowRoot.getElementById('status');
         if (loop && st) st.textContent = `Running… iter ${loop.iterations}`;
     }
 }
@@ -204,15 +212,14 @@ const TRACE_CSS = `
 .tr-hdr:hover { filter: brightness(1.15); }
 .tr-body { padding: 8px 12px; font-size: 11px; line-height: 1.6; white-space: pre-wrap; word-break: break-word; display: none; background: #0d0d1a; color: #cbd5e1; }
 .tr-body.open { display: block; }
-.tr-step.user   .tr-hdr { background: #1a1a2e; color: #94a3b8; }
-.tr-step.llm    .tr-hdr { background: #0f1a3a; color: #7c9ef8; }
-.tr-step.tool   .tr-hdr { background: #0f2a1a; color: #4ade80; }
-.tr-step.result .tr-hdr { background: #1a0f1f; color: #c084fc; }
-.tr-step.done   .tr-hdr { background: #0d1a0d; color: #86efac; }
-.tr-step.error  .tr-hdr { background: #2a0d0d; color: #f87171; }
+.tr-step.user     .tr-hdr { background: #1a1a2e; color: #94a3b8; }
+.tr-step.llm      .tr-hdr { background: #0f1a3a; color: #7c9ef8; }
+.tr-step.tool     .tr-hdr { background: #0f2a1a; color: #4ade80; }
+.tr-step.result   .tr-hdr { background: #1a0f1f; color: #c084fc; }
+.tr-step.done     .tr-hdr { background: #0d1a0d; color: #86efac; }
+.tr-step.error    .tr-hdr { background: #2a0d0d; color: #f87171; }
 .tr-step.awaiting .tr-hdr { background: #1a1a0a; color: #fbbf24; }
 .tr-badge { margin-left: auto; font-size: 9px; opacity: 0.65; font-weight: normal; }
-.tr-stream { font-style: italic; color: #475569; }
 `;
 
 class SgAgenticTrace extends HTMLElement {
@@ -220,7 +227,7 @@ class SgAgenticTrace extends HTMLElement {
     connectedCallback() {
         this.shadowRoot.innerHTML = `<style>${TRACE_CSS}</style>
         <div class="tr-wrap" id="wrap">
-            <div class="tr-empty" id="empty">Run a task to see the agentic trace.</div>
+            <div class="tr-empty">Run a task to see the agentic trace.</div>
         </div>`;
         BUS.addEventListener(SGL_LLM.AGENTIC_START,             () => this._clear());
         BUS.addEventListener(SGL_LLM.AGENTIC_STEP,              (e) => this._onStep(e.detail));
@@ -231,13 +238,13 @@ class SgAgenticTrace extends HTMLElement {
     }
     _clear() {
         const wrap = this.shadowRoot.getElementById('wrap');
-        if (wrap) wrap.innerHTML = `<style>${TRACE_CSS}</style>`;
+        if (wrap) wrap.innerHTML = '';
         this._streamEl = null;
     }
     _onStep(detail) {
         const { step, type, data } = detail;
         if (type === 'llm') {
-            const el = this._addStep(type, `[waiting for model…]`, `step ${step}`);
+            const el = this._addStep(type, '[waiting for model…]', `step ${step}`);
             this._streamEl = el.querySelector('.tr-body');
             this._streamEl.classList.add('open');
         } else {
@@ -268,15 +275,12 @@ class SgAgenticTrace extends HTMLElement {
     _addStep(type, data, badge) {
         const wrap = this.shadowRoot.getElementById('wrap');
         if (!wrap) return document.createElement('div');
-        const ICONS = { user: '👤', llm: '🤖', tool: '🔧', result: '📦', done: '✅', error: '❌', awaiting: '⏸️' };
-        const LABELS = { user: 'Task', llm: 'LLM', tool: 'Tool call', result: 'Tool result', done: 'Done', error: 'Error', awaiting: 'Awaiting approval' };
-        const icon  = ICONS[type] ?? '•';
-        const label = LABELS[type] ?? type;
-        const text  = typeof data === 'object' ? JSON.stringify(data, null, 2) : String(data ?? '');
-        const summary = text.slice(0, 100) + (text.length > 100 ? '…' : '');
-        const div = document.createElement('div');
+        const ICONS  = { user:'👤', llm:'🤖', tool:'🔧', result:'📦', done:'✅', error:'❌', awaiting:'⏸️' };
+        const LABELS = { user:'Task', llm:'LLM', tool:'Tool call', result:'Tool result', done:'Done', error:'Error', awaiting:'Awaiting approval' };
+        const text   = typeof data === 'object' ? JSON.stringify(data, null, 2) : String(data ?? '');
+        const div    = document.createElement('div');
         div.className = `tr-step ${type}`;
-        div.innerHTML = `<div class="tr-hdr"><span>${icon} ${label}</span><span class="tr-badge">${_esc(badge ?? '')}</span></div>
+        div.innerHTML = `<div class="tr-hdr"><span>${ICONS[type] ?? '•'} ${LABELS[type] ?? type}</span><span class="tr-badge">${_esc(badge ?? '')}</span></div>
                          <div class="tr-body">${_esc(text)}</div>`;
         div.querySelector('.tr-hdr').onclick = () => div.querySelector('.tr-body').classList.toggle('open');
         wrap.appendChild(div);
@@ -326,13 +330,12 @@ class SgAgenticVfs extends HTMLElement {
             </div>
             <div class="vp-content" id="preview"></div>
         </div>`;
-        this.shadowRoot.getElementById('refresh').onclick = () => this._refresh();
-        this.shadowRoot.getElementById('seed').onclick    = () => this._seedFile();
+        this.shadowRoot.getElementById('refresh').onclick     = () => this._refresh();
+        this.shadowRoot.getElementById('seed').onclick         = () => this._seedFile();
         this.shadowRoot.getElementById('preview-close').onclick = () => {
             this.shadowRoot.getElementById('preview').classList.remove('open');
             this.shadowRoot.getElementById('preview-hdr').style.display = 'none';
         };
-
         const vfsBus = document.querySelector('[data-vfs-bus]');
         if (vfsBus) {
             ['vfs:write-response','vfs:delete-response','vfs:create-folder-response'].forEach(ev =>
