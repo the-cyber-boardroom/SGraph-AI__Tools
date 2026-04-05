@@ -149,9 +149,37 @@ export const SGL_LLM = Object.freeze({
 
     /**
      * Fired when the agentic loop is aborted (max iterations, cost budget, or cancel).
-     * detail: { reason: 'max_iterations'|'cost_budget'|'cancelled'|'error', steps: Array, iterations: number }
+     * detail: { reason: 'max_iterations'|'cost_budget'|'cancelled'|'rejected'|'error', steps: Array, iterations: number }
      */
     AGENTIC_ABORT:          'llm:agentic-abort',
+
+    // --- Human-in-the-loop approval (v0.1.1 addition) ---
+    /**
+     * Fired by sg-agentic-loop when human-approval is enabled and tool results arrived.
+     * Loop is paused; dispatch AGENTIC_APPROVED or AGENTIC_REJECTED to resume/stop.
+     * detail: { step: number, results: Array, messages: Array, iterations: number }
+     */
+    AGENTIC_APPROVAL_REQUIRED:  'llm:agentic-approval-required',
+
+    /**
+     * Dispatch to approve continuing the loop after AGENTIC_APPROVAL_REQUIRED.
+     * detail: {}
+     */
+    AGENTIC_APPROVED:           'llm:agentic-approved',
+
+    /**
+     * Dispatch to reject (abort) the loop after AGENTIC_APPROVAL_REQUIRED.
+     * detail: {}
+     */
+    AGENTIC_REJECTED:           'llm:agentic-rejected',
+
+    // --- Tool definition changes ---
+    /**
+     * Fired by sg-tool-definition when the active tool set changes.
+     * sg-agentic-loop listens to keep its cached tools in sync.
+     * detail: { tools: Array<ToolDefinition> }
+     */
+    TOOL_DEFS_CHANGED:          'llm:tool-defs-changed',
 });
 
 // Expose on window for surgical overrides that can't import ES modules
