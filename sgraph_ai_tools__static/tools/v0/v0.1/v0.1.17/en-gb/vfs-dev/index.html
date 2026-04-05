@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>VFS Dev — tools.sgraph.ai</title>
-    <meta name="description" content="Phase 1 VFS developer tool: real-time event viewer and file system operations tester.">
+    <meta name="description" content="Phase 2 VFS developer tool: memory / IndexedDB / layered providers, real-time event viewer with 4 tabs.">
     <link rel="icon" type="image/svg+xml" href="../../../_common/favicon.svg">
     <link rel="stylesheet" href="../../../_common/css/tools.css">
     <style>
@@ -175,6 +175,37 @@
             width: 0;
             transition: width 0.1s;
         }
+
+        /* ── Provider selector ────────────────────────────────────────────── */
+        .provider-selector {
+            display: flex;
+            gap: 0.35rem;
+            flex-wrap: wrap;
+        }
+        .prov-opt {
+            padding: 0.25rem 0.6rem;
+            border-radius: 4px;
+            border: 1px solid var(--sg-border, #2a3a5c);
+            background: transparent;
+            color: var(--sg-text-muted, #8892b0);
+            font-size: 0.7rem; font-weight: 600;
+            cursor: pointer;
+        }
+        .prov-opt:hover { border-color: var(--sg-accent, #4ecdc4); color: var(--sg-accent, #4ecdc4); }
+        .prov-opt.active {
+            border-color: var(--sg-accent, #4ecdc4);
+            background: rgba(78,205,196,0.12);
+            color: var(--sg-accent, #4ecdc4);
+        }
+        .prov-opt[data-prov="layered"].active { border-color: #a78bfa; background: rgba(167,139,250,0.12); color: #a78bfa; }
+        .prov-opt[data-prov="indexeddb"].active { border-color: #6ee7b7; background: rgba(110,231,183,0.1); color: #6ee7b7; }
+        .prov-note {
+            font-size: 0.62rem;
+            color: var(--sg-text-muted, #8892b0);
+            margin-top: 0.3rem;
+            line-height: 1.5;
+        }
+        .prov-note strong { color: var(--sg-text, #ccd6f6); }
     </style>
 </head>
 <body>
@@ -188,15 +219,32 @@
 -->
 <div id="vfs-bus" data-vfs-bus>
     <!-- Headless: no visible output, wires up VFS event routing -->
-    <sg-vfs-bus provider="memory"></sg-vfs-bus>
+    <sg-vfs-bus id="vfs-bus-el" provider="memory"></sg-vfs-bus>
 
     <!-- Left: Operations panel -->
     <div class="col-ops">
         <div class="panel-header">
             <span class="panel-title">VFS Operations</span>
-            <span class="provider-badge">memory</span>
+            <span class="provider-badge" id="provider-badge">memory</span>
         </div>
         <div class="ops-scroll">
+
+            <!-- Provider selector -->
+            <div class="op-section">
+                <div class="op-section-title">Storage Provider</div>
+                <div class="provider-selector">
+                    <button class="prov-opt active" data-prov="memory">memory</button>
+                    <button class="prov-opt" data-prov="indexeddb">indexeddb</button>
+                    <button class="prov-opt" data-prov="layered">layered (M+IDB)</button>
+                </div>
+                <div class="prov-note" id="prov-note">
+                    <strong>Memory</strong> — in-process only, lost on reload.
+                </div>
+                <div class="op-row" style="margin-top:0.35rem">
+                    <button class="op-btn danger" id="btn-clear-idb" style="display:none">Clear IDB</button>
+                </div>
+                <div class="op-result" id="clear-idb-result"></div>
+            </div>
 
             <div class="op-section">
                 <div class="op-section-title">Write File</div>
@@ -299,10 +347,51 @@
 <script type="module">
 import '/components/vfs/sg-vfs-bus/v0/v0.1/v0.1.0/sg-vfs-bus.js';
 import '/components/vfs/sg-vfs-event-viewer/v0/v0.1/v0.1.0/sg-vfs-event-viewer.js';
-import { SGL_VFS }      from '/core/sg-vfs/v0/v0.1/v0.1.0/sg-vfs-events.js';
-import { newRequestId } from '/core/sg-vfs/v0/v0.1/v0.1.0/sg-vfs-request-id.js';
+import { SGL_VFS }         from '/core/sg-vfs/v0/v0.1/v0.1.0/sg-vfs-events.js';
+import { newRequestId }    from '/core/sg-vfs/v0/v0.1/v0.1.0/sg-vfs-request-id.js';
+import { IndexedDbProvider } from '/core/sg-vfs/v0/v0.1/v0.1.0/sg-vfs-provider-indexeddb.js';
 
-const bus = document.getElementById('vfs-bus');
+const bus     = document.getElementById('vfs-bus');
+const busEl   = document.getElementById('vfs-bus-el');
+const badge   = document.getElementById('provider-badge');
+const provNote = document.getElementById('prov-note');
+
+// ── Provider switching ────────────────────────────────────────────────────────
+
+const PROV_NOTES = {
+    memory:   '<strong>Memory</strong> — in-process only, lost on reload.',
+    indexeddb:'<strong>IndexedDB</strong> — persists across reloads. Use "Clear IDB" to reset.',
+    layered:  '<strong>Layered</strong> — Memory (priority 0) + IndexedDB (priority 1). Reads waterfall; writes go to both. Check Providers tab for hit/miss stats.',
+};
+
+document.querySelectorAll('.prov-opt').forEach(btn => {
+    btn.addEventListener('click', () => {
+        const prov = btn.dataset.prov;
+        document.querySelectorAll('.prov-opt').forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+        badge.textContent = prov;
+        provNote.innerHTML = PROV_NOTES[prov] || '';
+        document.getElementById('btn-clear-idb').style.display =
+            (prov === 'indexeddb' || prov === 'layered') ? '' : 'none';
+
+        // Swap the provider by replacing sg-vfs-bus
+        const parent = busEl.parentElement;
+        const newBus = document.createElement('sg-vfs-bus');
+        newBus.id = 'vfs-bus-el';
+        newBus.setAttribute('provider', prov);
+        parent.replaceChild(newBus, busEl);
+        // Update reference
+        window.__vfsBusEl = newBus;
+    });
+});
+
+// Clear IndexedDB
+document.getElementById('btn-clear-idb').addEventListener('click', async () => {
+    const p = new IndexedDbProvider();
+    await p.init();
+    await p.clear();
+    showResult('clear-idb-result', 'IndexedDB cleared.');
+});
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
