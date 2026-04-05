@@ -1,0 +1,548 @@
+<!DOCTYPE html>
+<html lang="en-GB">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>VFS Dev — tools.sgraph.ai</title>
+    <meta name="description" content="Phase 1 VFS developer tool: real-time event viewer and file system operations tester.">
+    <link rel="icon" type="image/svg+xml" href="../../../_common/favicon.svg">
+    <link rel="stylesheet" href="../../../_common/css/tools.css">
+    <style>
+        html, body {
+            height: 100%;
+            margin: 0;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
+        sg-site-header { flex-shrink: 0; }
+
+        #vfs-bus {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            min-height: 0;
+        }
+        sg-layout { flex: 1; min-height: 0; }
+
+        /* ── Inline panel styles ─────────────────────────────────────────── */
+        .panel {
+            height: 100%;
+            display: flex;
+            flex-direction: column;
+            background: var(--sg-bg-primary, #0d1b2a);
+            color: var(--sg-text, #ccd6f6);
+            font-family: inherit;
+            overflow: hidden;
+        }
+        .panel-title {
+            font-size: 0.7rem;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.08em;
+            color: var(--sg-text-muted, #8892b0);
+            padding: 0.5rem 0.7rem;
+            border-bottom: 1px solid var(--sg-border, #2a3a5c);
+            background: var(--sg-bg-secondary, #16213e);
+            flex-shrink: 0;
+        }
+
+        /* ── Operations panel ────────────────────────────────────────────── */
+        .ops-panel { padding: 0.6rem; display: flex; flex-direction: column; gap: 0.5rem; overflow-y: auto; flex: 1; }
+        .op-section { border: 1px solid var(--sg-border, #2a3a5c); border-radius: 6px; padding: 0.5rem; }
+        .op-section-title { font-size: 0.65rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.06em; color: var(--sg-text-muted, #8892b0); margin-bottom: 0.4rem; }
+        .op-row { display: flex; gap: 0.4rem; align-items: center; margin-bottom: 0.35rem; flex-wrap: wrap; }
+        .op-input {
+            flex: 1; min-width: 6rem;
+            background: var(--sg-bg-primary, #0d1b2a);
+            border: 1px solid var(--sg-border, #2a3a5c);
+            border-radius: 4px;
+            color: var(--sg-text, #ccd6f6);
+            font-size: 0.75rem;
+            padding: 0.28rem 0.45rem;
+            font-family: monospace;
+        }
+        .op-input:focus { outline: none; border-color: var(--sg-accent, #4ecdc4); }
+        .op-btn {
+            padding: 0.28rem 0.65rem;
+            border-radius: 4px;
+            border: 1px solid var(--sg-accent, #4ecdc4);
+            background: rgba(78,205,196,0.1);
+            color: var(--sg-accent, #4ecdc4);
+            font-size: 0.73rem;
+            font-weight: 600;
+            cursor: pointer;
+            white-space: nowrap;
+        }
+        .op-btn:hover { background: rgba(78,205,196,0.2); }
+        .op-btn.danger { border-color: var(--sg-error, #e94560); color: var(--sg-error, #e94560); background: rgba(233,69,96,0.08); }
+        .op-btn.danger:hover { background: rgba(233,69,96,0.15); }
+        .op-result {
+            font-size: 0.68rem; font-family: monospace;
+            color: var(--sg-text-muted, #8892b0);
+            background: rgba(13,27,42,0.7);
+            border-radius: 4px; padding: 0.3rem 0.45rem;
+            white-space: pre-wrap; word-break: break-all;
+            max-height: 8rem; overflow-y: auto;
+            border: 1px solid var(--sg-border, #2a3a5c);
+        }
+        .op-result.ok    { color: #6ee7b7; border-color: rgba(110,231,183,0.3); }
+        .op-result.error { color: var(--sg-error, #e94560); border-color: rgba(233,69,96,0.3); }
+
+        /* ── Batch presets ───────────────────────────────────────────────── */
+        .preset-row { display: flex; gap: 0.4rem; flex-wrap: wrap; }
+        .preset-btn {
+            padding: 0.25rem 0.55rem;
+            border-radius: 4px;
+            border: 1px solid var(--sg-border, #2a3a5c);
+            background: rgba(167,139,250,0.08);
+            color: #a78bfa;
+            font-size: 0.7rem; font-weight: 600;
+            cursor: pointer;
+        }
+        .preset-btn:hover { background: rgba(167,139,250,0.18); }
+        .progress-bar { height: 4px; border-radius: 2px; background: var(--sg-border, #2a3a5c); margin-top: 0.3rem; overflow: hidden; }
+        .progress-fill { height: 100%; background: #a78bfa; width: 0; transition: width 0.1s; }
+    </style>
+</head>
+<body>
+
+<script type="module" src="/components/site-header/v1/v1.0/v1.0.2/sg-site-header.js"></script>
+<sg-site-header site="Tools" home-url="../../../"></sg-site-header>
+
+<!--
+    All VFS components share this bus div via the data-vfs-bus attribute.
+    sg-vfs-bus (headless) owns the VirtualFileSystem instance.
+    All other components dispatch request events and listen for responses.
+-->
+<div id="vfs-bus" data-vfs-bus>
+    <!-- Headless: no visible output, just wires up VFS -->
+    <sg-vfs-bus provider="memory"></sg-vfs-bus>
+
+    <sg-layout id="layout"></sg-layout>
+</div>
+
+<script type="module">
+import '/core/sg-layout/v0.1.0/sg-layout.js';
+import '/components/vfs/sg-vfs-bus/v0/v0.1/v0.1.0/sg-vfs-bus.js';
+import '/components/vfs/sg-vfs-event-viewer/v0/v0.1/v0.1.0/sg-vfs-event-viewer.js';
+import { SGL_VFS } from '/core/sg-vfs/v0/v0.1/v0.1.0/sg-vfs-events.js';
+import { newRequestId } from '/core/sg-vfs/v0/v0.1/v0.1.0/sg-vfs-request-id.js';
+
+// ── Layout ─────────────────────────────────────────────────────────────────
+//
+//  ┌────────────────────────┬───────────────────────────────────────────────┐
+//  │   Operations Panel     │           VFS Event Timeline                  │
+//  │                        │                                               │
+//  │   (file R/W/list/del)  │  (real-time log of all vfs:* events)          │
+//  │   (batch generators)   │                                               │
+//  └────────────────────────┴───────────────────────────────────────────────┘
+
+const LAYOUT = {
+    type: 'row',
+    sizes: [0.38, 0.62],
+    children: [
+        { type: 'leaf', id: 'ops',      label: 'Operations' },
+        { type: 'leaf', id: 'timeline', label: 'Event Timeline' },
+    ],
+};
+
+const layout = document.getElementById('layout');
+layout.setLayout(LAYOUT);
+
+// ── Operations panel ────────────────────────────────────────────────────────
+
+const bus = document.getElementById('vfs-bus');
+
+function dispatch(eventName, detail) {
+    bus.dispatchEvent(new CustomEvent(eventName, {
+        detail: { ...detail, requestId: newRequestId() },
+        bubbles: true,
+        composed: true,
+    }));
+}
+
+function showResult(el, text, isError = false) {
+    el.textContent = text;
+    el.className = 'op-result ' + (isError ? 'error' : 'ok');
+    el.style.display = 'block';
+}
+
+// Await a response for a given requestId
+function waitForResponse(requestId, responseEvent, timeout = 5000) {
+    return new Promise((resolve, reject) => {
+        const timer = setTimeout(() => {
+            bus.removeEventListener(responseEvent, handler);
+            bus.removeEventListener(SGL_VFS.ERROR, errHandler);
+            reject(new Error('Timeout'));
+        }, timeout);
+        function handler(e) {
+            if (e.detail?.requestId !== requestId) return;
+            clearTimeout(timer);
+            bus.removeEventListener(responseEvent, handler);
+            bus.removeEventListener(SGL_VFS.ERROR, errHandler);
+            resolve(e.detail);
+        }
+        function errHandler(e) {
+            if (e.detail?.requestId !== requestId) return;
+            clearTimeout(timer);
+            bus.removeEventListener(responseEvent, handler);
+            bus.removeEventListener(SGL_VFS.ERROR, errHandler);
+            reject(new Error(e.detail?.error || 'VFS error'));
+        }
+        bus.addEventListener(responseEvent, handler);
+        bus.addEventListener(SGL_VFS.ERROR, errHandler);
+    });
+}
+
+async function vfsOp(requestEvent, responseEvent, detail, resultEl) {
+    const requestId = newRequestId();
+    try {
+        bus.dispatchEvent(new CustomEvent(requestEvent, {
+            detail: { ...detail, requestId },
+            bubbles: true,
+            composed: true,
+        }));
+        const result = await waitForResponse(requestId, responseEvent);
+        return result;
+    } catch (err) {
+        if (resultEl) showResult(resultEl, err.message, true);
+        throw err;
+    }
+}
+
+const OPS_HTML = `
+<div class="panel">
+  <div class="panel-title">VFS Operations (memory provider)</div>
+  <div class="ops-panel">
+
+    <!-- Write -->
+    <div class="op-section">
+      <div class="op-section-title">Write File</div>
+      <div class="op-row">
+        <input class="op-input" id="write-path" value="/demo/hello.txt" placeholder="/path/to/file.txt">
+      </div>
+      <div class="op-row">
+        <textarea class="op-input" id="write-content" rows="3" style="resize:vertical" placeholder="File content…">Hello, VFS world!</textarea>
+      </div>
+      <div class="op-row">
+        <button class="op-btn" id="btn-write">Write</button>
+      </div>
+      <div class="op-result" id="write-result" style="display:none"></div>
+    </div>
+
+    <!-- Read -->
+    <div class="op-section">
+      <div class="op-section-title">Read File</div>
+      <div class="op-row">
+        <input class="op-input" id="read-path" value="/demo/hello.txt" placeholder="/path/to/file.txt">
+        <button class="op-btn" id="btn-read">Read</button>
+      </div>
+      <div class="op-result" id="read-result" style="display:none"></div>
+    </div>
+
+    <!-- List -->
+    <div class="op-section">
+      <div class="op-section-title">List Folder</div>
+      <div class="op-row">
+        <input class="op-input" id="list-path" value="/" placeholder="/folder">
+        <button class="op-btn" id="btn-list">List</button>
+      </div>
+      <div class="op-result" id="list-result" style="display:none"></div>
+    </div>
+
+    <!-- Stat -->
+    <div class="op-section">
+      <div class="op-section-title">Stat</div>
+      <div class="op-row">
+        <input class="op-input" id="stat-path" value="/demo/hello.txt" placeholder="/path">
+        <button class="op-btn" id="btn-stat">Stat</button>
+      </div>
+      <div class="op-result" id="stat-result" style="display:none"></div>
+    </div>
+
+    <!-- Create Folder -->
+    <div class="op-section">
+      <div class="op-section-title">Create Folder</div>
+      <div class="op-row">
+        <input class="op-input" id="mkdir-path" value="/demo/subdir" placeholder="/folder/path">
+        <button class="op-btn" id="btn-mkdir">Create</button>
+      </div>
+      <div class="op-result" id="mkdir-result" style="display:none"></div>
+    </div>
+
+    <!-- Copy -->
+    <div class="op-section">
+      <div class="op-section-title">Copy File</div>
+      <div class="op-row">
+        <input class="op-input" id="copy-src" value="/demo/hello.txt" placeholder="source">
+        <input class="op-input" id="copy-dst" value="/demo/hello-copy.txt" placeholder="destination">
+        <button class="op-btn" id="btn-copy">Copy</button>
+      </div>
+      <div class="op-result" id="copy-result" style="display:none"></div>
+    </div>
+
+    <!-- Delete -->
+    <div class="op-section">
+      <div class="op-section-title">Delete File</div>
+      <div class="op-row">
+        <input class="op-input" id="delete-path" value="/demo/hello.txt" placeholder="/path">
+        <button class="op-btn danger" id="btn-delete">Delete</button>
+      </div>
+      <div class="op-result" id="delete-result" style="display:none"></div>
+    </div>
+
+    <!-- Exists -->
+    <div class="op-section">
+      <div class="op-section-title">Exists</div>
+      <div class="op-row">
+        <input class="op-input" id="exists-path" value="/demo/hello.txt" placeholder="/path">
+        <button class="op-btn" id="btn-exists">Check</button>
+      </div>
+      <div class="op-result" id="exists-result" style="display:none"></div>
+    </div>
+
+    <!-- Batch generators -->
+    <div class="op-section">
+      <div class="op-section-title">Batch Generator</div>
+      <div class="preset-row">
+        <button class="preset-btn" data-preset="10-files">10 files</button>
+        <button class="preset-btn" data-preset="50-files">50 files</button>
+        <button class="preset-btn" data-preset="nested">Nested tree</button>
+        <button class="preset-btn" data-preset="read-all">Read all</button>
+        <button class="preset-btn" data-preset="delete-all">Delete all</button>
+      </div>
+      <div class="progress-bar"><div class="progress-fill" id="batch-progress"></div></div>
+      <div class="op-result" id="batch-result" style="display:none"></div>
+    </div>
+
+  </div>
+</div>
+`;
+
+layout.setContent('ops', OPS_HTML);
+
+// Mount the event viewer
+layout.setContent('timeline', `
+<div class="panel" style="height:100%;display:flex;flex-direction:column;">
+  <sg-vfs-event-viewer style="flex:1;min-height:0"></sg-vfs-event-viewer>
+</div>
+`);
+
+// ── Wire up operation buttons ───────────────────────────────────────────────
+
+// Wait for layout to paint
+requestAnimationFrame(() => {
+    const opsEl = layout.getContentElement('ops');
+    if (!opsEl) return;
+
+    // Write
+    opsEl.querySelector('#btn-write').addEventListener('click', async () => {
+        const path    = opsEl.querySelector('#write-path').value.trim();
+        const content = opsEl.querySelector('#write-content').value;
+        const resEl   = opsEl.querySelector('#write-result');
+        try {
+            await vfsOp(SGL_VFS.WRITE_REQUEST, SGL_VFS.WRITE_RESPONSE, { path, content });
+            showResult(resEl, `Written: ${path} (${content.length} chars)`);
+        } catch { /* shown by vfsOp */ }
+    });
+
+    // Read
+    opsEl.querySelector('#btn-read').addEventListener('click', async () => {
+        const path  = opsEl.querySelector('#read-path').value.trim();
+        const resEl = opsEl.querySelector('#read-result');
+        try {
+            const r = await vfsOp(SGL_VFS.READ_REQUEST, SGL_VFS.READ_RESPONSE, { path }, resEl);
+            showResult(resEl, r.result ?? '(empty)');
+        } catch { /* shown */ }
+    });
+
+    // List
+    opsEl.querySelector('#btn-list').addEventListener('click', async () => {
+        const path  = opsEl.querySelector('#list-path').value.trim();
+        const resEl = opsEl.querySelector('#list-result');
+        try {
+            const r = await vfsOp(SGL_VFS.LIST_REQUEST, SGL_VFS.LIST_RESPONSE, { path }, resEl);
+            const entries = r.result || [];
+            showResult(resEl, entries.length
+                ? entries.map(e => `${e.type === 'folder' ? '📁' : '📄'} ${e.name}  (${e.size}B)`).join('\n')
+                : '(empty folder)');
+        } catch { /* shown */ }
+    });
+
+    // Stat
+    opsEl.querySelector('#btn-stat').addEventListener('click', async () => {
+        const path  = opsEl.querySelector('#stat-path').value.trim();
+        const resEl = opsEl.querySelector('#stat-result');
+        try {
+            const r = await vfsOp(SGL_VFS.STAT_REQUEST, SGL_VFS.STAT_RESPONSE, { path }, resEl);
+            showResult(resEl, JSON.stringify(r.result, null, 2));
+        } catch { /* shown */ }
+    });
+
+    // Create folder
+    opsEl.querySelector('#btn-mkdir').addEventListener('click', async () => {
+        const path  = opsEl.querySelector('#mkdir-path').value.trim();
+        const resEl = opsEl.querySelector('#mkdir-result');
+        try {
+            await vfsOp(SGL_VFS.CREATE_FOLDER_REQUEST, SGL_VFS.CREATE_FOLDER_RESPONSE, { path }, resEl);
+            showResult(resEl, `Created: ${path}`);
+        } catch { /* shown */ }
+    });
+
+    // Copy
+    opsEl.querySelector('#btn-copy').addEventListener('click', async () => {
+        const src   = opsEl.querySelector('#copy-src').value.trim();
+        const dst   = opsEl.querySelector('#copy-dst').value.trim();
+        const resEl = opsEl.querySelector('#copy-result');
+        try {
+            await vfsOp(SGL_VFS.COPY_REQUEST, SGL_VFS.COPY_RESPONSE, { path: src, src, dst }, resEl);
+            showResult(resEl, `Copied: ${src} → ${dst}`);
+        } catch { /* shown */ }
+    });
+
+    // Delete
+    opsEl.querySelector('#btn-delete').addEventListener('click', async () => {
+        const path  = opsEl.querySelector('#delete-path').value.trim();
+        const resEl = opsEl.querySelector('#delete-result');
+        try {
+            await vfsOp(SGL_VFS.DELETE_REQUEST, SGL_VFS.DELETE_RESPONSE, { path }, resEl);
+            showResult(resEl, `Deleted: ${path}`);
+        } catch { /* shown */ }
+    });
+
+    // Exists
+    opsEl.querySelector('#btn-exists').addEventListener('click', async () => {
+        const path  = opsEl.querySelector('#exists-path').value.trim();
+        const resEl = opsEl.querySelector('#exists-result');
+        try {
+            const r = await vfsOp(SGL_VFS.EXISTS_REQUEST, SGL_VFS.EXISTS_RESPONSE, { path }, resEl);
+            showResult(resEl, `exists: ${r.result}`);
+        } catch { /* shown */ }
+    });
+
+    // ── Batch presets ──────────────────────────────────────────────────────
+
+    opsEl.querySelectorAll('.preset-btn').forEach(btn => {
+        btn.addEventListener('click', () => runPreset(btn.dataset.preset, opsEl));
+    });
+});
+
+async function runPreset(preset, opsEl) {
+    const progressFill = opsEl.querySelector('#batch-progress');
+    const resultEl     = opsEl.querySelector('#batch-result');
+    const batchId      = newRequestId();
+    let total = 0, done = 0, errors = 0;
+    const start = performance.now();
+
+    function setProgress(n, t) {
+        progressFill.style.width = t ? `${Math.round((n / t) * 100)}%` : '0%';
+    }
+
+    function emitBatch(eventName, extra) {
+        bus.dispatchEvent(new CustomEvent(eventName, {
+            detail: { batchId, ...extra },
+            bubbles: true,
+            composed: true,
+        }));
+    }
+
+    async function writeOne(path, content) {
+        try {
+            await vfsOp(SGL_VFS.WRITE_REQUEST, SGL_VFS.WRITE_RESPONSE, { path, content });
+        } catch { errors++; }
+        done++;
+        setProgress(done, total);
+        emitBatch(SGL_VFS.BATCH_PROGRESS, { done, total, lastOp: path });
+    }
+
+    switch (preset) {
+        case '10-files': {
+            total = 10;
+            emitBatch(SGL_VFS.BATCH_STARTED, { total, preset });
+            for (let i = 0; i < total; i++) {
+                await writeOne(`/batch/file-${String(i + 1).padStart(3, '0')}.txt`, `Content of file ${i + 1}\nLine 2\nLine 3`);
+            }
+            break;
+        }
+        case '50-files': {
+            total = 50;
+            emitBatch(SGL_VFS.BATCH_STARTED, { total, preset });
+            for (let i = 0; i < total; i++) {
+                await writeOne(`/stress/file-${String(i + 1).padStart(3, '0')}.txt`, `File ${i + 1}: ${'x'.repeat(200)}`);
+            }
+            break;
+        }
+        case 'nested': {
+            const paths = [
+                '/project/src/main.js', '/project/src/utils.js',
+                '/project/docs/readme.md', '/project/docs/api.md',
+                '/project/tests/unit.test.js', '/project/tests/e2e.test.js',
+                '/project/config/dev.json', '/project/config/prod.json',
+            ];
+            total = paths.length;
+            emitBatch(SGL_VFS.BATCH_STARTED, { total, preset });
+            for (const p of paths) {
+                await writeOne(p, `// ${p}\nconsole.log("hello");`);
+            }
+            break;
+        }
+        case 'read-all': {
+            // List root, then read every file found
+            try {
+                const listRid = newRequestId();
+                bus.dispatchEvent(new CustomEvent(SGL_VFS.LIST_REQUEST, {
+                    detail: { path: '/', requestId: listRid },
+                    bubbles: true, composed: true,
+                }));
+                const listResult = await waitForResponse(listRid, SGL_VFS.LIST_RESPONSE);
+                const files = (listResult.result || []).filter(e => e.type === 'file');
+                total = files.length;
+                emitBatch(SGL_VFS.BATCH_STARTED, { total, preset });
+                for (const f of files) {
+                    try {
+                        await vfsOp(SGL_VFS.READ_REQUEST, SGL_VFS.READ_RESPONSE, { path: f.path });
+                    } catch { errors++; }
+                    done++;
+                    setProgress(done, total);
+                    emitBatch(SGL_VFS.BATCH_PROGRESS, { done, total, lastOp: f.path });
+                }
+            } catch { errors++; }
+            break;
+        }
+        case 'delete-all': {
+            try {
+                const listRid = newRequestId();
+                bus.dispatchEvent(new CustomEvent(SGL_VFS.LIST_REQUEST, {
+                    detail: { path: '/', requestId: listRid },
+                    bubbles: true, composed: true,
+                }));
+                const listResult = await waitForResponse(listRid, SGL_VFS.LIST_RESPONSE);
+                const files = (listResult.result || []).filter(e => e.type === 'file');
+                total = files.length;
+                emitBatch(SGL_VFS.BATCH_STARTED, { total, preset });
+                for (const f of files) {
+                    try {
+                        await vfsOp(SGL_VFS.DELETE_REQUEST, SGL_VFS.DELETE_RESPONSE, { path: f.path });
+                    } catch { errors++; }
+                    done++;
+                    setProgress(done, total);
+                    emitBatch(SGL_VFS.BATCH_PROGRESS, { done, total, lastOp: f.path });
+                }
+            } catch { errors++; }
+            break;
+        }
+    }
+
+    const wallTime = Math.round(performance.now() - start);
+    emitBatch(SGL_VFS.BATCH_COMPLETE, { total, errors, wallTime });
+    showResult(resultEl,
+        `Batch "${preset}" complete: ${total} ops, ${errors} errors, ${wallTime}ms`,
+        errors > 0
+    );
+    setProgress(total, total);
+}
+</script>
+
+</body>
+</html>
