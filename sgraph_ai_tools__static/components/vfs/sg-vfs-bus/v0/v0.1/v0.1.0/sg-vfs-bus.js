@@ -33,6 +33,8 @@
 
 import { VirtualFileSystem } from '/core/sg-vfs/v0/v0.1/v0.1.0/sg-vfs-core.js';
 import { MemoryProvider }    from '/core/sg-vfs/v0/v0.1/v0.1.0/sg-vfs-provider-memory.js';
+import { IndexedDbProvider } from '/core/sg-vfs/v0/v0.1/v0.1.0/sg-vfs-provider-indexeddb.js';
+import { LayeredProvider }   from '/core/sg-vfs/v0/v0.1/v0.1.0/sg-vfs-provider-layered.js';
 import { SGL_VFS }           from '/core/sg-vfs/v0/v0.1/v0.1.0/sg-vfs-events.js';
 
 export class SgVfsBus extends HTMLElement {
@@ -74,6 +76,15 @@ export class SgVfsBus extends HTMLElement {
     _makeProvider() {
         const type = this.getAttribute('provider') || 'memory';
         switch (type) {
+            case 'indexeddb':
+                return new IndexedDbProvider({ dbName: this.getAttribute('db-name') || 'sg-vfs' });
+            case 'layered': {
+                // Memory (priority 0) + IndexedDB (priority 1)
+                const layered = new LayeredProvider({ bus: this._busEl });
+                layered.addProvider(new MemoryProvider(),    0);
+                layered.addProvider(new IndexedDbProvider(), 1);
+                return layered;
+            }
             case 'memory':
             default:
                 return new MemoryProvider();
