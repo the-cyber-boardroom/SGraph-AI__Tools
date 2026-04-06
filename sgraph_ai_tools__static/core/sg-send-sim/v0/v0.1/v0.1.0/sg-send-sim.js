@@ -135,12 +135,14 @@ function fromHex(hex) {
 
 /**
  * Compute the VFS path for a vault object.
+ * If fileId is already a full absolute VFS path (starts with '/'), returns it unchanged.
  *
  * @param {string} vaultId
- * @param {string} fileId — self-describing ID or bare/ path
+ * @param {string} fileId — self-describing ID, bare/ path, or full VFS path
  * @returns {string}
  */
 function vfsObjectPath(vaultId, fileId) {
+    if (fileId.startsWith('/')) return fileId;   // already a full VFS path
     return `${SIM_VFS_ROOT}/${vaultId}/${fileIdToPath(fileId)}`;
 }
 
