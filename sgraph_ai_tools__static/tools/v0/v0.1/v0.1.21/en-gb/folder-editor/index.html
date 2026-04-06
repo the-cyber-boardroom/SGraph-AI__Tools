@@ -73,6 +73,7 @@ sg-tree { flex:1; overflow:hidden; display:block;
 <script type="module">
 import '/components/vfs/sg-vfs-bus/v0/v0.1/v0.1.0/sg-vfs-bus.js';
 import '/components/vfs/sg-vfs-event-viewer/v0/v0.1/v0.1.0/sg-vfs-event-viewer.js';
+import '/components/vfs/sg-vfs-seeder/v0/v0.1/v0.1.0/sg-vfs-seeder.js';
 import '/core/sg-tree/v0/v0.1/v0.1.4/sg-tree--v0.1.4.js';
 import { SGT_EVENTS } from '/core/sg-tree/v0/v0.1/v0.1.0/sg-tree-events.js';
 import { SgLayout }   from '/core/sg-layout/v0.1.0/sg-layout.js';
@@ -435,30 +436,69 @@ function buildPreviewPanel(el) {
     if (treeData) { wrap.querySelector('#drop-hint').hidden = true; }
 }
 
+// ── Rebuild tree from VFS (called after seeder completes) ─────────────────
+async function rebuildTreeFromVfs() {
+    if (!vfs) return;
+    setStatus('Rebuilding\u2026');
+    const root = makeFolderNode('Files', [], 'root');
+    async function walk(vfsPath, parentNode) {
+        let entries;
+        try { entries = await vfs.listFolder(vfsPath); } catch { return; }
+        for (const entry of entries) {
+            if (entry.name === '.manifest.json') continue;
+            if (entry.type === 'folder') {
+                const folder = makeFolderNode(entry.name);
+                parentNode.children.push(folder);
+                await walk(entry.path, folder);
+            } else {
+                const meta = { vfsPath: entry.path, size: entry.size || 0, mimeType: '', isText: isText(entry.name) };
+                parentNode.children.push(makeFileNode(entry.name, meta));
+            }
+        }
+    }
+    await walk(ROOT_VFS, root);
+    treeData = root;
+    applyTree();
+    await saveManifest();
+    updateStatus();
+}
+
 // ── sg-layout setup ────────────────────────────────────────────────────────
 layoutEl.style.cssText = 'display:block;width:100%;height:100%;';
 
+// Use layoutEl.events.on (custom emitter, not DOM addEventListener)
+const layoutReady = new Promise(resolve => layoutEl.events.on(SGL_EVENTS.LAYOUT_READY, resolve));
+
 layoutEl.setLayout({
-    type: 'row', id: 'root', sizes: [0.26, 0.46, 0.28],
+    type: 'row', id: 'root', sizes: [0.26, 0.44, 0.30],
     children: [
         { type: 'stack', id: 's-tree', activeTab: 0,
           tabs: [{ type: 'tab', id: 'tab-tree', title: '\u{1F4C2} Files', tag: 'div', closable: false }] },
         { type: 'stack', id: 's-preview', activeTab: 0,
           tabs: [{ type: 'tab', id: 'tab-preview', title: '\u{1F441} Preview', tag: 'div', closable: false }] },
-        { type: 'stack', id: 's-events', activeTab: 0,
-          tabs: [{ type: 'tab', id: 'tab-events', title: 'VFS Events', tag: 'sg-vfs-event-viewer', closable: false }] },
+        { type: 'column', id: 'col-right', sizes: [0.55, 0.45],
+          children: [
+            { type: 'stack', id: 's-events', activeTab: 0,
+              tabs: [{ type: 'tab', id: 'tab-events', title: 'VFS Events', tag: 'sg-vfs-event-viewer', closable: false }] },
+            { type: 'stack', id: 's-seed', activeTab: 0,
+              tabs: [{ type: 'tab', id: 'tab-seed', title: 'Seed Data', tag: 'sg-vfs-seeder', closable: false }] },
+          ]},
     ],
 });
 
-// Wait for layout to be ready, then populate panels
-layoutEl.addEventListener(SGL_EVENTS.LAYOUT_READY, () => {
-    const treePanel    = layoutEl.getPanelElement('tab-tree');
-    const previewPanel = layoutEl.getPanelElement('tab-preview');
-    // sg-vfs-event-viewer manages itself — no manual build needed
-    buildTreePanel(treePanel);
-    buildPreviewPanel(previewPanel);
-    if (vfs && treeData) { applyTree(); updateStatus(); }
-    else if (vfs) { updateStatus(); }
+await layoutReady;
+
+// Populate plain-div panels (sg-vfs-event-viewer and sg-vfs-seeder manage themselves)
+const treePanel    = layoutEl.getPanelElement('tab-tree');
+const previewPanel = layoutEl.getPanelElement('tab-preview');
+buildTreePanel(treePanel);
+buildPreviewPanel(previewPanel);
+if (vfs && treeData) { applyTree(); updateStatus(); }
+else if (vfs) { updateStatus(); }
+
+// Listen for seeder completion → rebuild tree from VFS
+busEl.addEventListener('sg-vfs-seeder:complete', async e => {
+    await rebuildTreeFromVfs();
 });
 
 // ── File input ─────────────────────────────────────────────────────────────
