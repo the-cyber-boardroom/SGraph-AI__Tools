@@ -1593,7 +1593,7 @@ class SgLayout extends HTMLElement {
             const deltaFraction = delta / containerSize;
 
             const newSizes = [...startSizes];
-            const minFraction = 80 / containerSize;
+            const minFraction = 4 / containerSize;
 
             newSizes[index]     = Math.max(minFraction, startSizes[index]     + deltaFraction);
             newSizes[index + 1] = Math.max(minFraction, startSizes[index + 1] - deltaFraction);

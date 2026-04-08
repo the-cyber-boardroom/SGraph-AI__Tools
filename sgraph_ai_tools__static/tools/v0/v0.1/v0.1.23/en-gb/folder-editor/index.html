@@ -1,0 +1,651 @@
+<!DOCTYPE html>
+<html lang="en-GB">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Folder Editor — tools.sgraph.ai</title>
+<link rel="stylesheet" href="/core/sg-layout/v0.1.0/sg-layout.css">
+<style>
+/* ── Reset + root ─────────────────────────────────────────────────── */
+html, body { height: 100%; margin: 0; display: flex; flex-direction: column;
+             overflow: hidden; font-family: monospace; font-size: 13px;
+             background: #0d0d1a; color: #e2e8f0; }
+[hidden] { display: none !important; }
+
+/* ── Layout shell ─────────────────────────────────────────────────── */
+#app-root { flex: 1; min-height: 0; display: flex; flex-direction: column; }
+sg-layout  { flex: 1; min-height: 0; display: block; }
+
+/* ── Tree panel ───────────────────────────────────────────────────── */
+.tree-wrap   { height:100%; display:flex; flex-direction:column; overflow:hidden; background:#0d0d1a; }
+.tree-toolbar { flex-shrink:0; display:flex; gap:4px; padding:6px 8px;
+                border-bottom:1px solid #1e1e3a; background:#0a0a16; flex-wrap:wrap; }
+.tree-toolbar button { background:#1a1a3a; border:1px solid #2a2a4a; color:#e2e8f0;
+    padding:3px 9px; border-radius:3px; cursor:pointer; font-size:11px; font-family:monospace; }
+.tree-toolbar button:hover { border-color:#4ECDC4; color:#4ECDC4; }
+.tree-toolbar button.danger:hover { border-color:#ff6b6b; color:#ff6b6b; }
+.tree-status  { flex-shrink:0; padding:4px 10px; font-size:10px; color:#3a3a5a;
+                border-bottom:1px solid #111126; background:#0a0a16; }
+sg-tree { flex:1; overflow:hidden; display:block;
+    --sgt-bg:transparent; --sgt-text:#e2e8f0; --sgt-text-muted:#5a6478;
+    --sgt-hover-bg:rgba(255,255,255,0.04); --sgt-selected-bg:rgba(78,205,196,0.1);
+    --sgt-selected-border:#4ECDC4; --sgt-toggle-color:#3a3a5a; }
+
+/* ── Preview panel ────────────────────────────────────────────────── */
+.preview-wrap  { height:100%; display:flex; flex-direction:column; overflow:hidden; background:#0d0d1a; }
+.preview-hdr   { flex-shrink:0; padding:8px 14px; font-size:12px; color:#a0aec0;
+                 border-bottom:1px solid #1e1e3a; background:#0a0a16; }
+.preview-body  { flex:1; overflow:auto; padding:16px; }
+
+#preview-img   { max-width:100%; max-height:100%; object-fit:contain; display:block; margin:auto; }
+#preview-text  { font-size:12px; color:#c8d3e0; line-height:1.5; white-space:pre-wrap;
+                 word-break:break-all; tab-size:2; }
+.preview-meta  { font-size:11px; color:#5a6478; margin-top:10px; }
+.preview-meta span { display:inline-block; background:#1a1a3a; border-radius:3px;
+    padding:2px 8px; margin:2px 4px 2px 0; }
+#preview-binary { color:#5a6478; }
+
+/* ── Drop hint ────────────────────────────────────────────────────── */
+.drop-hint { flex:1; display:flex; flex-direction:column; align-items:center;
+    justify-content:center; gap:12px; color:#3a3a5a; padding:40px; text-align:center; }
+.drop-hint .big  { font-size:48px; }
+.drop-hint .line1 { font-size:14px; color:#5a6478; }
+.drop-hint .line2 { font-size:11px; color:#3a3a5a; }
+
+/* ── Drop overlay ─────────────────────────────────────────────────── */
+#drop-overlay { position:fixed; inset:0; background:rgba(78,205,196,0.07);
+    border:3px dashed #4ECDC4; pointer-events:none; z-index:9999;
+    display:flex; align-items:center; justify-content:center;
+    font-size:18px; color:#4ECDC4; letter-spacing:2px; font-family:monospace; }
+
+/* ── Send panel ───────────────────────────────────────────────────── */
+sg-send-drop {
+    display: block;
+    height: 100%;
+    --sg-sd-bg: #0d0d1a;
+    --sg-sd-border: #1e1e3a;
+    --sg-sd-text: #e2e8f0;
+    --sg-sd-accent: #4ECDC4;
+}
+</style>
+</head>
+<body>
+
+<!-- VFS bus wraps the entire app so all panels can use it -->
+<div data-vfs-bus id="app-root">
+  <sg-vfs-bus provider="indexeddb" db-name="sg-folder-editor-v1"></sg-vfs-bus>
+  <sg-layout id="layout"></sg-layout>
+</div>
+
+<div id="drop-overlay" hidden>DROP TO ADD FILES</div>
+<input type="file" id="file-input" multiple hidden>
+
+<script type="module">
+import '/components/vfs/sg-vfs-bus/v0/v0.1/v0.1.0/sg-vfs-bus.js';
+import '/components/vfs/sg-vfs-event-viewer/v0/v0.1/v0.1.0/sg-vfs-event-viewer.js';
+import '/components/vfs/sg-vfs-seeder/v0/v0.1/v0.1.0/sg-vfs-seeder.js';
+import '/components/send-drop/v1/v1.0/v1.0.0/sg-send-drop.js';
+import '/core/sg-tree/v0/v0.1/v0.1.4/sg-tree--v0.1.4.js';
+import { SGT_EVENTS } from '/core/sg-tree/v0/v0.1/v0.1.0/sg-tree-events.js';
+import { SgLayout }   from '/core/sg-layout/v0.1.0/sg-layout.js';
+import { SGL_EVENTS } from '/core/sg-layout/v0.1.0/sg-layout-events.js';
+import { SGL_VFS }    from '/core/sg-vfs/v0/v0.1/v0.1.0/sg-vfs-events.js';
+
+// ── Constants ──────────────────────────────────────────────────────────────
+const MANIFEST_PATH = '/fe/current/.manifest.json';
+const ROOT_VFS      = '/fe/current';
+const TEXT_EXTS = new Set([
+    'js','ts','jsx','tsx','mjs','cjs',
+    'html','htm','css','scss','sass','less',
+    'json','jsonc','yaml','yml','toml','ini','cfg','env',
+    'md','mdx','txt','csv','tsv','xml','svg',
+    'sh','bash','zsh','fish','ps1',
+    'py','rb','java','c','cpp','h','hpp','cs','go','rs',
+    'php','lua','r','jl','sql',
+]);
+
+// ── DOM refs ───────────────────────────────────────────────────────────────
+const busEl      = document.getElementById('app-root');
+const layoutEl   = document.getElementById('layout');
+const dropOverlay= document.getElementById('drop-overlay');
+const fileInput  = document.getElementById('file-input');
+
+// ── State ──────────────────────────────────────────────────────────────────
+let vfs      = null;
+let treeData = null;
+let treeEl   = null;    // sg-tree element (set after layout ready)
+let _nc      = 0;
+
+// ── Helpers ────────────────────────────────────────────────────────────────
+const uid   = () => `n${++_nc}_${Date.now().toString(36)}`;
+const extOf = n  => { const p = n.lastIndexOf('.'); return p >= 0 ? n.slice(p+1).toLowerCase() : ''; };
+const isText  = n => TEXT_EXTS.has(extOf(n));
+const isImage = n => /^(png|jpg|jpeg|gif|webp|bmp|avif|ico)$/.test(extOf(n));
+const isSvg   = n => extOf(n) === 'svg';
+
+function fileIcon(name) {
+    const e = extOf(name);
+    if (/^(png|jpg|jpeg|gif|webp|bmp|avif|ico)$/.test(e)) return '\u{1F5BC}';
+    if (/^(mp4|webm|mov|avi|mkv)$/.test(e))                return '\u{1F3AC}';
+    if (/^(mp3|wav|ogg|flac|aac)$/.test(e))                return '\u{1F3B5}';
+    if (e === 'pdf')                                         return '\u{1F4C4}';
+    if (/^(zip|tar|gz|7z|rar|bz2)$/.test(e))               return '\u{1F4E6}';
+    if (/^(js|ts|jsx|tsx|py|rb|java|c|cpp|rs|go|php|cs)$/.test(e)) return '\u2699';
+    if (/^(html|htm|css|json|xml|yaml|yml|svg|md)$/.test(e)) return '\u{1F4DD}';
+    return '\u{1F4C4}';
+}
+
+// ── VFS wrappers ───────────────────────────────────────────────────────────
+const vfsRead      = p => vfs.readFile(p);
+const vfsWrite     = (p,c) => vfs.writeFile(p,c);
+const vfsDelete    = p => vfs.deleteFile(p);
+const vfsCreateDir = p => vfs.createFolder(p);
+async function vfsExists(p) { try { await vfs.stat(p); return true; } catch { return false; } }
+
+// ── Share helpers ──────────────────────────────────────────────────────────
+/**
+ * Convert VFS-stored content (string text, dataURL, or Uint8Array) to a Blob.
+ * @param {string|Uint8Array} content
+ * @param {string} [mimeType]
+ * @returns {Blob}
+ */
+function contentToBlob(content, mimeType = '') {
+    if (typeof content === 'string' && content.startsWith('data:')) {
+        const [header, b64] = content.split(',');
+        const mime = header.match(/data:([^;]+)/)?.[1] || mimeType || 'application/octet-stream';
+        const binary = atob(b64);
+        const bytes  = new Uint8Array(binary.length);
+        for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
+        return new Blob([bytes], { type: mime });
+    }
+    return new Blob([content], { type: mimeType || 'text/plain' });
+}
+
+/**
+ * Recursively collect all file nodes under a folder node into a flat array.
+ * Each entry has { blob, filename } where filename is the relative path
+ * (preserves subfolder structure inside a zip).
+ * @param {object} node - tree node (folder)
+ * @param {string} prefix - relative path prefix
+ * @param {Array<{blob:Blob,filename:string}>} out
+ */
+async function collectFolderFiles(node, prefix, out) {
+    for (const child of node.children || []) {
+        const rel = prefix + child.label;
+        if (child.type === 'file') {
+            if (!child.meta?.vfsPath) continue;
+            const content = await vfsRead(child.meta.vfsPath);
+            out.push({ blob: contentToBlob(content, child.meta.mimeType), filename: rel });
+        } else if (child.type === 'folder') {
+            await collectFolderFiles(child, rel + '/', out);
+        }
+    }
+}
+
+/**
+ * Share selected tree nodes via sg-send-drop.
+ * Files are sent directly; folders are zipped via sg-send-drop.offerFiles().
+ */
+async function shareSelected() {
+    if (!vfs || !treeData) { setStatus('Nothing to share — load some files first'); return; }
+    const sendDropEl = layoutEl.getPanelElement('tab-send');
+    if (!sendDropEl) { setStatus('Send panel not ready', true); return; }
+
+    const selectedIds = treeEl.getSelectedIds
+        ? treeEl.getSelectedIds()
+        : (treeEl.getSelectedId() ? [treeEl.getSelectedId()] : []);
+
+    if (!selectedIds.length) { setStatus('Select a file or folder to share'); return; }
+
+    const map   = flatMap(treeData);
+    const files = [];
+
+    for (const id of selectedIds) {
+        const node = map[id];
+        if (!node) continue;
+        if (node.type === 'file') {
+            if (!node.meta?.vfsPath) continue;
+            const content = await vfsRead(node.meta.vfsPath);
+            files.push({ blob: contentToBlob(content, node.meta.mimeType), filename: node.label });
+        } else if (node.type === 'folder') {
+            await collectFolderFiles(node, '', files);
+        }
+    }
+
+    if (!files.length) { setStatus('No shareable content in selection'); return; }
+
+    // If sharing a single folder, name the zip after it
+    const firstNode = map[selectedIds[0]];
+    const zipName   = (selectedIds.length === 1 && firstNode?.type === 'folder')
+        ? firstNode.label + '.zip'
+        : (files.length === 1 ? files[0].filename : 'folder-export.zip');
+
+    setStatus('Preparing to share…');
+    await sendDropEl.offerFiles(files, zipName);
+    setStatus('Ready to share — click “Share” tab → “Share via SG/Send”');
+}
+
+
+// ── Manifest ───────────────────────────────────────────────────────────────
+async function saveManifest() {
+    if (!treeData || !vfs) return;
+    try { await vfsWrite(MANIFEST_PATH, JSON.stringify(treeData)); } catch {}
+}
+async function loadManifest() {
+    try { return JSON.parse(await vfsRead(MANIFEST_PATH)); } catch { return null; }
+}
+
+// ── Status helpers ─────────────────────────────────────────────────────────
+function countFiles(node) {
+    if (node.type === 'file') return 1;
+    return (node.children || []).reduce((s,c) => s + countFiles(c), 0);
+}
+function setStatus(msg, err = false) {
+    const el = document.getElementById('tree-status');
+    if (!el) return;
+    el.textContent = msg;
+    el.style.color = err ? '#ff6b6b' : '#3a3a5a';
+}
+function updateStatus() {
+    if (!treeData) { setStatus('Drop files or folders to get started'); return; }
+    const n = countFiles(treeData);
+    setStatus(`${n} file${n!==1?'s':''} \u00b7 F2 rename \u00b7 Del delete \u00b7 drag to reorder`);
+}
+
+// ── Tree node builders ─────────────────────────────────────────────────────
+function makeFileNode(name, meta) {
+    return { id: uid(), label: name, type: 'file', icon: fileIcon(name), meta };
+}
+function makeFolderNode(name, children = [], id = uid()) {
+    return { id, label: name, type: 'folder', icon: '\u{1F4C1}', children };
+}
+function getOrMakeFolder(parent, name) {
+    let node = (parent.children || []).find(c => c.label === name && c.type === 'folder');
+    if (!node) { node = makeFolderNode(name); (parent.children = parent.children || []).push(node); }
+    return node;
+}
+function insertAtPath(root, parts, fileNode) {
+    let cur = root;
+    for (const p of parts) cur = getOrMakeFolder(cur, p);
+    (cur.children = cur.children || []).push(fileNode);
+}
+function flatMap(node, acc = {}) {
+    acc[node.id] = node;
+    (node.children || []).forEach(c => flatMap(c, acc));
+    return acc;
+}
+
+// ── FileReader helpers ─────────────────────────────────────────────────────
+const readText    = f => new Promise((res,rej) => { const r=new FileReader(); r.onload=()=>res(r.result); r.onerror=rej; r.readAsText(f); });
+const readDataURL = f => new Promise((res,rej) => { const r=new FileReader(); r.onload=()=>res(r.result); r.onerror=rej; r.readAsDataURL(f); });
+const readContent = f => (isText(f.name)||isSvg(f.name)) ? readText(f) : readDataURL(f);
+
+// ── FileSystemEntry traversal ──────────────────────────────────────────────
+async function drainReader(reader) {
+    const all = [];
+    let batch;
+    do { batch = await new Promise((res,rej) => reader.readEntries(res,rej)); all.push(...batch); }
+    while (batch.length > 0);
+    return all;
+}
+
+async function traverseEntry(entry, prefix) {
+    if (entry.isFile) {
+        const file    = await new Promise((res,rej) => entry.file(res,rej));
+        const vfsPath = (ROOT_VFS + '/' + prefix + entry.name).replace(/\/\/+/g, '/');
+        const content = await readContent(file);
+        await vfsWrite(vfsPath, content);
+        const parts = prefix ? prefix.split('/').filter(Boolean) : [];
+        insertAtPath(treeData, parts, makeFileNode(entry.name,
+            { vfsPath, size: file.size, mimeType: file.type||'', isText: isText(file.name) }));
+    } else if (entry.isDirectory) {
+        const sub     = prefix + entry.name + '/';
+        const dirPath = (ROOT_VFS + '/' + sub).replace(/\/\/+\/*$/g, '');
+        await vfsCreateDir(dirPath);
+        const entries = await drainReader(entry.createReader());
+        for (const e of entries) await traverseEntry(e, sub);
+    }
+}
+
+// ── Ingest helpers ─────────────────────────────────────────────────────────
+async function ingestItems(items) {
+    if (!vfs) { setStatus('VFS not ready', true); return; }
+    if (!treeData) { treeData = makeFolderNode('Files', [], 'root'); }
+    setStatus('Reading files\u2026');
+    for (const item of items) {
+        if (item.kind !== 'file') continue;
+        const entry = item.webkitGetAsEntry?.();
+        if (entry) {
+            await traverseEntry(entry, '');
+        } else {
+            const f = item.getAsFile?.();
+            if (f) {
+                const content = await readContent(f);
+                const vfsPath = ROOT_VFS + '/' + f.name;
+                await vfsWrite(vfsPath, content);
+                (treeData.children = treeData.children || []).push(
+                    makeFileNode(f.name, { vfsPath, size: f.size, mimeType: f.type||'', isText: isText(f.name) }));
+            }
+        }
+    }
+    applyTree();
+    await saveManifest();
+    updateStatus();
+}
+
+async function ingestFileList(list) {
+    if (!vfs) { setStatus('VFS not ready', true); return; }
+    if (!treeData) { treeData = makeFolderNode('Files', [], 'root'); }
+    setStatus('Reading files\u2026');
+    for (const f of list) {
+        const content = await readContent(f);
+        const vfsPath = ROOT_VFS + '/' + f.name;
+        await vfsWrite(vfsPath, content);
+        (treeData.children = treeData.children || []).push(
+            makeFileNode(f.name, { vfsPath, size: f.size, mimeType: f.type||'', isText: isText(f.name) }));
+    }
+    applyTree();
+    await saveManifest();
+    updateStatus();
+}
+
+// ── Apply tree to component ────────────────────────────────────────────────
+function applyTree() {
+    if (!treeData || !treeEl) return;
+    const dh = document.getElementById('drop-hint');
+    if (dh) dh.hidden = true;
+    treeEl.setData(JSON.parse(JSON.stringify(treeData)));
+    for (const c of (treeData.children || [])) {
+        if (c.type === 'folder') treeEl.expand(c.id);
+    }
+}
+
+// ── VFS sync on DATA_CHANGED ───────────────────────────────────────────────
+async function onDataChanged(newRoot) {
+    if (!vfs) { treeData = newRoot; return; }
+    const oldMap = treeData ? flatMap(treeData) : {};
+    const newMap = flatMap(newRoot);
+
+    for (const [id, nn] of Object.entries(newMap)) {
+        const on = oldMap[id];
+        if (!on) continue;
+        if (on.meta) nn.meta = on.meta;
+        if (on.meta?.vfsPath && on.label !== nn.label) {
+            const dir     = on.meta.vfsPath.slice(0, on.meta.vfsPath.lastIndexOf('/'));
+            const newPath = dir + '/' + nn.label;
+            try {
+                await vfs.rename(on.meta.vfsPath, newPath);
+                nn.meta = { ...on.meta, vfsPath: newPath };
+            } catch(e) { setStatus('Rename failed: ' + e.message, true); nn.meta = on.meta; }
+        }
+    }
+    for (const [id, on] of Object.entries(oldMap)) {
+        if (!newMap[id] && on.meta?.vfsPath && on.type === 'file') {
+            try { await vfsDelete(on.meta.vfsPath); } catch {}
+        }
+    }
+
+    treeData = newRoot;
+    await saveManifest();
+    updateStatus();
+}
+
+// ── Preview ────────────────────────────────────────────────────────────────
+function fmtSize(b) {
+    if (b < 1024) return b + ' B';
+    if (b < 1048576) return (b/1024).toFixed(1) + ' KB';
+    return (b/1048576).toFixed(1) + ' MB';
+}
+
+async function showPreview(id) {
+    const pWrap  = document.getElementById('preview-wrap-inner');
+    const pHdr   = document.getElementById('preview-hdr');
+    const dh     = document.getElementById('drop-hint');
+    const pBody  = document.getElementById('preview-body');
+    if (!pWrap) return;
+
+    const map  = treeData ? flatMap(treeData) : {};
+    const node = map[id];
+    if (!node) { dh.hidden = false; pBody.hidden = true; return; }
+
+    dh.hidden   = true;
+    pBody.hidden = false;
+
+    // Clear previous content
+    const img  = document.getElementById('preview-img');
+    const pre  = document.getElementById('preview-text');
+    const meta = document.getElementById('preview-meta');
+    const bin  = document.getElementById('preview-binary');
+    img.hidden = pre.hidden = meta.hidden = bin.hidden = true;
+    img.src = ''; pre.textContent = ''; meta.innerHTML = '';
+
+    if (node.type === 'folder') {
+        pHdr.textContent = '\u{1F4C1} ' + node.label;
+        const count = (node.children||[]).length;
+        meta.innerHTML = `<span>${count} item${count!==1?'s':''}</span>`;
+        meta.hidden = false;
+        return;
+    }
+
+    pHdr.textContent = (node.icon||'\u{1F4C4}') + ' ' + node.label;
+    if (node.meta) {
+        meta.innerHTML = [
+            node.meta.size   ? `<span>${fmtSize(node.meta.size)}</span>` : '',
+            node.meta.mimeType ? `<span>${node.meta.mimeType}</span>` : '',
+            node.meta.vfsPath ? `<span style="color:#2a2a5a">${node.meta.vfsPath}</span>` : '',
+        ].filter(Boolean).join('');
+        meta.hidden = false;
+    }
+
+    if (!node.meta?.vfsPath || !vfs) { bin.hidden = false; return; }
+
+    try {
+        const content = await vfsRead(node.meta.vfsPath);
+        if (isImage(node.label)) {
+            img.src = content; img.hidden = false;
+        } else if (isSvg(node.label)) {
+            img.src = 'data:image/svg+xml;base64,' + btoa(unescape(encodeURIComponent(content)));
+            img.hidden = false;
+        } else if (node.meta.isText) {
+            pre.textContent = content.length > 20000 ? content.slice(0,20000) + '\n\u2026[truncated]' : content;
+            pre.hidden = false;
+        } else {
+            bin.hidden = false;
+        }
+    } catch { bin.hidden = false; }
+}
+
+// ── Build tree panel ───────────────────────────────────────────────────────
+function buildTreePanel(el) {
+    el.innerHTML = '';
+    el.className = '';
+    el.style.cssText = 'height:100%;overflow:hidden;';
+
+    const wrap = document.createElement('div');
+    wrap.className = 'tree-wrap';
+    wrap.innerHTML = `
+    <div class="tree-toolbar">
+      <button id="btn-upload">+ Upload</button>
+      <button id="btn-new-folder">+ Folder</button>
+      <button id="btn-share">Share ↗</button>
+      <button id="btn-clear" class="danger">Clear</button>
+    </div>
+    <div class="tree-status" id="tree-status">Initialising\u2026</div>
+    <sg-tree id="tree" editable="true" selectable="multi" show-root="false"></sg-tree>`;
+    el.appendChild(wrap);
+
+    treeEl = wrap.querySelector('#tree');
+
+    wrap.querySelector('#btn-upload').addEventListener('click', () => fileInput.click());
+    wrap.querySelector('#btn-new-folder').addEventListener('click', () => {
+        if (!vfs) return;
+        if (!treeData) { treeData = makeFolderNode('Files', [], 'root'); applyTree(); }
+        treeEl._createFolder(null, 'New Folder');
+    });
+    wrap.querySelector('#btn-share').addEventListener('click', () => shareSelected());
+    wrap.querySelector('#btn-clear').addEventListener('click', async () => {
+        if (!confirm('Delete all files and clear storage?')) return;
+        treeData = null;
+        treeEl.setData({ id: 'root', label: 'Files', type: 'folder', children: [] });
+        const dh = document.getElementById('drop-hint');
+        if (dh) dh.hidden = false;
+        const pb = document.getElementById('preview-body');
+        if (pb) pb.hidden = true;
+        setStatus('Cleared');
+        try { await vfsDelete(MANIFEST_PATH); } catch {}
+    });
+
+    treeEl.addEventListener(SGT_EVENTS.DATA_CHANGED, async e => {
+        await onDataChanged(e.detail.root);
+    });
+    treeEl.addEventListener(SGT_EVENTS.NODE_SELECTED, e => {
+        showPreview(e.detail.id);
+    });
+
+    // Restore from manifest if VFS is already ready
+    if (vfs && treeData) applyTree();
+}
+
+// ── Build preview panel ────────────────────────────────────────────────────
+function buildPreviewPanel(el) {
+    el.innerHTML = '';
+    el.style.cssText = 'height:100%;overflow:hidden;';
+
+    const wrap = document.createElement('div');
+    wrap.className = 'preview-wrap';
+    wrap.innerHTML = `
+    <div class="preview-hdr" id="preview-hdr" hidden></div>
+    <div class="drop-hint" id="drop-hint">
+      <div class="big">\u{1F4C2}</div>
+      <div class="line1">Drop files or folders here</div>
+      <div class="line2">or use Upload · any file type · persists across reloads</div>
+    </div>
+    <div class="preview-body" id="preview-body" hidden>
+      <img id="preview-img" hidden alt="">
+      <pre id="preview-text" hidden></pre>
+      <div id="preview-meta" class="preview-meta" hidden></div>
+      <div id="preview-binary" hidden>Binary file \u2014 no preview.</div>
+    </div>`;
+    el.appendChild(wrap);
+    wrap.id = 'preview-wrap-inner';
+
+    // If tree data already loaded show drop-hint or not
+    if (treeData) { wrap.querySelector('#drop-hint').hidden = true; }
+}
+
+// ── Rebuild tree from VFS (called after seeder completes) ─────────────────
+async function rebuildTreeFromVfs() {
+    if (!vfs) return;
+    setStatus('Rebuilding\u2026');
+    const root = makeFolderNode('Files', [], 'root');
+    async function walk(vfsPath, parentNode) {
+        let entries;
+        try { entries = await vfs.listFolder(vfsPath); } catch { return; }
+        for (const entry of entries) {
+            if (entry.name === '.manifest.json') continue;
+            if (entry.type === 'folder') {
+                const folder = makeFolderNode(entry.name);
+                parentNode.children.push(folder);
+                await walk(entry.path, folder);
+            } else {
+                const meta = { vfsPath: entry.path, size: entry.size || 0, mimeType: '', isText: isText(entry.name) };
+                parentNode.children.push(makeFileNode(entry.name, meta));
+            }
+        }
+    }
+    await walk(ROOT_VFS, root);
+    treeData = root;
+    applyTree();
+    await saveManifest();
+    updateStatus();
+}
+
+// ── sg-layout setup ────────────────────────────────────────────────────────
+layoutEl.style.cssText = 'display:block;width:100%;height:100%;';
+
+// Use layoutEl.events.on (custom emitter, not DOM addEventListener)
+const layoutReady = new Promise(resolve => layoutEl.events.on(SGL_EVENTS.LAYOUT_READY, resolve));
+
+layoutEl.setLayout({
+    type: 'row', id: 'root', sizes: [0.26, 0.44, 0.30],
+    children: [
+        { type: 'stack', id: 's-tree', activeTab: 0,
+          tabs: [{ type: 'tab', id: 'tab-tree', title: '\u{1F4C2} Files', tag: 'div', closable: false }] },
+        { type: 'stack', id: 's-preview', activeTab: 0,
+          tabs: [{ type: 'tab', id: 'tab-preview', title: '\u{1F441} Preview', tag: 'div', closable: false }] },
+        { type: 'column', id: 'col-right', sizes: [0.55, 0.45],
+          children: [
+            { type: 'stack', id: 's-events', activeTab: 0,
+              tabs: [{ type: 'tab', id: 'tab-events', title: 'VFS Events', tag: 'sg-vfs-event-viewer', closable: false }] },
+            { type: 'stack', id: 's-seed', activeTab: 0,
+              tabs: [
+              { type: 'tab', id: 'tab-seed', title: 'Seed Data', tag: 'sg-vfs-seeder', closable: false },
+              { type: 'tab', id: 'tab-send', title: 'Share ↗', tag: 'sg-send-drop', closable: false },
+            ] },
+          ]},
+    ],
+});
+
+await layoutReady;
+
+// Populate plain-div panels (sg-vfs-event-viewer and sg-vfs-seeder manage themselves)
+const treePanel    = layoutEl.getPanelElement('tab-tree');
+const previewPanel = layoutEl.getPanelElement('tab-preview');
+buildTreePanel(treePanel);
+buildPreviewPanel(previewPanel);
+if (vfs && treeData) { applyTree(); updateStatus(); }
+else if (vfs) { updateStatus(); }
+
+// Listen for seeder completion → rebuild tree from VFS
+busEl.addEventListener('sg-vfs-seeder:complete', async e => {
+    await rebuildTreeFromVfs();
+});
+
+// ── File input ─────────────────────────────────────────────────────────────
+fileInput.addEventListener('change', async () => {
+    if (fileInput.files.length) { await ingestFileList(fileInput.files); fileInput.value = ''; }
+});
+
+// ── OS drag-and-drop ───────────────────────────────────────────────────────
+let dragDepth = 0;
+
+window.addEventListener('dragenter', e => {
+    if (!e.dataTransfer.types.includes('Files')) return;
+    e.preventDefault();
+    if (++dragDepth === 1) dropOverlay.hidden = false;
+});
+
+window.addEventListener('dragleave', e => {
+    if (!e.dataTransfer?.types?.includes('Files') && dragDepth === 0) return;
+    // relatedTarget null = cursor left the browser window
+    if (!e.relatedTarget) { dragDepth = 0; dropOverlay.hidden = true; return; }
+    if (--dragDepth <= 0) { dragDepth = 0; dropOverlay.hidden = true; }
+});
+
+window.addEventListener('dragover', e => {
+    if (e.dataTransfer.types.includes('Files')) { e.preventDefault(); e.dataTransfer.dropEffect = 'copy'; }
+});
+
+window.addEventListener('drop', async e => {
+    if (!e.dataTransfer.types.includes('Files')) return;
+    e.preventDefault();
+    dragDepth = 0;
+    dropOverlay.hidden = true;
+    await ingestItems(Array.from(e.dataTransfer.items));
+});
+
+// ── VFS provider ready ─────────────────────────────────────────────────────
+busEl.addEventListener(SGL_VFS.PROVIDER_READY, async () => {
+    vfs = document.querySelector('sg-vfs-bus').vfs;
+    const saved = await loadManifest();
+    if (saved) {
+        treeData = saved;
+        if (treeEl) { applyTree(); }
+        updateStatus();
+    } else {
+        setStatus('Drop files or folders to get started');
+    }
+});
+</script>
+</body>
+</html>
