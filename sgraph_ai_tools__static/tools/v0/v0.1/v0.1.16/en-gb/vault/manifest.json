@@ -1,0 +1,51 @@
+{
+  "name": "Vault",
+  "slug": "vault",
+  "description": "Native SGraph vault browser and editor. Connect with a full vault key or simple token, browse the file tree, view and edit encrypted files.",
+  "icon": "🏛️",
+  "version": "0.1.16",
+  "status": "live",
+  "category": "vault",
+  "keywords": [
+    "vault",
+    "sgraph",
+    "send",
+    "browse",
+    "edit",
+    "write",
+    "files",
+    "tree"
+  ],
+  "dependencies": {
+    "core": [
+      {
+        "module": "sg-layout",
+        "path": "/core/sg-layout/v0.1.0/sg-layout.js"
+      }
+    ],
+    "components": [
+      {
+        "module": "sg-vault-connect",
+        "path": "/components/vault/sg-vault-connect/v0/v0.1/v0.1.0/sg-vault-connect.js"
+      },
+      {
+        "module": "sg-vault-tree",
+        "path": "/components/vault/sg-vault-tree/v0/v0.1/v0.1.0/sg-vault-tree.js"
+      },
+      {
+        "module": "sg-vault-viewer",
+        "path": "/components/vault/sg-vault-viewer/v0/v0.1/v0.1.0/sg-vault-viewer.js"
+      }
+    ],
+    "shared": [
+      {
+        "module": "sg-site-header",
+        "path": "/components/site-header/v1/v1.0/v1.0.2/sg-site-header.js"
+      },
+      {
+        "module": "tools.css",
+        "path": "/_common/css/tools.css"
+      }
+    ]
+  }
+}

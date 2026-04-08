@@ -1,0 +1,37 @@
+{
+  "name": "SG/Send CLI",
+  "slug": "sg-send-cli",
+  "description": "Run sg-send-cli vault operations in your browser. Init, commit, push, inspect — the real Python package from PyPI in WebAssembly.",
+  "icon": "📦",
+  "version": "0.1.4",
+  "status": "experimental",
+  "category": "dev",
+  "keywords": [
+    "sgraph",
+    "send",
+    "cli",
+    "pypi",
+    "wasm",
+    "vault"
+  ],
+  "dependencies": {
+    "shared": [
+      {
+        "module": "sg-locale-picker",
+        "path": "/components/locale-picker/v1/v1.0/v1.0.1/sg-locale-picker.js"
+      },
+      {
+        "module": "sg-site-footer",
+        "path": "/components/site-footer/v1/v1.0/v1.0.0/sg-site-footer.js"
+      },
+      {
+        "module": "sg-site-header",
+        "path": "/components/site-header/v1/v1.0/v1.0.1/sg-site-header.js"
+      },
+      {
+        "module": "tools.css",
+        "path": "/_common/css/tools.css"
+      }
+    ]
+  }
+}

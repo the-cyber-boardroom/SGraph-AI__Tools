@@ -1,0 +1,65 @@
+{
+  "name": "Multi-Agent Chat",
+  "slug": "multi-agent-chat",
+  "description": "Chat with multiple specialist agents simultaneously — Architect, Dev, Designer, DevOps, Historian, Librarian. Broadcast to all at once.",
+  "icon": "👥",
+  "version": "0.1.13",
+  "status": "live",
+  "category": "llm",
+  "keywords": [
+    "multi",
+    "agent",
+    "specialist",
+    "roles",
+    "parallel",
+    "broadcast"
+  ],
+  "dependencies": {
+    "core": [
+      {
+        "module": "sg-layout-events",
+        "path": "/core/sg-layout/v0.1.0/sg-layout-events.js"
+      },
+      {
+        "module": "sg-layout",
+        "path": "/core/sg-layout/v0.1.0/sg-layout.css"
+      },
+      {
+        "module": "sg-layout",
+        "path": "/core/sg-layout/v0.1.0/sg-layout.js"
+      }
+    ],
+    "components": [
+      {
+        "module": "sg-llm-chat-history",
+        "path": "/components/llm/sg-llm-chat-history/v0/v0.1/v0.1.8/sg-llm-chat-history.js"
+      },
+      {
+        "module": "sg-llm-chat-input",
+        "path": "/components/llm/sg-llm-chat-input/v0/v0.1/v0.1.3/sg-llm-chat-input.js"
+      },
+      {
+        "module": "sg-llm-events",
+        "path": "/components/llm/sg-llm-events/v0/v0.1/v0.1.0/sg-llm-events.js"
+      },
+      {
+        "module": "sg-llm-request",
+        "path": "/components/llm/sg-llm-request/v0/v0.1/v0.1.2/sg-llm-request.js"
+      },
+      {
+        "module": "sg-llm-stats",
+        "path": "/components/llm/sg-llm-stats/v0/v0.1/v0.1.1/sg-llm-stats.js"
+      }
+    ],
+    "shared": [
+      {
+        "module": "sg-site-header",
+        "path": "/components/site-header/v1/v1.0/v1.0.2/sg-site-header.js"
+      },
+      {
+        "module": "tools.css",
+        "path": "/_common/css/tools.css"
+      }
+    ]
+  }
+}

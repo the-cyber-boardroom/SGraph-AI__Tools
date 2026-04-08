@@ -1,0 +1,40 @@
+{
+  "name": "SSH Key Generator",
+  "slug": "ssh-keygen",
+  "description": "Generate Ed25519 SSH key pairs entirely in your browser. No server involved. Copy or download your keys instantly.",
+  "icon": "🔑",
+  "version": "0.1.4",
+  "status": "live",
+  "category": "security",
+  "keywords": [
+    "ssh",
+    "ed25519",
+    "cryptography"
+  ],
+  "dependencies": {
+    "core": [
+      {
+        "module": "sg-ssh",
+        "path": "/core/ssh/v1/v1.0/v1.0.0/sg-ssh.js"
+      }
+    ],
+    "shared": [
+      {
+        "module": "sg-locale-picker",
+        "path": "/components/locale-picker/v1/v1.0/v1.0.1/sg-locale-picker.js"
+      },
+      {
+        "module": "sg-site-footer",
+        "path": "/components/site-footer/v1/v1.0/v1.0.0/sg-site-footer.js"
+      },
+      {
+        "module": "sg-site-header",
+        "path": "/components/site-header/v1/v1.0/v1.0.2/sg-site-header.js"
+      },
+      {
+        "module": "tools.css",
+        "path": "/_common/css/tools.css"
+      }
+    ]
+  }
+}

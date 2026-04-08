@@ -1,0 +1,55 @@
+{
+  "name": "VFS Dev",
+  "slug": "vfs-dev",
+  "description": "Virtual filesystem developer tool. Test read/write/list/copy/delete operations across memory, IndexedDB and layered providers with live event viewer.",
+  "icon": "📁",
+  "version": "0.1.17",
+  "status": "dev",
+  "category": "dev",
+  "keywords": [
+    "vfs",
+    "virtual",
+    "filesystem",
+    "dev",
+    "operations",
+    "memory",
+    "indexeddb",
+    "layered"
+  ],
+  "dependencies": {
+    "core": [
+      {
+        "module": "sg-vfs-events",
+        "path": "/core/sg-vfs/v0/v0.1/v0.1.0/sg-vfs-events.js"
+      },
+      {
+        "module": "sg-vfs-provider-indexeddb",
+        "path": "/core/sg-vfs/v0/v0.1/v0.1.0/sg-vfs-provider-indexeddb.js"
+      },
+      {
+        "module": "sg-vfs-request-id",
+        "path": "/core/sg-vfs/v0/v0.1/v0.1.0/sg-vfs-request-id.js"
+      }
+    ],
+    "components": [
+      {
+        "module": "sg-vfs-bus",
+        "path": "/components/vfs/sg-vfs-bus/v0/v0.1/v0.1.0/sg-vfs-bus.js"
+      },
+      {
+        "module": "sg-vfs-event-viewer",
+        "path": "/components/vfs/sg-vfs-event-viewer/v0/v0.1/v0.1.0/sg-vfs-event-viewer.js"
+      }
+    ],
+    "shared": [
+      {
+        "module": "sg-site-header",
+        "path": "/components/site-header/v1/v1.0/v1.0.2/sg-site-header.js"
+      },
+      {
+        "module": "tools.css",
+        "path": "/_common/css/tools.css"
+      }
+    ]
+  }
+}

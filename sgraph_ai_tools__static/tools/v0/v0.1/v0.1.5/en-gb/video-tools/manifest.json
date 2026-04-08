@@ -1,0 +1,57 @@
+{
+  "name": "Video Tools",
+  "slug": "video-tools",
+  "description": "Split, trim, and extract audio or video using FFmpeg in your browser. No upload required. Share results via SG/Send.",
+  "icon": "🎬",
+  "version": "0.1.5",
+  "status": "live",
+  "category": "media",
+  "keywords": [
+    "video",
+    "split",
+    "trim",
+    "ffmpeg",
+    "audio",
+    "extract"
+  ],
+  "dependencies": {
+    "core": [
+      {
+        "module": "sg-video",
+        "path": "/core/video/v1/v1.0/v1.0.0/sg-video.js"
+      }
+    ],
+    "components": [
+      {
+        "module": "sg-send-drop",
+        "path": "/components/send-drop/v1/v1.0/v1.0.0/sg-send-drop.js"
+      },
+      {
+        "module": "sg-upload-dropzone",
+        "path": "/components/upload-dropzone/v1/v1.0/v1.0.0/sg-upload-dropzone.js"
+      },
+      {
+        "module": "sg-video-splitter",
+        "path": "/components/video-splitter/v1/v1.0/v1.0.0/sg-video-splitter.js"
+      }
+    ],
+    "shared": [
+      {
+        "module": "sg-locale-picker",
+        "path": "/components/locale-picker/v1/v1.0/v1.0.1/sg-locale-picker.js"
+      },
+      {
+        "module": "sg-site-footer",
+        "path": "/components/site-footer/v1/v1.0/v1.0.0/sg-site-footer.js"
+      },
+      {
+        "module": "sg-site-header",
+        "path": "/components/site-header/v1/v1.0/v1.0.2/sg-site-header.js"
+      },
+      {
+        "module": "tools.css",
+        "path": "/_common/css/tools.css"
+      }
+    ]
+  }
+}

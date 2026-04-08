@@ -1,0 +1,84 @@
+{
+  "name": "Agentic Loop",
+  "slug": "agentic",
+  "description": "Full LLM tool-calling loop. Define tools, run autonomous tasks, trace every step. Supports Python via Pyodide and VFS file operations.",
+  "icon": "🤖",
+  "version": "0.1.20",
+  "status": "live",
+  "category": "llm",
+  "keywords": [
+    "agentic",
+    "loop",
+    "tool",
+    "calling",
+    "function",
+    "use",
+    "python",
+    "vfs",
+    "autonomous"
+  ],
+  "dependencies": {
+    "core": [
+      {
+        "module": "sg-layout",
+        "path": "/core/sg-layout/v0.1.0/sg-layout.js"
+      }
+    ],
+    "components": [
+      {
+        "module": "sg-agentic-loop",
+        "path": "/components/agentic/sg-agentic-loop/v0/v0.1/v0.1.0/sg-agentic-loop.js"
+      },
+      {
+        "module": "sg-json-receiver",
+        "path": "/components/agentic/sg-json-receiver/v0/v0.1/v0.1.0/sg-json-receiver.js"
+      },
+      {
+        "module": "sg-json-sender",
+        "path": "/components/agentic/sg-json-sender/v0/v0.1/v0.1.0/sg-json-sender.js"
+      },
+      {
+        "module": "sg-python-repl",
+        "path": "/components/agentic/sg-python-repl/v0/v0.1/v0.1.0/sg-python-repl.js"
+      },
+      {
+        "module": "sg-tool-definition",
+        "path": "/components/agentic/sg-tool-definition/v0/v0.1/v0.1.1/sg-tool-definition.js"
+      },
+      {
+        "module": "sg-tool-runner",
+        "path": "/components/agentic/sg-tool-runner/v0/v0.1/v0.1.1/sg-tool-runner.js"
+      },
+      {
+        "module": "sg-llm-connection",
+        "path": "/components/llm/sg-llm-connection/v0/v0.1/v0.1.4/sg-llm-connection.js"
+      },
+      {
+        "module": "sg-llm-events",
+        "path": "/components/llm/sg-llm-events/v0/v0.1/v0.1.1/sg-llm-events.js"
+      },
+      {
+        "module": "sg-llm-request",
+        "path": "/components/llm/sg-llm-request/v0/v0.1/v0.1.4/sg-llm-request.js"
+      },
+      {
+        "module": "sg-llm-stats",
+        "path": "/components/llm/sg-llm-stats/v0/v0.1/v0.1.1/sg-llm-stats.js"
+      },
+      {
+        "module": "sg-vfs-bus",
+        "path": "/components/vfs/sg-vfs-bus/v0/v0.1/v0.1.0/sg-vfs-bus.js"
+      }
+    ],
+    "shared": [
+      {
+        "module": "sg-site-header",
+        "path": "/components/site-header/v1/v1.0/v1.0.2/sg-site-header.js"
+      },
+      {
+        "module": "tools.css",
+        "path": "/_common/css/tools.css"
+      }
+    ]
+  }
+}
