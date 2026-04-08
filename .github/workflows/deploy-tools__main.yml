@@ -73,19 +73,24 @@ jobs:
             echo "dist_id=${{ secrets.SGRAPH_TOOLS__CLOUDFRONT_DISTRIBUTION_ID }}" >> $GITHUB_OUTPUT
           fi
 
-      - name: Inject build version
-        run: python scripts/inject_build_version.py --version ${{ steps.ifd.outputs.ui_version }}
-
-      - name: Generate i18n locale pages
-        run: python scripts/generate_tools_i18n_pages.py --version ${{ steps.ifd.outputs.ui_version }}
-
       - name: Build layered IFD content
         run: |
-          echo "Building layered IFD content (all versions merged into latest)"
+          echo "Building layered IFD content (all versions merged into _latest/)"
           python scripts/build_ifd_latest.py \
             --source-dir ${{ env.SOURCE_DIR }} \
             --ifd-base tools/v0/v0.1 \
             --up-to auto
+
+      - name: Generate i18n locale pages
+        run: |
+          python scripts/generate_tools_i18n_pages.py \
+            --source-dir ${{ env.SOURCE_DIR }}/tools/v0/v0.1/_latest
+
+      - name: Inject build version
+        run: |
+          python scripts/inject_build_version.py \
+            --version ${{ steps.ifd.outputs.ui_version }} \
+            --source-dir ${{ env.SOURCE_DIR }}/tools/v0/v0.1/_latest
 
       - name: Check AWS credentials
         id: check-creds
