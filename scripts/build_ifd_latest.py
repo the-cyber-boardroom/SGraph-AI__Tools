@@ -32,6 +32,26 @@ def parse_version_tuple(name):
     return None
 
 
+def find_all_versions(ifd_base):
+    """Discover all version directories in the IFD base, sorted ascending."""
+    versions = []
+    for d in ifd_base.iterdir():
+        if d.is_dir() and d.name.startswith('v') and d.name != '_latest':
+            v = parse_version_tuple(d.name)
+            if v is not None:
+                versions.append((v, d))
+    versions.sort(key=lambda x: x[0])
+    return versions
+
+
+def find_latest_version(ifd_base):
+    """Find the highest semver version directory in the IFD base."""
+    versions = find_all_versions(ifd_base)
+    if not versions:
+        return None
+    return versions[-1]
+
+
 def main():
     parser = argparse.ArgumentParser(
         description="Build layered IFD content from version deltas."
@@ -46,29 +66,41 @@ def main():
     )
     parser.add_argument(
         "--up-to", required=True,
-        help="Latest version to include (e.g. v0.1.5)"
+        help="Latest version to include (e.g. v0.1.5) or 'auto' to detect"
     )
     args = parser.parse_args()
 
     source_dir = Path(args.source_dir).resolve()
     ifd_base = source_dir / args.ifd_base
-    target_version = parse_version_tuple(args.up_to)
 
     if not ifd_base.is_dir():
         print(f"ERROR: IFD base directory not found: {ifd_base}")
         sys.exit(1)
 
-    if target_version is None:
-        print(f"ERROR: Invalid version: {args.up_to}")
-        sys.exit(1)
+    # Auto-detect latest version if requested
+    if args.up_to == 'auto':
+        latest = find_latest_version(ifd_base)
+        if latest is None:
+            print("ERROR: No version directories found — cannot auto-detect")
+            sys.exit(1)
+        target_version = latest[0]
+        ver_str = f"v{latest[0][0]}.{latest[0][1]}.{latest[0][2]}"
+        print(f"Auto-detected latest version: {ver_str}")
+    else:
+        target_version = parse_version_tuple(args.up_to)
+        if target_version is None:
+            print(f"ERROR: Invalid version: {args.up_to}")
+            sys.exit(1)
 
-    # Find all version directories, sorted by version number
-    version_dirs = []
-    for d in ifd_base.iterdir():
-        if d.is_dir() and d.name.startswith('v') and d.name != '_latest':
-            v = parse_version_tuple(d.name)
-            if v is not None and v <= target_version:
-                version_dirs.append((v, d))
+    # Warn if --up-to skips newer versions
+    all_versions = find_all_versions(ifd_base)
+    max_version = max(v for v, _ in all_versions) if all_versions else None
+    if max_version and target_version < max_version:
+        skipped = [f"v{v[0]}.{v[1]}.{v[2]}" for v, _ in all_versions if v > target_version]
+        print(f"WARNING: --up-to skips {len(skipped)} newer version(s): {', '.join(skipped)}")
+
+    # Find all version directories up to target, sorted by version number
+    version_dirs = [(v, d) for v, d in all_versions if v <= target_version]
 
     version_dirs.sort(key=lambda x: x[0])
 
@@ -111,6 +143,13 @@ def main():
     if en_gb.is_dir():
         tools = sorted(d.name for d in en_gb.iterdir() if d.is_dir())
         print(f"  Tools: {', '.join(tools)}")
+
+    # Post-build verification
+    expected = latest_dir / 'en-gb' / 'index.html'
+    if not expected.is_file():
+        print(f"\nERROR: Build verification failed — {expected} not found")
+        sys.exit(1)
+    print("\n  Build verified: en-gb/index.html exists")
 
 
 if __name__ == '__main__':

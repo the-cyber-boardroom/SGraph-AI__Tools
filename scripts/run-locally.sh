@@ -21,7 +21,8 @@ PORT=10063
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 REPO_ROOT="$(dirname "$SCRIPT_DIR")"
 STATIC_DIR="$REPO_ROOT/sgraph_ai_tools__static"
-UI_VERSION="v0.1.5"
+# Auto-detect latest IFD version from directory structure
+UI_VERSION=$(ls -d "$REPO_ROOT/sgraph_ai_tools__static/tools/v0/v0.1"/v0.1.* 2>/dev/null | sort -V | tail -1 | xargs basename)
 IFD_BASE="tools/v0/v0.1"
 SERVE_DIR="$REPO_ROOT/.local-server"
 
