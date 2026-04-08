@@ -1,0 +1,71 @@
+{
+  "name": "Folder Editor",
+  "slug": "folder-editor",
+  "description": "Manage VFS folder structures in the browser. Create, rename and delete files and folders. Share via SG/Send. Browse with a live tree view backed by IndexedDB.",
+  "icon": "📂",
+  "version": "0.1.23",
+  "status": "dev",
+  "category": "code",
+  "keywords": [
+    "folder",
+    "editor",
+    "vfs",
+    "files",
+    "manage",
+    "create",
+    "rename",
+    "delete"
+  ],
+  "dependencies": {
+    "core": [
+      {
+        "module": "sg-layout-events",
+        "path": "/core/sg-layout/v0.1.0/sg-layout-events.js"
+      },
+      {
+        "module": "sg-layout",
+        "path": "/core/sg-layout/v0.1.0/sg-layout.css"
+      },
+      {
+        "module": "sg-layout",
+        "path": "/core/sg-layout/v0.1.0/sg-layout.js"
+      },
+      {
+        "module": "sg-tree-events",
+        "path": "/core/sg-tree/v0/v0.1/v0.1.0/sg-tree-events.js"
+      },
+      {
+        "module": "sg-tree",
+        "path": "/core/sg-tree/v0/v0.1/v0.1.4/sg-tree--v0.1.4.js"
+      },
+      {
+        "module": "sg-vfs-events",
+        "path": "/core/sg-vfs/v0/v0.1/v0.1.0/sg-vfs-events.js"
+      }
+    ],
+    "components": [
+      {
+        "module": "sg-send-drop",
+        "path": "/components/send-drop/v1/v1.0/v1.0.0/sg-send-drop.js"
+      },
+      {
+        "module": "sg-vfs-bus",
+        "path": "/components/vfs/sg-vfs-bus/v0/v0.1/v0.1.0/sg-vfs-bus.js"
+      },
+      {
+        "module": "sg-vfs-event-viewer",
+        "path": "/components/vfs/sg-vfs-event-viewer/v0/v0.1/v0.1.0/sg-vfs-event-viewer.js"
+      },
+      {
+        "module": "sg-vfs-seeder",
+        "path": "/components/vfs/sg-vfs-seeder/v0/v0.1/v0.1.0/sg-vfs-seeder.js"
+      }
+    ],
+    "shared": [
+      {
+        "module": "tools.css",
+        "path": "/_common/css/tools.css"
+      }
+    ]
+  }
+}

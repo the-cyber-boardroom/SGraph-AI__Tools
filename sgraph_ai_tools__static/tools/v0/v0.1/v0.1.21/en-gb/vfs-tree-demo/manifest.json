@@ -1,0 +1,63 @@
+{
+  "name": "VFS Tree Demo",
+  "slug": "vfs-tree-demo",
+  "description": "Live demo of sg-tree component with VFS integration. Visual directory tree that auto-refreshes on structural changes, with inline file editor.",
+  "icon": "🌲",
+  "version": "0.1.21",
+  "status": "dev",
+  "category": "dev",
+  "keywords": [
+    "vfs",
+    "tree",
+    "demo",
+    "directory",
+    "listing",
+    "visual",
+    "filesystem",
+    "browser"
+  ],
+  "dependencies": {
+    "core": [
+      {
+        "module": "sg-tree-events",
+        "path": "/core/sg-tree/v0/v0.1/v0.1.0/sg-tree-events.js"
+      },
+      {
+        "module": "sg-tree",
+        "path": "/core/sg-tree/v0/v0.1/v0.1.0/sg-tree.js"
+      },
+      {
+        "module": "sg-vfs-events",
+        "path": "/core/sg-vfs/v0/v0.1/v0.1.0/sg-vfs-events.js"
+      },
+      {
+        "module": "sg-vfs-provider-indexeddb",
+        "path": "/core/sg-vfs/v0/v0.1/v0.1.0/sg-vfs-provider-indexeddb.js"
+      },
+      {
+        "module": "sg-vfs-request-id",
+        "path": "/core/sg-vfs/v0/v0.1/v0.1.0/sg-vfs-request-id.js"
+      }
+    ],
+    "components": [
+      {
+        "module": "sg-vfs-bus",
+        "path": "/components/vfs/sg-vfs-bus/v0/v0.1/v0.1.0/sg-vfs-bus.js"
+      },
+      {
+        "module": "sg-vfs-event-viewer",
+        "path": "/components/vfs/sg-vfs-event-viewer/v0/v0.1/v0.1.0/sg-vfs-event-viewer.js"
+      }
+    ],
+    "shared": [
+      {
+        "module": "sg-site-header",
+        "path": "/components/site-header/v1/v1.0/v1.0.2/sg-site-header.js"
+      },
+      {
+        "module": "tools.css",
+        "path": "/_common/css/tools.css"
+      }
+    ]
+  }
+}

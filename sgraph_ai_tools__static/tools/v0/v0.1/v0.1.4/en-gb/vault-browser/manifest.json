@@ -1,0 +1,35 @@
+{
+  "name": "Vault Browser",
+  "slug": "vault-browser",
+  "description": "Open and browse SG/Send vaults in your browser. Derive keys, decrypt files, view contents — no Python or CLI required.",
+  "icon": "🗄️",
+  "version": "0.1.4",
+  "status": "live",
+  "category": "vault",
+  "keywords": [
+    "sgraph",
+    "send",
+    "browse",
+    "decrypt"
+  ],
+  "dependencies": {
+    "shared": [
+      {
+        "module": "sg-locale-picker",
+        "path": "/components/locale-picker/v1/v1.0/v1.0.1/sg-locale-picker.js"
+      },
+      {
+        "module": "sg-site-footer",
+        "path": "/components/site-footer/v1/v1.0/v1.0.0/sg-site-footer.js"
+      },
+      {
+        "module": "sg-site-header",
+        "path": "/components/site-header/v1/v1.0/v1.0.1/sg-site-header.js"
+      },
+      {
+        "module": "tools.css",
+        "path": "/_common/css/tools.css"
+      }
+    ]
+  }
+}

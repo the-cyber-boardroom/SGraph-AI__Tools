@@ -21,7 +21,8 @@ PORT=10063
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 REPO_ROOT="$(dirname "$SCRIPT_DIR")"
 STATIC_DIR="$REPO_ROOT/sgraph_ai_tools__static"
-UI_VERSION="v0.1.5"
+# Auto-detect latest IFD version from directory structure
+UI_VERSION=$(ls -d "$REPO_ROOT/sgraph_ai_tools__static/tools/v0/v0.1"/v0.1.* 2>/dev/null | sort -V | tail -1 | xargs basename)
 IFD_BASE="tools/v0/v0.1"
 SERVE_DIR="$REPO_ROOT/.local-server"
 
@@ -45,18 +46,19 @@ for version_dir in $(ls -d "$STATIC_DIR/$IFD_BASE"/v0.1.* 2>/dev/null | sort -V)
     version_name=$(basename "$version_dir")
     echo "    + $version_name"
 
-    # Copy locale folders (en-gb/, etc.) — merge, don't replace
+    # Copy locale folders (en-gb/, etc.) — merge contents, don't nest
     for sub in "$version_dir"/*/; do
         dirname=$(basename "$sub")
         if [ "$dirname" != "_common" ] && [ "$dirname" != "i18n" ] && [ -d "$sub" ]; then
-            # Use cp -r to merge into existing directory
-            cp -r "$sub" "$SERVE_DIR/$dirname"
+            mkdir -p "$SERVE_DIR/$dirname"
+            cp -r "$sub"/* "$SERVE_DIR/$dirname/" 2>/dev/null || true
         fi
     done
 
-    # Copy _common/ (overwrites if exists)
+    # Copy _common/ — merge contents into existing dir
     if [ -d "$version_dir/_common" ]; then
-        cp -r "$version_dir/_common" "$SERVE_DIR/_common"
+        mkdir -p "$SERVE_DIR/_common"
+        cp -r "$version_dir/_common"/* "$SERVE_DIR/_common/" 2>/dev/null || true
     fi
 
     # Copy root files (404.html, manifest.json, etc.)

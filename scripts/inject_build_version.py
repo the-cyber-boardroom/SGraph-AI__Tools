@@ -47,6 +47,9 @@ def main():
     parser = argparse.ArgumentParser(description='Inject build version into Tools UI')
     parser.add_argument('--version', type=str, default=None,
                         help='Version to target (default: read from version file)')
+    parser.add_argument('--source-dir', type=str, default=None,
+                        help='Pre-built directory to write build-info.js into (e.g. _latest/). '
+                             'Use this when running AFTER build_ifd_latest.py.')
     parser.add_argument('--dry-run', action='store_true',
                         help='Print what would be written without writing')
     args = parser.parse_args()
@@ -64,10 +67,13 @@ def main():
         app_version = ui_version
 
     # Resolve target path
-    ifd_path    = version_to_ifd_path(ui_version)
-    ui_base     = REPO_ROOT / UI_BASE
-    version_dir = ui_base / ifd_path
-    target      = version_dir / '_common' / 'js' / 'build-info.js'
+    if args.source_dir:
+        target = Path(args.source_dir).resolve() / '_common' / 'js' / 'build-info.js'
+    else:
+        ifd_path    = version_to_ifd_path(ui_version)
+        ui_base     = REPO_ROOT / UI_BASE
+        version_dir = ui_base / ifd_path
+        target      = version_dir / '_common' / 'js' / 'build-info.js'
 
     # Build timestamp
     build_time = datetime.now(timezone.utc).strftime('%Y-%m-%dT%H:%M:%SZ')

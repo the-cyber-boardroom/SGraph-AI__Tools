@@ -159,6 +159,9 @@ This project starts with a single **Explorer team** of 6 roles:
 | Document | Location |
 |---|---|
 | **Reality document** | `team/explorer/librarian/reality/v0.1.0__what-exists-today.md` |
-| **Briefing pack** | `briefs/BRIEF_PACK.md` |
-| **Architecture brief** | Referenced from SG/Send main repo |
+| **Master index** | `team/explorer/librarian/reviews/v0.1.68__master-index__spring-clean-v2.md` |
+| **Briefing pack** | `team/humans/dinis_cruz/briefs/03/05/v0.1.0__initial_tools_repo__BRIEF_PACK.md` |
+| **Architecture guide** | `library/architecture/v0.1.68__guide__three-tier-architecture.md` |
+| **Component API** | `library/api/v0.1.68__reference__components.md` |
+| **Core module API** | `library/api/v0.1.68__reference__core-modules.md` |
 | **Role definitions** | `team/explorer/{role}/ROLE__{role}.md` |
