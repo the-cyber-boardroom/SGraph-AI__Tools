@@ -5,10 +5,11 @@ name: Deploy Tools UI to S3 (dev)
 # S3 path: websites/sgraph-tools/dev/
 #
 # Steps:
-#   1. Generate i18n locale pages from en-gb/ templates + i18n/*.json
-#   2. Inject build version
-#   3. Sync content to S3 under the dev environment prefix
-#   4. Invalidate CloudFront cache
+#   1. Build layered IFD content (all versions merged into _latest/)
+#   2. Generate i18n locale pages from _latest/en-gb/ + _latest/i18n/
+#   3. Inject build version into _latest/
+#   4. Sync content to S3 under the dev environment prefix
+#   5. Invalidate CloudFront cache
 
 on:
   push:
@@ -70,19 +71,24 @@ jobs:
           echo "Repo version: $APP_VERSION"
           echo "Auto-detected UI version: $LATEST"
 
-      - name: Inject build version
-        run: python scripts/inject_build_version.py --version ${{ steps.ifd.outputs.ui_version }}
-
-      - name: Generate i18n locale pages
-        run: python scripts/generate_tools_i18n_pages.py --version ${{ steps.ifd.outputs.ui_version }}
-
       - name: Build layered IFD content
         run: |
-          echo "Building layered IFD content (all versions merged into latest)"
+          echo "Building layered IFD content (all versions merged into _latest/)"
           python scripts/build_ifd_latest.py \
             --source-dir ${{ env.SOURCE_DIR }} \
             --ifd-base tools/v0/v0.1 \
             --up-to auto
+
+      - name: Generate i18n locale pages
+        run: |
+          python scripts/generate_tools_i18n_pages.py \
+            --source-dir ${{ env.SOURCE_DIR }}/tools/v0/v0.1/_latest
+
+      - name: Inject build version
+        run: |
+          python scripts/inject_build_version.py \
+            --version ${{ steps.ifd.outputs.ui_version }} \
+            --source-dir ${{ env.SOURCE_DIR }}/tools/v0/v0.1/_latest
 
       - name: Check AWS credentials
         id: check-creds
