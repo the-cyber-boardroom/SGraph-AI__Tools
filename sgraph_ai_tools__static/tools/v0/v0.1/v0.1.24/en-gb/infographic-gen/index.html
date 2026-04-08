@@ -1,0 +1,1083 @@
+<!DOCTYPE html>
+<html lang="en-GB">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Infographic Generator — tools.sgraph.ai</title>
+    <meta name="description" content="Generate infographics from a text description. Simple mode: one box, one button. Templates, multi-model, and fractal results.">
+    <link rel="icon" type="image/svg+xml" href="../../_common/favicon.svg">
+    <link rel="stylesheet" href="../../_common/css/tools.css">
+    <link rel="stylesheet" href="/core/sg-layout/v0.1.0/sg-layout.css">
+    <style>
+        html, body { height: 100%; margin: 0; overflow: hidden; }
+        body { display: flex; flex-direction: column; }
+        sg-site-header { flex-shrink: 0; }
+        #conn-bar {
+            flex-shrink: 0; display: flex; align-items: center; gap: 10px;
+            padding: 7px 14px; background: #0d0d1a; border-bottom: 1px solid #1a1a3a;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            font-size: 13px; flex-wrap: wrap;
+        }
+        #conn-bar label { font-size: 11px; font-weight: 600; color: #a0aec0; text-transform: uppercase; letter-spacing: 0.05em; white-space: nowrap; }
+        #conn-bar input[type="password"] { flex: 1; min-width: 140px; max-width: 280px; background: #111122; border: 1px solid #333d5a; border-radius: 4px; color: #e2e8f0; padding: 5px 10px; font-size: 13px; outline: none; }
+        #conn-bar input:focus { border-color: #4ECDC4; }
+        #connect-btn { background: #4ECDC4; color: #0d0d1a; border: none; border-radius: 4px; padding: 5px 16px; font-size: 13px; font-weight: 700; cursor: pointer; white-space: nowrap; }
+        #connect-btn:hover { opacity: 0.85; }
+        #connect-btn:disabled { opacity: 0.5; cursor: default; }
+        #conn-status { font-size: 12px; white-space: nowrap; }
+        #conn-status.ok { color: #4ECDC4; }
+        #conn-status.error { color: #ff6b6b; }
+        #layout-wrap { flex: 1; min-height: 0; }
+        #layout-wrap sg-layout { display: block; width: 100%; height: 100%; }
+    </style>
+</head>
+<body>
+
+<script type="module" src="/components/site-header/v1/v1.0/v1.0.2/sg-site-header.js"></script>
+<sg-site-header site="Tools" home-url="../../"></sg-site-header>
+
+<div id="conn-bar">
+    <label>OpenRouter Key</label>
+    <input type="password" id="api-key" placeholder="sk-or-v1-…" autocomplete="off" spellcheck="false">
+    <button id="connect-btn">Connect</button>
+    <span id="conn-status"></span>
+</div>
+
+<div id="layout-wrap"></div>
+
+<script type="module">
+import { SgLayout }   from '/core/sg-layout/v0.1.0/sg-layout.js';
+import { SGL_EVENTS } from '/core/sg-layout/v0.1.0/sg-layout-events.js';
+
+import '/components/llm/sg-llm-events/v0/v0.1/v0.1.0/sg-llm-events.js';
+import '/components/llm/sg-llm-request/v0/v0.1/v0.1.2/sg-llm-request.js';
+import '/components/llm/sg-llm-stats/v0/v0.1/v0.1.1/sg-llm-stats.js';
+import '/components/llm/sg-llm-model-picker/v0/v0.1/v0.1.0/sg-llm-model-picker.js';
+import '/components/llm/sg-llm-infographic/v0/v0.1/v0.1.0/sg-llm-infographic.js';
+import '/components/openrouter/sg-openrouter-generation/v0/v0.1/v0.1.1/sg-openrouter-generation.js';
+import '/components/send-drop/v1/v1.0/v1.0.0/sg-send-drop.js';
+
+import { SGL_LLM } from '/components/llm/sg-llm-events/v0/v0.1/v0.1.0/sg-llm-events.js';
+
+// ── Constants ─────────────────────────────────────────────────────────────────
+
+const STORAGE_KEY = 'sg-infographic-simple-v1';
+
+const IMAGE_MODELS = [
+    'google/gemini-3.1-flash-image-preview',
+    'google/gemini-2.5-flash-image',
+    'google/gemini-3-pro-image-preview',
+    'google/gemini-2.0-flash-001',
+    'openai/gpt-5-image-mini',
+    'openai/gpt-5-image',
+    'sourceful/riverflow-v2-fast',
+    'sourceful/riverflow-v2-fast-preview',
+    'sourceful/riverflow-v2-standard-preview',
+    'sourceful/riverflow-v2-pro',
+    'sourceful/riverflow-v2-max-preview',
+    'bytedance/seedream-4.5',
+    'black-forest-labs/flux-2-pro',
+    'black-forest-labs/flux-2-flex',
+    'black-forest-labs/flux-2-klein',
+];
+const SVG_MODELS = [
+    'qwen/qwen-2.5-72b-instruct',
+    'qwen/qwen-2.5-7b-instruct',
+    'meta-llama/llama-3.3-70b-instruct',
+    'meta-llama/llama-3.1-8b-instruct:free',
+    'mistralai/mistral-small-3.1-24b-instruct',
+    'deepseek/deepseek-chat-v3-0324',
+    'anthropic/claude-haiku-4-5-20251001',
+];
+const ALL_MODELS    = [...IMAGE_MODELS, ...SVG_MODELS];
+const DEFAULT_MODEL = 'google/gemini-3.1-flash-image-preview';
+
+const DEFAULT_SYSTEM_PROMPT = 'You are a professional infographic designer. Create a high-quality, publication-ready infographic image. Use a clean dark navy background (#0d1b2a), white headings, teal and blue-grey accents. Clear layout with visual groupings, icons, and data callouts. Render as a landscape image.';
+
+const TEMPLATES = [
+    { id: 'executive',    icon: '📊', label: 'Executive Summary',
+      prompt: 'Create an executive summary infographic with 3-5 key business metrics, a headline finding, and supporting data points. Use a clean, professional layout with clear hierarchy.' },
+    { id: 'architecture', icon: '🏗', label: 'Architecture',
+      prompt: 'Create a technical architecture diagram showing system components, their connections, and data flows. Use boxes and arrows with clear labels for each component and layer.' },
+    { id: 'timeline',     icon: '📅', label: 'Timeline',
+      prompt: 'Create a horizontal timeline infographic showing key milestones in chronological order. Each milestone should have a date, title, and brief description.' },
+    { id: 'comparison',   icon: '⚖️', label: 'Comparison',
+      prompt: 'Create a side-by-side comparison infographic with 2-3 options. Show strengths, weaknesses, and best-use-case for each with clear visual rating indicators.' },
+    { id: 'process',      icon: '🔄', label: 'Process Flow',
+      prompt: 'Create a step-by-step process flow infographic with numbered steps, icons for each stage, and brief descriptions. Connect steps with arrows.' },
+    { id: 'stats',        icon: '📈', label: 'Stats Dashboard',
+      prompt: 'Create a statistics dashboard infographic featuring key numbers, percentage breakdowns, a trend chart, and 3-4 highlight metrics in callout boxes.' },
+    { id: 'mindmap',      icon: '🧠', label: 'Mind Map',
+      prompt: 'Create a mind map infographic with a central concept and 5-6 main branches, each with 2-3 sub-topics. Use distinct colour-coding for each branch.' },
+];
+
+function isImageModel(model) { return IMAGE_MODELS.includes(model); }
+
+const DOCUMENT_SYSTEM_PROMPT = 'You are a professional infographic designer. The user has provided a document. Analyse its key content and create a high-quality, publication-ready infographic that visualises the most important information. Use a clean dark navy background (#0d1b2a), white headings, teal and blue-grey accents. Clear layout with visual groupings, icons, and data callouts. Render as a landscape image.';
+
+const DOC_TEMPLATES = [
+    { id: 'keypoints',  icon: '📋', label: 'Key Points',      direction: 'Extract and visualise the 5-7 most important points from this document.' },
+    { id: 'datastats',  icon: '📊', label: 'Data & Stats',    direction: 'Identify all data, statistics, and metrics in this document and create a data visualisation.' },
+    { id: 'doctimeline',icon: '📅', label: 'Timeline',        direction: 'Extract chronological events and milestones from this document and create a timeline.' },
+    { id: 'execbrief',  icon: '📝', label: 'Executive Brief', direction: 'Create a one-page executive summary infographic from this document.' },
+    { id: 'processmap', icon: '🔄', label: 'Process Map',     direction: 'Identify the process, workflow, or steps described in this document and visualise them.' },
+    { id: 'compare',    icon: '⚖️', label: 'Compare',         direction: 'Identify comparison points in this document and visualise them side by side.' },
+];
+
+// ── LocalStorage helpers ──────────────────────────────────────────────────────
+
+function loadPrefs() { try { return JSON.parse(localStorage.getItem(STORAGE_KEY) || '{}'); } catch { return {}; } }
+function savePrefs(patch) { localStorage.setItem(STORAGE_KEY, JSON.stringify({ ...loadPrefs(), ...patch })); }
+
+// ── DOM refs ──────────────────────────────────────────────────────────────────
+
+const apiKeyEl   = document.getElementById('api-key');
+const connectBtn = document.getElementById('connect-btn');
+const statusEl   = document.getElementById('conn-status');
+const layoutWrap = document.getElementById('layout-wrap');
+
+function setStatus(text, type) { statusEl.textContent = text; statusEl.className = type; }
+
+// ── Restore saved key ─────────────────────────────────────────────────────────
+
+const prefs = loadPrefs();
+if (prefs.apiKey) apiKeyEl.value = prefs.apiKey;
+
+// ── Outer sg-layout ───────────────────────────────────────────────────────────
+
+const layout = document.createElement('sg-layout');
+layoutWrap.appendChild(layout);
+const outerReady = new Promise(resolve => layout.events.on(SGL_EVENTS.LAYOUT_READY, resolve));
+layout.setLayout({
+    type: 'row', id: 'root', sizes: [0.36, 0.64],
+    children: [
+        { type: 'stack', id: 's-left',  activeTab: 0,
+          tabs: [{ type: 'tab', id: 't-input', title: 'Create', tag: 'div', locked: true, closable: false }] },
+        { type: 'stack', id: 's-right', activeTab: 0,
+          tabs: [{ type: 'tab', id: 't-placeholder', title: 'Results', tag: 'div', locked: true, closable: false }] },
+    ],
+});
+await outerReady;
+
+const leftPanel  = layout.getPanelElement('t-input');
+const rightPanel = layout.getPanelElement('t-placeholder');
+
+// ── Event bus div (data-llm-bus for v0.1.1 component scoping) ─────────────────
+
+const bus = document.createElement('div');
+bus.setAttribute('data-llm-bus', '');
+bus.style.cssText = 'display:flex;flex-direction:column;height:100%;overflow:hidden;background:#0a0a18;';
+leftPanel.style.cssText = 'overflow:hidden;height:100%;display:block;';
+leftPanel.appendChild(bus);
+
+// ── Model picker (top of left panel, full width) ───────────────────────────────
+
+await customElements.whenDefined('sg-llm-model-picker');
+
+const modelPicker = document.createElement('sg-llm-model-picker');
+modelPicker.setAttribute('provider', 'openrouter');
+modelPicker.style.cssText = 'display:block;flex-shrink:0;';
+bus.appendChild(modelPicker);
+
+// Seed picker with our curated shortlist
+(function seedPicker() {
+    const sel = modelPicker.shadowRoot?.querySelector('select');
+    if (!sel) return;
+    sel.innerHTML =
+        '<option disabled style="color:#666;background:#0d0d1a">── Image models ──</option>' +
+        IMAGE_MODELS.map(m => `<option value="${m}">${m}</option>`).join('') +
+        '<option disabled style="color:#666;background:#0d0d1a">── SVG text models ──</option>' +
+        SVG_MODELS.map(m => `<option value="${m}">${m}</option>`).join('');
+    const refreshBtn = modelPicker.shadowRoot?.querySelector('#refresh-btn');
+    if (refreshBtn) refreshBtn.style.display = 'none';
+})();
+
+const savedModel = prefs.model && ALL_MODELS.includes(prefs.model) ? prefs.model : DEFAULT_MODEL;
+modelPicker.setModel(savedModel);
+
+// ── Mode state ────────────────────────────────────────────────────────────────
+
+let currentMode = 'text'; // 'text' | 'document'
+let currentDoc  = null;   // { name, type, textContent?, dataUrl? }
+
+// ── Mode toggle ───────────────────────────────────────────────────────────────
+
+const modeToggle = document.createElement('div');
+modeToggle.style.cssText = 'display:flex;flex-shrink:0;border-bottom:1px solid #1a1a3a;background:#0d0d1a;';
+
+function makeModeBtn(label) {
+    const btn = document.createElement('button');
+    btn.textContent = label;
+    btn.style.cssText = [
+        'flex:1', 'border:none', 'border-top:none', 'border-left:none', 'border-right:none',
+        'padding:7px', 'font-size:12px', 'font-weight:600', 'cursor:pointer',
+        'font-family:system-ui,sans-serif', 'background:transparent', 'color:#718096',
+        'border-bottom:2px solid transparent',
+    ].join(';');
+    modeToggle.appendChild(btn);
+    return btn;
+}
+const textModeBtn = makeModeBtn('✏  Text');
+const docModeBtn  = makeModeBtn('📄  Document');
+bus.appendChild(modeToggle);
+
+// ── Templates row ─────────────────────────────────────────────────────────────
+
+const templatesRow = document.createElement('div');
+templatesRow.style.cssText = [
+    'display:flex', 'align-items:center', 'gap:5px', 'flex-shrink:0',
+    'padding:6px 10px', 'background:#0d0d1a', 'border-bottom:1px solid #1a1a3a',
+    'overflow-x:auto', 'scrollbar-width:thin',
+].join(';');
+const templLabel = document.createElement('span');
+templLabel.textContent = 'Templates:';
+templLabel.style.cssText = 'font-size:11px;font-weight:600;color:#718096;text-transform:uppercase;letter-spacing:0.05em;white-space:nowrap;font-family:system-ui,sans-serif;flex-shrink:0;';
+templatesRow.appendChild(templLabel);
+bus.appendChild(templatesRow);
+
+// ── Main textarea ─────────────────────────────────────────────────────────────
+
+const textarea = document.createElement('textarea');
+textarea.placeholder = 'Describe your infographic…\n\nExample: "Create an infographic showing the 5 key benefits of serverless architecture, with an icon for each benefit and a cost comparison chart."';
+textarea.style.cssText = [
+    'flex:1', 'min-height:0', 'resize:none', 'width:100%', 'box-sizing:border-box',
+    'padding:12px 14px', 'background:#0d0d1a', 'color:#e2e8f0',
+    'border:none', 'border-bottom:1px solid #1a1a3a', 'outline:none',
+    'font-size:14px', 'line-height:1.6', 'font-family:system-ui,sans-serif',
+].join(';');
+bus.appendChild(textarea);
+
+// Restore last prompt
+if (prefs.lastPrompt) textarea.value = prefs.lastPrompt;
+textarea.addEventListener('input', () => savePrefs({ lastPrompt: textarea.value }));
+
+// ── Document mode panel ───────────────────────────────────────────────────────
+
+const docModeDiv = document.createElement('div');
+docModeDiv.style.cssText = 'display:none;flex-direction:column;flex:1;min-height:0;';
+bus.appendChild(docModeDiv);
+
+// Doc templates row
+const docTemplRow = document.createElement('div');
+docTemplRow.style.cssText = [
+    'display:flex', 'align-items:center', 'gap:5px', 'flex-shrink:0',
+    'padding:5px 8px', 'background:#0d0d1a', 'border-bottom:1px solid #1a1a3a',
+    'overflow-x:auto', 'scrollbar-width:thin',
+].join(';');
+const docTemplLabel = document.createElement('span');
+docTemplLabel.textContent = 'Focus:';
+docTemplLabel.style.cssText = 'font-size:11px;font-weight:600;color:#718096;text-transform:uppercase;letter-spacing:0.05em;white-space:nowrap;font-family:system-ui,sans-serif;flex-shrink:0;';
+docTemplRow.appendChild(docTemplLabel);
+DOC_TEMPLATES.forEach(tmpl => {
+    const btn = document.createElement('button');
+    btn.innerHTML = `${tmpl.icon} ${tmpl.label}`;
+    btn.style.cssText = [
+        'background:#1a1a3a', 'border:1px solid #333d5a', 'border-radius:4px',
+        'color:#e2e8f0', 'padding:3px 9px', 'font-size:12px', 'cursor:pointer',
+        'white-space:nowrap', 'font-family:system-ui,sans-serif', 'flex-shrink:0',
+    ].join(';');
+    btn.addEventListener('click', () => { directionTextarea.value = tmpl.direction; });
+    docTemplRow.appendChild(btn);
+});
+docModeDiv.appendChild(docTemplRow);
+
+// Drop zone
+const dropZone = document.createElement('div');
+dropZone.style.cssText = [
+    'flex:1', 'min-height:0', 'display:flex', 'flex-direction:column',
+    'align-items:center', 'justify-content:center', 'gap:10px',
+    'margin:8px', 'border:2px dashed #333d5a', 'border-radius:8px',
+    'cursor:pointer', 'font-family:system-ui,sans-serif', 'transition:border-color 0.15s',
+    'background:#0d0d1a',
+].join(';');
+
+const dropIcon    = document.createElement('div');
+const dropMsg     = document.createElement('div');
+const dropSubMsg  = document.createElement('div');
+const docFileInfo = document.createElement('div');
+const clearDocBtn = document.createElement('button');
+
+dropIcon.textContent = '📄';
+dropIcon.style.cssText = 'font-size:32px;';
+dropMsg.textContent = 'Drop a document here';
+dropMsg.style.cssText = 'font-size:14px;font-weight:600;color:#a0aec0;text-align:center;';
+dropSubMsg.textContent = 'or click to browse — PDF, Markdown, text, CSV, or image';
+dropSubMsg.style.cssText = 'font-size:12px;color:#4a5568;text-align:center;';
+docFileInfo.style.cssText = 'display:none;font-size:13px;color:#4ECDC4;font-weight:600;text-align:center;';
+clearDocBtn.textContent = '✕ Clear';
+clearDocBtn.style.cssText = 'display:none;background:none;border:1px solid #333d5a;border-radius:4px;color:#718096;padding:3px 10px;font-size:11px;cursor:pointer;font-family:system-ui,sans-serif;';
+
+dropZone.appendChild(dropIcon);
+dropZone.appendChild(dropMsg);
+dropZone.appendChild(dropSubMsg);
+dropZone.appendChild(docFileInfo);
+dropZone.appendChild(clearDocBtn);
+docModeDiv.appendChild(dropZone);
+
+// Hidden file input
+const fileInput = document.createElement('input');
+fileInput.type = 'file';
+fileInput.accept = '.pdf,.md,.markdown,.txt,.csv,.json,.html,.js,.ts,.py,.png,.jpg,.jpeg,.webp,.gif';
+fileInput.style.display = 'none';
+docModeDiv.appendChild(fileInput);
+
+// Direction textarea (optional)
+const directionTextarea = document.createElement('textarea');
+directionTextarea.placeholder = 'Direction (optional): e.g. "focus on the timeline" or "highlight key metrics"';
+directionTextarea.rows = 2;
+directionTextarea.style.cssText = [
+    'flex-shrink:0', 'resize:none', 'width:100%', 'box-sizing:border-box',
+    'padding:8px 10px', 'background:#111122', 'color:#e2e8f0',
+    'border:none', 'border-top:1px solid #1a1a3a', 'outline:none',
+    'font-size:13px', 'line-height:1.5', 'font-family:system-ui,sans-serif',
+].join(';');
+docModeDiv.appendChild(directionTextarea);
+
+// Drop zone interaction
+function setDocLoaded(doc) {
+    currentDoc = doc;
+    dropIcon.textContent = doc.type === 'image' ? '🖼️' : doc.name.endsWith('.pdf') ? '📑' : '📝';
+    dropMsg.textContent = doc.name;
+    dropMsg.style.color = '#4ECDC4';
+    dropSubMsg.style.display = 'none';
+    docFileInfo.style.display = 'block';
+    docFileInfo.textContent = doc.type === 'image'
+        ? 'Image loaded — ready to generate'
+        : `${Math.round((doc.textContent?.length || 0) / 4)} tokens est.`;
+    clearDocBtn.style.display = 'inline-block';
+    dropZone.style.borderColor = '#4ECDC4';
+}
+function clearDoc() {
+    currentDoc = null;
+    dropIcon.textContent = '📄';
+    dropMsg.textContent = 'Drop a document here';
+    dropMsg.style.color = '#a0aec0';
+    dropSubMsg.style.display = '';
+    docFileInfo.style.display = 'none';
+    clearDocBtn.style.display = 'none';
+    dropZone.style.borderColor = '#333d5a';
+    fileInput.value = '';
+}
+clearDocBtn.addEventListener('click', e => { e.stopPropagation(); clearDoc(); });
+
+function readFile(file) {
+    const isImage = file.type.startsWith('image/');
+    const reader  = new FileReader();
+    if (isImage) {
+        reader.onload = ev => setDocLoaded({ name: file.name, type: 'image', dataUrl: ev.target.result });
+        reader.readAsDataURL(file);
+    } else if (file.type === 'application/pdf') {
+        reader.onload = ev => setDocLoaded({ name: file.name, type: 'pdf',
+            dataUrl: ev.target.result,
+            textContent: null,   // PDF text extraction not available client-side
+        });
+        reader.readAsDataURL(file);
+    } else {
+        reader.onload = ev => setDocLoaded({ name: file.name, type: 'text', textContent: ev.target.result });
+        reader.readAsText(file);
+    }
+}
+
+dropZone.addEventListener('click', () => fileInput.click());
+fileInput.addEventListener('change', () => { if (fileInput.files[0]) readFile(fileInput.files[0]); });
+dropZone.addEventListener('dragover',  e => { e.preventDefault(); dropZone.style.borderColor = '#4ECDC4'; });
+dropZone.addEventListener('dragleave', () => { if (!currentDoc) dropZone.style.borderColor = '#333d5a'; });
+dropZone.addEventListener('drop', e => {
+    e.preventDefault();
+    const file = e.dataTransfer.files[0];
+    if (file) readFile(file);
+});
+
+// ── Mode switcher ─────────────────────────────────────────────────────────────
+
+function setMode(mode) {
+    const isDoc = mode === 'document';
+    // Swap system prompt default when mode changes (only if still on a known default)
+    if (mode !== currentMode) {
+        const oldDefault = currentMode === 'document' ? DOCUMENT_SYSTEM_PROMPT : DEFAULT_SYSTEM_PROMPT;
+        const newDefault = isDoc ? DOCUMENT_SYSTEM_PROMPT : DEFAULT_SYSTEM_PROMPT;
+        if (advTextarea.value === oldDefault) advTextarea.value = newDefault;
+    }
+    currentMode = mode;
+    // Toggle visibility
+    templatesRow.style.display = isDoc ? 'none' : '';
+    textarea.style.display     = isDoc ? 'none' : '';
+    docModeDiv.style.display   = isDoc ? 'flex' : 'none';
+    // Active indicator on toggle buttons
+    textModeBtn.style.cssText = textModeBtn.style.cssText.replace(/border-bottom:[^;]+/, `border-bottom:2px solid ${isDoc ? 'transparent' : '#4ECDC4'}`);
+    textModeBtn.style.color = isDoc ? '#718096' : '#e2e8f0';
+    docModeBtn.style.cssText = docModeBtn.style.cssText.replace(/border-bottom:[^;]+/, `border-bottom:2px solid ${isDoc ? '#4ECDC4' : 'transparent'}`);
+    docModeBtn.style.color = isDoc ? '#e2e8f0' : '#718096';
+}
+textModeBtn.addEventListener('click', () => setMode('text'));
+docModeBtn.addEventListener('click',  () => setMode('document'));
+setMode('text'); // initialise
+
+// Add template buttons (after textarea exists)
+TEMPLATES.forEach(tmpl => {
+    const btn = document.createElement('button');
+    btn.innerHTML = `${tmpl.icon} ${tmpl.label}`;
+    btn.title = tmpl.prompt.substring(0, 100) + '…';
+    btn.style.cssText = [
+        'background:#1a1a3a', 'border:1px solid #333d5a', 'border-radius:4px',
+        'color:#e2e8f0', 'padding:3px 9px', 'font-size:12px', 'cursor:pointer',
+        'white-space:nowrap', 'font-family:system-ui,sans-serif', 'flex-shrink:0',
+    ].join(';');
+    btn.addEventListener('click', () => {
+        textarea.value = tmpl.prompt;
+        savePrefs({ lastPrompt: tmpl.prompt });
+        textarea.focus();
+    });
+    templatesRow.appendChild(btn);
+});
+
+// ── Bottom action bar (Send + Stop + Advanced toggle) ─────────────────────────
+
+const actionBar = document.createElement('div');
+actionBar.style.cssText = [
+    'display:flex', 'align-items:center', 'gap:8px', 'flex-shrink:0',
+    'padding:8px 10px', 'background:#0a0a18', 'border-top:1px solid #1a1a3a',
+].join(';');
+
+const advancedToggle = document.createElement('button');
+advancedToggle.textContent = '⚙ Advanced';
+advancedToggle.style.cssText = [
+    'background:none', 'border:none', 'color:#718096', 'font-size:12px',
+    'cursor:pointer', 'padding:4px 8px', 'font-family:system-ui,sans-serif',
+    'white-space:nowrap',
+].join(';');
+
+const activeRequests = new Map(); // panelEl → cancelFn
+
+const stopBtn = document.createElement('button');
+stopBtn.textContent = '■ Stop';
+stopBtn.style.cssText = [
+    'background:#7f1d1d', 'border:none', 'border-radius:6px', 'color:#fca5a5',
+    'padding:7px 14px', 'font-size:13px', 'font-weight:600', 'cursor:pointer',
+    'flex-shrink:0', 'display:none',
+].join(';');
+stopBtn.addEventListener('click', () => { for (const c of activeRequests.values()) c(); });
+
+const sendBtn = document.createElement('button');
+sendBtn.innerHTML = '&#9658; Send';
+sendBtn.style.cssText = [
+    'background:#1d4ed8', 'border:none', 'border-radius:6px', 'color:#fff',
+    'padding:8px 0', 'font-size:14px', 'font-weight:600', 'cursor:pointer',
+    'flex:1',
+].join(';');
+
+actionBar.appendChild(advancedToggle);
+actionBar.appendChild(stopBtn);
+actionBar.appendChild(sendBtn);
+bus.appendChild(actionBar);
+
+function updateStopBtn() {
+    stopBtn.style.display = activeRequests.size > 0 ? 'inline-block' : 'none';
+    stopBtn.textContent = activeRequests.size > 1 ? `■ Stop all (${activeRequests.size})` : '■ Stop';
+}
+
+// ── Advanced section (system prompt override, hidden by default) ───────────────
+
+const advancedSection = document.createElement('div');
+advancedSection.style.cssText = [
+    'display:none', 'flex-direction:column', 'flex-shrink:0',
+    'border-top:1px solid #1a1a3a', 'background:#0a0a18',
+].join(';');
+const advLabel = document.createElement('div');
+advLabel.textContent = 'System Prompt Override';
+advLabel.style.cssText = 'font-size:11px;font-weight:600;color:#718096;text-transform:uppercase;letter-spacing:0.05em;padding:6px 10px 2px;font-family:system-ui,sans-serif;';
+const advTextarea = document.createElement('textarea');
+advTextarea.value = DEFAULT_SYSTEM_PROMPT;
+advTextarea.style.cssText = [
+    'resize:none', 'height:80px', 'width:100%', 'box-sizing:border-box',
+    'padding:8px 10px', 'background:#111122', 'color:#a0aec0',
+    'border:1px solid #1a1a3a', 'outline:none', 'font-size:12px', 'line-height:1.5',
+    'font-family:system-ui,sans-serif',
+].join(';');
+advTextarea.addEventListener('focus', () => advTextarea.style.borderColor = '#4ECDC4');
+advTextarea.addEventListener('blur',  () => advTextarea.style.borderColor = '#1a1a3a');
+advancedSection.appendChild(advLabel);
+advancedSection.appendChild(advTextarea);
+bus.appendChild(advancedSection);
+
+let advancedOpen = false;
+advancedToggle.addEventListener('click', () => {
+    advancedOpen = !advancedOpen;
+    advancedSection.style.display = advancedOpen ? 'flex' : 'none';
+    advancedToggle.style.color = advancedOpen ? '#4ECDC4' : '#718096';
+});
+
+// ── Right panel placeholder ───────────────────────────────────────────────────
+
+rightPanel.style.cssText = 'overflow:hidden;height:100%;display:block;background:#0d0d1a;';
+const placeholder = document.createElement('div');
+placeholder.style.cssText = [
+    'height:100%', 'display:flex', 'flex-direction:column',
+    'align-items:center', 'justify-content:center', 'gap:16px',
+    'font-family:system-ui,sans-serif', 'padding:40px', 'box-sizing:border-box',
+    'text-align:center',
+].join(';');
+placeholder.innerHTML = `
+  <div style="font-size:24px;font-weight:700;color:#e2e8f0;">🎨 Infographic Generator</div>
+  <div style="font-size:14px;color:#718096;max-width:420px;line-height:1.7;">
+    Describe what you want — or pick a <strong style="color:#a0aec0;">template</strong> — then press
+    <strong style="color:#4ECDC4;">▶ Send</strong>.
+  </div>
+  <div style="font-size:13px;color:#4a5568;max-width:420px;line-height:1.8;text-align:left;">
+    <strong style="color:#a0aec0;">Each result opens as a new tab.</strong><br>
+    Drag tabs side by side to compare models.<br>
+    Change the model between sends to run multiple in parallel.
+  </div>
+`;
+rightPanel.appendChild(placeholder);
+
+// ── Fractal result tab setup ───────────────────────────────────────────────────
+
+let fractalCounter = 0;
+
+/**
+ * Creates an inner sg-layout inside panelEl with two panes:
+ * - left (65%): image/infographic viewer
+ * - right (35%): details (model, stats, controls)
+ * @param {HTMLElement} panelEl
+ * @param {string} model
+ * @returns {Promise<{imgPanel: HTMLElement, detailsPanel: HTMLElement}>}
+ */
+async function setupResultFractal(panelEl, model) {
+    const id = ++fractalCounter;
+    panelEl.style.cssText = 'width:100%;height:100%;display:block;overflow:hidden;';
+
+    const inner = document.createElement('sg-layout');
+    inner.style.cssText = 'width:100%;height:100%;display:block;';
+    panelEl.appendChild(inner);
+
+    const ready = new Promise(resolve => inner.events.on(SGL_EVENTS.LAYOUT_READY, resolve));
+    inner.setLayout({
+        type: 'row', id: `fr${id}`, sizes: [0.65, 0.35],
+        children: [
+            { type: 'stack', id: `fi${id}`, activeTab: 0,
+              tabs: [{ type: 'tab', id: `fti${id}`, title: 'Infographic', tag: 'div', locked: true, closable: false }] },
+            { type: 'stack', id: `fd${id}`, activeTab: 0,
+              tabs: [{ type: 'tab', id: `ftd${id}`, title: 'Details', tag: 'div', locked: false, closable: false }] },
+        ],
+    });
+    await ready;
+
+    const imgPanel     = inner.getPanelElement(`fti${id}`);
+    const detailsPanel = inner.getPanelElement(`ftd${id}`);
+    return { imgPanel, detailsPanel };
+}
+
+/**
+ * Populates the image panel with a loading state (spinner text + timer + cancel button).
+ * Sets panelEl._clearTimer and panelEl._cancel.
+ * @param {HTMLElement} imgPanel
+ * @param {string} model
+ */
+function setupLoadingState(imgPanel, model) {
+    imgPanel.style.cssText = 'position:relative;height:100%;overflow:hidden;background:#0d0d1a;display:block;';
+
+    const loadDiv = document.createElement('div');
+    loadDiv.dataset.role = 'loading';
+    loadDiv.style.cssText = [
+        'position:absolute', 'inset:0', 'display:flex', 'flex-direction:column',
+        'align-items:center', 'justify-content:center', 'gap:10px',
+        'font-family:system-ui,sans-serif',
+    ].join(';');
+
+    const modelLbl = document.createElement('div');
+    modelLbl.style.cssText = 'font-size:12px;color:#4a5568;font-weight:600;';
+    modelLbl.textContent = model;
+
+    const statusLbl = document.createElement('div');
+    statusLbl.style.cssText = 'font-size:15px;color:#a0aec0;';
+    statusLbl.textContent = 'Generating…';
+
+    const elapsedLbl = document.createElement('div');
+    elapsedLbl.style.cssText = 'font-size:13px;color:#4a5568;';
+    elapsedLbl.textContent = '0s elapsed';
+
+    const cancelBtn = document.createElement('button');
+    cancelBtn.textContent = '■ Cancel';
+    cancelBtn.style.cssText = [
+        'background:#7f1d1d', 'border:none', 'border-radius:6px', 'color:#fca5a5',
+        'padding:6px 16px', 'font-size:13px', 'font-weight:600', 'cursor:pointer', 'margin-top:4px',
+    ].join(';');
+    cancelBtn.addEventListener('click', () => imgPanel._cancel?.());
+
+    loadDiv.appendChild(modelLbl);
+    loadDiv.appendChild(statusLbl);
+    loadDiv.appendChild(elapsedLbl);
+    loadDiv.appendChild(cancelBtn);
+    imgPanel.appendChild(loadDiv);
+
+    const t0 = Date.now();
+    const timer = setInterval(() => {
+        elapsedLbl.textContent = `${Math.floor((Date.now() - t0) / 1000)}s elapsed`;
+    }, 1000);
+    imgPanel._clearTimer = () => clearInterval(timer);
+
+    // Preallocate image + export button (hidden until result arrives)
+    const img = document.createElement('img');
+    img.style.cssText = 'display:none;position:absolute;inset:0;margin:auto;max-width:100%;max-height:100%;object-fit:contain;width:auto;height:auto;';
+    imgPanel.appendChild(img);
+}
+
+/**
+ * Populates the details panel with a resizable sg-layout column split:
+ *   top  — Context  (stats, editable prompts, export)
+ *   bottom — Generation (sg-openrouter-generation)
+ * @param {HTMLElement} detailsPanel
+ * @param {string} model
+ * @param {{ systemPrompt?: string, doc?: object, direction?: string }} ctx
+ * @returns {Promise<{ update: (detail: object) => void, showGeneration: (id: string, key: string) => void }>}
+ */
+async function setupDetailsPanel(detailsPanel, model, ctx = {}) {
+    detailsPanel.style.cssText = 'width:100%;height:100%;display:block;overflow:hidden;';
+
+    // ── Inner sg-layout: Context (top) | Generation (bottom) ─────────────────
+    const id    = ++fractalCounter;
+    const inner = document.createElement('sg-layout');
+    inner.style.cssText = 'width:100%;height:100%;display:block;';
+    detailsPanel.appendChild(inner);
+
+    const ready = new Promise(resolve => inner.events.on(SGL_EVENTS.LAYOUT_READY, resolve));
+    inner.setLayout({
+        type: 'column', id: `dl${id}`, sizes: [0.45, 0.55],
+        children: [
+            { type: 'stack', id: `dc${id}`, activeTab: 0,
+              tabs: [{ type: 'tab', id: `dct${id}`, title: 'Context', tag: 'div', locked: true, closable: false }] },
+            { type: 'stack', id: `dg${id}`, activeTab: 0,
+              tabs: [{ type: 'tab', id: `dgt${id}`, title: 'Generation', tag: 'div', locked: true, closable: false }] },
+        ],
+    });
+    await ready;
+
+    const ctxPanel = inner.getPanelElement(`dct${id}`);
+    const genPanel = inner.getPanelElement(`dgt${id}`);
+
+    // ── Helpers (append into ctxPanel) ───────────────────────────────────────
+    ctxPanel.style.cssText = 'height:100%;overflow:auto;background:#0a0a18;display:block;padding:12px;box-sizing:border-box;font-family:system-ui,sans-serif;';
+
+    const lbl = text => {
+        const d = document.createElement('div');
+        d.style.cssText = 'font-size:10px;font-weight:600;color:#4a5568;text-transform:uppercase;letter-spacing:0.05em;margin-bottom:3px;margin-top:10px;';
+        d.textContent = text;
+        ctxPanel.appendChild(d);
+        return d;
+    };
+    const val = text => {
+        const d = document.createElement('div');
+        d.style.cssText = 'font-size:13px;color:#a0aec0;margin-bottom:4px;';
+        d.textContent = text || '—';
+        ctxPanel.appendChild(d);
+        return d;
+    };
+    const editArea = (content, placeholder, rows = 3) => {
+        const ta = document.createElement('textarea');
+        ta.value = content || '';
+        ta.placeholder = placeholder || '';
+        ta.rows = rows;
+        ta.style.cssText = [
+            'width:100%', 'box-sizing:border-box', 'resize:vertical',
+            'background:#111122', 'border:1px solid #1a1a3a', 'border-radius:4px',
+            'color:#a0aec0', 'padding:6px 8px', 'font-size:11px', 'line-height:1.5',
+            'outline:none', 'font-family:system-ui,sans-serif', 'margin-bottom:4px',
+        ].join(';');
+        ta.addEventListener('focus', () => ta.style.borderColor = '#4ECDC4');
+        ta.addEventListener('blur',  () => ta.style.borderColor = '#1a1a3a');
+        ctxPanel.appendChild(ta);
+        return ta;
+    };
+    const sep = () => {
+        const hr = document.createElement('hr');
+        hr.style.cssText = 'border:none;border-top:1px solid #1a1a3a;margin:10px 0 4px;';
+        ctxPanel.appendChild(hr);
+    };
+
+    // ── Stats ────────────────────────────────────────────────────────────────
+    lbl('Model');
+    const modelEl = val(model.split('/').pop());
+    modelEl.title = model;
+    lbl('Duration');
+    const durationEl = val('—');
+    lbl('Tokens');
+    const tokensEl = val('—');
+
+    sep();
+
+    // ── Request context (editable) ────────────────────────────────────────────
+    lbl('System Prompt');
+    editArea(ctx.systemPrompt, 'System prompt…', 4);
+
+    if (ctx.doc) {
+        lbl('Document');
+        const docNameEl = document.createElement('div');
+        docNameEl.style.cssText = 'font-size:12px;color:#4ECDC4;word-break:break-all;margin-bottom:2px;';
+        docNameEl.textContent = ctx.doc.name;
+        ctxPanel.appendChild(docNameEl);
+        if (ctx.doc.textContent) {
+            const est = document.createElement('div');
+            est.style.cssText = 'font-size:11px;color:#4a5568;margin-bottom:4px;';
+            est.textContent = `~${Math.round(ctx.doc.textContent.length / 4).toLocaleString()} tokens`;
+            ctxPanel.appendChild(est);
+        }
+    }
+
+    if (ctx.direction) {
+        lbl('Direction');
+        const dirTa = document.createElement('textarea');
+        dirTa.value = ctx.direction;
+        dirTa.placeholder = 'Direction…';
+        dirTa.rows = 2;
+        dirTa.style.cssText = [
+            'width:100%', 'box-sizing:border-box', 'resize:vertical',
+            'background:#111122', 'border:1px solid #1a1a3a', 'border-left:3px solid #4ECDC4',
+            'border-radius:4px', 'color:#e2e8f0', 'padding:6px 8px',
+            'font-size:11px', 'line-height:1.5', 'outline:none',
+            'font-family:system-ui,sans-serif', 'margin-bottom:4px',
+        ].join(';');
+        dirTa.addEventListener('focus', () => dirTa.style.borderLeftColor = '#81e6d9');
+        dirTa.addEventListener('blur',  () => dirTa.style.borderLeftColor = '#4ECDC4');
+        ctxPanel.appendChild(dirTa);
+    }
+
+    sep();
+
+    // ── Action buttons (export / copy / share) ────────────────────────────────
+    const btnRow = document.createElement('div');
+    btnRow.style.cssText = 'display:none;flex-direction:column;gap:6px;margin-bottom:6px;';
+    btnRow.dataset.role = 'btn-row';
+
+    const exportBtn = document.createElement('button');
+    exportBtn.textContent = isImageModel(model) ? '⬇ Download PNG' : '⬇ Download SVG';
+    exportBtn.dataset.role = 'export';
+    exportBtn.style.cssText = [
+        'width:100%', 'background:#1a1a3a', 'color:#4ECDC4',
+        'border:1px solid #4ECDC4', 'border-radius:4px', 'padding:7px 0',
+        'font-size:13px', 'cursor:pointer', 'font-family:system-ui,sans-serif',
+    ].join(';');
+
+    const copyBtn = document.createElement('button');
+    copyBtn.textContent = '⎘ Copy to Clipboard';
+    copyBtn.dataset.role = 'copy';
+    copyBtn.style.cssText = [
+        'width:100%', 'background:#1a1a3a', 'color:#a0aec0',
+        'border:1px solid #2a2a4a', 'border-radius:4px', 'padding:7px 0',
+        'font-size:13px', 'cursor:pointer', 'font-family:system-ui,sans-serif',
+    ].join(';');
+
+    const shareBtn = document.createElement('button');
+    shareBtn.textContent = '↗ Share via SG/Send';
+    shareBtn.dataset.role = 'share';
+    shareBtn.style.cssText = [
+        'width:100%', 'background:#1a1a3a', 'color:#a0aec0',
+        'border:1px solid #2a2a4a', 'border-radius:4px', 'padding:7px 0',
+        'font-size:13px', 'cursor:pointer', 'font-family:system-ui,sans-serif',
+    ].join(';');
+
+    btnRow.appendChild(exportBtn);
+    btnRow.appendChild(copyBtn);
+    btnRow.appendChild(shareBtn);
+    ctxPanel.appendChild(btnRow);
+
+    // sg-send-drop (hidden until Share is clicked)
+    const sendDropEl = document.createElement('sg-send-drop');
+    sendDropEl.style.cssText = 'display:none;width:100%;margin-bottom:6px;';
+    sendDropEl.dataset.role = 'send-drop';
+    ctxPanel.appendChild(sendDropEl);
+
+    // ── Generation panel (full-height sg-openrouter-generation) ──────────────
+    genPanel.style.cssText = 'height:100%;display:block;overflow:hidden;';
+    const genEl = document.createElement('sg-openrouter-generation');
+    genEl.setAttribute('hide-recent', '');
+    genEl.style.cssText = 'display:block;width:100%;height:100%;';
+    genPanel.appendChild(genEl);
+
+    const t0 = Date.now();
+    return {
+        update(detail) {
+            durationEl.textContent = `${((Date.now() - t0) / 1000).toFixed(1)}s`;
+            const usage = detail?.usage;
+            if (usage) {
+                const total = (usage.prompt_tokens || 0) + (usage.completion_tokens || 0);
+                tokensEl.textContent = total > 0 ? `${total.toLocaleString()} tokens` : '—';
+            }
+            btnRow.style.display = 'flex';
+        },
+        showGeneration(genId, apiKey) {
+            genEl._apiKey = apiKey;
+            genEl.fetchGeneration(genId);
+        },
+    };
+}
+
+// ── Image blob helpers ────────────────────────────────────────────────────────
+
+/**
+ * Convert a data: URL or remote https: URL into a PNG Blob via Canvas.
+ * @param {string} src - Image src (data: or https:)
+ * @returns {Promise<Blob>}
+ */
+async function imgSrcToBlob(src) {
+    return new Promise((resolve, reject) => {
+        const img = new Image();
+        img.crossOrigin = 'anonymous';
+        img.onload = () => {
+            const canvas = document.createElement('canvas');
+            canvas.width  = img.naturalWidth  || img.width;
+            canvas.height = img.naturalHeight || img.height;
+            canvas.getContext('2d').drawImage(img, 0, 0);
+            canvas.toBlob(b => b ? resolve(b) : reject(new Error('Canvas toBlob failed')), 'image/png');
+        };
+        img.onerror = () => reject(new Error('Image load failed'));
+        img.src = src;
+    });
+}
+
+// ── Image src extraction ───────────────────────────────────────────────────────
+
+function extractImageSrc(detail) {
+    const images = detail?.images;
+    if (images?.length > 0) {
+        const im = images[0];
+        if (im.type === 'image_url' && im.image_url?.url) return im.image_url.url;
+        if (im.type === 'image' && im.source?.data)
+            return `data:${im.source.media_type || 'image/jpeg'};base64,${im.source.data}`;
+    }
+    const txt = detail?.content || '';
+    const m = txt.match(/data:image\/[^;'"]+;base64,[A-Za-z0-9+/=]+/)
+           || txt.match(/!\[.*?\]\((https?:\/\/[^\s)]+)\)/)
+           || txt.match(/https?:\/\/\S+\.(?:png|jpg|jpeg|webp|gif)/i);
+    return m ? (m[1] || m[0]) : null;
+}
+
+// ── SEND interceptor (capture phase) ─────────────────────────────────────────
+
+bus.addEventListener(SGL_LLM.SEND, async e => {
+    e.stopImmediatePropagation();
+
+    const model  = modelPicker.getModel();
+    const apiKey = apiKeyEl.value.trim();
+    if (!apiKey) return;
+
+    // Guard: require text in text mode, or a loaded doc in document mode
+    if (currentMode === 'text' && !textarea.value.trim()) return;
+    if (currentMode === 'document' && !currentDoc) {
+        dropZone.style.borderColor = '#fc8181';
+        setTimeout(() => { dropZone.style.borderColor = currentDoc ? '#4ECDC4' : '#333d5a'; }, 1200);
+        return;
+    }
+
+    const isDocMode = currentMode === 'document';
+    const tabTitle  = isDocMode
+        ? `📄 ${model.split('/').pop().substring(0, 28)}`
+        : model.split('/').pop().substring(0, 35);
+
+    // Pre-compute context so it can be shown in the details panel immediately
+    const sysPrompt   = advTextarea.value.trim() || (isDocMode ? DOCUMENT_SYSTEM_PROMPT : DEFAULT_SYSTEM_PROMPT);
+    const direction   = isDocMode
+        ? (directionTextarea.value.trim() || 'Create an infographic that visualises the key information from this document.')
+        : null;
+    const docSnapshot = isDocMode ? { name: currentDoc.name, type: currentDoc.type, textContent: currentDoc.textContent } : null;
+
+    // Create a new result tab in the right stack
+    const tabId   = layout.addTabToStack('s-right', { tag: 'div', title: tabTitle });
+    const panelEl = layout.getPanelElement(tabId);
+
+    // Fractal inner layout (async — awaited before firing mini-bus SEND)
+    const { imgPanel, detailsPanel } = await setupResultFractal(panelEl, model);
+    setupLoadingState(imgPanel, model);
+    const detailsCtl = await setupDetailsPanel(detailsPanel, model, { systemPrompt: sysPrompt, doc: docSnapshot, direction });
+
+    // Wire action buttons (after we have the imgPanel ref)
+    const filename = `infographic-${model.split('/').pop()}.png`;
+
+    const exportBtn2 = detailsPanel.querySelector('[data-role="export"]');
+    if (exportBtn2) {
+        exportBtn2.addEventListener('click', () => {
+            const img = imgPanel.querySelector('img');
+            if (!img?.src) return;
+            const a = document.createElement('a');
+            a.href = img.src;
+            a.download = filename;
+            a.click();
+        });
+    }
+
+    const copyBtn2 = detailsPanel.querySelector('[data-role="copy"]');
+    if (copyBtn2) {
+        copyBtn2.addEventListener('click', async () => {
+            const img = imgPanel.querySelector('img');
+            if (!img?.src) return;
+            copyBtn2.textContent = '…';
+            copyBtn2.disabled = true;
+            try {
+                const blob = await imgSrcToBlob(img.src);
+                await navigator.clipboard.write([new ClipboardItem({ 'image/png': blob })]);
+                copyBtn2.textContent = '✓ Copied!';
+                setTimeout(() => { copyBtn2.textContent = '⎘ Copy to Clipboard'; copyBtn2.disabled = false; }, 2000);
+            } catch (e) {
+                copyBtn2.textContent = 'Copy failed';
+                setTimeout(() => { copyBtn2.textContent = '⎘ Copy to Clipboard'; copyBtn2.disabled = false; }, 2000);
+            }
+        });
+    }
+
+    const shareBtn2 = detailsPanel.querySelector('[data-role="share"]');
+    const sendDropEl2 = detailsPanel.querySelector('[data-role="send-drop"]');
+    if (shareBtn2 && sendDropEl2) {
+        shareBtn2.addEventListener('click', async () => {
+            const img = imgPanel.querySelector('img');
+            if (!img?.src) return;
+            sendDropEl2.style.display = 'block';
+            shareBtn2.style.display = 'none';
+            try {
+                const blob = await imgSrcToBlob(img.src);
+                sendDropEl2.offerFile(blob, filename);
+            } catch (e) {
+                sendDropEl2.style.display = 'none';
+                shareBtn2.style.display = '';
+            }
+        });
+    }
+
+    // Isolated mini-bus + fresh sg-llm-request per request
+    const miniBus = document.createElement('div');
+    miniBus.setAttribute('data-llm-bus', '');
+    document.body.appendChild(miniBus);
+    miniBus.appendChild(document.createElement('sg-llm-request'));
+
+    miniBus.dispatchEvent(new CustomEvent(SGL_LLM.CONNECTED, {
+        detail: { provider: 'openrouter', model, apiKey, baseUrl: '' },
+    }));
+
+    const finish = () => {
+        imgPanel._clearTimer?.();
+        imgPanel._cancel = null;
+        activeRequests.delete(panelEl);
+        updateStopBtn();
+        setTimeout(() => miniBus.remove(), 0);
+    };
+
+    miniBus.addEventListener(SGL_LLM.REQUEST_COMPLETE, ev => {
+        const src = extractImageSrc(ev.detail);
+        if (src) {
+            imgPanel.querySelector('[data-role="loading"]')?.remove();
+            const img = imgPanel.querySelector('img');
+            if (img) { img.src = src; img.style.display = 'block'; }
+        } else if (isImageModel(model)) {
+            const loadDiv = imgPanel.querySelector('[data-role="loading"]');
+            if (loadDiv) loadDiv.innerHTML = '<div style="color:#a0aec0;font-size:14px;text-align:center;padding:20px;">No image returned.<br><span style="font-size:12px;color:#4a5568;">Try a different model or refine your prompt.</span></div>';
+        }
+        detailsCtl.update(ev.detail);
+        // rawResponse is null for streaming; ID lives in the first rawChunk with an id field
+        const genId = ev.detail?.rawResponse?.id
+                   ?? ev.detail?.rawChunks?.find(c => c?.id)?.id
+                   ?? null;
+        if (genId) setTimeout(() => detailsCtl.showGeneration(genId, apiKey), 500);
+        finish();
+    });
+
+    miniBus.addEventListener(SGL_LLM.REQUEST_ERROR, ev => {
+        const loadDiv = imgPanel.querySelector('[data-role="loading"]');
+        if (loadDiv) loadDiv.innerHTML = `<div style="color:#fc8181;font-size:14px;font-family:system-ui;text-align:center;padding:20px;">Error: ${ev.detail?.error || 'Request failed'}</div>`;
+        finish();
+    });
+
+    miniBus.addEventListener(SGL_LLM.REQUEST_CANCEL, () => {
+        const loadDiv = imgPanel.querySelector('[data-role="loading"]');
+        if (loadDiv) loadDiv.innerHTML = '<div style="color:#718096;font-size:14px;text-align:center;">Cancelled</div>';
+        finish();
+    });
+
+    const cancelFn = () => miniBus.dispatchEvent(new CustomEvent(SGL_LLM.CANCEL, { bubbles: false }));
+    activeRequests.set(panelEl, cancelFn);
+    imgPanel._cancel = cancelFn;
+    updateStopBtn();
+
+    // Assemble messages and fire on mini-bus
+    let messages;
+    if (isDocMode) {
+        const userContent = [];
+        if (currentDoc.type === 'image') {
+            userContent.push({ type: 'image_url', image_url: { url: currentDoc.dataUrl } });
+            userContent.push({ type: 'text', text: direction });
+        } else if (currentDoc.type === 'pdf') {
+            // sg-llm-request v0.1.2 translates binary_file → Anthropic document block
+            const base64 = currentDoc.dataUrl.split(',')[1];
+            userContent.push({ type: 'binary_file', name: currentDoc.name, mediaType: 'application/pdf', data: base64 });
+            userContent.push({ type: 'text', text: direction });
+        } else {
+            userContent.push({ type: 'text', text: `Document (${currentDoc.name}):\n\n${currentDoc.textContent}\n\n${direction}` });
+        }
+        messages = [
+            { role: 'system', content: sysPrompt },
+            { role: 'user', content: userContent },
+        ];
+    } else {
+        messages = [
+            { role: 'system', content: sysPrompt },
+            { role: 'user', content: [{ type: 'text', text: textarea.value.trim() }] },
+        ];
+    }
+
+    miniBus.dispatchEvent(new CustomEvent(SGL_LLM.SEND, {
+        detail: { messages, model },
+        bubbles: false,
+    }));
+}, true); // capture phase
+
+// ── Send button ───────────────────────────────────────────────────────────────
+
+sendBtn.addEventListener('click', () => {
+    if (!textarea.value.trim()) { textarea.focus(); return; }
+    bus.dispatchEvent(new CustomEvent(SGL_LLM.SEND, { detail: {}, bubbles: false }));
+});
+
+textarea.addEventListener('keydown', e => {
+    if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) sendBtn.click();
+});
+
+// ── Connect handler ───────────────────────────────────────────────────────────
+
+connectBtn.addEventListener('click', async () => {
+    const apiKey = apiKeyEl.value.trim();
+    const model  = modelPicker.getModel();
+    if (!apiKey) { setStatus('OpenRouter key required', 'error'); return; }
+
+    setStatus('Connecting…', '');
+    connectBtn.disabled = true;
+
+    try {
+        const res = await fetch('https://openrouter.ai/api/v1/models', {
+            headers: { Authorization: `Bearer ${apiKey}` },
+        });
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+
+        savePrefs({ apiKey, model });
+        setStatus(`Connected ✓  (${model.split('/').pop()})`, 'ok');
+
+        bus.dispatchEvent(new CustomEvent(SGL_LLM.CONNECTED, {
+            detail: { provider: 'openrouter', model, apiKey, baseUrl: '' },
+            bubbles: true,
+        }));
+    } catch (err) {
+        setStatus(`Error: ${err.message}`, 'error');
+    }
+    connectBtn.disabled = false;
+});
+
+// Auto-connect on load if key was saved
+if (prefs.apiKey) connectBtn.click();
+
+// Re-connect + save when model changes
+modelPicker.shadowRoot?.querySelector('select')?.addEventListener('change', () => {
+    const m = modelPicker.getModel();
+    savePrefs({ model: m });
+    if (apiKeyEl.value.trim()) connectBtn.click();
+});
+
+</script>
+</body>
+</html>
