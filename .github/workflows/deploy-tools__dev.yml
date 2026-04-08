@@ -26,7 +26,6 @@ concurrency:
 
 env:
   AWS_REGION  : eu-west-2
-  UI_VERSION  : v0.1.22
   SOURCE_DIR  : sgraph_ai_tools__static
 
 jobs:
@@ -60,19 +59,22 @@ jobs:
         with:
           python-version: '3.12'
 
-      - name: Read repo version
-        id: version
+      - name: Resolve latest UI version
+        id: ifd
         run: |
-          VERSION=$(cat sgraph_ai_tools/version)
-          echo "version=$VERSION" >> $GITHUB_OUTPUT
-          echo "Repo version: $VERSION"
-          echo "IFD version:  ${{ env.UI_VERSION }}"
+          LATEST=$(ls -d ${{ env.SOURCE_DIR }}/tools/v0/v0.1/v0.1.* 2>/dev/null \
+            | sort -V | tail -1 | xargs basename)
+          echo "ui_version=$LATEST" >> $GITHUB_OUTPUT
+          APP_VERSION=$(cat sgraph_ai_tools/version)
+          echo "app_version=$APP_VERSION" >> $GITHUB_OUTPUT
+          echo "Repo version: $APP_VERSION"
+          echo "Auto-detected UI version: $LATEST"
 
       - name: Inject build version
-        run: python scripts/inject_build_version.py --version ${{ env.UI_VERSION }}
+        run: python scripts/inject_build_version.py --version ${{ steps.ifd.outputs.ui_version }}
 
       - name: Generate i18n locale pages
-        run: python scripts/generate_tools_i18n_pages.py --version ${{ env.UI_VERSION }}
+        run: python scripts/generate_tools_i18n_pages.py --version ${{ steps.ifd.outputs.ui_version }}
 
       - name: Build layered IFD content
         run: |
@@ -80,7 +82,7 @@ jobs:
           python scripts/build_ifd_latest.py \
             --source-dir ${{ env.SOURCE_DIR }} \
             --ifd-base tools/v0/v0.1 \
-            --up-to ${{ env.UI_VERSION }}
+            --up-to auto
 
       - name: Check AWS credentials
         id: check-creds
@@ -105,7 +107,7 @@ jobs:
         run: |
           python scripts/deploy_static_site.py \
             --site sgraph-tools \
-            --version ${{ env.UI_VERSION }} \
+            --version ${{ steps.ifd.outputs.ui_version }} \
             --source-dir ${{ env.SOURCE_DIR }} \
             --bucket ${{ secrets.SGRAPH_TOOLS__S3_BUCKET }} \
             --region ${{ env.AWS_REGION }} \
