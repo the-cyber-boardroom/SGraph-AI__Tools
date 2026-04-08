@@ -1,0 +1,74 @@
+{
+  "name": "Infographic Generator",
+  "slug": "infographic-gen",
+  "description": "Turn text and data into SVG infographics with a single LLM request. Executive, technical, playful or data styles. Export SVG or PNG.",
+  "icon": "📊",
+  "version": "0.1.24",
+  "status": "live",
+  "category": "llm",
+  "keywords": [
+    "infographic",
+    "svg",
+    "chart",
+    "visual",
+    "diagram",
+    "png",
+    "export"
+  ],
+  "dependencies": {
+    "core": [
+      {
+        "module": "sg-layout-events",
+        "path": "/core/sg-layout/v0.1.0/sg-layout-events.js"
+      },
+      {
+        "module": "sg-layout",
+        "path": "/core/sg-layout/v0.1.0/sg-layout.css"
+      },
+      {
+        "module": "sg-layout",
+        "path": "/core/sg-layout/v0.1.0/sg-layout.js"
+      }
+    ],
+    "components": [
+      {
+        "module": "sg-llm-events",
+        "path": "/components/llm/sg-llm-events/v0/v0.1/v0.1.0/sg-llm-events.js"
+      },
+      {
+        "module": "sg-llm-infographic",
+        "path": "/components/llm/sg-llm-infographic/v0/v0.1/v0.1.0/sg-llm-infographic.js"
+      },
+      {
+        "module": "sg-llm-model-picker",
+        "path": "/components/llm/sg-llm-model-picker/v0/v0.1/v0.1.0/sg-llm-model-picker.js"
+      },
+      {
+        "module": "sg-llm-request",
+        "path": "/components/llm/sg-llm-request/v0/v0.1/v0.1.2/sg-llm-request.js"
+      },
+      {
+        "module": "sg-llm-stats",
+        "path": "/components/llm/sg-llm-stats/v0/v0.1/v0.1.1/sg-llm-stats.js"
+      },
+      {
+        "module": "sg-openrouter-generation",
+        "path": "/components/openrouter/sg-openrouter-generation/v0/v0.1/v0.1.1/sg-openrouter-generation.js"
+      },
+      {
+        "module": "sg-send-drop",
+        "path": "/components/send-drop/v1/v1.0/v1.0.0/sg-send-drop.js"
+      }
+    ],
+    "shared": [
+      {
+        "module": "sg-site-header",
+        "path": "/components/site-header/v1/v1.0/v1.0.2/sg-site-header.js"
+      },
+      {
+        "module": "tools.css",
+        "path": "/_common/css/tools.css"
+      }
+    ]
+  }
+}

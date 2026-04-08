@@ -1,0 +1,70 @@
+{
+  "name": "One-Shot Chat",
+  "slug": "one-shot-chat",
+  "description": "Engineer precision LLM requests. Build system prompts, context blocks, constructed history — send once. No conversation drift.",
+  "icon": "🎯",
+  "version": "0.1.8",
+  "status": "live",
+  "category": "llm",
+  "keywords": [
+    "precision",
+    "system",
+    "prompt",
+    "context",
+    "history"
+  ],
+  "dependencies": {
+    "components": [
+      {
+        "module": "sg-llm-attachments",
+        "path": "/components/llm/sg-llm-attachments/v0/v0.1/v0.1.0/sg-llm-attachments.js"
+      },
+      {
+        "module": "sg-llm-bundle-list",
+        "path": "/components/llm/sg-llm-bundle-list/v0/v0.1/v0.1.0/sg-llm-bundle-list.js"
+      },
+      {
+        "module": "sg-llm-bundle",
+        "path": "/components/llm/sg-llm-bundle/v0/v0.1/v0.1.0/sg-llm-bundle.js"
+      },
+      {
+        "module": "sg-llm-connection",
+        "path": "/components/llm/sg-llm-connection/v0/v0.1/v0.1.0/sg-llm-connection.js"
+      },
+      {
+        "module": "sg-llm-debug",
+        "path": "/components/llm/sg-llm-debug/v0/v0.1/v0.1.0/sg-llm-debug.js"
+      },
+      {
+        "module": "sg-llm-events",
+        "path": "/components/llm/sg-llm-events/v0/v0.1/v0.1.0/sg-llm-events.js"
+      },
+      {
+        "module": "sg-llm-output",
+        "path": "/components/llm/sg-llm-output/v0/v0.1/v0.1.0/sg-llm-output.js"
+      },
+      {
+        "module": "sg-llm-reality",
+        "path": "/components/llm/sg-llm-reality/v0/v0.1/v0.1.0/sg-llm-reality.js"
+      },
+      {
+        "module": "sg-llm-request",
+        "path": "/components/llm/sg-llm-request/v0/v0.1/v0.1.0/sg-llm-request.js"
+      },
+      {
+        "module": "sg-llm-stats",
+        "path": "/components/llm/sg-llm-stats/v0/v0.1/v0.1.0/sg-llm-stats.js"
+      }
+    ],
+    "shared": [
+      {
+        "module": "sg-site-header",
+        "path": "/components/site-header/v1/v1.0/v1.0.2/sg-site-header.js"
+      },
+      {
+        "module": "tools.css",
+        "path": "/_common/css/tools.css"
+      }
+    ]
+  }
+}
