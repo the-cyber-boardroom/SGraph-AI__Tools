@@ -1,0 +1,402 @@
+<!DOCTYPE html>
+<html lang="en-GB">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title data-i18n="landing.title">tools.sgraph.ai — Browser-Based Privacy Tools</title>
+    <meta name="description" data-i18n="landing.meta_description"
+        content="Free browser-based tools that run entirely client-side. No uploads, no servers, no tracking.">
+    <link rel="icon" type="image/svg+xml" href="../_common/favicon.svg">
+    <link rel="stylesheet" href="../_common/css/tools.css">
+    <style>
+        /* ── Hero ── */
+        .hero {
+            text-align: center;
+            padding: 2.5rem 1.5rem 1.5rem;
+        }
+        .hero__title {
+            font-size: 2rem; font-weight: 700; margin-bottom: 0.6rem;
+        }
+        .hero__title span { color: var(--sg-accent); }
+        .hero__subtitle {
+            color: var(--sg-text-muted); font-size: 1rem; max-width: 560px;
+            margin: 0 auto 1rem; line-height: 1.6;
+        }
+
+        /* ── Search ── */
+        .search-wrap {
+            max-width: 420px; margin: 0 auto 0.5rem; padding: 0 1.5rem;
+        }
+        .search-input {
+            width: 100%; background: var(--sg-bg-card); border: 1px solid var(--sg-border);
+            border-radius: var(--sg-radius-pill); color: var(--sg-text);
+            font-family: var(--sg-font); font-size: 0.875rem;
+            padding: 0.45rem 1rem; outline: none; transition: border-color 150ms;
+        }
+        .search-input:focus { border-color: var(--sg-accent); }
+        .search-input::placeholder { color: var(--sg-text-dim); }
+
+        /* ── Section headings ── */
+        .section-wrap {
+            max-width: 1240px; margin: 0 auto; padding: 0 1.25rem;
+        }
+        .section-heading {
+            display: flex; align-items: center; gap: 0.75rem;
+            padding: 1.25rem 0 0.5rem;
+            font-size: 0.7rem; font-weight: 700; text-transform: uppercase;
+            letter-spacing: 0.09em; color: var(--sg-text-dim);
+            border-bottom: 1px solid var(--sg-border);
+        }
+        .section-heading .count {
+            background: rgba(255,255,255,0.05); border-radius: var(--sg-radius-pill);
+            padding: 0.1rem 0.45rem; font-size: 0.65rem; color: var(--sg-text-dim);
+        }
+
+        /* ── Grid ── */
+        .tools-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+            gap: 0.875rem;
+            max-width: 1240px; margin: 0 auto;
+            padding: 0.875rem 1.25rem 0;
+        }
+
+        /* ── Cards ── */
+        .tool-card {
+            background: var(--sg-bg-card); border: 1px solid var(--sg-border);
+            border-radius: var(--sg-radius); padding: 1rem 1.1rem;
+            text-decoration: none; color: inherit;
+            transition: border-color 150ms, transform 150ms, background 150ms;
+            display: flex; flex-direction: column; gap: 0.35rem;
+        }
+        .tool-card:hover {
+            border-color: var(--sg-accent); background: rgba(78,205,196,0.04);
+            transform: translateY(-1px);
+        }
+        .tool-card.hidden { display: none !important; }
+
+        .card-top { display: flex; align-items: center; gap: 0.6rem; }
+        .tool-card__icon { font-size: 1.25rem; flex-shrink: 0; line-height: 1; }
+        .tool-card__title { font-size: 0.9rem; font-weight: 600; }
+        .tool-card__desc {
+            color: var(--sg-text-muted); font-size: 0.8rem; line-height: 1.5;
+            flex: 1;
+        }
+        .card-footer { display: flex; align-items: center; gap: 0.4rem; margin-top: 0.25rem; }
+        .tool-card__status {
+            display: inline-block; padding: 0.1rem 0.45rem;
+            border-radius: var(--sg-radius-pill); font-size: 0.62rem; font-weight: 700;
+            text-transform: uppercase; letter-spacing: 0.04em;
+        }
+        .status--live  { background: var(--sg-accent-bg); color: var(--sg-accent); }
+        .status--exp   { background: rgba(148,163,184,0.1); color: var(--sg-text-dim); }
+        .status--dev   { background: rgba(139,92,246,0.12); color: #a78bfa; }
+        .status--new   { background: rgba(251,191,36,0.12); color: #fbbf24; }
+
+        /* hide section if all cards hidden */
+        .section-group.all-hidden { display: none; }
+        .no-results {
+            max-width: 1240px; margin: 0 auto; padding: 2.5rem 1.25rem;
+            text-align: center; color: var(--sg-text-dim); font-size: 0.9rem;
+            display: none;
+        }
+        .no-results.visible { display: block; }
+    </style>
+</head>
+<body>
+    <script type="module" src="/components/site-header/v1/v1.0/v1.0.2/sg-site-header.js"></script>
+    <script type="module" src="/components/locale-picker/v1/v1.0/v1.0.1/sg-locale-picker.js"></script>
+    <sg-site-header site="Tools" home-url="/en-gb/">
+        <sg-locale-picker slot="locale" locale="en-gb" base-path="/"></sg-locale-picker>
+    </sg-site-header>
+    <script type="module">
+        import { buildToolsNav } from '../_common/js/sg-nav.js'
+        document.querySelector('sg-site-header').whenReady?.().then(() => {
+            buildToolsNav(document.querySelector('sg-site-header'))
+        }).catch(() => {
+            buildToolsNav(document.querySelector('sg-site-header'))
+        })
+    </script>
+
+    <div class="hero">
+        <h1 class="hero__title"><span>tools</span>.sgraph.ai</h1>
+        <p class="hero__subtitle">
+            Free browser-based tools that run entirely on your device.
+            No uploads. No servers. No tracking. Your data never leaves your browser.
+        </p>
+        <span class="badge">100% Client-Side</span>
+    </div>
+
+    <div class="search-wrap">
+        <input class="search-input" id="tool-search" type="search"
+            placeholder="Search tools…" autocomplete="off" spellcheck="false">
+    </div>
+
+    <!-- ── Utilities ──────────────────────────────────────────────────────── -->
+    <div class="section-group" id="group-utilities">
+        <div class="section-wrap">
+            <p class="section-heading">Utilities <span class="count">10</span></p>
+        </div>
+        <div class="tools-grid">
+            <a href="ssh-keygen/" class="tool-card" data-search="ssh key generator ed25519 cryptography">
+                <div class="card-top">
+                    <span class="tool-card__icon">🔑</span>
+                    <span class="tool-card__title">SSH Key Generator</span>
+                </div>
+                <p class="tool-card__desc">Generate Ed25519 SSH key pairs entirely in your browser. No server involved. Copy or download your keys instantly.</p>
+                <div class="card-footer"><span class="tool-card__status status--live">Live</span></div>
+            </a>
+            <a href="file-hasher/" class="tool-card" data-search="file hasher sha256 sha512 hash integrity">
+                <div class="card-top">
+                    <span class="tool-card__icon">📈</span>
+                    <span class="tool-card__title">File Hasher</span>
+                </div>
+                <p class="tool-card__desc">Calculate SHA-256, SHA-1, or SHA-512 hash of any file. Verify file integrity without uploading.</p>
+                <div class="card-footer"><span class="tool-card__status status--live">Live</span></div>
+            </a>
+            <a href="file-encryptor/" class="tool-card" data-search="file encryptor encrypt decrypt aes-256-gcm">
+                <div class="card-top">
+                    <span class="tool-card__icon">🔒</span>
+                    <span class="tool-card__title">File Encryptor</span>
+                </div>
+                <p class="tool-card__desc">Encrypt or decrypt any file with AES-256-GCM. Everything stays in your browser. Same encryption used by SG/Send.</p>
+                <div class="card-footer"><span class="tool-card__status status--live">Live</span></div>
+            </a>
+            <a href="key-generator/" class="tool-card" data-search="key generator passphrase entropy friendly words">
+                <div class="card-top">
+                    <span class="tool-card__icon">🗝️</span>
+                    <span class="tool-card__title">Key Generator</span>
+                </div>
+                <p class="tool-card__desc">Create friendly encryption keys like "apple-mango-56" instead of random strings. Visualise entropy and strength.</p>
+                <div class="card-footer"><span class="tool-card__status status--live">Live</span></div>
+            </a>
+            <a href="vault-browser/" class="tool-card" data-search="vault browser sgraph send browse decrypt">
+                <div class="card-top">
+                    <span class="tool-card__icon">🗄️</span>
+                    <span class="tool-card__title">Vault Browser</span>
+                </div>
+                <p class="tool-card__desc">Open and browse SG/Send vaults in your browser. Derive keys, decrypt files, view contents — no Python or CLI required.</p>
+                <div class="card-footer"><span class="tool-card__status status--live">Live</span></div>
+            </a>
+            <a href="image-tools/" class="tool-card" data-search="image tools resize crop redact annotate png jpg webp">
+                <div class="card-top">
+                    <span class="tool-card__icon">🖼️</span>
+                    <span class="tool-card__title">Image Tools</span>
+                </div>
+                <p class="tool-card__desc">Convert, resize, crop, redact, and annotate images entirely in your browser. Supports PNG, JPG, WebP, AVIF.</p>
+                <div class="card-footer"><span class="tool-card__status status--live">Live</span></div>
+            </a>
+            <a href="video-tools/" class="tool-card" data-search="video tools split trim ffmpeg audio extract">
+                <div class="card-top">
+                    <span class="tool-card__icon">🎬</span>
+                    <span class="tool-card__title">Video Tools</span>
+                </div>
+                <p class="tool-card__desc">Split, trim, and extract audio or video using FFmpeg in your browser. No upload required. Share results via SG/Send.</p>
+                <div class="card-footer"><span class="tool-card__status status--live">Live</span></div>
+            </a>
+            <a href="pyodide-repl/" class="tool-card" data-search="python repl pyodide wasm console packages numpy">
+                <div class="card-top">
+                    <span class="tool-card__icon">🐍</span>
+                    <span class="tool-card__title">Python REPL</span>
+                </div>
+                <p class="tool-card__desc">Interactive Python console in your browser via Pyodide. Install PyPI packages (numpy, pydantic, cryptography) instantly.</p>
+                <div class="card-footer"><span class="tool-card__status status--exp">Experimental</span></div>
+            </a>
+            <a href="vault-pyodide/" class="tool-card" data-search="vault pyodide python crypto wasm compare">
+                <div class="card-top">
+                    <span class="tool-card__icon">🔐</span>
+                    <span class="tool-card__title">Vault (Pyodide)</span>
+                </div>
+                <p class="tool-card__desc">Run Python vault crypto in the browser via CPython/WebAssembly. Compare Python vs JavaScript key derivation side by side.</p>
+                <div class="card-footer"><span class="tool-card__status status--exp">Experimental</span></div>
+            </a>
+            <a href="sg-send-cli/" class="tool-card" data-search="sgraph send cli pypi wasm vault init commit push">
+                <div class="card-top">
+                    <span class="tool-card__icon">📦</span>
+                    <span class="tool-card__title">SG/Send CLI</span>
+                </div>
+                <p class="tool-card__desc">Run sg-send-cli vault operations in your browser. Init, commit, push, inspect — the real Python package from PyPI in WebAssembly.</p>
+                <div class="card-footer"><span class="tool-card__status status--exp">Experimental</span></div>
+            </a>
+        </div>
+    </div>
+
+    <!-- ── LLM Tools ──────────────────────────────────────────────────────── -->
+    <div class="section-group" id="group-llm">
+        <div class="section-wrap">
+            <p class="section-heading">LLM Tools <span class="count">8</span></p>
+        </div>
+        <div class="tools-grid">
+            <a href="chat/" class="tool-card" data-search="chat llm conversation history attachments images files">
+                <div class="card-top">
+                    <span class="tool-card__icon">💬</span>
+                    <span class="tool-card__title">Chat</span>
+                </div>
+                <p class="tool-card__desc">Multi-turn chat with any LLM. Attach images, PDFs, audio and video files. Maintain conversation history and export transcripts.</p>
+                <div class="card-footer"><span class="tool-card__status status--live">Live</span></div>
+            </a>
+            <a href="one-shot-chat/" class="tool-card" data-search="one shot chat precision system prompt context history">
+                <div class="card-top">
+                    <span class="tool-card__icon">🎯</span>
+                    <span class="tool-card__title">One-Shot Chat</span>
+                </div>
+                <p class="tool-card__desc">Engineer precision LLM requests. Build system prompts, context blocks, constructed history — send once. No conversation drift.</p>
+                <div class="card-footer"><span class="tool-card__status status--live">Live</span></div>
+            </a>
+            <a href="infographic-gen/" class="tool-card" data-search="infographic svg generator chart visual llm image">
+                <div class="card-top">
+                    <span class="tool-card__icon">📊</span>
+                    <span class="tool-card__title">Infographic Generator</span>
+                </div>
+                <p class="tool-card__desc">Turn text and data into SVG infographics with a single LLM request. Executive, technical, playful or data styles. Export SVG or PNG.</p>
+                <div class="card-footer"><span class="tool-card__status status--live">Live</span></div>
+            </a>
+            <a href="llm-dev/" class="tool-card" data-search="llm dev environment bundle history token cost inspect debug">
+                <div class="card-top">
+                    <span class="tool-card__icon">🔧</span>
+                    <span class="tool-card__title">LLM Dev Environment</span>
+                </div>
+                <p class="tool-card__desc">Full LLM development environment. Build realities, attach files, inspect requests, track token costs and time-travel through history.</p>
+                <div class="card-footer"><span class="tool-card__status status--live">Live</span></div>
+            </a>
+            <a href="multi-agent-chat/" class="tool-card" data-search="multi agent chat specialist roles parallel broadcast">
+                <div class="card-top">
+                    <span class="tool-card__icon">👥</span>
+                    <span class="tool-card__title">Multi-Agent Chat</span>
+                </div>
+                <p class="tool-card__desc">Chat with multiple specialist agents simultaneously — Architect, Dev, Designer, DevOps, Historian, Librarian. Broadcast to all at once.</p>
+                <div class="card-footer"><span class="tool-card__status status--live">Live</span></div>
+            </a>
+            <a href="openrouter/" class="tool-card" data-search="openrouter api key stats spending analytics logs csv models">
+                <div class="card-top">
+                    <span class="tool-card__icon">⚡</span>
+                    <span class="tool-card__title">OpenRouter</span>
+                </div>
+                <p class="tool-card__desc">Manage your OpenRouter account. View key stats, spending analytics with charts, model explorer, provisioned key management, and CSV log analysis.</p>
+                <div class="card-footer"><span class="tool-card__status status--new">New</span></div>
+            </a>
+            <a href="agentic/" class="tool-card" data-search="agentic loop tool calling function use python vfs autonomous">
+                <div class="card-top">
+                    <span class="tool-card__icon">🤖</span>
+                    <span class="tool-card__title">Agentic Loop</span>
+                </div>
+                <p class="tool-card__desc">Full LLM tool-calling loop. Define tools, run autonomous tasks, trace every step. Supports Python via Pyodide and VFS file operations.</p>
+                <div class="card-footer"><span class="tool-card__status status--live">Live</span></div>
+            </a>
+            <a href="model-compatibility/" class="tool-card" data-search="model compatibility matrix tool calling json streaming llm">
+                <div class="card-top">
+                    <span class="tool-card__icon">🧪</span>
+                    <span class="tool-card__title">Model Compatibility</span>
+                </div>
+                <p class="tool-card__desc">Static compatibility matrix for LLM models. Tests tool calling, JSON schema, streaming, stop conditions across OpenRouter, Ollama, Anthropic, OpenAI.</p>
+                <div class="card-footer"><span class="tool-card__status status--live">Live</span></div>
+            </a>
+        </div>
+    </div>
+
+    <!-- ── Vault & VFS ────────────────────────────────────────────────────── -->
+    <div class="section-group" id="group-vfs">
+        <div class="section-wrap">
+            <p class="section-heading">Vault &amp; VFS <span class="count">4</span></p>
+        </div>
+        <div class="tools-grid">
+            <a href="vault/" class="tool-card" data-search="vault sgraph send browse edit write files tree">
+                <div class="card-top">
+                    <span class="tool-card__icon">🏛️</span>
+                    <span class="tool-card__title">Vault</span>
+                </div>
+                <p class="tool-card__desc">Native SGraph vault browser and editor. Connect with a full vault key or simple token, browse the file tree, view and edit encrypted files.</p>
+                <div class="card-footer"><span class="tool-card__status status--live">Live</span></div>
+            </a>
+            <a href="vfs-dev/" class="tool-card" data-search="vfs virtual filesystem dev operations memory indexeddb layered">
+                <div class="card-top">
+                    <span class="tool-card__icon">📁</span>
+                    <span class="tool-card__title">VFS Dev</span>
+                </div>
+                <p class="tool-card__desc">Virtual filesystem developer tool. Test read/write/list/copy/delete operations across memory, IndexedDB and layered providers with live event viewer.</p>
+                <div class="card-footer"><span class="tool-card__status status--dev">Dev</span></div>
+            </a>
+            <a href="vfs-tree-demo/" class="tool-card" data-search="vfs tree demo directory listing visual filesystem browser">
+                <div class="card-top">
+                    <span class="tool-card__icon">🌲</span>
+                    <span class="tool-card__title">VFS Tree Demo</span>
+                </div>
+                <p class="tool-card__desc">Live demo of sg-tree component with VFS integration. Visual directory tree that auto-refreshes on structural changes, with inline file editor.</p>
+                <div class="card-footer"><span class="tool-card__status status--dev">Dev</span></div>
+            </a>
+            <a href="send-sim/" class="tool-card" data-search="send simulator sgraph api mock test local">
+                <div class="card-top">
+                    <span class="tool-card__icon">📡</span>
+                    <span class="tool-card__title">Send Simulator</span>
+                </div>
+                <p class="tool-card__desc">Local SG/Send API simulator for development and testing. Seed test data, inspect requests, simulate vault and file operations without a live server.</p>
+                <div class="card-footer"><span class="tool-card__status status--dev">Dev</span></div>
+            </a>
+        </div>
+    </div>
+
+    <!-- ── Dev Tools ──────────────────────────────────────────────────────── -->
+    <div class="section-group" id="group-dev">
+        <div class="section-wrap">
+            <p class="section-heading">Dev Tools <span class="count">2</span></p>
+        </div>
+        <div class="tools-grid">
+            <a href="folder-editor/" class="tool-card" data-search="folder editor vfs files manage create rename delete">
+                <div class="card-top">
+                    <span class="tool-card__icon">📂</span>
+                    <span class="tool-card__title">Folder Editor</span>
+                </div>
+                <p class="tool-card__desc">Manage VFS folder structures in the browser. Create, rename and delete files and folders. Browse with a live tree view backed by IndexedDB.</p>
+                <div class="card-footer"><span class="tool-card__status status--dev">Dev</span></div>
+            </a>
+            <a href="sg-tree-demo/" class="tool-card" data-search="sg tree demo component visual directory">
+                <div class="card-top">
+                    <span class="tool-card__icon">🌳</span>
+                    <span class="tool-card__title">SG Tree Demo</span>
+                </div>
+                <p class="tool-card__desc">Component demo for sg-tree — a reusable tree-view Web Component. Explore props, events, and styling options.</p>
+                <div class="card-footer"><span class="tool-card__status status--dev">Dev</span></div>
+            </a>
+        </div>
+    </div>
+
+    <div class="no-results" id="no-results">No tools match your search.</div>
+
+    <script type="module" src="/components/site-footer/v1/v1.0/v1.0.0/sg-site-footer.js"></script>
+    <sg-site-footer
+        brand-desc="Free browser-based tools that run entirely on your device. No uploads, no servers, no tracking."
+        columns='[{"title":"Tools","links":[{"label":"Chat","href":"chat/"},{"label":"OpenRouter","href":"openrouter/"},{"label":"Agentic Loop","href":"agentic/"},{"label":"SSH Key Generator","href":"ssh-keygen/"},{"label":"All Tools","href":"./"}]},{"title":"SGraph","links":[{"label":"sgraph.ai","href":"https://sgraph.ai/en-gb/"},{"label":"send.sgraph.ai","href":"https://send.sgraph.ai"},{"label":"GitHub","href":"https://github.com/the-cyber-boardroom/SGraph-AI__Tools"}]}]'>
+    </sg-site-footer>
+
+    <script src="../_common/js/build-info.js"></script>
+    <div id="build-version" style="text-align:center;color:var(--sg-text-dim,#4a5568);font-size:0.7rem;padding:8px 0 16px;opacity:0.6"></div>
+    <script>
+        (function() {
+            var b = window.SGRAPH_BUILD || { appVersion: 'v0.1.0', uiVersion: 'v0.1.22' };
+            var el = document.getElementById('build-version');
+            if (el) el.textContent = b.appVersion + '  \u00b7  UI ' + b.uiVersion + (b.buildTime ? '  \u00b7  ' + b.buildTime : '');
+        })();
+    </script>
+    <script>
+        // Live search filter
+        var searchInput = document.getElementById('tool-search');
+        var noResults   = document.getElementById('no-results');
+        searchInput.addEventListener('input', function() {
+            var q = this.value.trim().toLowerCase();
+            var anyVisible = false;
+            document.querySelectorAll('.tool-card').forEach(function(card) {
+                var text = (card.dataset.search || '') + ' ' + (card.textContent || '');
+                var match = !q || text.toLowerCase().includes(q);
+                card.classList.toggle('hidden', !match);
+                if (match) anyVisible = true;
+            });
+            // Hide/show section groups
+            document.querySelectorAll('.section-group').forEach(function(group) {
+                var visible = group.querySelectorAll('.tool-card:not(.hidden)').length > 0;
+                group.classList.toggle('all-hidden', !visible);
+            });
+            noResults.classList.toggle('visible', !anyVisible);
+        });
+    </script>
+</body>
+</html>
