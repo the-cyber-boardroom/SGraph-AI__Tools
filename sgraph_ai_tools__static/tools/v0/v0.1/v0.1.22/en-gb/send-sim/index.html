@@ -161,6 +161,10 @@ import {
     generateVaultId, createSimVault, writeSimFile,
     readSimFileAsJson, getSimVaultState, getSimCommitLog,
 } from '/core/sg-send-sim/v0/v0.1/v0.1.0/sg-send-sim.js';
+import {
+    parseVaultKey, deriveVaultKeys, openVault,
+} from '/core/vault-client/v1/v1.1/v1.1.0/sg-vault-client.js';
+import { writeVaultFile } from '/core/vault-write/v1/v1.0/v1.0.0/sg-vault-write.js';
 
 // ── DOM refs ──────────────────────────────────────────────────────────────────
 const appRoot  = document.getElementById('app-root');
@@ -203,7 +207,10 @@ layoutEl.setLayout({
     type: 'row', id: 'root', sizes: [0.30, 0.42, 0.28],
     children: [
         { type: 'stack', id: 's-vault', activeTab: 0,
-          tabs: [{ type: 'tab', id: 'tab-vault', title: '🔐 Vault', tag: 'div', closable: false }] },
+          tabs: [
+            { type: 'tab', id: 'tab-vault',      title: '🔐 Sim Vault',  tag: 'div', closable: false },
+            { type: 'tab', id: 'tab-real-vault',  title: '🌐 Real Vault', tag: 'div', closable: false },
+          ] },
         { type: 'column', id: 'col-centre', sizes: [0.58, 0.42],
           children: [
               { type: 'stack', id: 's-tree', activeTab: 0,
@@ -220,6 +227,7 @@ layoutEl.setLayout({
 // ── Build panels on LAYOUT_READY ──────────────────────────────────────────────
 layoutEl.addEventListener(SGL_EVENTS.LAYOUT_READY, () => {
     buildVaultPanel(layoutEl.getPanelElement('tab-vault'));
+    buildRealVaultPanel(layoutEl.getPanelElement('tab-real-vault'));
     buildTreePanel(layoutEl.getPanelElement('tab-tree'));
     buildInspectorPanel(layoutEl.getPanelElement('tab-insp'));
 });
@@ -317,6 +325,214 @@ This file is stored as an AES-256-GCM encrypted blob inside a VFS-backed simulat
 
     // Wire up events after DOM is in the panel
     bindVaultPanel();
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Real Vault panel — writes to actual send.sgraph.ai via sg-vault-write
+// ─────────────────────────────────────────────────────────────────────────────
+
+const BRIEF_PATH = './briefs/v0.20.38__arch-brief__audio-capture-transcription-tool.md';
+const BRIEF_FILE = 'architect-briefs/v0.20.38__arch-brief__audio-capture-transcription-tool.md';
+
+function buildRealVaultPanel(el) {
+    el.innerHTML = `
+<div class="vault-wrap">
+  <div class="vault-scroll">
+
+    <div class="section">
+      <div class="section-title">Real Vault Connection</div>
+      <div class="field-label">Vault Key <span style="color:var(--sg-text-muted,#8892b0);font-weight:400">(passphrase:vaultId)</span></div>
+      <div class="field-row">
+        <input class="inp" id="rv-key" type="password" placeholder="my-passphrase:a1b2c3d4" autocomplete="off">
+        <button class="btn btn-sm" id="rv-show-key" title="Show/hide">👁</button>
+      </div>
+      <div class="field-label">API URL</div>
+      <div class="field-row">
+        <input class="inp" id="rv-api-url" type="text" value="https://send.sgraph.ai">
+      </div>
+      <button class="btn-primary" id="rv-btn-open">Derive Keys &amp; Connect</button>
+      <div id="rv-open-result" class="result-msg" style="display:none"></div>
+      <div id="rv-vault-status" style="display:none;margin-top:0.35rem">
+        <div class="vault-status">
+          <span class="pill pill-green" id="rv-state-badge">CONNECTED</span>
+          <span class="vault-id-display" id="rv-vault-id-display"></span>
+          <span class="kdf-time" id="rv-kdf-time"></span>
+        </div>
+        <div style="font-size:0.62rem;color:var(--sg-text-muted,#8892b0);margin-top:0.25rem">
+          Write key: <span id="rv-write-key-preview" style="font-family:monospace;color:#a78bfa"></span>
+        </div>
+      </div>
+    </div>
+
+    <div class="section">
+      <div class="section-title">Write File to Real Vault
+        <button class="btn btn-sm" id="rv-btn-load-brief" style="float:right" title="Load architect brief">Load Brief</button>
+      </div>
+      <div class="field-label">File path in vault</div>
+      <div class="field-row">
+        <input class="inp" id="rv-file-path" type="text" value="${BRIEF_FILE}">
+      </div>
+      <div class="field-label">Content</div>
+      <textarea class="inp" id="rv-file-content" rows="8" placeholder="Loading brief…"></textarea>
+      <div class="field-row" style="margin-top:0.3rem">
+        <input class="inp" id="rv-commit-msg" type="text" placeholder="Commit message (optional)">
+        <button class="btn" id="rv-btn-write" disabled>Push</button>
+      </div>
+      <div id="rv-write-result" class="result-msg" style="display:none"></div>
+    </div>
+
+    <div class="section">
+      <div class="section-title">Vault State
+        <button class="btn btn-sm" id="rv-btn-refresh" style="float:right" disabled>↺ Refresh</button>
+      </div>
+      <div id="rv-state-empty" style="font-size:0.67rem;color:var(--sg-text-muted,#8892b0)">Not connected.</div>
+      <div id="rv-state-content" style="display:none">
+        <div style="font-size:0.67rem;margin-bottom:0.3rem">
+          <span style="color:var(--sg-text-muted,#8892b0)">HEAD: </span>
+          <span id="rv-state-head" style="font-family:monospace;font-size:0.63rem;color:#a78bfa"></span><br>
+          <span style="color:var(--sg-text-muted,#8892b0)">Ref ID: </span>
+          <span id="rv-ref-id" style="font-family:monospace;font-size:0.63rem;color:var(--sg-text-muted,#8892b0)"></span>
+        </div>
+        <div class="file-list" id="rv-file-list"></div>
+      </div>
+    </div>
+
+  </div>
+</div>`;
+
+    // Load the brief asynchronously
+    fetch(BRIEF_PATH)
+        .then(r => r.ok ? r.text() : Promise.reject(r.status))
+        .then(text => {
+            document.getElementById('rv-file-content').value = text;
+            document.getElementById('rv-file-content').placeholder = '';
+        })
+        .catch(() => {
+            document.getElementById('rv-file-content').placeholder = 'Could not load brief — paste content here.';
+        });
+
+    bindRealVaultPanel();
+}
+
+function bindRealVaultPanel() {
+    let realVault = null;
+
+    // Show/hide vault key
+    document.getElementById('rv-show-key').addEventListener('click', () => {
+        const inp = document.getElementById('rv-key');
+        inp.type = inp.type === 'password' ? 'text' : 'password';
+    });
+
+    // Derive keys + connect
+    document.getElementById('rv-btn-open').addEventListener('click', async () => {
+        const fullKey = document.getElementById('rv-key').value.trim();
+        const apiUrl  = document.getElementById('rv-api-url').value.trim();
+        const btn     = document.getElementById('rv-btn-open');
+        btn.disabled = true; btn.textContent = 'Deriving keys…';
+        try {
+            const { passphrase, vaultId } = parseVaultKey(fullKey);
+            const t0   = performance.now();
+            const keys = await deriveVaultKeys(passphrase, vaultId);
+            const ms   = (performance.now() - t0).toFixed(0);
+            realVault  = await openVault(keys, { apiBaseUrl: apiUrl });
+
+            showResult('rv-open-result', `Keys derived in ${ms}ms. Vault ${vaultId} ready.`, false, true);
+            document.getElementById('rv-vault-status').style.display = 'block';
+            document.getElementById('rv-vault-id-display').textContent = vaultId;
+            document.getElementById('rv-kdf-time').textContent = `${ms}ms KDF`;
+            document.getElementById('rv-write-key-preview').textContent =
+                keys.writeKey.slice(0, 8) + '…' + keys.writeKey.slice(-4);
+
+            document.getElementById('rv-btn-write').disabled   = false;
+            document.getElementById('rv-btn-refresh').disabled = false;
+            await refreshRealVaultState(realVault, keys);
+        } catch (err) {
+            showResult('rv-open-result', err.message, true);
+        }
+        btn.disabled = false; btn.textContent = 'Derive Keys & Connect';
+    });
+
+    // Load brief preset
+    document.getElementById('rv-btn-load-brief').addEventListener('click', async () => {
+        const btn = document.getElementById('rv-btn-load-brief');
+        btn.disabled = true; btn.textContent = 'Loading…';
+        try {
+            const r = await fetch(BRIEF_PATH);
+            if (!r.ok) throw new Error(`HTTP ${r.status}`);
+            document.getElementById('rv-file-content').value = await r.text();
+            document.getElementById('rv-file-path').value    = BRIEF_FILE;
+        } catch (err) {
+            showResult('rv-write-result', `Load failed: ${err.message}`, true);
+        }
+        btn.disabled = false; btn.textContent = 'Load Brief';
+    });
+
+    // Write to real vault
+    document.getElementById('rv-btn-write').addEventListener('click', async () => {
+        if (!realVault) return;
+        const path    = document.getElementById('rv-file-path').value.trim();
+        const content = document.getElementById('rv-file-content').value;
+        const message = document.getElementById('rv-commit-msg').value.trim() || undefined;
+        const btn     = document.getElementById('rv-btn-write');
+        btn.disabled = true; btn.textContent = 'Pushing…';
+        try {
+            const r = await writeVaultFile(realVault, path, content, { message });
+            showResult('rv-write-result',
+                `✓ Written to send.sgraph.ai\nblob:   ${r.blobId.slice(-12)}\ntree:   ${r.treeId.slice(-12)}\ncommit: ${r.commitId.slice(-12)}`,
+                false, true);
+            await refreshRealVaultState(realVault, realVault.keys);
+        } catch (err) {
+            showResult('rv-write-result', `Push failed: ${err.message}`, true);
+        }
+        btn.disabled = false; btn.textContent = 'Push';
+    });
+
+    document.getElementById('rv-btn-refresh').addEventListener('click', () => {
+        if (realVault) refreshRealVaultState(realVault, realVault.keys);
+    });
+}
+
+async function refreshRealVaultState(vault, keys) {
+    const { listFileIds } = await import('/core/vault-client/v1/v1.1/v1.1.0/sg-vault-client.js');
+    try {
+        document.getElementById('rv-state-empty').style.display   = 'none';
+        document.getElementById('rv-state-content').style.display = 'block';
+        document.getElementById('rv-ref-id').textContent = keys.refFileId || '—';
+
+        // Try to read HEAD ref
+        try {
+            const { readFileAsJson } = await import('/core/vault-client/v1/v1.1/v1.1.0/sg-vault-client.js');
+            const ref = await readFileAsJson(vault, keys.refFileId);
+            document.getElementById('rv-state-head').textContent = (ref.head || ref.commit_id || '—').slice(-12);
+        } catch { document.getElementById('rv-state-head').textContent = '(empty vault)'; }
+
+        // List objects
+        const ids = await listFileIds(vault);
+        const listEl = document.getElementById('rv-file-list');
+        listEl.innerHTML = '';
+        for (const id of ids.slice(0, 20)) {
+            const row = document.createElement('div');
+            row.className = 'file-item';
+            row.innerHTML = `<span class="file-name" style="font-size:0.62rem">${esc(id)}</span>`;
+            listEl.appendChild(row);
+        }
+        if (ids.length > 20) {
+            const more = document.createElement('div');
+            more.style.cssText = 'font-size:0.6rem;color:var(--sg-text-muted,#8892b0);padding:0.15rem 0';
+            more.textContent = `… and ${ids.length - 20} more`;
+            listEl.appendChild(more);
+        }
+        if (ids.length === 0) {
+            const empty = document.createElement('div');
+            empty.style.cssText = 'font-size:0.67rem;color:var(--sg-text-muted,#8892b0)';
+            empty.textContent = 'Vault is empty';
+            listEl.appendChild(empty);
+        }
+    } catch (err) {
+        document.getElementById('rv-state-empty').textContent = `Error: ${err.message}`;
+        document.getElementById('rv-state-empty').style.display = 'block';
+        document.getElementById('rv-state-content').style.display = 'none';
+    }
 }
 
 function buildTreePanel(el) {
