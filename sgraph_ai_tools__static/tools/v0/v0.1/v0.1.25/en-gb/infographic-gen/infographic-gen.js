@@ -111,17 +111,22 @@ bus.appendChild(modeToggle);
 
 // ── Templates row ─────────────────────────────────────────────────────────────
 
+const templatesOuter = document.createElement('div');
+templatesOuter.style.cssText = [
+    'flex-shrink:0', 'overflow-x:auto', 'overflow-y:hidden',
+    'background:#0d0d1a', 'border-bottom:1px solid #1a1a3a', 'scrollbar-width:thin',
+].join(';');
 const templatesRow = document.createElement('div');
 templatesRow.style.cssText = [
-    'display:flex', 'flex-wrap:nowrap', 'align-items:center', 'gap:5px', 'flex-shrink:0',
-    'padding:6px 10px', 'background:#0d0d1a', 'border-bottom:1px solid #1a1a3a',
-    'overflow-x:auto', 'overflow-y:hidden', 'scrollbar-width:thin',
+    'display:flex', 'align-items:center', 'gap:5px',
+    'padding:6px 10px', 'width:max-content', 'min-width:100%', 'box-sizing:border-box',
 ].join(';');
 const templLabel = document.createElement('span');
 templLabel.textContent = 'Templates:';
 templLabel.style.cssText = 'font-size:11px;font-weight:600;color:#718096;text-transform:uppercase;letter-spacing:0.05em;white-space:nowrap;font-family:system-ui,sans-serif;flex-shrink:0;';
 templatesRow.appendChild(templLabel);
-bus.appendChild(templatesRow);
+templatesOuter.appendChild(templatesRow);
+bus.appendChild(templatesOuter);
 
 // ── Main textarea ─────────────────────────────────────────────────────────────
 
@@ -146,11 +151,15 @@ docModeDiv.style.cssText = 'display:none;flex-direction:column;flex:1;min-height
 bus.appendChild(docModeDiv);
 
 // Doc templates row
+const docTemplOuter = document.createElement('div');
+docTemplOuter.style.cssText = [
+    'flex-shrink:0', 'overflow-x:auto', 'overflow-y:hidden',
+    'background:#0d0d1a', 'border-bottom:1px solid #1a1a3a', 'scrollbar-width:thin',
+].join(';');
 const docTemplRow = document.createElement('div');
 docTemplRow.style.cssText = [
-    'display:flex', 'flex-wrap:nowrap', 'align-items:center', 'gap:5px', 'flex-shrink:0',
-    'padding:5px 8px', 'background:#0d0d1a', 'border-bottom:1px solid #1a1a3a',
-    'overflow-x:auto', 'overflow-y:hidden', 'scrollbar-width:thin',
+    'display:flex', 'align-items:center', 'gap:5px',
+    'padding:5px 8px', 'width:max-content', 'min-width:100%', 'box-sizing:border-box',
 ].join(';');
 const docTemplLabel = document.createElement('span');
 docTemplLabel.textContent = 'Focus:';
@@ -167,7 +176,8 @@ DOC_TEMPLATES.forEach(tmpl => {
     btn.addEventListener('click', () => { directionTextarea.value = tmpl.direction; });
     docTemplRow.appendChild(btn);
 });
-docModeDiv.appendChild(docTemplRow);
+docTemplOuter.appendChild(docTemplRow);
+docModeDiv.appendChild(docTemplOuter);
 
 // Drop zone
 const dropZone = document.createElement('div');
@@ -406,7 +416,7 @@ placeholder.style.cssText = [
     'text-align:center',
 ].join(';');
 placeholder.innerHTML = `
-  <div style="font-size:24px;font-weight:700;color:#e2e8f0;">\U0001f3a8 Infographic Generator</div>
+  <div style="font-size:24px;font-weight:700;color:#e2e8f0;">\u{1F3A8} Infographic Generator</div>
   <div style="font-size:14px;color:#718096;max-width:420px;line-height:1.7;">
     Describe what you want \u2014 or pick a <strong style="color:#a0aec0;">template</strong> \u2014 then press
     <strong style="color:#4ECDC4;">\u25b6 Send</strong>.
@@ -438,7 +448,7 @@ bus.addEventListener(SGL_LLM.SEND, async e => {
 
     const isDocMode = currentMode === 'document';
     const tabTitle  = isDocMode
-        ? `\U0001f4c4 ${model.split('/').pop().substring(0, 28)}`
+        ? `\u{1F4C4} ${model.split('/').pop().substring(0, 28)}`
         : model.split('/').pop().substring(0, 35);
 
     // Pre-compute context so it can be shown in the details panel immediately
