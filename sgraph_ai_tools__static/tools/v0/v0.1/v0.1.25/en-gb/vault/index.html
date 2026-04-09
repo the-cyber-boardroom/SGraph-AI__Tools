@@ -23,6 +23,7 @@
             min-height: 0;
         }
         sg-layout { flex: 1; min-height: 0; }
+        #manifest-bar { flex-shrink: 0; padding: 0 0.75rem 0.5rem; }
     </style>
 </head>
 <body>
@@ -32,6 +33,11 @@
 
 <div id="vault-bus" data-vault-bus>
     <sg-layout id="layout"></sg-layout>
+</div>
+
+<div id="manifest-bar">
+    <script type="module" src="../../_common/js/sg-tool-manifest.js"></script>
+    <sg-tool-manifest src="manifest.json"></sg-tool-manifest>
 </div>
 
 <script type="module">
