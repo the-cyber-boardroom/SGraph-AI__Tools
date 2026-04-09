@@ -19,10 +19,35 @@
         #vault-bus {
             flex: 1;
             display: flex;
-            flex-direction: column;
             min-height: 0;
         }
-        sg-layout { flex: 1; min-height: 0; }
+        /* Left column: fixed connection + flexible tree */
+        #left-col {
+            width: 28%;
+            min-width: 240px;
+            display: flex;
+            flex-direction: column;
+            border-right: 1px solid var(--sg-border, #1e293b);
+        }
+        #connect-wrap {
+            flex-shrink: 0;
+            overflow-y: auto;
+            max-height: 50%;
+            border-bottom: 1px solid var(--sg-border, #1e293b);
+        }
+        #tree-wrap {
+            flex: 1;
+            min-height: 0;
+            overflow: hidden;
+        }
+        #tree-wrap sg-vault-tree { display: block; height: 100%; }
+        /* Right column: file viewer */
+        #right-col {
+            flex: 1;
+            min-width: 0;
+            overflow: hidden;
+        }
+        #right-col sg-vault-viewer { display: block; height: 100%; }
         #manifest-bar { flex-shrink: 0; padding: 0 0.75rem 0.5rem; }
     </style>
 </head>
@@ -31,58 +56,33 @@
 <script type="module" src="/components/site-header/v1/v1.0/v1.0.2/sg-site-header.js"></script>
 <sg-site-header site="Tools" home-url="../../"></sg-site-header>
 
+<script type="module" src="/components/vault/sg-vault-connect/v0/v0.1/v0.1.1/sg-vault-connect.js"></script>
+<script type="module" src="/components/vault/sg-vault-tree/v0/v0.1/v0.1.1/sg-vault-tree.js"></script>
+<script type="module" src="/components/vault/sg-vault-viewer/v0/v0.1/v0.1.1/sg-vault-viewer.js"></script>
+
+<!--
+    Plain flex layout — Connection panel has a fixed max-height so the
+    Connect button is always visible regardless of window size.
+    ┌──────────────────────┬─────────────────────────────────────────────────┐
+    │   Vault Connection   │             File Viewer / Editor                │
+    │ ──────────────────── │                                                 │
+    │   File Tree          │                                                 │
+    └──────────────────────┴─────────────────────────────────────────────────┘
+-->
 <div id="vault-bus" data-vault-bus>
-    <sg-layout id="layout"></sg-layout>
+    <div id="left-col">
+        <div id="connect-wrap"><sg-vault-connect api-url="https://dev.send.sgraph.ai"></sg-vault-connect></div>
+        <div id="tree-wrap"><sg-vault-tree></sg-vault-tree></div>
+    </div>
+    <div id="right-col">
+        <sg-vault-viewer></sg-vault-viewer>
+    </div>
 </div>
 
 <div id="manifest-bar">
     <script type="module" src="../../_common/js/sg-tool-manifest.js"></script>
     <sg-tool-manifest src="manifest.json"></sg-tool-manifest>
 </div>
-
-<script type="module">
-import '/core/sg-layout/v0.1.0/sg-layout.js';
-import '/components/vault/sg-vault-connect/v0/v0.1/v0.1.1/sg-vault-connect.js';
-import '/components/vault/sg-vault-tree/v0/v0.1/v0.1.1/sg-vault-tree.js';
-import '/components/vault/sg-vault-viewer/v0/v0.1/v0.1.1/sg-vault-viewer.js';
-
-// ── Layout definition ──────────────────────────────────────────────────────
-//
-//  ┌──────────────────────┬─────────────────────────────────────────────────┐
-//  │   Vault Connection   │             File Viewer / Editor                │
-//  │                      │                                                 │
-//  │   File Tree          │                                                 │
-//  └──────────────────────┴─────────────────────────────────────────────────┘
-
-const LAYOUT = {
-    type: 'row',
-    sizes: [0.28, 0.72],
-    children: [
-        {
-            type: 'column',
-            sizes: [0.38, 0.62],
-            children: [
-                {
-                    type: 'stack',
-                    tabs: [{ tag: 'sg-vault-connect', title: 'Connection', locked: true }],
-                },
-                {
-                    type: 'stack',
-                    tabs: [{ tag: 'sg-vault-tree', title: 'Files', locked: true }],
-                },
-            ],
-        },
-        {
-            type: 'stack',
-            tabs: [{ tag: 'sg-vault-viewer', title: 'File Viewer', locked: true }],
-        },
-    ],
-};
-
-customElements.whenDefined('sg-layout').then(() => {
-    document.getElementById('layout').setLayout(LAYOUT);
-});
-</script>
 
 </body>
 </html>
