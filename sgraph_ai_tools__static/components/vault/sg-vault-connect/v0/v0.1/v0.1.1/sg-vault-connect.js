@@ -257,11 +257,10 @@ export class SgVaultConnect extends HTMLElement {
             }
 
             if (!vaultExists) {
-                const isSimpleToken = /^[a-z]+-[a-z]+-\d{4}$/.test(rawKey);
                 if (isSimpleToken) {
                     this._showStatus(
-                        `Vault not found for token "${rawKey}". ` +
-                        'This may be a share token — try <code>sgit clone ' + rawKey + '</code> first, ' +
+                        `Vault not found for token "${_esc(rawKey)}". ` +
+                        'This may be a share token — try <code>sgit clone ' + _esc(rawKey) + '</code> first, ' +
                         'then use the vault key from <code>.sg_vault/local/vault_key</code>.',
                         'error'
                     );
@@ -273,7 +272,7 @@ export class SgVaultConnect extends HTMLElement {
 
             this._vault = vault;
             this._saveToStorage(rawKey, apiBase);
-            this._showConnected(keys.vaultId, apiBase, 0);
+            this._showConnected(keys.vaultId, apiBase, keys.derivationTimeMs || 0);
             this._emit('vault:connected', { vault, vaultId: keys.vaultId, apiBaseUrl: apiBase, keys });
 
         } catch (err) {
@@ -328,3 +327,7 @@ export class SgVaultConnect extends HTMLElement {
 }
 
 customElements.define('sg-vault-connect', SgVaultConnect);
+
+function _esc(str) {
+    return String(str ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+}
