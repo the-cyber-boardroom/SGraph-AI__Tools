@@ -106,16 +106,16 @@ function makeModeBtn(label) {
     return btn;
 }
 const textModeBtn = makeModeBtn('\u270f  Text');
-const docModeBtn  = makeModeBtn('\U0001f4c4  Document');
+const docModeBtn  = makeModeBtn('\u{1F4C4}  Document');
 bus.appendChild(modeToggle);
 
 // ── Templates row ─────────────────────────────────────────────────────────────
 
 const templatesRow = document.createElement('div');
 templatesRow.style.cssText = [
-    'display:flex', 'align-items:center', 'gap:5px', 'flex-shrink:0',
+    'display:flex', 'flex-wrap:nowrap', 'align-items:center', 'gap:5px', 'flex-shrink:0',
     'padding:6px 10px', 'background:#0d0d1a', 'border-bottom:1px solid #1a1a3a',
-    'overflow-x:auto', 'scrollbar-width:thin',
+    'overflow-x:auto', 'overflow-y:hidden', 'scrollbar-width:thin',
 ].join(';');
 const templLabel = document.createElement('span');
 templLabel.textContent = 'Templates:';
@@ -148,9 +148,9 @@ bus.appendChild(docModeDiv);
 // Doc templates row
 const docTemplRow = document.createElement('div');
 docTemplRow.style.cssText = [
-    'display:flex', 'align-items:center', 'gap:5px', 'flex-shrink:0',
+    'display:flex', 'flex-wrap:nowrap', 'align-items:center', 'gap:5px', 'flex-shrink:0',
     'padding:5px 8px', 'background:#0d0d1a', 'border-bottom:1px solid #1a1a3a',
-    'overflow-x:auto', 'scrollbar-width:thin',
+    'overflow-x:auto', 'overflow-y:hidden', 'scrollbar-width:thin',
 ].join(';');
 const docTemplLabel = document.createElement('span');
 docTemplLabel.textContent = 'Focus:';
@@ -185,7 +185,7 @@ const dropSubMsg  = document.createElement('div');
 const docFileInfo = document.createElement('div');
 const clearDocBtn = document.createElement('button');
 
-dropIcon.textContent = '\U0001f4c4';
+dropIcon.textContent = '\u{1F4C4}';
 dropIcon.style.cssText = 'font-size:32px;';
 dropMsg.textContent = 'Drop a document here';
 dropMsg.style.cssText = 'font-size:14px;font-weight:600;color:#a0aec0;text-align:center;';
@@ -224,7 +224,7 @@ docModeDiv.appendChild(directionTextarea);
 // Drop zone interaction
 function setDocLoaded(doc) {
     currentDoc = doc;
-    dropIcon.textContent = doc.type === 'image' ? '\U0001f5bc\ufe0f' : doc.name.endsWith('.pdf') ? '\U0001f4d1' : '\U0001f4dd';
+    dropIcon.textContent = doc.type === 'image' ? '\u{1F5BC}\ufe0f' : doc.name.endsWith('.pdf') ? '\u{1F4D1}' : '\u{1F4DD}';
     dropMsg.textContent = doc.name;
     dropMsg.style.color = '#4ECDC4';
     dropSubMsg.style.display = 'none';
@@ -237,7 +237,7 @@ function setDocLoaded(doc) {
 }
 function clearDoc() {
     currentDoc = null;
-    dropIcon.textContent = '\U0001f4c4';
+    dropIcon.textContent = '\u{1F4C4}';
     dropMsg.textContent = 'Drop a document here';
     dropMsg.style.color = '#a0aec0';
     dropSubMsg.style.display = '';
