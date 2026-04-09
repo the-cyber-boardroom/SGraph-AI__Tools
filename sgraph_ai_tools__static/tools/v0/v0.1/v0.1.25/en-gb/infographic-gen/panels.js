@@ -124,8 +124,10 @@ async function setupDetailsPanel(detailsPanel, model, ctx = {}) {
 
     const ready = new Promise(resolve => inner.events.on(SGL_EVENTS.LAYOUT_READY, resolve));
     inner.setLayout({
-        type: 'column', id: `dl${id}`, sizes: [0.45, 0.55],
+        type: 'column', id: `dl${id}`, sizes: [0.22, 0.32, 0.46],
         children: [
+            { type: 'stack', id: `de${id}`, activeTab: 0,
+              tabs: [{ type: 'tab', id: `det${id}`, title: 'Export', tag: 'div', locked: true, closable: false }] },
             { type: 'stack', id: `dc${id}`, activeTab: 0,
               tabs: [{ type: 'tab', id: `dct${id}`, title: 'Context', tag: 'div', locked: true, closable: false }] },
             { type: 'stack', id: `dg${id}`, activeTab: 0,
@@ -134,8 +136,9 @@ async function setupDetailsPanel(detailsPanel, model, ctx = {}) {
     });
     await ready;
 
-    const ctxPanel = inner.getPanelElement(`dct${id}`);
-    const genPanel = inner.getPanelElement(`dgt${id}`);
+    const exportPanel = inner.getPanelElement(`det${id}`);
+    const ctxPanel    = inner.getPanelElement(`dct${id}`);
+    const genPanel    = inner.getPanelElement(`dgt${id}`);
 
     // ── Helpers (append into ctxPanel) ───────────────────────────────────────
     ctxPanel.style.cssText = 'height:100%;overflow:auto;background:#0a0a18;display:block;padding:12px;box-sizing:border-box;font-family:system-ui,sans-serif;';
@@ -226,9 +229,10 @@ async function setupDetailsPanel(detailsPanel, model, ctx = {}) {
     sep();
 
     // ── Export component ──────────────────────────────────────────────────────
+    exportPanel.style.cssText = 'height:100%;display:block;overflow:hidden;';
     const exportEl = document.createElement('sg-infographic-export');
-    exportEl.style.cssText = 'display:block;width:100%;';
-    ctxPanel.appendChild(exportEl);
+    exportEl.style.cssText = 'display:block;width:100%;height:100%;';
+    exportPanel.appendChild(exportEl);
 
     // ── Generation panel (full-height sg-openrouter-generation) ──────────────
     genPanel.style.cssText = 'height:100%;display:block;overflow:hidden;';

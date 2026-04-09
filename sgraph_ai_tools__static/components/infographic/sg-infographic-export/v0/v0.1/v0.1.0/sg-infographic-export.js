@@ -47,17 +47,31 @@ async function imgSrcToBlob(src) {
 
 const STYLES = `
 :host {
-    display: none;
+    display: block;
     font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
 }
-:host([active]) { display: block; }
+
+.placeholder {
+    display: flex;
+    height: 100%;
+    align-items: center;
+    justify-content: center;
+    font-size: 12px;
+    color: #4a5568;
+    text-align: center;
+    line-height: 1.6;
+    padding: 16px;
+    box-sizing: border-box;
+}
+:host([active]) .placeholder { display: none; }
 
 .actions {
-    display: flex;
+    display: none;
     flex-direction: column;
     gap: 6px;
-    margin-bottom: 6px;
+    padding: 10px;
 }
+:host([active]) .actions { display: flex; }
 
 button {
     width: 100%;
@@ -85,7 +99,7 @@ button:disabled { opacity: 0.5; cursor: default; }
 #send-drop-wrap {
     display: none;
     width: 100%;
-    margin-bottom: 6px;
+    padding: 0 10px 4px;
 }
 #send-drop-wrap.visible { display: block; }
 `;
@@ -112,10 +126,11 @@ export class SgInfographicExport extends HTMLElement {
 
     _render() {
         this.shadowRoot.innerHTML = `<style>${STYLES}</style>
+<div class="placeholder">Generate an infographic<br>to enable export options.</div>
 <div class="actions">
-  <button class="btn-download" id="download-btn">⬇ Download PNG</button>
-  <button class="btn-copy"     id="copy-btn">⎘ Copy to Clipboard</button>
-  <button class="btn-share"    id="share-btn">↗ Share via SG/Send</button>
+  <button class="btn-download" id="download-btn">&#x2B07; Download PNG</button>
+  <button class="btn-copy"     id="copy-btn">&#x2398; Copy to Clipboard</button>
+  <button class="btn-share"    id="share-btn">&#x2197; Share via SG/Send</button>
 </div>
 <div id="send-drop-wrap">
   <sg-send-drop id="send-drop"></sg-send-drop>
