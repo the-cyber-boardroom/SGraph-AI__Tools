@@ -50,8 +50,8 @@ import '/components/vault/sg-vault-viewer/v0/v0.1/v0.1.1/sg-vault-viewer.js';
 //
 //  ┌──────────────────────┬─────────────────────────────────────────────────┐
 //  │   Vault Connection   │             File Viewer / Editor                │
-//  │                      │                                                 │
-//  │   File Tree          │                                                 │
+//  │   (fixed 260px)      │                                                 │
+//  │   File Tree (flex)   │                                                 │
 //  └──────────────────────┴─────────────────────────────────────────────────┘
 
 const LAYOUT = {
@@ -60,10 +60,11 @@ const LAYOUT = {
     children: [
         {
             type: 'column',
-            sizes: [0.38, 0.62],
+            sizes: [0.5, 0.5],
             children: [
                 {
                     type: 'stack',
+                    fixedSize: '260px',
                     tabs: [{ tag: 'sg-vault-connect', title: 'Connection', locked: true }],
                 },
                 {
