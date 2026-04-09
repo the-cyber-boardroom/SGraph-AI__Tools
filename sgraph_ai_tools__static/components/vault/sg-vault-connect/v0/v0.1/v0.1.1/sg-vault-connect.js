@@ -244,11 +244,31 @@ export class SgVaultConnect extends HTMLElement {
 
             // Verify by attempting to read the ref file
             this._showStatus('<span class="spinner"></span>Verifying vault access…', 'info');
+            let vaultExists = true;
             try {
                 await readFile(vault, keys.refFileId);
             } catch (e) {
-                // If 404, vault might be empty/new — not a fatal error
-                if (!e.message.includes('404')) throw e;
+                if (e.message.includes('404')) {
+                    // Ref not found — vault doesn't exist on this server
+                    vaultExists = false;
+                } else {
+                    throw e;
+                }
+            }
+
+            if (!vaultExists) {
+                const isSimpleToken = /^[a-z]+-[a-z]+-\d{4}$/.test(rawKey);
+                if (isSimpleToken) {
+                    this._showStatus(
+                        `Vault not found for token "${rawKey}". ` +
+                        'This may be a share token — try <code>sgit clone ' + rawKey + '</code> first, ' +
+                        'then use the vault key from <code>.sg_vault/local/vault_key</code>.',
+                        'error'
+                    );
+                    btn.disabled = false;
+                    return;
+                }
+                // For full vault keys, it could be a new/empty vault — allow connecting
             }
 
             this._vault = vault;

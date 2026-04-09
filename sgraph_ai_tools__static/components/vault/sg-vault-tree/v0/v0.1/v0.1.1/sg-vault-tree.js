@@ -214,7 +214,7 @@ export class SgVaultTree extends HTMLElement {
 
         } catch (err) {
             if (err.message?.includes('404')) {
-                this._showEmpty('Vault is empty. Create the first file!');
+                this._showEmpty('Vault not found or empty — no commits yet.');
             } else {
                 scroll.innerHTML = `<div class="vt-error">Failed to load tree: ${_esc(err.message)}</div>`;
             }
