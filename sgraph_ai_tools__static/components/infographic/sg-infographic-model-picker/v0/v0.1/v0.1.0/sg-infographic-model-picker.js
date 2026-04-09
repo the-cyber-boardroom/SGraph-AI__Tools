@@ -53,9 +53,9 @@ export const ALL_MODELS = [...ALL_IMAGE_MODELS, ...ALL_SVG_MODELS];
 
 /** Top 3 recommended models shown at the top of the picker. */
 export const TOP_3_MODELS = [
+    'google/gemini-3.1-flash-image-preview',
     'google/gemini-2.5-flash-image',
     'openai/gpt-5-image-mini',
-    'deepseek/deepseek-chat-v3-0324',
 ];
 
 /** Default model pre-selected on first use. */
