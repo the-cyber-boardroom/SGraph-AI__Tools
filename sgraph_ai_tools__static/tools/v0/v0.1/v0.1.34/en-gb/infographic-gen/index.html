@@ -1,0 +1,41 @@
+<!DOCTYPE html>
+<html lang="en-GB">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Infographic Generator — tools.sgraph.ai</title>
+    <meta name="description" content="Generate infographics from a text description. Simple mode: one box, one button. Templates, multi-model, and fractal results.">
+    <link rel="icon" type="image/svg+xml" href="../../_common/favicon.svg">
+    <link rel="stylesheet" href="../../_common/css/tools.css">
+    <link rel="stylesheet" href="/core/sg-layout/v0.1.0/sg-layout.css">
+    <link rel="stylesheet" href="infographic-gen.css">
+    <style>
+        html, body {
+            height: 100%;
+            margin: 0;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
+        sg-site-header { flex-shrink: 0; }
+        #conn-bar      { flex-shrink: 0; }
+        #layout-wrap   { flex: 1; min-height: 0; }
+    </style>
+</head>
+<body>
+
+<script type="module" src="/components/site-header/v1/v1.0/v1.0.2/sg-site-header.js"></script>
+<sg-site-header site="Tools" home-url="../../"></sg-site-header>
+
+<div id="conn-bar">
+    <label>OpenRouter Key</label>
+    <input type="password" id="api-key" placeholder="sk-or-v1-…" autocomplete="off" spellcheck="false">
+    <button id="connect-btn">Connect</button>
+    <span id="conn-status"></span>
+</div>
+
+<div id="layout-wrap"></div>
+
+<script type="module" src="infographic-gen.js"></script>
+</body>
+</html>
