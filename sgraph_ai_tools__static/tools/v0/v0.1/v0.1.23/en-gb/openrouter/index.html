@@ -1,0 +1,127 @@
+<!DOCTYPE html>
+<html lang="en-GB">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>OpenRouter — tools.sgraph.ai</title>
+    <meta name="description" content="OpenRouter account management. View balance, usage, models and manage provisioned API keys. Credentials loaded from your SG Vault.">
+    <link rel="icon" type="image/svg+xml" href="../../../_common/favicon.svg">
+    <link rel="stylesheet" href="../../../_common/css/tools.css">
+    <style>
+        html, body {
+            height: 100%;
+            margin: 0;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
+        sg-site-header { flex-shrink: 0; }
+
+        /* ── Vault bar ───────────────────────────────────────────────── */
+        .or-vault-bar {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 5px 10px;
+            background: #08080f;
+            border-bottom: 1px solid #1e2035;
+            flex-shrink: 0;
+            font-family: monospace;
+            font-size: 11px;
+        }
+        .or-vault-label { color: #374151; white-space: nowrap; font-size: 10px; }
+        .or-vault-input {
+            flex: 1;
+            background: #12122a;
+            border: 1px solid #1e2035;
+            border-radius: 4px;
+            color: #c8d0e0;
+            font-family: monospace;
+            font-size: 11px;
+            padding: 3px 8px;
+            min-width: 0;
+        }
+        .or-vault-input:focus { outline: none; border-color: #3b82f6; }
+        .or-vault-input::placeholder { color: #1e2035; }
+        .or-vault-input.ok  { border-color: #166534; }
+        .or-vault-input.err { border-color: #7f1d1d; }
+        .or-api-url {
+            width: 190px;
+            background: #12122a;
+            border: 1px solid #1e2035;
+            border-radius: 4px;
+            color: #374151;
+            font-family: monospace;
+            font-size: 11px;
+            padding: 3px 8px;
+        }
+        .or-api-url:focus { outline: none; border-color: #3b82f6; color: #c8d0e0; }
+        .or-vault-btn {
+            background: #1e3a6e;
+            border: 1px solid #3b82f6;
+            border-radius: 4px;
+            color: #93c5fd;
+            cursor: pointer;
+            font-family: monospace;
+            font-size: 11px;
+            padding: 3px 12px;
+            white-space: nowrap;
+        }
+        .or-vault-btn:hover { background: #2a4d8e; }
+        .or-vault-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+        .or-vault-pill {
+            padding: 1px 7px;
+            border-radius: 3px;
+            border: 1px solid;
+            font-size: 10px;
+            white-space: nowrap;
+        }
+        .or-vault-pill.ok   { color: #4ade80; border-color: #166534; background: #0a1a0d; }
+        .or-vault-pill.warn { color: #fbbf24; border-color: #92400e; background: #1a0e00; }
+        .or-vault-pill.err  { color: #f87171; border-color: #7f1d1d; background: #1a0808; }
+        .or-vault-pill.idle { color: #374151; border-color: #1e2035; }
+
+        /* ── Layout host ─────────────────────────────────────────────── */
+        #llm-bus {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            min-height: 0;
+            position: relative;
+        }
+        sg-layout { flex: 1; min-height: 0; }
+
+        /* sg-llm-request is hidden — needed only for SGL_LLM event dispatch */
+        sg-llm-request { display: none !important; }
+    </style>
+</head>
+<body>
+
+<script type="module" src="/components/site-header/v1/v1.0/v1.0.2/sg-site-header.js"></script>
+<sg-site-header site="Tools" home-url="../../../"></sg-site-header>
+
+<!-- ── Vault bar ──────────────────────────────────────────────────────────── -->
+<div class="or-vault-bar">
+    <span class="or-vault-label">VAULT KEY</span>
+    <input class="or-vault-input" type="password" id="vault-key-input"
+        placeholder="passphrase:vaultid" autocomplete="off" spellcheck="false">
+    <input class="or-api-url" type="text" id="vault-api-url"
+        value="https://send.sgraph.ai" spellcheck="false">
+    <button class="or-vault-btn" id="vault-load-btn">Load from Vault</button>
+    <span class="or-vault-pill idle" id="vault-user-pill">user: &mdash;</span>
+    <span class="or-vault-pill idle" id="vault-admin-pill">admin: &mdash;</span>
+</div>
+
+<!--
+    #llm-bus: [data-llm-bus] ancestor needed by sg-openrouter-* components
+    for SGL_LLM event bus. All layout is created programmatically inside
+    this element by openrouter.js.
+-->
+<div id="llm-bus" data-llm-bus>
+    <sg-llm-request></sg-llm-request>
+</div>
+
+<script type="module" src="./openrouter.js"></script>
+
+</body>
+</html>
