@@ -225,6 +225,9 @@ function getSessionFolder(sid) {
 // ── sg-layout definition ──────────────────────────────────────────────────────
 layoutEl.style.cssText = 'display:block;width:100%;height:100%;';
 
+// Register BEFORE setLayout — LAYOUT_READY fires via internal bus (not DOM events)
+const layoutReady = new Promise(resolve => layoutEl.events.on(SGL_EVENTS.LAYOUT_READY, resolve));
+
 layoutEl.setLayout({
     type: 'row', id: 'root', sizes: [0.28, 0.44, 0.28],
     children: [
@@ -254,20 +257,19 @@ layoutEl.setLayout({
     ],
 });
 
-// ── Build panels on LAYOUT_READY ──────────────────────────────────────────────
-layoutEl.addEventListener(SGL_EVENTS.LAYOUT_READY, () => {
-    buildSetupPanel(layoutEl.getPanelElement('tab-setup'));
-    buildRecordPanel(layoutEl.getPanelElement('tab-record'));
-    buildVaultPanel(layoutEl.getPanelElement('tab-vault'));
-    buildCaptionsPanel(layoutEl.getPanelElement('tab-captions'));
-    buildTranscriptPanel(layoutEl.getPanelElement('tab-transcript'));
-    buildPipelinePanel(layoutEl.getPanelElement('tab-pipeline'));
-});
-
-// ── VFS provider ready ────────────────────────────────────────────────────────
+// ── VFS provider ready (register before await so we don't miss the event) ─────
 appRoot.addEventListener(SGL_VFS.PROVIDER_READY, () => {
     vfs = busEl.vfs;
 });
+
+// ── Build panels once layout is ready ─────────────────────────────────────────
+await layoutReady;
+buildSetupPanel(layoutEl.getPanelElement('tab-setup'));
+buildRecordPanel(layoutEl.getPanelElement('tab-record'));
+buildVaultPanel(layoutEl.getPanelElement('tab-vault'));
+buildCaptionsPanel(layoutEl.getPanelElement('tab-captions'));
+buildTranscriptPanel(layoutEl.getPanelElement('tab-transcript'));
+buildPipelinePanel(layoutEl.getPanelElement('tab-pipeline'));
 
 // =============================================================================
 // SETUP PANEL — WASM health check
