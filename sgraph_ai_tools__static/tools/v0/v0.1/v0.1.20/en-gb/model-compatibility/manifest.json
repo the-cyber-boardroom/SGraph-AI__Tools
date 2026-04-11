@@ -1,0 +1,31 @@
+{
+  "name": "Model Compatibility",
+  "slug": "model-compatibility",
+  "description": "Static compatibility matrix for LLM models. Tests tool calling, JSON schema, streaming, stop conditions across OpenRouter, Ollama, Anthropic, OpenAI.",
+  "icon": "🧪",
+  "version": "0.1.20",
+  "status": "live",
+  "category": "llm",
+  "keywords": [
+    "model",
+    "compatibility",
+    "matrix",
+    "tool",
+    "calling",
+    "json",
+    "streaming",
+    "llm"
+  ],
+  "dependencies": {
+    "shared": [
+      {
+        "module": "sg-site-header",
+        "path": "/components/site-header/v1/v1.0/v1.0.2/sg-site-header.js"
+      },
+      {
+        "module": "tools.css",
+        "path": "/_common/css/tools.css"
+      }
+    ]
+  }
+}

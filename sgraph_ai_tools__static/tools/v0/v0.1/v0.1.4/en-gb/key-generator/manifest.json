@@ -1,0 +1,41 @@
+{
+  "name": "Key Generator",
+  "slug": "key-generator",
+  "description": "Create friendly encryption keys like \"apple-mango-56\" instead of random strings. Visualise entropy and strength.",
+  "icon": "🗝️",
+  "version": "0.1.4",
+  "status": "live",
+  "category": "security",
+  "keywords": [
+    "passphrase",
+    "entropy",
+    "friendly",
+    "words"
+  ],
+  "dependencies": {
+    "components": [
+      {
+        "module": "sg-key-generator",
+        "path": "/components/key-generator/v1/v1.0/v1.0.0/sg-key-generator.js"
+      }
+    ],
+    "shared": [
+      {
+        "module": "sg-locale-picker",
+        "path": "/components/locale-picker/v1/v1.0/v1.0.1/sg-locale-picker.js"
+      },
+      {
+        "module": "sg-site-footer",
+        "path": "/components/site-footer/v1/v1.0/v1.0.0/sg-site-footer.js"
+      },
+      {
+        "module": "sg-site-header",
+        "path": "/components/site-header/v1/v1.0/v1.0.2/sg-site-header.js"
+      },
+      {
+        "module": "tools.css",
+        "path": "/_common/css/tools.css"
+      }
+    ]
+  }
+}

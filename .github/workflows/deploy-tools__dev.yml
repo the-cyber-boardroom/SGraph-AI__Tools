@@ -5,10 +5,11 @@ name: Deploy Tools UI to S3 (dev)
 # S3 path: websites/sgraph-tools/dev/
 #
 # Steps:
-#   1. Generate i18n locale pages from en-gb/ templates + i18n/*.json
-#   2. Inject build version
-#   3. Sync content to S3 under the dev environment prefix
-#   4. Invalidate CloudFront cache
+#   1. Build layered IFD content (all versions merged into _latest/)
+#   2. Generate i18n locale pages from _latest/en-gb/ + _latest/i18n/
+#   3. Inject build version into _latest/
+#   4. Sync content to S3 under the dev environment prefix
+#   5. Invalidate CloudFront cache
 
 on:
   push:
@@ -26,7 +27,6 @@ concurrency:
 
 env:
   AWS_REGION  : eu-west-2
-  UI_VERSION  : v0.1.5
   SOURCE_DIR  : sgraph_ai_tools__static
 
 jobs:
@@ -60,27 +60,35 @@ jobs:
         with:
           python-version: '3.12'
 
-      - name: Read repo version
-        id: version
+      - name: Resolve latest UI version
+        id: ifd
         run: |
-          VERSION=$(cat sgraph_ai_tools/version)
-          echo "version=$VERSION" >> $GITHUB_OUTPUT
-          echo "Repo version: $VERSION"
-          echo "IFD version:  ${{ env.UI_VERSION }}"
-
-      - name: Inject build version
-        run: python scripts/inject_build_version.py --version ${{ env.UI_VERSION }}
-
-      - name: Generate i18n locale pages
-        run: python scripts/generate_tools_i18n_pages.py --version ${{ env.UI_VERSION }}
+          LATEST=$(ls -d ${{ env.SOURCE_DIR }}/tools/v0/v0.1/v0.1.* 2>/dev/null \
+            | sort -V | tail -1 | xargs basename)
+          echo "ui_version=$LATEST" >> $GITHUB_OUTPUT
+          APP_VERSION=$(cat sgraph_ai_tools/version)
+          echo "app_version=$APP_VERSION" >> $GITHUB_OUTPUT
+          echo "Repo version: $APP_VERSION"
+          echo "Auto-detected UI version: $LATEST"
 
       - name: Build layered IFD content
         run: |
-          echo "Building layered IFD content (all versions merged into latest)"
+          echo "Building layered IFD content (all versions merged into _latest/)"
           python scripts/build_ifd_latest.py \
             --source-dir ${{ env.SOURCE_DIR }} \
             --ifd-base tools/v0/v0.1 \
-            --up-to ${{ env.UI_VERSION }}
+            --up-to auto
+
+      - name: Generate i18n locale pages
+        run: |
+          python scripts/generate_tools_i18n_pages.py \
+            --source-dir ${{ env.SOURCE_DIR }}/tools/v0/v0.1/_latest
+
+      - name: Inject build version
+        run: |
+          python scripts/inject_build_version.py \
+            --version ${{ steps.ifd.outputs.ui_version }} \
+            --source-dir ${{ env.SOURCE_DIR }}/tools/v0/v0.1/_latest
 
       - name: Check AWS credentials
         id: check-creds
@@ -105,7 +113,7 @@ jobs:
         run: |
           python scripts/deploy_static_site.py \
             --site sgraph-tools \
-            --version ${{ env.UI_VERSION }} \
+            --version ${{ steps.ifd.outputs.ui_version }} \
             --source-dir ${{ env.SOURCE_DIR }} \
             --bucket ${{ secrets.SGRAPH_TOOLS__S3_BUCKET }} \
             --region ${{ env.AWS_REGION }} \

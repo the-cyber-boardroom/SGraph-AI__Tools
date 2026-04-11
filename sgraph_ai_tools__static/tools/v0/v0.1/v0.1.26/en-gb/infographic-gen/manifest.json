@@ -1,0 +1,43 @@
+{
+  "name": "Infographic Generator",
+  "slug": "infographic-gen",
+  "description": "Generate infographics from text or documents using image-capable LLM models.",
+  "icon": "🎨",
+  "version": "0.1.26",
+  "status": "live",
+  "category": "ai",
+  "keywords": ["infographic", "llm", "openrouter", "image", "ai", "svg"],
+  "dependencies": {
+    "core": [
+      { "module": "sg-layout",     "path": "/core/sg-layout/v0.1.0/sg-layout.js" },
+      { "module": "sg-tool-api",   "path": "/core/sg-tool-api/v0/v0.1/v0.1.0/sg-tool-api.js" }
+    ],
+    "components": [
+      { "module": "sg-llm-request",              "path": "/components/llm/sg-llm-request/v0/v0.1/v0.1.2/sg-llm-request.js" },
+      { "module": "sg-llm-stats",                "path": "/components/llm/sg-llm-stats/v0/v0.1/v0.1.1/sg-llm-stats.js" },
+      { "module": "sg-llm-infographic",          "path": "/components/llm/sg-llm-infographic/v0/v0.1/v0.1.0/sg-llm-infographic.js" },
+      { "module": "sg-openrouter-generation",    "path": "/components/openrouter/sg-openrouter-generation/v0/v0.1/v0.1.1/sg-openrouter-generation.js" },
+      { "module": "sg-infographic-model-picker", "path": "/components/infographic/sg-infographic-model-picker/v0/v0.1/v0.1.0/sg-infographic-model-picker.js" },
+      { "module": "sg-infographic-export",       "path": "/components/infographic/sg-infographic-export/v0/v0.1/v0.1.0/sg-infographic-export.js" }
+    ],
+    "shared": [
+      { "module": "sg-site-header",  "path": "/components/site-header/v1/v1.0/v1.0.2/sg-site-header.js" },
+      { "module": "sg-tool-manifest","path": "../../_common/js/sg-tool-manifest.js" }
+    ]
+  },
+  "api": {
+    "version": "0.1.0",
+    "note": "Phase 0 — window events only. Full SgToolApi wiring (register/activate) is Phase 2.",
+    "events": [
+      { "name": "tool:generation:started",  "detail": "{ instanceId, generationId, model, prompt }" },
+      { "name": "tool:generation:complete", "detail": "{ instanceId, generationId, model, duration }" },
+      { "name": "tool:generation:error",    "detail": "{ instanceId, generationId, model, error }" },
+      { "name": "tool:generation:cancelled","detail": "{ instanceId, generationId }" }
+    ],
+    "skills": {
+      "human":   "./SKILL-human.md",
+      "browser": "./SKILL-browser.md",
+      "api":     "./SKILL-api.md"
+    }
+  }
+}

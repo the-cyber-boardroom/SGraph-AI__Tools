@@ -151,27 +151,38 @@ def _escape_html(text):
 
 def main():
     parser = argparse.ArgumentParser(description='Generate i18n locale pages for SGraph Tools UI')
-    parser.add_argument('--version', type=str, default='v0.1.0',
-                        help='UI version to process (default: v0.1.0)')
+    parser.add_argument('--version', type=str, default=None,
+                        help='UI version to process (e.g. v0.1.0). Mutually exclusive with --source-dir.')
+    parser.add_argument('--source-dir', type=str, default=None,
+                        help='Pre-built directory containing en-gb/ and i18n/ (e.g. _latest/). '
+                             'Use this when running AFTER build_ifd_latest.py.')
     parser.add_argument('--dry-run', action='store_true',
                         help='Show what would be generated without writing files')
     args = parser.parse_args()
 
-    # Parse version into IFD path: v0.1.0 → v0/v0.1/v0.1.0
-    clean = args.version.lstrip('v')
-    parts = clean.split('.')
-    if len(parts) == 3:
-        major, minor, _patch = parts
-        ifd_path = f'v{major}/v{major}.{minor}/v{major}.{minor}.{_patch}'
+    # Resolve the working directory: either from --source-dir or --version
+    if args.source_dir:
+        version_dir = Path(args.source_dir).resolve()
+        version_label = version_dir.name
+    elif args.version:
+        clean = args.version.lstrip('v')
+        parts = clean.split('.')
+        if len(parts) == 3:
+            major, minor, _patch = parts
+            ifd_path = f'v{major}/v{major}.{minor}/v{major}.{minor}.{_patch}'
+        else:
+            ifd_path = args.version
+        version_dir = UI_BASE / ifd_path
+        version_label = args.version
     else:
-        ifd_path = args.version
+        print("ERROR: Either --version or --source-dir is required")
+        return 1
 
-    version_dir = UI_BASE / ifd_path
-    i18n_dir    = version_dir / 'i18n'
-    en_dir      = version_dir / SOURCE_DIR
+    i18n_dir = version_dir / 'i18n'
+    en_dir   = version_dir / SOURCE_DIR
 
     print(f"SGraph Tools — i18n Page Generator")
-    print(f"  Version:    {args.version}")
+    print(f"  Version:    {version_label}")
     print(f"  Source:     {en_dir}")
     print(f"  i18n dir:   {i18n_dir}")
     print(f"  Locales:    {', '.join(loc['slug'] for loc in LOCALES)}")

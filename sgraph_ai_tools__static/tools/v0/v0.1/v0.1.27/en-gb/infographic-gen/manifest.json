@@ -1,0 +1,74 @@
+{
+  "name": "Infographic Generator",
+  "slug": "infographic-gen",
+  "description": "Generate infographics from text or documents using image-capable LLM models.",
+  "icon": "🎨",
+  "version": "0.1.27",
+  "status": "live",
+  "category": "ai",
+  "keywords": ["infographic", "llm", "openrouter", "image", "ai", "svg"],
+  "dependencies": {
+    "core": [
+      { "module": "sg-layout",     "path": "/core/sg-layout/v0.1.0/sg-layout.js" },
+      { "module": "sg-tool-api",   "path": "/core/sg-tool-api/v0/v0.1/v0.1.0/sg-tool-api.js" }
+    ],
+    "components": [
+      { "module": "sg-llm-request",              "path": "/components/llm/sg-llm-request/v0/v0.1/v0.1.2/sg-llm-request.js" },
+      { "module": "sg-llm-stats",                "path": "/components/llm/sg-llm-stats/v0/v0.1/v0.1.1/sg-llm-stats.js" },
+      { "module": "sg-llm-infographic",          "path": "/components/llm/sg-llm-infographic/v0/v0.1/v0.1.0/sg-llm-infographic.js" },
+      { "module": "sg-openrouter-generation",    "path": "/components/openrouter/sg-openrouter-generation/v0/v0.1/v0.1.1/sg-openrouter-generation.js" },
+      { "module": "sg-infographic-model-picker", "path": "/components/infographic/sg-infographic-model-picker/v0/v0.1/v0.1.0/sg-infographic-model-picker.js" },
+      { "module": "sg-infographic-export",       "path": "/components/infographic/sg-infographic-export/v0/v0.1/v0.1.0/sg-infographic-export.js" }
+    ],
+    "shared": [
+      { "module": "sg-site-header",  "path": "/components/site-header/v1/v1.0/v1.0.2/sg-site-header.js" },
+      { "module": "sg-tool-manifest","path": "../../_common/js/sg-tool-manifest.js" }
+    ]
+  },
+  "api": {
+    "version": "0.1.0",
+    "note": "Phase 2 — SgToolApi registered. window.__tool is live. window.__tool_registry.find('infographic-generator') for multi-instance.",
+    "events": [
+      { "name": "tool:ready",                "when": "activate() called",            "detail": "{ instanceId, tool, version }" },
+      { "name": "tool:connected",            "when": "OpenRouter connect succeeds",  "detail": "{ instanceId, provider, model }" },
+      { "name": "tool:generation:started",   "when": "send fired",                  "detail": "{ instanceId, generationId, model, prompt }" },
+      { "name": "tool:generation:complete",  "when": "request finishes",            "detail": "{ instanceId, generationId, model, duration }" },
+      { "name": "tool:generation:error",     "when": "request fails",               "detail": "{ instanceId, model, error }" },
+      { "name": "tool:generation:cancelled", "when": "user cancels",                "detail": "{ instanceId, generationId }" }
+    ],
+    "actions": {
+      "connect": {
+        "params": { "apiKey": { "type": "string", "secret": true, "optional": true }, "model": { "type": "string", "optional": true } },
+        "returns": "Promise<{ model: string, provider: string }>",
+        "async": true,
+        "note": "Validates API key against OpenRouter. Fires tool:connected on success."
+      },
+      "generate": {
+        "params": { "prompt": { "type": "string", "optional": true }, "model": { "type": "string", "optional": true } },
+        "returns": "Promise<{ instanceId, generationId, model, duration }>",
+        "async": true,
+        "note": "Fires SEND and resolves when generation completes. FIFO queue for concurrent calls."
+      },
+      "getState": {
+        "params": {},
+        "returns": "{ mode, prompt, model, connected, activeGenerations, systemPrompt, document }",
+        "async": false
+      },
+      "setPrompt": { "params": { "0": { "type": "string" } }, "returns": "void", "async": false },
+      "getPrompt": { "params": {}, "returns": "string", "async": false },
+      "setModel":  { "params": { "0": { "type": "string" } }, "returns": "void", "async": false },
+      "getModel":  { "params": {}, "returns": "string", "async": false },
+      "setTemplate": {
+        "params": { "0": { "type": "string", "note": "Template id or label. Available: executive, architecture, timeline, comparison, process, stats, mindmap" } },
+        "returns": "string (the prompt text)",
+        "async": false
+      },
+      "stop": { "params": {}, "returns": "void", "async": false, "note": "Cancels all active generations." }
+    },
+    "skills": {
+      "human":   "./SKILL-human.md",
+      "browser": "./SKILL-browser.md",
+      "api":     "./SKILL-api.md"
+    }
+  }
+}

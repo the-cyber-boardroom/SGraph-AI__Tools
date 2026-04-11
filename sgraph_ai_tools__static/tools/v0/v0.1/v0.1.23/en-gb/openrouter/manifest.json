@@ -1,0 +1,144 @@
+{
+  "name": "OpenRouter",
+  "slug": "openrouter",
+  "description": "Manage your OpenRouter account. View key stats, spending analytics with charts, model explorer, provisioned key management, and CSV log analysis.",
+  "icon": "⚡",
+  "version": "0.1.23",
+  "status": "live",
+  "category": "vault",
+  "keywords": [
+    "openrouter", "api", "key", "stats", "spending", "analytics", "logs", "csv", "models"
+  ],
+  "dependencies": {
+    "core": [
+      { "module": "sg-layout",   "path": "/core/sg-layout/v0.1.0/sg-layout.js" },
+      { "module": "sg-tool-api", "path": "/core/sg-tool-api/v0/v0.1/v0.1.0/sg-tool-api.js" }
+    ],
+    "components": [
+      { "module": "sg-llm-events",              "path": "/components/llm/sg-llm-events/v0/v0.1/v0.1.1/sg-llm-events.js" },
+      { "module": "sg-llm-request",             "path": "/components/llm/sg-llm-request/v0/v0.1/v0.1.2/sg-llm-request.js" },
+      { "module": "sg-openrouter-key-stats",    "path": "/components/openrouter/sg-openrouter-key-stats/v0/v0.1/v0.1.0/sg-openrouter-key-stats.js" },
+      { "module": "sg-openrouter-usage",        "path": "/components/openrouter/sg-openrouter-usage/v0/v0.1/v0.1.0/sg-openrouter-usage.js" },
+      { "module": "sg-openrouter-models",       "path": "/components/openrouter/sg-openrouter-models/v0/v0.1/v0.1.0/sg-openrouter-models.js" },
+      { "module": "sg-openrouter-key-manager",  "path": "/components/openrouter/sg-openrouter-key-manager/v0/v0.1/v0.1.0/sg-openrouter-key-manager.js" },
+      { "module": "sg-openrouter-generation",   "path": "/components/openrouter/sg-openrouter-generation/v0/v0.1/v0.1.0/sg-openrouter-generation.js" },
+      { "module": "sg-openrouter-model-detail", "path": "/components/openrouter/sg-openrouter-model-detail/v0/v0.1/v0.1.0/sg-openrouter-model-detail.js" },
+      { "module": "sg-openrouter-activity",     "path": "/components/openrouter/sg-openrouter-activity/v0/v0.1/v0.1.0/sg-openrouter-activity.js" },
+      { "module": "sg-openrouter-spending",     "path": "/components/openrouter/sg-openrouter-spending/v0/v0.1/v0.1.0/sg-openrouter-spending.js" },
+      { "module": "sg-openrouter-log-viewer",   "path": "/components/openrouter/sg-openrouter-log-viewer/v0/v0.1/v0.1.1/sg-openrouter-log-viewer.js" },
+      { "module": "sg-tool-api-explorer",       "path": "/components/tool-api/sg-tool-api-explorer/v0/v0.1/v0.1.0/sg-tool-api-explorer.js" },
+      { "module": "sg-tool-api-console",        "path": "/components/tool-api/sg-tool-api-console/v0/v0.1/v0.1.0/sg-tool-api-console.js" },
+      { "module": "sg-tool-api-manifest",       "path": "/components/tool-api/sg-tool-api-manifest/v0/v0.1/v0.1.0/sg-tool-api-manifest.js" }
+    ],
+    "shared": [
+      { "module": "sg-site-header", "path": "/components/site-header/v1/v1.0/v1.0.2/sg-site-header.js" },
+      { "module": "tools.css",      "path": "/_common/css/tools.css" }
+    ]
+  },
+  "api": {
+    "version": "0.1.0",
+    "note": "window.__tool is live. Connects to OpenRouter API. Admin methods require management key (load from vault).",
+    "events": [
+      { "name": "tool:ready",          "when": "activate() called",                    "detail": "{ instanceId, tool, version }" },
+      { "name": "tool:connected",      "when": "connect() resolves successfully",      "detail": "{ instanceId, provider, balance, limit }" },
+      { "name": "tool:disconnected",   "when": "disconnect() called",                  "detail": "{ instanceId }" },
+      { "name": "tool:key-stats",      "when": "getKeyStats() resolves",               "detail": "{ instanceId, data }" },
+      { "name": "tool:models-loaded",  "when": "getModels() resolves",                 "detail": "{ instanceId, count }" }
+    ],
+    "actions": {
+      "connect": {
+        "params": {
+          "apiKey": { "type": "string", "secret": true, "optional": true, "note": "Defaults to stored key. Skip-if-same-key: resolves immediately if already connected with the same key." }
+        },
+        "returns": "Promise<{ provider: string, balance: number|null, limit: number|null }>",
+        "async": true,
+        "note": "Validates key against OpenRouter /api/v1/key. Drives UI connect components."
+      },
+      "disconnect": {
+        "params": {},
+        "returns": "void",
+        "async": false
+      },
+      "getState": {
+        "params": {},
+        "returns": "{ userConnected: boolean, adminConnected: boolean, apiKey: string, balance: number|null, limit: number|null, currency: string }",
+        "async": false,
+        "note": "apiKey is masked (••••) for security."
+      },
+      "getKeyStats": {
+        "params": {},
+        "returns": "Promise<{ label, usage, limit, isFreeTier, rateLimitRequests, rateLimitInterval, ... }>",
+        "async": true,
+        "note": "GET /api/v1/key — requires user connection."
+      },
+      "getModels": {
+        "params": {
+          "filter": {
+            "type": "object",
+            "optional": true,
+            "note": "{ query?: string, top?: number }"
+          }
+        },
+        "returns": "Promise<Model[]>",
+        "async": true,
+        "note": "GET /api/v1/models — filtered client-side."
+      },
+      "getModelDetail": {
+        "params": {
+          "0": { "type": "string", "note": "modelId, e.g. 'openai/gpt-4o'" }
+        },
+        "returns": "Promise<ModelDetail|null>",
+        "async": true
+      },
+      "getUsage": {
+        "params": {
+          "params": { "type": "object", "optional": true, "note": "{ bucketDuration?: string }" }
+        },
+        "returns": "Promise<UsageBucket[]>",
+        "async": true
+      },
+      "getSpending": {
+        "params": {},
+        "returns": "Promise<SpendingEntry[]>",
+        "async": true
+      },
+      "getActivity": {
+        "params": {
+          "params": { "type": "object", "optional": true, "note": "{ limit?: number, offset?: number }" }
+        },
+        "returns": "Promise<Generation[]>",
+        "async": true
+      },
+      "listKeys": {
+        "params": {},
+        "returns": "Promise<ProvisionedKey[]>",
+        "async": true,
+        "note": "Requires management key (admin connection)."
+      },
+      "createKey": {
+        "params": {
+          "params": {
+            "type": "object",
+            "note": "{ name: string, limit?: number }"
+          }
+        },
+        "returns": "Promise<{ key: string, hash: string, label: string }>",
+        "async": true,
+        "note": "Requires management key. Returns the new API key — store it immediately."
+      },
+      "deleteKey": {
+        "params": {
+          "0": { "type": "string", "note": "hash of the key to delete" }
+        },
+        "returns": "Promise<void>",
+        "async": true,
+        "note": "Requires management key. Irreversible."
+      }
+    },
+    "skills": {
+      "human":   "./SKILL-human.md",
+      "browser": "./SKILL-browser.md",
+      "api":     "./SKILL-api.md"
+    }
+  }
+}
