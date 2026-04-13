@@ -659,13 +659,11 @@ function _renderHistory() {
 let _api = null;
 
 async function initApi() {
-    const manifest = await fetch('./manifest.json').then(r => r.json()).catch(() => ({}));
-
     _api = new SgToolApi({
         name:     'speed-test',
-        version:  '0.1.39',
+        version:  { api: '0.1.0', ui: '0.1.39' },
         panelId:  'speed-test-main',
-        manifest,
+        manifest: './manifest.json',
         skills: {
             human:   './SKILL-human.md',
             browser: './SKILL-browser.md',
