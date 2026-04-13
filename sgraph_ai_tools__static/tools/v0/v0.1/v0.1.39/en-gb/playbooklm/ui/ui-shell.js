@@ -11,7 +11,6 @@
  */
 
 import { SgLayout }  from '/core/sg-layout/v0.1.0/sg-layout.js';
-import { SGL_EVENTS } from '/core/sg-layout/v0.1.0/sg-layout-events.js';
 
 import { buildSourcesPanel }      from './ui-sources.js';
 import { buildPresentationPanel } from './ui-presentation.js';
@@ -46,8 +45,6 @@ export async function buildShell({ state, manifest }) {
   const layout = document.createElement('sg-layout');
   layout.style.cssText = 'width:100%;height:100%;display:block;';
   toolArea.appendChild(layout);
-
-  await new Promise(r => layout.events.on(SGL_EVENTS.LAYOUT_READY, r));
 
   layout.setLayout({
     type: 'row', id: 'main', sizes: [0.35, 0.65],
