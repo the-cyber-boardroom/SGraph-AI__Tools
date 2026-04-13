@@ -28,6 +28,12 @@
       {
         "phase": 1,
         "type": "css",
+        "path": "/core/sg-layout/v0.1.0/sg-layout.css",
+        "note": "sg-layout CSS custom properties and host defaults"
+      },
+      {
+        "phase": 1,
+        "type": "css",
         "path": "./styles/playbooklm.css",
         "note": "Root layout, custom properties, shared controls"
       },
