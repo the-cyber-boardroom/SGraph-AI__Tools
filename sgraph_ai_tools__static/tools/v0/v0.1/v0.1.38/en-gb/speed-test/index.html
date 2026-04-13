@@ -1,0 +1,335 @@
+<!DOCTYPE html>
+<html lang="en-GB">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Speed Test — tools.sgraph.ai</title>
+    <meta name="description" content="Measure your upload and download speed to SG/Send infrastructure. Diagnostic tool for large file transfers.">
+    <link rel="icon" type="image/svg+xml" href="../../../_common/favicon.svg">
+    <link rel="stylesheet" href="../../../_common/css/tools.css">
+    <style>
+        /* ── Layout ──────────────────────────────────────────────────────── */
+        html, body {
+            height: 100%;
+            margin: 0;
+            display: flex;
+            flex-direction: column;
+            background: #070b14;
+            color: #c8d0e0;
+            font-family: 'Inter', system-ui, sans-serif;
+        }
+        sg-site-header { flex-shrink: 0; }
+
+        main {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: flex-start;
+            padding: 2rem 1rem;
+            gap: 1.5rem;
+            overflow-y: auto;
+        }
+
+        /* ── Config bar ──────────────────────────────────────────────────── */
+        .config-bar {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            background: #0d1422;
+            border: 1px solid #1e2a40;
+            border-radius: 8px;
+            padding: 10px 14px;
+            width: 100%;
+            max-width: 620px;
+            box-sizing: border-box;
+            flex-wrap: wrap;
+        }
+        .config-bar label {
+            font-size: 11px;
+            color: #4a6080;
+            white-space: nowrap;
+        }
+        .config-bar input[type="url"],
+        .config-bar input[type="text"] {
+            flex: 1;
+            min-width: 180px;
+            background: #0a0f1a;
+            border: 1px solid #1e2a40;
+            border-radius: 4px;
+            color: #8aa0c0;
+            font-size: 12px;
+            font-family: monospace;
+            padding: 4px 8px;
+        }
+        .config-bar input:focus { outline: none; border-color: #3b82f6; color: #c8d0e0; }
+        .config-bar select {
+            background: #0a0f1a;
+            border: 1px solid #1e2a40;
+            border-radius: 4px;
+            color: #8aa0c0;
+            font-size: 12px;
+            padding: 4px 6px;
+        }
+
+        /* ── Action buttons ──────────────────────────────────────────────── */
+        .actions {
+            display: flex;
+            gap: 10px;
+            align-items: center;
+        }
+        .btn-run {
+            background: #1a3a6e;
+            border: 1px solid #3b82f6;
+            border-radius: 6px;
+            color: #93c5fd;
+            cursor: pointer;
+            font-size: 13px;
+            font-weight: 600;
+            padding: 8px 28px;
+            transition: background 0.15s;
+        }
+        .btn-run:hover:not(:disabled) { background: #2a4d8e; }
+        .btn-run:disabled { opacity: 0.4; cursor: not-allowed; }
+        .btn-cancel {
+            background: transparent;
+            border: 1px solid #7f1d1d;
+            border-radius: 6px;
+            color: #f87171;
+            cursor: pointer;
+            font-size: 12px;
+            padding: 6px 14px;
+            display: none;
+        }
+        .btn-cancel:hover { background: #1a0808; }
+
+        /* ── Meter cards ─────────────────────────────────────────────────── */
+        .meters {
+            display: flex;
+            gap: 16px;
+            width: 100%;
+            max-width: 620px;
+            flex-wrap: wrap;
+        }
+        .meter-card {
+            flex: 1;
+            min-width: 240px;
+            background: #0d1422;
+            border: 1px solid #1e2a40;
+            border-radius: 10px;
+            padding: 18px 20px 14px;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+        .meter-header {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 11px;
+            color: #4a6080;
+            text-transform: uppercase;
+            letter-spacing: 0.08em;
+        }
+        .meter-header .icon { font-size: 15px; }
+        .meter-speed {
+            font-size: 2.4rem;
+            font-weight: 700;
+            color: #c8d0e0;
+            line-height: 1;
+            min-height: 2.6rem;
+        }
+        .meter-mbps {
+            font-size: 12px;
+            color: #3b82f6;
+            min-height: 1.2rem;
+        }
+        .progress-track {
+            height: 6px;
+            background: #0a0f1a;
+            border-radius: 3px;
+            overflow: hidden;
+        }
+        .progress-bar {
+            height: 100%;
+            width: 0%;
+            border-radius: 3px;
+            background: #3b82f6;
+            transition: width 0.3s ease;
+        }
+        .progress-bar[data-state="done"]    { background: #22c55e; }
+        .progress-bar[data-state="error"]   { background: #ef4444; }
+        .progress-bar[data-state="aborted"] { background: #6b7280; }
+        .progress-bar[data-state="running"] {
+            background: linear-gradient(90deg, #1d4ed8, #3b82f6, #60a5fa);
+            background-size: 200% 100%;
+            animation: shimmer 1.2s infinite linear;
+        }
+        @keyframes shimmer {
+            0%   { background-position: 200% 0; }
+            100% { background-position:   0% 0; }
+        }
+        .meter-status {
+            font-size: 11px;
+            color: #374151;
+            min-height: 1.2rem;
+        }
+
+        /* ── Share section ───────────────────────────────────────────────── */
+        .share-section {
+            width: 100%;
+            max-width: 620px;
+            background: #0d1422;
+            border: 1px solid #1e2a40;
+            border-radius: 8px;
+            padding: 12px 14px;
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+        .share-section .share-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+        .share-section .share-label {
+            font-size: 11px;
+            color: #4a6080;
+            text-transform: uppercase;
+            letter-spacing: 0.06em;
+        }
+        .btn-share {
+            background: #0a2a1a;
+            border: 1px solid #166534;
+            border-radius: 4px;
+            color: #4ade80;
+            cursor: pointer;
+            font-size: 11px;
+            padding: 3px 12px;
+        }
+        .btn-share:hover { background: #0f3a24; }
+        .btn-copy {
+            background: #0a1a2a;
+            border: 1px solid #1e3a5e;
+            border-radius: 4px;
+            color: #60a5fa;
+            cursor: pointer;
+            font-size: 11px;
+            padding: 3px 12px;
+        }
+        .btn-copy:hover { background: #0d2040; }
+        .share-textarea {
+            background: #070b14;
+            border: 1px solid #1e2a40;
+            border-radius: 4px;
+            color: #8aa0c0;
+            font-family: monospace;
+            font-size: 11px;
+            padding: 8px;
+            resize: vertical;
+            min-height: 80px;
+        }
+        .share-row {
+            display: flex;
+            gap: 8px;
+            justify-content: flex-end;
+        }
+
+        /* ── About ───────────────────────────────────────────────────────── */
+        .about {
+            max-width: 620px;
+            width: 100%;
+            font-size: 11px;
+            color: #2d3a4a;
+            line-height: 1.6;
+            border-top: 1px solid #0f1620;
+            padding-top: 1rem;
+        }
+    </style>
+</head>
+<body>
+
+<script type="module" src="/components/site-header/v1/v1.0/v1.0.2/sg-site-header.js"></script>
+<sg-site-header site="Tools" home-url="../../../"></sg-site-header>
+
+<main>
+
+    <!-- Config bar -->
+    <div class="config-bar">
+        <label for="target-url">TARGET</label>
+        <input type="text" id="target-url" value="https://send.sgraph.ai" spellcheck="false"
+               placeholder="https://send.sgraph.ai">
+        <label for="probe-size">SIZE</label>
+        <select id="probe-size">
+            <option value="1">1 MB</option>
+            <option value="4" selected>4 MB</option>
+            <option value="10">10 MB</option>
+            <option value="25">25 MB</option>
+        </select>
+        <div class="actions">
+            <button class="btn-run" id="run-btn">Run Test</button>
+            <button class="btn-cancel" id="cancel-btn">Cancel</button>
+        </div>
+    </div>
+
+    <!-- Meter cards -->
+    <div class="meters">
+
+        <div class="meter-card" id="dl-card">
+            <div class="meter-header">
+                <span class="icon">⬇</span>
+                <span>Download</span>
+            </div>
+            <div class="meter-speed" id="dl-speed">—</div>
+            <div class="meter-mbps"  id="dl-mbps"></div>
+            <div class="progress-track">
+                <div class="progress-bar" id="dl-bar" data-state="idle"></div>
+            </div>
+            <div class="meter-status" id="dl-status"></div>
+        </div>
+
+        <div class="meter-card" id="ul-card">
+            <div class="meter-header">
+                <span class="icon">⬆</span>
+                <span>Upload</span>
+            </div>
+            <div class="meter-speed" id="ul-speed">—</div>
+            <div class="meter-mbps"  id="ul-mbps"></div>
+            <div class="progress-track">
+                <div class="progress-bar" id="ul-bar" data-state="idle"></div>
+            </div>
+            <div class="meter-status" id="ul-status"></div>
+        </div>
+
+    </div>
+
+    <!-- Share section (hidden until test completes) -->
+    <div class="share-section" id="share-section" hidden>
+        <div class="share-header">
+            <span class="share-label">Share results</span>
+            <button class="btn-share" id="share-btn">Generate</button>
+        </div>
+        <textarea class="share-textarea" id="share-text" hidden readonly></textarea>
+        <div class="share-row">
+            <button class="btn-copy" id="copy-share-btn" hidden>Copy</button>
+        </div>
+    </div>
+
+    <!-- About -->
+    <div class="about">
+        Measures upload and download speed to the configured SG/Send endpoint.
+        Use as a diagnostic tool before sharing large files ("is my connection
+        fast enough?") or as a baseline for QA and monitoring.
+        Results depend on your current network and the server load —
+        run multiple times for a representative average.
+    </div>
+
+</main>
+
+<script type="module">
+    import { initSpeedTestUI } from './speed-test.js';
+    initSpeedTestUI();
+</script>
+
+</body>
+</html>
