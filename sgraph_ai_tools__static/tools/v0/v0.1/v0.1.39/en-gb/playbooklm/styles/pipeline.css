@@ -1,0 +1,153 @@
+/**
+ * PlaybookLM — Step cards, status badges, progress indicators.
+ * @version 0.1.0
+ */
+
+/* ── Drop zone ─────────────────────────────────────────────────────────────── */
+.plm-drop-zone {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 2px dashed var(--plm-border);
+  border-radius: var(--plm-radius);
+  padding: 24px 16px;
+  color: var(--plm-dim);
+  font-size: 13px;
+  cursor: pointer;
+  transition: border-color 150ms, background 150ms;
+  text-align: center;
+  margin-bottom: 12px;
+}
+.plm-drop-zone:hover,
+.plm-drop-zone:focus { border-color: var(--plm-accent); background: var(--plm-accent-dim); outline: none; }
+.plm-drop-active      { border-color: var(--plm-accent); background: var(--plm-accent-dim); }
+
+/* ── Sources list ──────────────────────────────────────────────────────────── */
+.plm-sources-list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-bottom: 10px;
+}
+
+.plm-source-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: var(--plm-surface);
+  border: 1px solid var(--plm-border);
+  border-radius: var(--plm-radius-sm);
+  padding: 6px 10px;
+  font-size: 12px;
+}
+
+.plm-source-name {
+  flex: 1;
+  color: var(--plm-text);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.plm-source-meta {
+  color: var(--plm-dim);
+  font-family: var(--plm-mono);
+  font-size: 11px;
+  white-space: nowrap;
+}
+
+.plm-source-remove {
+  background: none;
+  border: none;
+  color: var(--plm-error);
+  cursor: pointer;
+  font-size: 16px;
+  line-height: 1;
+  padding: 0 2px;
+  opacity: 0.7;
+  transition: opacity 150ms;
+}
+.plm-source-remove:hover { opacity: 1; }
+
+/* ── Brief cards ───────────────────────────────────────────────────────────── */
+.plm-briefs-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.plm-brief-card {
+  background: var(--plm-surface);
+  border: 1px solid var(--plm-border);
+  border-radius: var(--plm-radius);
+  padding: 10px 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  transition: border-color 150ms;
+}
+.plm-brief-card:hover { border-color: #2d3748; }
+
+.plm-brief-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.plm-brief-num {
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  background: var(--plm-accent-dim);
+  color: var(--plm-accent);
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.plm-brief-title {
+  flex: 1;
+  background: var(--plm-bg);
+  border: 1px solid var(--plm-border);
+  border-radius: var(--plm-radius-sm);
+  color: var(--plm-text);
+  font-size: 13px;
+  font-weight: 600;
+  padding: 4px 8px;
+  outline: none;
+  transition: border-color 150ms;
+}
+.plm-brief-title:focus { border-color: var(--plm-accent); }
+
+.plm-brief-remove {
+  background: none;
+  border: none;
+  color: var(--plm-error);
+  cursor: pointer;
+  font-size: 18px;
+  line-height: 1;
+  padding: 0;
+  opacity: 0.6;
+  transition: opacity 150ms;
+  flex-shrink: 0;
+}
+.plm-brief-remove:hover { opacity: 1; }
+
+.plm-brief-prompt {
+  width: 100%;
+  background: var(--plm-bg);
+  border: 1px solid var(--plm-border);
+  border-radius: var(--plm-radius-sm);
+  color: var(--plm-muted);
+  font-family: var(--plm-mono);
+  font-size: 11px;
+  line-height: 1.5;
+  padding: 6px 10px;
+  resize: vertical;
+  outline: none;
+  transition: border-color 150ms;
+}
+.plm-brief-prompt:focus { border-color: var(--plm-accent); }

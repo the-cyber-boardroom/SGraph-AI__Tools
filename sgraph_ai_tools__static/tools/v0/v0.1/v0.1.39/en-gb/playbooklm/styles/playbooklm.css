@@ -1,0 +1,247 @@
+/**
+ * PlaybookLM — root layout and CSS custom properties.
+ * @version 0.1.0
+ */
+
+/* ── Custom properties ─────────────────────────────────────────────────────── */
+:root {
+  --plm-bg:         #0a0a18;
+  --plm-surface:    #0d0d1a;
+  --plm-border:     #1a1a3a;
+  --plm-accent:     #4ECDC4;
+  --plm-accent-dim: rgba(78, 205, 196, 0.15);
+  --plm-text:       #e2e8f0;
+  --plm-muted:      #a0aec0;
+  --plm-dim:        #718096;
+  --plm-faint:      #4a5568;
+  --plm-error:      #fc8181;
+  --plm-ok:         #68d391;
+  --plm-info:       #63b3ed;
+  --plm-font:       system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  --plm-mono:       'SF Mono', Monaco, 'Cascadia Code', monospace;
+  --plm-radius:     6px;
+  --plm-radius-sm:  4px;
+}
+
+/* ── Page shell ────────────────────────────────────────────────────────────── */
+*, *::before, *::after { box-sizing: border-box; }
+
+html, body {
+  margin: 0;
+  padding: 0;
+  height: 100%;
+  background: var(--plm-bg);
+  color: var(--plm-text);
+  font-family: var(--plm-font);
+  font-size: 14px;
+  overflow: hidden;
+}
+
+body {
+  display: flex;
+  flex-direction: column;
+}
+
+/* ── Connection bar ────────────────────────────────────────────────────────── */
+#conn-bar {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 16px;
+  background: var(--plm-surface);
+  border-bottom: 1px solid var(--plm-border);
+  font-size: 13px;
+}
+
+#conn-bar label {
+  color: var(--plm-muted);
+  font-size: 12px;
+  white-space: nowrap;
+}
+
+#api-key {
+  flex: 1;
+  max-width: 340px;
+  background: var(--plm-bg);
+  border: 1px solid var(--plm-border);
+  border-radius: var(--plm-radius-sm);
+  color: var(--plm-text);
+  font-family: var(--plm-mono);
+  font-size: 12px;
+  padding: 5px 10px;
+  outline: none;
+  transition: border-color 150ms;
+}
+#api-key:focus { border-color: var(--plm-accent); }
+
+#connect-btn {
+  padding: 5px 16px;
+  background: var(--plm-accent);
+  color: #0a0a18;
+  border: none;
+  border-radius: var(--plm-radius-sm);
+  font-weight: 700;
+  font-size: 12px;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: opacity 150ms;
+}
+#connect-btn:hover { opacity: 0.85; }
+#connect-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+
+#conn-status {
+  font-size: 12px;
+  color: var(--plm-muted);
+}
+
+/* ── Layout wrap ───────────────────────────────────────────────────────────── */
+#layout-wrap {
+  flex: 1;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
+/* ── Step panel headings ───────────────────────────────────────────────────── */
+.plm-step-title {
+  margin: 0 0 6px;
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--plm-text);
+}
+
+.plm-step-desc {
+  margin: 0 0 12px;
+  font-size: 12px;
+  color: var(--plm-dim);
+  line-height: 1.6;
+}
+
+.plm-step-footer {
+  margin-top: 8px;
+  font-size: 11px;
+  color: var(--plm-faint);
+}
+
+/* ── Shared controls ───────────────────────────────────────────────────────── */
+.plm-row-controls {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.plm-label {
+  font-size: 12px;
+  color: var(--plm-muted);
+}
+
+.plm-input-number {
+  background: var(--plm-bg);
+  border: 1px solid var(--plm-border);
+  border-radius: var(--plm-radius-sm);
+  color: var(--plm-text);
+  font-size: 13px;
+  padding: 4px 8px;
+  outline: none;
+}
+.plm-input-number:focus { border-color: var(--plm-accent); }
+
+/* ── Buttons ───────────────────────────────────────────────────────────────── */
+.plm-btn-primary {
+  padding: 6px 16px;
+  background: var(--plm-accent);
+  color: #0a0a18;
+  border: none;
+  border-radius: var(--plm-radius-sm);
+  font-weight: 700;
+  font-size: 12px;
+  cursor: pointer;
+  transition: opacity 150ms;
+  white-space: nowrap;
+}
+.plm-btn-primary:hover  { opacity: 0.85; }
+.plm-btn-primary:disabled { opacity: 0.45; cursor: not-allowed; }
+
+.plm-btn-secondary {
+  padding: 5px 12px;
+  background: transparent;
+  color: var(--plm-accent);
+  border: 1px solid var(--plm-accent);
+  border-radius: var(--plm-radius-sm);
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 150ms;
+  white-space: nowrap;
+}
+.plm-btn-secondary:hover { background: var(--plm-accent-dim); }
+.plm-btn-secondary:disabled { opacity: 0.45; cursor: not-allowed; }
+
+.plm-btn-danger {
+  padding: 6px 14px;
+  background: transparent;
+  color: var(--plm-error);
+  border: 1px solid var(--plm-error);
+  border-radius: var(--plm-radius-sm);
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 150ms;
+  white-space: nowrap;
+}
+.plm-btn-danger:hover { background: rgba(252, 129, 129, 0.12); }
+
+/* ── Status text ───────────────────────────────────────────────────────────── */
+.plm-status-text    { font-size: 12px; color: var(--plm-muted); }
+.plm-status-ok      { color: var(--plm-ok); }
+.plm-status-error   { color: var(--plm-error); }
+.plm-status-info    { color: var(--plm-info); }
+
+/* ── Count badge ───────────────────────────────────────────────────────────── */
+.plm-count-badge {
+  display: inline-block;
+  padding: 2px 10px;
+  border-radius: 10px;
+  background: var(--plm-accent-dim);
+  color: var(--plm-accent);
+  font-size: 11px;
+  font-weight: 700;
+}
+
+/* ── Hint text ─────────────────────────────────────────────────────────────── */
+.plm-hint {
+  font-size: 11px;
+  color: var(--plm-faint);
+  font-style: italic;
+}
+
+/* ── Textarea ──────────────────────────────────────────────────────────────── */
+.plm-textarea {
+  width: 100%;
+  background: var(--plm-bg);
+  border: 1px solid var(--plm-border);
+  border-radius: var(--plm-radius-sm);
+  color: var(--plm-text);
+  font-family: var(--plm-mono);
+  font-size: 12px;
+  line-height: 1.6;
+  padding: 10px 12px;
+  resize: vertical;
+  outline: none;
+  transition: border-color 150ms;
+}
+.plm-textarea:focus { border-color: var(--plm-accent); }
+
+/* ── Spinner ───────────────────────────────────────────────────────────────── */
+.plm-spinner {
+  width: 24px;
+  height: 24px;
+  border: 3px solid var(--plm-border);
+  border-top-color: var(--plm-accent);
+  border-radius: 50%;
+  animation: plm-spin 0.8s linear infinite;
+  margin: 0 auto;
+}
+@keyframes plm-spin { to { transform: rotate(360deg); } }
