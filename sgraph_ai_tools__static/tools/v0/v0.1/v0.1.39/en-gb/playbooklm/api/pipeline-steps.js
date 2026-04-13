@@ -43,7 +43,7 @@ export async function _callTextLLM(state, userPrompt, systemPrompt) {
         'Authorization': `Bearer ${state.apiKey}`,
         'Content-Type': 'application/json',
         'HTTP-Referer': location.origin,
-        'X-Title': 'PlaybookLM — tools.sgraph.ai',
+        'X-Title': 'PlaybookLM - tools.sgraph.ai',
       },
       body: JSON.stringify({
         model: state.textModel,
