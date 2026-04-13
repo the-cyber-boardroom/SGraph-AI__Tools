@@ -22,9 +22,13 @@
  * @returns {Promise<object>} The parsed manifest object
  */
 export async function loadManifest(manifestUrl) {
-  const base = manifestUrl.substring(0, manifestUrl.lastIndexOf('/') + 1);
-  const res = await fetch(manifestUrl);
-  if (!res.ok) throw new Error(`manifest-loader: failed to fetch ${manifestUrl} (${res.status})`);
+  // Resolve to absolute URL using the document base so that dynamic import()
+  // calls inside this module (which resolve relative to the loader's own path)
+  // correctly target the tool directory, not the loader's directory.
+  const absoluteManifestUrl = new URL(manifestUrl, document.baseURI).href;
+  const base = absoluteManifestUrl.substring(0, absoluteManifestUrl.lastIndexOf('/') + 1);
+  const res = await fetch(absoluteManifestUrl);
+  if (!res.ok) throw new Error(`manifest-loader: failed to fetch ${absoluteManifestUrl} (${res.status})`);
   const manifest = await res.json();
 
   const loaderEntries = manifest.dependencies?.loader ?? [];
