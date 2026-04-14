@@ -1,0 +1,67 @@
+{
+  "name": "SG/Send Theme Explorer",
+  "slug": "page-builder",
+  "description": "Build and preview _page.json layouts with live theme switching, component palette, and viewport simulation. No vault required.",
+  "icon": "🎨",
+  "version": "0.1.42",
+  "status": "live",
+  "category": "ai",
+  "keywords": ["page-builder", "theme", "_page.json", "preview", "send", "vault", "layout"],
+  "dependencies": {
+    "core": [
+      { "module": "sg-layout",   "path": "/core/sg-layout/v0.1.0/sg-layout.js" },
+      { "module": "sg-tool-api", "path": "/core/sg-tool-api/v0/v0.1/v0.1.0/sg-tool-api.js" }
+    ],
+    "cdn": [
+      { "module": "page-layout-renderer",              "url": "https://dev.send.sgraph.ai/_common/js/page-layout-renderer.js" },
+      { "module": "send-browse-v031--page-layout.css", "url": "https://dev.send.sgraph.ai/_common/js/components/send-download/send-browse-v031--page-layout.css" }
+    ],
+    "shared": [
+      { "module": "sg-site-header", "path": "/components/site-header/v1/v1.0/v1.0.2/sg-site-header.js" }
+    ]
+  },
+  "api": {
+    "version": "0.1.0",
+    "note": "window.__tool is live after page load.",
+    "actions": {
+      "setJson": {
+        "params": { "0": { "type": "string|object", "note": "JSON string or parsed object. Updates the textarea and re-renders." } },
+        "returns": "void",
+        "async": false
+      },
+      "getJson": {
+        "params": {},
+        "returns": "object|null",
+        "async": false,
+        "note": "Returns parsed JSON from the textarea, or null if the current content is invalid."
+      },
+      "setTheme": {
+        "params": { "0": { "type": "string", "note": "Theme name: default | navy | slate | minimal | brand | dark-deck" } },
+        "returns": "void",
+        "async": false,
+        "note": "Replaces json.theme with the named scheme and re-renders."
+      },
+      "getTheme": {
+        "params": {},
+        "returns": "string",
+        "async": false
+      },
+      "render": {
+        "params": {},
+        "returns": "Promise<void>",
+        "async": true,
+        "note": "Triggers an immediate re-render from the current textarea content."
+      },
+      "getState": {
+        "params": {},
+        "returns": "{ theme: string, viewport: string, valid: boolean }",
+        "async": false
+      }
+    },
+    "skills": {
+      "human":   "./SKILL-human.md",
+      "browser": "./SKILL-browser.md",
+      "api":     "./SKILL-api.md"
+    }
+  }
+}

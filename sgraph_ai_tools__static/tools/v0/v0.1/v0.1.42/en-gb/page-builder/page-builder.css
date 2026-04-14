@@ -1,0 +1,212 @@
+/**
+ * Page Builder — tool chrome styles only.
+ * The .plr-* renderer styles are loaded from the SG/Send CDN.
+ *
+ * @version 0.1.42
+ */
+
+/* ── Editor panel (left) ─────────────────────────────────────────────────── */
+
+.pb-editor {
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+    background: #0d0d1a;
+    padding: 8px 10px;
+    box-sizing: border-box;
+    gap: 6px;
+    overflow: hidden;
+}
+
+/* Theme picker row */
+.pb-theme-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-shrink: 0;
+}
+
+.pb-label {
+    font-size: 11px;
+    color: #64748b;
+    font-family: 'SF Mono', Monaco, monospace;
+    white-space: nowrap;
+}
+
+.pb-theme-select {
+    flex: 1;
+    background: #1a1a3a;
+    color: #a0aec0;
+    border: 1px solid #2d3748;
+    border-radius: 4px;
+    padding: 4px 6px;
+    font-size: 12px;
+    font-family: 'SF Mono', Monaco, monospace;
+    cursor: pointer;
+    outline: none;
+    transition: border-color 100ms;
+}
+.pb-theme-select:focus { border-color: #4ECDC4; color: #e2e8f0; }
+
+/* Textarea */
+.pb-textarea {
+    flex: 1;
+    min-height: 0;
+    width: 100%;
+    resize: none;
+    background: #111122;
+    color: #abb2bf;
+    border: 1px solid #1a1a3a;
+    border-radius: 4px;
+    padding: 10px 12px;
+    font-family: 'SF Mono', Monaco, 'Fira Code', monospace;
+    font-size: 12px;
+    line-height: 1.6;
+    tab-size: 2;
+    outline: none;
+    box-sizing: border-box;
+    transition: border-color 100ms;
+}
+.pb-textarea:focus         { border-color: #4ECDC4; }
+.pb-textarea--error        { border-color: #e06c75 !important; }
+
+/* Error message */
+.pb-error-bar {
+    font-size: 11px;
+    color: #e06c75;
+    font-family: 'SF Mono', Monaco, monospace;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    flex-shrink: 0;
+    min-height: 14px;
+}
+
+/* Action buttons */
+.pb-actions {
+    display: flex;
+    gap: 6px;
+    flex-shrink: 0;
+    flex-wrap: wrap;
+}
+
+.pb-btn {
+    padding: 5px 12px;
+    font-size: 12px;
+    font-family: system-ui, sans-serif;
+    border: 1px solid #2d3748;
+    border-radius: 4px;
+    background: #1a1a3a;
+    color: #a0aec0;
+    cursor: pointer;
+    transition: background 100ms, color 100ms, border-color 100ms;
+    white-space: nowrap;
+}
+.pb-btn:hover                { background: #4ECDC4; color: #0a0a18; border-color: #4ECDC4; }
+.pb-btn--primary             { background: rgba(78,205,196,0.15); color: #4ECDC4; border-color: rgba(78,205,196,0.3); }
+.pb-btn--primary:hover       { background: #4ECDC4; color: #0a0a18; }
+
+/* Component palette */
+.pb-palette-label {
+    font-size: 10px;
+    color: #4a5568;
+    font-family: 'SF Mono', Monaco, monospace;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    flex-shrink: 0;
+}
+
+.pb-palette {
+    flex-shrink: 0;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px;
+    overflow-y: auto;
+    max-height: 90px;
+}
+
+.pb-chip {
+    padding: 3px 8px;
+    font-size: 11px;
+    font-family: 'SF Mono', Monaco, monospace;
+    border: 1px solid #1a1a3a;
+    border-radius: 3px;
+    background: #111122;
+    color: #718096;
+    cursor: pointer;
+    transition: background 100ms, color 100ms, border-color 100ms;
+    white-space: nowrap;
+}
+.pb-chip:hover { background: rgba(78,205,196,0.1); color: #4ECDC4; border-color: #4ECDC4; }
+
+/* ── Preview panel (right) ───────────────────────────────────────────────── */
+
+.pb-preview-panel {
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+    background: #07070f;
+    overflow: hidden;
+}
+
+/* Viewport toolbar */
+.pb-viewport-bar {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 6px 10px;
+    background: #0d0d1a;
+    border-bottom: 1px solid #1a1a3a;
+    flex-shrink: 0;
+}
+
+.pb-vp-btn {
+    padding: 3px 10px;
+    font-size: 11px;
+    font-family: 'SF Mono', Monaco, monospace;
+    border: 1px solid #2d3748;
+    border-radius: 3px;
+    background: #111122;
+    color: #718096;
+    cursor: pointer;
+    transition: background 100ms, color 100ms, border-color 100ms;
+    white-space: nowrap;
+}
+.pb-vp-btn--active,
+.pb-vp-btn:hover { background: rgba(78,205,196,0.1); color: #4ECDC4; border-color: #4ECDC4; }
+
+.pb-vp-label {
+    margin-left: auto;
+    font-size: 11px;
+    color: #4a5568;
+    font-family: 'SF Mono', Monaco, monospace;
+}
+
+/* Scroll + container */
+.pb-preview-scroll {
+    flex: 1;
+    overflow-y: auto;
+    overflow-x: auto;
+    min-height: 0;
+    display: flex;
+    justify-content: center;
+}
+
+.pb-preview-container {
+    width: 100%;
+    transition: max-width 0.18s ease;
+    min-height: 100%;
+    box-sizing: border-box;
+}
+
+/* Render error */
+.pb-render-error {
+    padding: 40px;
+    font-family: 'SF Mono', Monaco, monospace;
+    font-size: 13px;
+    color: #e06c75;
+    background: #111122;
+    white-space: pre-wrap;
+    border-radius: 4px;
+    margin: 20px;
+}
