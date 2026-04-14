@@ -1,0 +1,69 @@
+{
+  "name": "PlaybookLM",
+  "slug": "playbooklm",
+  "description": "Five-step AI slide deck generator: upload sources, generate strategy, create briefs, generate slide images with version history, export PDF/ZIP/archive or share via SG/Send.",
+  "icon": "\uD83D\uDCDA",
+  "version": "0.1.45",
+  "status": "live",
+  "category": "ai",
+  "keywords": ["slides", "presentation", "llm", "openrouter", "image", "ai", "deck", "playbook"],
+  "dependencies": {
+    "core": [
+      { "module": "sg-layout",      "path": "/core/sg-layout/v0.1.0/sg-layout.js" },
+      { "module": "sg-tool-api",    "path": "/core/sg-tool-api/v0/v0.1/v0.1.0/sg-tool-api.js" },
+      { "module": "manifest-loader","path": "/core/manifest-loader/v0/v0.1/v0.1.0/manifest-loader.js" }
+    ],
+    "components": [
+      { "module": "sg-llm-events",            "path": "/components/llm/sg-llm-events/v0/v0.1/v0.1.1/sg-llm-events.js" },
+      { "module": "sg-llm-request",           "path": "/components/llm/sg-llm-request/v0/v0.1/v0.1.4/sg-llm-request.js" },
+      { "module": "sg-llm-stats",             "path": "/components/llm/sg-llm-stats/v0/v0.1/v0.1.1/sg-llm-stats.js" },
+      { "module": "sg-llm-response-inspector","path": "/components/llm/sg-llm-response-inspector/v0/v0.1/v0.1.0/sg-llm-response-inspector.js" },
+      { "module": "sg-tool-api-explorer",     "path": "/components/tool-api/sg-tool-api-explorer/v0/v0.1/v0.1.0/sg-tool-api-explorer.js" },
+      { "module": "sg-tool-api-console",      "path": "/components/tool-api/sg-tool-api-console/v0/v0.1/v0.1.0/sg-tool-api-console.js" },
+      { "module": "sg-tool-api-manifest",     "path": "/components/tool-api/sg-tool-api-manifest/v0/v0.1/v0.1.0/sg-tool-api-manifest.js" }
+    ],
+    "shared": [
+      { "module": "sg-site-header", "path": "/components/site-header/v1/v1.0/v1.0.2/sg-site-header.js" }
+    ],
+    "loader": [
+      { "phase": 1, "type": "css", "path": "/core/sg-layout/v0.1.0/sg-layout.css" },
+      { "phase": 1, "type": "css", "path": "./styles/playbooklm.css" },
+      { "phase": 1, "type": "css", "path": "./styles/pipeline.css" },
+      { "phase": 1, "type": "css", "path": "./styles/slide-grid.css" },
+      { "phase": 1, "type": "css", "path": "./styles/export.css" },
+      { "phase": 1, "type": "css", "path": "./styles/model-cost.css", "note": "Model selector + cost display" },
+      { "phase": 1, "type": "js",  "module": false, "path": "https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js" },
+      { "phase": 1, "type": "js",  "module": false, "path": "https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js" },
+      { "phase": 2, "type": "js",  "path": "/components/llm/sg-llm-request/v0/v0.1/v0.1.4/sg-llm-request.js" },
+      { "phase": 2, "type": "js",  "path": "/components/llm/sg-llm-stats/v0/v0.1/v0.1.1/sg-llm-stats.js" },
+      { "phase": 2, "type": "js",  "path": "/components/llm/sg-llm-response-inspector/v0/v0.1/v0.1.0/sg-llm-response-inspector.js" },
+      { "phase": 2, "type": "js",  "path": "/components/tool-api/sg-tool-api-explorer/v0/v0.1/v0.1.0/sg-tool-api-explorer.js" },
+      { "phase": 2, "type": "js",  "path": "/components/tool-api/sg-tool-api-console/v0/v0.1/v0.1.0/sg-tool-api-console.js" },
+      { "phase": 2, "type": "js",  "path": "/components/tool-api/sg-tool-api-manifest/v0/v0.1/v0.1.0/sg-tool-api-manifest.js" },
+      { "phase": 3, "type": "js",  "entry": true, "path": "./api/pipeline-api.js" }
+    ]
+  },
+  "api": {
+    "version": "0.1.1",
+    "note": "window.__tool live after tool:ready. 22 methods. Per-phase model config in localStorage['plm-model-config']. Deck cost in localStorage['plm-deck-cost'].",
+    "events": [
+      { "name": "tool:ready",             "when": "activate() called",       "detail": "{ instanceId, tool, version }" },
+      { "name": "tool:connected",         "when": "connect() succeeds",      "detail": "{ instanceId, provider, model }" },
+      { "name": "plm:state-changed",      "when": "any state mutation",      "detail": "{}" },
+      { "name": "plm:llm-log",            "when": "any LLM call starts/ends","detail": "{ id, type, phase, model, systemPrompt, usage, cost, generationId, rawResponse, rawDetail, ... }" },
+      { "name": "plm:slide-complete",     "when": "slide image generated",   "detail": "{ index, imageSrc }" },
+      { "name": "plm:slide-error",        "when": "slide image fails",       "detail": "{ index, error }" },
+      { "name": "plm:all-slides-complete","when": "generateAllSlides done",  "detail": "{ count }" },
+      { "name": "plm:export-complete",    "when": "exportDeck succeeds",     "detail": "{ format }" }
+    ],
+    "methods": {
+      "new_in_0_1_1": ["getSlideVersions(index)", "getSelectedVersion(index)", "setSelectedVersion({index, versionIdx})"],
+      "new_export_formats": ["exportDeck({format:'archive'}) — full session archive ZIP"]
+    },
+    "skills": {
+      "human":   "./skills/SKILL-human.md",
+      "browser": "./skills/SKILL-browser.md",
+      "api":     "./skills/SKILL-api.md"
+    }
+  }
+}
