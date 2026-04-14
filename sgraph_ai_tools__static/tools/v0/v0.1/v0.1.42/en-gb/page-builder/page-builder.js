@@ -5,9 +5,11 @@
  * into a DOM element — no iframe. The same render path as the production
  * Browse component.
  *
- * Renders via:  PageLayoutRenderer.render(container, json, folderPath, zipTree, browseStub)
- * CSS from:     https://dev.send.sgraph.ai/_common/js/components/send-download/send-browse-v031--page-layout.css
- * JS from:      https://dev.send.sgraph.ai/_common/js/page-layout-renderer.js
+ * Renderer API:  PageLayoutRenderer.render(container, json, folderPath, zipTree, browseStub)
+ * JSON schema:   { title, theme, components: [...] }  (top-level uses "components")
+ *                Section/columns nested items use "children", not "components".
+ * CSS from:      https://dev.send.sgraph.ai/_common/js/components/send-download/send-browse-v031--page-layout.css
+ * JS from:       https://dev.send.sgraph.ai/_common/js/page-layout-renderer.js
  *
  * @version 0.1.42
  */
@@ -44,9 +46,9 @@ let _currentVp    = 'desktop';
 let _renderTimer  = null;
 
 const VIEWPORTS = {
-    phone:   { max: '375px', label: 'Phone (375px)' },
-    tablet:  { max: '768px', label: 'Tablet (768px)' },
-    desktop: { max: '100%',  label: 'Desktop (full width)' },
+    phone:   { max: '375px',  label: 'Phone (375px)' },
+    tablet:  { max: '768px',  label: 'Tablet (768px)' },
+    desktop: { max: '100%',   label: 'Desktop (full width)' },
 };
 
 // ── Layout setup ──────────────────────────────────────────────────────────────
@@ -94,6 +96,33 @@ for (const name of Object.keys(THEME_SCHEMES)) {
 themeRow.appendChild(themeSelect);
 editorDiv.appendChild(themeRow);
 
+// Theme swatches — visual chips showing accent + background colour for each scheme
+const swatchRow = document.createElement('div');
+swatchRow.className = 'pb-swatch-row';
+const _swatchBtns = {};
+for (const [name, scheme] of Object.entries(THEME_SCHEMES)) {
+    const chip = document.createElement('button');
+    chip.className = 'pb-swatch' + (name === _currentTheme ? ' pb-swatch--active' : '');
+    chip.dataset.theme = name;
+    chip.title = `${name} — ${scheme.mode} mode, accent ${scheme.accent}`;
+
+    const accentDot = document.createElement('span');
+    accentDot.className = 'pb-swatch__dot';
+    accentDot.style.background = scheme.accent;
+
+    const bgDot = document.createElement('span');
+    bgDot.className = 'pb-swatch__bg';
+    bgDot.style.background = scheme.background;
+
+    chip.appendChild(accentDot);
+    chip.appendChild(bgDot);
+    chip.appendChild(document.createTextNode(name));
+    chip.addEventListener('click', () => _selectSwatch(name));
+    swatchRow.appendChild(chip);
+    _swatchBtns[name] = chip;
+}
+editorDiv.appendChild(swatchRow);
+
 // Textarea
 const textarea = document.createElement('textarea');
 textarea.className = 'pb-textarea';
@@ -120,7 +149,7 @@ editorDiv.appendChild(actionsDiv);
 // Palette label
 const paletteLabel = document.createElement('div');
 paletteLabel.className = 'pb-palette-label';
-paletteLabel.textContent = 'Insert block:';
+paletteLabel.textContent = 'Insert component:';
 editorDiv.appendChild(paletteLabel);
 
 // Palette chips
@@ -130,8 +159,10 @@ for (const item of PALETTE_BLOCKS) {
     const chip = document.createElement('button');
     chip.className = 'pb-chip';
     chip.textContent = item.id;
-    chip.title = `Insert ${item.id} block`;
-    chip.addEventListener('click', () => _insertBlock(item.block));
+    chip.title = item.nav
+        ? `Insert ${item.id} into page.navigation`
+        : `Insert ${item.id} component`;
+    chip.addEventListener('click', () => _insertBlock(item));
     paletteDiv.appendChild(chip);
 }
 editorDiv.appendChild(paletteDiv);
@@ -163,12 +194,16 @@ vpLabel.textContent = VIEWPORTS[_currentVp].label;
 vpBar.appendChild(vpLabel);
 previewPanel.appendChild(vpBar);
 
-// Scroll area
+// Scroll area — dark "stage" that always fills the right panel height.
+// The stage shows the available canvas space even when content is short.
 const previewScroll = document.createElement('div');
 previewScroll.className = 'pb-preview-scroll';
 previewPanel.appendChild(previewScroll);
 
-// Container (constrained to viewport width)
+// Canvas wrapper — constrained to viewport max-width, centred by the flex stage.
+// IMPORTANT: we do NOT pass this element to PageLayoutRenderer directly.
+// The renderer sets container.className = 'plr-page plr-page--...' which would
+// wipe our pb-preview-container sizing CSS. We use a child renderTarget instead.
 const previewContainer = document.createElement('div');
 previewContainer.className = 'pb-preview-container';
 previewScroll.appendChild(previewContainer);
@@ -191,10 +226,21 @@ async function _render() {
         textarea.classList.add('pb-textarea--error');
         return;
     }
+
+    // Clear canvas — renderer will append to renderTarget.
     previewContainer.innerHTML = '';
     previewContainer.style.background = '';
+
+    // Render into a child div so pb-preview-container keeps its sizing CSS
+    // while the renderer applies plr-page / plr-page--light etc. to the target.
+    const renderTarget = document.createElement('div');
+    renderTarget.style.cssText = 'width:100%;min-height:100%;box-sizing:border-box;';
+    previewContainer.appendChild(renderTarget);
+
     try {
-        await PageLayoutRenderer.render(previewContainer, parsed, '', [], _stub);
+        await PageLayoutRenderer.render(renderTarget, parsed, '', [], _stub);
+        // Mirror the page background on the canvas wrapper so the dark stage
+        // is still visible behind a constrained (phone/tablet) viewport.
         if (parsed.theme?.background) {
             previewContainer.style.background = parsed.theme.background;
         }
@@ -210,10 +256,17 @@ function _esc(s) {
 
 // ── Theme picker ──────────────────────────────────────────────────────────────
 
-themeSelect.addEventListener('change', () => {
-    _currentTheme = themeSelect.value;
-    _applyThemeToJson(_currentTheme);
-});
+themeSelect.addEventListener('change', () => _selectSwatch(themeSelect.value));
+
+/** Central theme-selection handler — syncs dropdown, swatches, JSON, and preview. */
+function _selectSwatch(name) {
+    _currentTheme = name;
+    themeSelect.value = name;
+    for (const [n, btn] of Object.entries(_swatchBtns)) {
+        btn.classList.toggle('pb-swatch--active', n === name);
+    }
+    _applyThemeToJson(name);
+}
 
 function _applyThemeToJson(name) {
     let parsed;
@@ -253,30 +306,36 @@ copyBtn.addEventListener('click', async () => {
 
 document.getElementById('pb-demo').addEventListener('click', () => {
     textarea.value = JSON.stringify(DEMO_JSON, null, 2);
-    themeSelect.value = 'default';
-    _currentTheme = 'default';
+    _selectSwatch('default');
     _render();
 });
 
 document.getElementById('pb-clear').addEventListener('click', () => {
-    const empty = { title: 'New Page', theme: { ...THEME_SCHEMES.default }, blocks: [] };
+    const empty = { title: 'New Page', theme: { ...THEME_SCHEMES.default }, components: [] };
     textarea.value = JSON.stringify(empty, null, 2);
-    themeSelect.value = 'default';
-    _currentTheme = 'default';
+    _selectSwatch('default');
     _render();
 });
 
-// ── Palette block insert ──────────────────────────────────────────────────────
+// ── Palette component insert ──────────────────────────────────────────────────
 
-function _insertBlock(block) {
+function _insertBlock(item) {
     let parsed;
     try {
         parsed = JSON.parse(textarea.value);
     } catch {
-        parsed = { title: 'New Page', theme: { ...THEME_SCHEMES.default }, blocks: [] };
+        parsed = { title: 'New Page', theme: { ...THEME_SCHEMES.default }, components: [] };
     }
-    if (!Array.isArray(parsed.blocks)) parsed.blocks = [];
-    parsed.blocks.push(JSON.parse(JSON.stringify(block)));
+
+    if (item.nav) {
+        // Navigation lives in page.navigation (top-level array), not page.components
+        if (!Array.isArray(parsed.navigation)) parsed.navigation = [];
+        parsed.navigation.push(JSON.parse(JSON.stringify(item.item)));
+    } else {
+        if (!Array.isArray(parsed.components)) parsed.components = [];
+        parsed.components.push(JSON.parse(JSON.stringify(item.block)));
+    }
+
     textarea.value = JSON.stringify(parsed, null, 2);
     _render();
 }
@@ -300,9 +359,7 @@ api.register('getJson', () => {
 
 api.register('setTheme', (name) => {
     if (!THEME_SCHEMES[name]) throw new Error(`Unknown theme: "${name}". Available: ${Object.keys(THEME_SCHEMES).join(', ')}`);
-    themeSelect.value = name;
-    _currentTheme = name;
-    _applyThemeToJson(name);
+    _selectSwatch(name);
 }, { async: false });
 
 api.register('getTheme', () => _currentTheme, { async: false });
