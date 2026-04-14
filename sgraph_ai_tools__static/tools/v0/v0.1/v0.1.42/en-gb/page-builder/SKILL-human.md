@@ -13,18 +13,19 @@ SG/Send Browse component — no iframe, no separate server.
 
 ## Quick Start
 
-1. The demo JSON loads automatically. It shows all the common block types rendered with the
+1. The demo JSON loads automatically. It shows the common component types rendered with the
    default theme.
 2. **Edit the JSON** in the textarea — the preview updates within 200 ms.
-3. **Switch themes** using the dropdown above the textarea.
-4. Click a **palette chip** to append a default block of that type.
+3. **Switch themes** using the dropdown or click a swatch chip in the row below it.
+4. Click a **palette chip** to append a default component of that type.
 5. When satisfied, click **📋 Copy JSON** and paste it into a vault as `_page.json`.
 
 ---
 
 ## Theme Picker
 
-Six named schemes are available:
+Six named schemes are available. Use the dropdown **or** the visual swatch row — each chip
+shows the accent colour dot and the page background square side by side:
 
 | Scheme | Mode | Accent | Feel |
 |---|---|---|---|
@@ -42,24 +43,29 @@ The JSON remains the source of truth — you can also edit `theme` directly in t
 
 ## Viewport Switcher
 
-Three buttons in the preview toolbar resize the preview container:
+Three buttons in the preview toolbar resize the preview canvas:
 
 - **🖥 Desktop** — full width (default)
 - **⬜ Tablet** — 768 px max-width
 - **📱 Phone** — 375 px max-width
 
-Use this to verify responsive behaviour before sharing.
+The dark stage area always fills the full panel height. In Phone/Tablet mode the narrow canvas
+is centred with stage visible on both sides — this gives a clear visual boundary of what
+recipients see at each breakpoint.
 
 ---
 
 ## Component Palette
 
-Click any chip to append a default block of that type to the JSON's `blocks` array:
+Click any chip to append a default component of that type to the JSON's `components` array:
 
 `hero` `section` `text` `markdown` `title` `bullet-points`
-`callout` `stats` `quote` `author` `cards` `columns` `navigation`
+`callout` `stats` `quote` `author` `cards` `columns` `image` `pdf`
 
-After inserting, edit the block directly in the textarea.
+The `navigation` chip is special: it inserts an item into `page.navigation` (the top-level
+sticky nav array), not into `page.components`.
+
+After inserting, edit the component directly in the textarea.
 
 ---
 
@@ -67,19 +73,22 @@ After inserting, edit the block directly in the textarea.
 
 ```json
 {
-  "title": "Page title (shown in browser tab)",
+  "title": "Page title (shown in browser tab and auto-banner)",
   "theme": {
     "mode":       "light",
     "accent":     "#4ecdc4",
     "font":       "sans",
     "background": "#ffffff"
   },
-  "blocks": [
+  "navigation": [
+    { "label": "Section 1", "anchor": "#section-1" }
+  ],
+  "components": [
     { "type": "hero", "title": "...", "subtitle": "..." },
     {
       "type": "section",
       "title": "...",
-      "blocks": [
+      "children": [
         { "type": "text", "content": "..." },
         { "type": "bullet-points", "items": ["...", "..."] }
       ]
@@ -88,16 +97,22 @@ After inserting, edit the block directly in the textarea.
 }
 ```
 
-Blocks are rendered in order. Sections act as containers for other blocks.
+**Key field names (critical):**
+- Top-level component list → `"components"` (not `"blocks"`)
+- Items nested inside `section` or `columns` → `"children"` (not `"blocks"`)
+- `"navigation"` is a separate top-level array rendered as a sticky nav bar
+
+The auto-banner (page title + "Page Layout" badge + close button) renders automatically at the
+top of every page. Add `"banner": false` at the top level to suppress it.
 
 ---
 
-## Common Block Reference
+## Component Reference
 
 | Type | Required fields | Notes |
 |---|---|---|
-| `hero` | `title` | `subtitle`, `height` (small/medium/large/full), `style` |
-| `section` | `title`, `blocks[]` | Container; all other blocks go inside sections |
+| `hero` | `title` | `subtitle`, `height` (small/medium/large/full) |
+| `section` | `title`, `children[]` | Container; `children` holds nested components |
 | `text` | `content` | Plain text paragraph |
 | `markdown` | `content` | Full markdown: bold, italic, code, tables, links |
 | `title` | `content` | Heading; `level` 1–6 |
@@ -107,8 +122,10 @@ Blocks are rendered in order. Sections act as containers for other blocks.
 | `quote` | `text` | `author`, `role` optional |
 | `author` | `name` | `role`, `date` optional |
 | `cards` | `items[]` | Each item: `title`, `desc`, optional `image`, `link`; `cols` (default 3) |
-| `columns` | `cols[]` | Each col has its own `blocks[]`; `gap` (none/small/medium/large) |
-| `navigation` | `items[]` | Each item: `label`, `anchor` |
+| `columns` | `children[]`, `ratio` | Each child is a full component; `ratio`: 1:1, 1:2, 2:1, etc. |
+| `image` | `src` | `alt`, `caption` optional; use https:// URLs |
+| `pdf` | `src` | `label` optional; use https:// URLs |
+| `banner` | `title` | Replaces the auto-banner if placed first in `components` |
 
 ---
 
@@ -117,6 +134,8 @@ Blocks are rendered in order. Sections act as containers for other blocks.
 - **JSON errors** turn the textarea border red and show the error below — fix and the preview restores
 - **Load Demo** resets the editor to the full demo JSON at any time
 - **Clear** starts from an empty page with the default theme
-- The `theme.background` property sets the preview container background colour
-- Images in blocks must use external https:// URLs — vault-relative paths require a vault connection
+- The `theme.background` property sets the canvas background colour
+- Images and PDFs must use external `https://` URLs — vault-relative paths require a vault connection
 - The tool is stateless — nothing is saved between reloads; export via **Copy JSON** before closing
+- The dark stage behind the canvas always shows the full available space — use Phone mode to see the
+  responsive breakpoints in action before sharing

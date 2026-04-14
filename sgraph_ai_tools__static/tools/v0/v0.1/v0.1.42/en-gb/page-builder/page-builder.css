@@ -48,6 +48,49 @@
 }
 .pb-theme-select:focus { border-color: #4ECDC4; color: #e2e8f0; }
 
+/* Theme swatches */
+.pb-swatch-row {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px;
+    flex-shrink: 0;
+}
+
+.pb-swatch {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    padding: 3px 7px 3px 5px;
+    border: 1px solid #2d3748;
+    border-radius: 4px;
+    background: #111122;
+    color: #718096;
+    font-size: 10px;
+    font-family: 'SF Mono', Monaco, monospace;
+    cursor: pointer;
+    white-space: nowrap;
+    transition: border-color 100ms, color 100ms;
+}
+.pb-swatch:hover  { border-color: rgba(255,255,255,0.2); color: #a0aec0; }
+.pb-swatch--active { border-color: #4ECDC4 !important; color: #4ECDC4; }
+
+/* Accent colour dot */
+.pb-swatch__dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    flex-shrink: 0;
+}
+
+/* Page background colour square */
+.pb-swatch__bg {
+    width: 7px;
+    height: 7px;
+    border-radius: 2px;
+    border: 1px solid rgba(255,255,255,0.15);
+    flex-shrink: 0;
+}
+
 /* Textarea */
 .pb-textarea {
     flex: 1;
@@ -145,7 +188,6 @@
     display: flex;
     flex-direction: column;
     height: 100%;
-    background: #07070f;
     overflow: hidden;
 }
 
@@ -182,21 +224,29 @@
     font-family: 'SF Mono', Monaco, monospace;
 }
 
-/* Scroll + container */
+/* Stage — dark area that always fills the available panel height.
+   The contrast between the dark stage and the white page canvas
+   gives a clear visual cue for the size of available space. */
 .pb-preview-scroll {
     flex: 1;
+    min-height: 0;
     overflow-y: auto;
     overflow-x: auto;
-    min-height: 0;
+    background: #0b0b18;
     display: flex;
-    justify-content: center;
+    justify-content: center; /* centre narrow viewports horizontally */
+    align-items: stretch;    /* canvas stretches to fill full height */
 }
 
+/* Canvas wrapper — constrained by _setViewport, keeps its class while the
+   renderer applies plr-* classes to its child renderTarget element. */
 .pb-preview-container {
     width: 100%;
-    transition: max-width 0.18s ease;
-    min-height: 100%;
+    max-width: 100%; /* overridden by _setViewport for phone/tablet */
     box-sizing: border-box;
+    transition: max-width 0.18s ease;
+    /* Subtle shadow delineates the page canvas from the dark stage */
+    box-shadow: 0 0 0 1px rgba(255,255,255,0.05), 0 4px 32px rgba(0,0,0,0.5);
 }
 
 /* Render error */
