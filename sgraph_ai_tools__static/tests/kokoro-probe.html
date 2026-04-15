@@ -318,9 +318,8 @@
   </div>
 
   <div class="btn-row">
-    <button class="btn-primary" id="btn-generate">Generate (main thread)</button>
-    <button class="btn-secondary" id="btn-worker">Generate (Worker) ⚡</button>
-    <button class="btn-secondary" id="btn-stream">Stream (chunked)</button>
+    <button class="btn-primary" id="btn-worker">Generate ⚡</button>
+    <button class="btn-primary" id="btn-parallel" style="background:#1a4731">Generate Parallel ⚡⚡</button>
     <button class="btn-secondary" id="btn-abort" style="display:none;background:#4a1e1e;color:#f85149;border-color:#f85149">Abort (reload)</button>
   </div>
 
@@ -576,33 +575,21 @@ async function runHealthCheck() {
       return result;
     });
 
-  // Worker load — resolves when worker fires {type:'ready'}
-  const worker = getWorker();
-  const workerLoad = _workerReady
-    ? Promise.resolve()
-    : new Promise((resolve, reject) => {
-        const onMsg = (e) => {
-          if (e.data.type === 'ready') {
-            worker.removeEventListener('message', onMsg);
-            const ms = Date.now() - t0;
-            log(`Worker model ready in ${(ms/1000).toFixed(1)}s`, 'ok');
-            resolve();
-          } else if (e.data.type === 'error' && !e.data.id) {
-            worker.removeEventListener('message', onMsg);
-            reject(new Error(`Worker: ${e.data.message}`));
-          }
-        };
-        worker.addEventListener('message', onMsg);
-        worker.postMessage({ type: 'load', cdnUrl });
-      });
+  // Pool load — resolves when ALL workers in the pool fire {type:'ready'}
+  const pool = getPool();
+  const poolLoad = Promise.all(pool.map(entry =>
+    loadWorker(entry, cdnUrl).then(() => {
+      const ms = Date.now() - t0;
+      log(`Worker[${entry.index}] model ready in ${(ms/1000).toFixed(1)}s`, 'ok');
+    })
+  ));
 
   try {
-    [tts] = await Promise.all([mainLoad, workerLoad]);
+    [tts] = await Promise.all([mainLoad, poolLoad]);
     const ms = Date.now() - t0;
     _workerReady = true;
-    document.getElementById('btn-worker').textContent = 'Generate (Worker) ⚡';
-    setStep('constructor', 'pass', `Main thread + worker both ready in ${(ms/1000).toFixed(1)}s`, ms);
-    log(`Both models ready in ${(ms/1000).toFixed(1)}s`, 'ok');
+    setStep('constructor', 'pass', `Main thread + ${pool.length} worker(s) ready in ${(ms/1000).toFixed(1)}s`, ms);
+    log(`All models ready in ${(ms/1000).toFixed(1)}s`, 'ok');
   } catch (e) {
     const ms = Date.now() - t0;
     setStep('constructor', 'fail', `Model load failed: ${e.message}`, ms);
@@ -791,141 +778,6 @@ function setStatus(msg, barPct) {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Shared streaming core — used by both buttons
-// generate() blocks the main thread; stream() yields between sentences
-// so the elapsed timer can tick and the UI stays partially responsive.
-// ─────────────────────────────────────────────────────────────────────────────
-
-/**
- * Generate audio sentence-by-sentence using tts.generate().
- *
- * Why not tts.stream()?  stream() yields between sentences but the WASM for
- * each sentence still runs on the main thread.  After the first sentence,
- * GC pressure from the large Float32Array causes subsequent chunks to stall
- * for minutes.  Calling generate() per sentence + awaiting a tick() between
- * calls lets the JS engine GC the previous buffer before the next WASM run.
- */
-async function generateViaStream(text, voice, speed, label) {
-  // Split into sentences — each gets its own generate() call
-  const sentences = text.match(/[^.!?]+[.!?]+/g) || [text];
-  log(`${label}: voice=${voice} speed=${speed} | ${sentences.length} sentences, ${text.length} chars`, 'info');
-  log('Approach: generate() per sentence + GC yield between (avoids WASM memory stall)', 'info');
-
-  startTimer();
-  setStatus(`Starting — ${sentences.length} sentences to generate…`);
-
-  const audioBuffers = [];
-  const t0 = Date.now();
-
-  try {
-    for (let i = 0; i < sentences.length; i++) {
-      const sentence = sentences[i].trim();
-      if (!sentence) continue;
-
-      const sentenceT0 = Date.now();
-      setStatus(
-        `Sentence ${i + 1}/${sentences.length}: "${sentence.slice(0, 50)}${sentence.length > 50 ? '…' : ''}"`,
-        (i / sentences.length) * 90
-      );
-
-      // Yield to event loop before WASM — allows timer tick + GC hint
-      await tick();
-      await tick();
-
-      const audio = await tts.generate(sentence, { voice, speed });
-      const extracted = extractAudio(audio);
-      const sentenceMs = Date.now() - sentenceT0;
-      const sentenceSecs = (extracted.samples.length / extracted.sampleRate).toFixed(2);
-
-      log(`Sentence ${i + 1}/${sentences.length}: "${sentence.slice(0, 50)}" → ${sentenceSecs}s audio in ${(sentenceMs/1000).toFixed(1)}s`, 'ok');
-      audioBuffers.push(extracted);
-
-      // Yield after WASM — lets GC reclaim Float32Array refs before next call
-      await tick();
-      await tick();
-    }
-
-    const totalMs = Date.now() - t0;
-    stopTimer();
-    setStatus('Concatenating…', 95);
-    await tick();
-
-    if (audioBuffers.length === 0) throw new Error('No audio generated');
-
-    const totalSamples = audioBuffers.reduce((n, a) => n + a.samples.length, 0);
-    const sampleRate = audioBuffers[0].sampleRate;
-    const combined = new Float32Array(totalSamples);
-    let offset = 0;
-    for (const a of audioBuffers) { combined.set(a.samples, offset); offset += a.samples.length; }
-
-    const blob = float32ToWavBlob(combined, sampleRate);
-    document.getElementById('audio-player').src = URL.createObjectURL(blob);
-    setStatus('Done ✓', 100);
-
-    const durationSecs = totalSamples / sampleRate;
-    log(`Complete: ${audioBuffers.length} sentences → ${durationSecs.toFixed(2)}s audio in ${(totalMs/1000).toFixed(1)}s (${(durationSecs/(totalMs/1000)).toFixed(2)}× realtime)`, 'ok');
-
-    showStats({
-      'Duration':   `${durationSecs.toFixed(2)}s`,
-      'Gen time':   `${(totalMs/1000).toFixed(1)}s`,
-      'Realtime ×': `${(durationSecs/(totalMs/1000)).toFixed(2)}×`,
-      'Sentences':  String(audioBuffers.length),
-      'File size':  formatBytes(blob.size),
-      'Voice':      voice,
-    });
-
-    document.getElementById('audio-wrap').classList.add('visible');
-
-  } catch (e) {
-    stopTimer();
-    log(`Generation FAILED: ${e.message}`, 'err');
-    throw e;
-  }
-}
-
-// ─────────────────────────────────────────────────────────────────────────────
-// Generate button — uses stream() internally for timer responsiveness
-// ─────────────────────────────────────────────────────────────────────────────
-
-document.getElementById('btn-generate').addEventListener('click', async () => {
-  if (!tts) { log('TTS not loaded — run health check first', 'err'); return; }
-  const text  = document.getElementById('narration-text').value.trim();
-  const voice = document.getElementById('voice-select').value;
-  const speed = parseFloat(document.getElementById('speed-range').value);
-  if (!text) { log('No text entered', 'warn'); return; }
-
-  document.getElementById('btn-generate').disabled = true;
-  document.getElementById('btn-stream').disabled = true;
-  try {
-    await generateViaStream(text, voice, speed, 'Generate');
-  } finally {
-    document.getElementById('btn-generate').disabled = false;
-    document.getElementById('btn-stream').disabled = false;
-  }
-});
-
-// ─────────────────────────────────────────────────────────────────────────────
-// Stream button — same core, just labelled differently
-// ─────────────────────────────────────────────────────────────────────────────
-
-document.getElementById('btn-stream').addEventListener('click', async () => {
-  if (!tts) { log('TTS not loaded — run health check first', 'err'); return; }
-  const text  = document.getElementById('narration-text').value.trim();
-  const voice = document.getElementById('voice-select').value;
-  const speed = parseFloat(document.getElementById('speed-range').value);
-  if (!text) { log('No text entered', 'warn'); return; }
-
-  document.getElementById('btn-generate').disabled = true;
-  document.getElementById('btn-stream').disabled = true;
-  try {
-    await generateViaStream(text, voice, speed, 'Stream');
-  } finally {
-    document.getElementById('btn-generate').disabled = false;
-    document.getElementById('btn-stream').disabled = false;
-  }
-});
-
-// ─────────────────────────────────────────────────────────────────────────────
 // Audio helpers
 // ─────────────────────────────────────────────────────────────────────────────
 
@@ -1058,150 +910,195 @@ function formatBytes(bytes) {
 function tick() { return new Promise(r => setTimeout(r, 0)); }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Worker mode — Kokoro runs in a Web Worker, main thread stays free
+// Worker pool — each worker is an independent Kokoro instance
 // ─────────────────────────────────────────────────────────────────────────────
 
-let _worker = null;
+const POOL_SIZE = 2;
+const _pool = [];       // { worker, ready }
 let _workerReady = false;
 
-function getWorker() {
-  if (_worker) return _worker;
-  log('Spawning kokoro-worker.js…', 'info');
-  _worker = new Worker('./kokoro-worker.js', { type: 'module' });
-  _worker.addEventListener('message', onWorkerMessage);
-  _worker.addEventListener('error', e => log(`Worker error: ${e.message}`, 'err'));
-  return _worker;
+function spawnWorker(index) {
+  const w = new Worker('./kokoro-worker.js', { type: 'module' });
+  w.addEventListener('error', e => log(`Worker[${index}] error: ${e.message}`, 'err'));
+  return { worker: w, ready: false, index };
 }
 
-// Pending generation callback
-let _workerResolve = null;
-let _workerReject  = null;
-let _workerBuffers = [];
-let _workerSampleRate = 24000;
-
-function onWorkerMessage(e) {
-  const msg = e.data;
-
-  if (msg.type === 'loading') {
-    log(`Worker: ${msg.message}`, 'info');
-    setStatus(msg.message);
-    return;
+function getPool() {
+  while (_pool.length < POOL_SIZE) {
+    _pool.push(spawnWorker(_pool.length));
   }
-
-  if (msg.type === 'ready') {
-    _workerReady = true;
-    log(`Worker ready. Voices: ${msg.voices.slice(0,5).join(', ')}…`, 'ok');
-    return;
-  }
-
-  if (msg.type === 'progress') {
-    const pct = ((msg.index / msg.total) * 90).toFixed(0);
-    setStatus(`Worker: sentence ${msg.index + 1}/${msg.total} — "${msg.sentence.slice(0, 50)}…"`, pct);
-    log(`Worker: sentence ${msg.index + 1}/${msg.total} generating…`, 'info');
-    return;
-  }
-
-  if (msg.type === 'chunk') {
-    // samples.buffer was transferred (zero-copy)
-    const durationSecs = (msg.samples.length / msg.sampleRate).toFixed(2);
-    log(`Worker chunk ${msg.index + 1}: "${msg.sentence.slice(0, 45)}" → ${durationSecs}s`, 'ok');
-    _workerBuffers.push({ samples: msg.samples, sampleRate: msg.sampleRate });
-    _workerSampleRate = msg.sampleRate;
-    setStatus(`Sentence ${msg.index + 1}/${msg.total} done (${durationSecs}s) — next…`,
-              ((msg.index + 1) / msg.total) * 90);
-    return;
-  }
-
-  if (msg.type === 'done') {
-    if (_workerResolve) { _workerResolve(); _workerResolve = null; }
-    return;
-  }
-
-  if (msg.type === 'error') {
-    log(`Worker error: ${msg.message}`, 'err');
-    if (_workerReject) { _workerReject(new Error(msg.message)); _workerReject = null; }
-    return;
-  }
+  return _pool;
 }
+
+/**
+ * Load model on a single worker. Returns a Promise that resolves when ready.
+ */
+function loadWorker(entry, cdnUrl) {
+  if (entry.ready) return Promise.resolve();
+  return new Promise((resolve, reject) => {
+    const onMsg = (e) => {
+      if (e.data.type === 'loading') {
+        log(`Worker[${entry.index}]: ${e.data.message}`, 'info');
+      } else if (e.data.type === 'ready') {
+        entry.worker.removeEventListener('message', onMsg);
+        entry.ready = true;
+        log(`Worker[${entry.index}] ready ⚡`, 'ok');
+        resolve();
+      } else if (e.data.type === 'error' && !e.data.id) {
+        entry.worker.removeEventListener('message', onMsg);
+        reject(new Error(e.data.message));
+      }
+    };
+    entry.worker.addEventListener('message', onMsg);
+    entry.worker.postMessage({ type: 'load', cdnUrl });
+  });
+}
+
+/**
+ * Generate one sentence on a worker. Returns { samples, sampleRate }.
+ * Uses a unique id so multiple workers can be running simultaneously.
+ */
+function workerGenerate(entry, sentence, voice, speed) {
+  const id = `${entry.index}-${Date.now()}`;
+  return new Promise((resolve, reject) => {
+    const onMsg = (e) => {
+      if (e.data.id !== id) return;
+      if (e.data.type === 'chunk') {
+        entry.worker.removeEventListener('message', onMsg);
+        resolve({ samples: e.data.samples, sampleRate: e.data.sampleRate });
+      } else if (e.data.type === 'error') {
+        entry.worker.removeEventListener('message', onMsg);
+        reject(new Error(e.data.message));
+      }
+    };
+    entry.worker.addEventListener('message', onMsg);
+    // Send as single-sentence array so worker handles it normally
+    entry.worker.postMessage({ type: 'generate', id, sentences: [sentence], voice, speed });
+  });
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Shared generate finish — assemble blob, show stats
+// ─────────────────────────────────────────────────────────────────────────────
+
+function finishGeneration(orderedBuffers, totalMs, voice, mode) {
+  if (orderedBuffers.length === 0) throw new Error('No audio received');
+  const totalSamples = orderedBuffers.reduce((n, a) => n + a.samples.length, 0);
+  const sampleRate = orderedBuffers[0].sampleRate;
+  const combined = new Float32Array(totalSamples);
+  let offset = 0;
+  for (const a of orderedBuffers) { combined.set(a.samples, offset); offset += a.samples.length; }
+
+  const blob = float32ToWavBlob(combined, sampleRate);
+  document.getElementById('audio-player').src = URL.createObjectURL(blob);
+  setStatus('Done ✓', 100);
+
+  const durationSecs = totalSamples / sampleRate;
+  log(`${mode} complete: ${durationSecs.toFixed(2)}s audio in ${(totalMs/1000).toFixed(1)}s (${(durationSecs/(totalMs/1000)).toFixed(2)}× realtime)`, 'ok');
+
+  showStats({
+    'Duration':   `${durationSecs.toFixed(2)}s`,
+    'Gen time':   `${(totalMs/1000).toFixed(1)}s`,
+    'Realtime ×': `${(durationSecs/(totalMs/1000)).toFixed(2)}×`,
+    'Sentences':  String(orderedBuffers.length),
+    'File size':  formatBytes(blob.size),
+    'Voice':      voice,
+    'Mode':       mode,
+  });
+  document.getElementById('audio-wrap').classList.add('visible');
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Button helpers
+// ─────────────────────────────────────────────────────────────────────────────
+
+function lockButtons() {
+  document.getElementById('btn-worker').disabled = true;
+  document.getElementById('btn-parallel').disabled = true;
+}
+function unlockButtons() {
+  document.getElementById('btn-worker').disabled = false;
+  document.getElementById('btn-parallel').disabled = false;
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Generate ⚡ — sequential on worker[0]
+// ─────────────────────────────────────────────────────────────────────────────
 
 document.getElementById('btn-worker').addEventListener('click', async () => {
-  if (!tts) { log('Run health check first (loads model on main thread for comparison)', 'warn'); }
-
+  if (!_workerReady) { log('Run health check first.', 'err'); return; }
   const text  = document.getElementById('narration-text').value.trim();
   const voice = document.getElementById('voice-select').value;
   const speed = parseFloat(document.getElementById('speed-range').value);
-  if (!text) { log('No text entered', 'warn'); return; }
+  if (!text) return;
 
   const sentences = text.match(/[^.!?]+[.!?]+/g) || [text];
-  const cdnUrl = CDN_PATHS[selectedCdn];
+  log(`Sequential: ${sentences.length} sentence(s) on worker[0]`, 'info');
 
-  log(`Worker mode: ${sentences.length} sentences, voice=${voice}, speed=${speed}`, 'info');
-  log('Main thread is FREE during generation — timer should tick smoothly!', 'info');
+  lockButtons(); startTimer();
+  const t0 = Date.now();
+  const buffers = [];
 
-  document.getElementById('btn-generate').disabled = true;
-  document.getElementById('btn-worker').disabled = true;
-  document.getElementById('btn-stream').disabled = true;
+  try {
+    for (let i = 0; i < sentences.length; i++) {
+      setStatus(`Sentence ${i + 1}/${sentences.length}…`, (i / sentences.length) * 90);
+      const buf = await workerGenerate(_pool[0], sentences[i], voice, speed);
+      const secs = (buf.samples.length / buf.sampleRate).toFixed(2);
+      log(`Sentence ${i + 1}: ${secs}s in ${((Date.now()-t0)/1000).toFixed(1)}s elapsed`, 'ok');
+      buffers.push(buf);
+    }
+    stopTimer();
+    finishGeneration(buffers, Date.now() - t0, voice, 'Sequential ⚡');
+  } catch (e) {
+    stopTimer();
+    log(`Sequential FAILED: ${e.message}`, 'err');
+  } finally { unlockButtons(); }
+});
 
-  startTimer();
-  setStatus('Spawning worker…');
-  _workerBuffers = [];
+// ─────────────────────────────────────────────────────────────────────────────
+// Generate Parallel ⚡⚡ — each sentence on its own worker simultaneously
+// ─────────────────────────────────────────────────────────────────────────────
 
-  const worker = getWorker();
+document.getElementById('btn-parallel').addEventListener('click', async () => {
+  if (!_workerReady) { log('Run health check first.', 'err'); return; }
+  const text  = document.getElementById('narration-text').value.trim();
+  const voice = document.getElementById('voice-select').value;
+  const speed = parseFloat(document.getElementById('speed-range').value);
+  if (!text) return;
+
+  const sentences = text.match(/[^.!?]+[.!?]+/g) || [text];
+  log(`Parallel: ${sentences.length} sentence(s) across ${Math.min(sentences.length, POOL_SIZE)} worker(s)`, 'info');
+
+  if (sentences.length === 1) {
+    log('Only 1 sentence — parallel = sequential. Add more text to see the speedup.', 'warn');
+  }
+
+  lockButtons(); startTimer();
+  setStatus(`Launching ${Math.min(sentences.length, POOL_SIZE)} workers in parallel…`);
   const t0 = Date.now();
 
   try {
-    if (!_workerReady) {
-      log('Worker not ready — run health check first.', 'err');
-      throw new Error('Worker not ready. Run health check first.');
-    }
-    log('Worker ready ⚡ — generating…', 'ok');
-    setStatus('Worker generating…');
-
-    // Generate
-    const genId = `gen-${Date.now()}`;
-    await new Promise((resolve, reject) => {
-      _workerResolve = resolve;
-      _workerReject  = reject;
-      worker.postMessage({ type: 'generate', id: genId, sentences, voice, speed });
+    // Run all sentences simultaneously — round-robin across pool
+    const promises = sentences.map((sentence, i) => {
+      const entry = _pool[i % POOL_SIZE];
+      log(`Worker[${entry.index}] ← sentence ${i + 1}: "${sentence.trim().slice(0, 50)}"`, 'info');
+      return workerGenerate(entry, sentence, voice, speed).then(buf => {
+        const secs = (buf.samples.length / buf.sampleRate).toFixed(2);
+        const elapsed = ((Date.now() - t0) / 1000).toFixed(1);
+        log(`Worker[${entry.index}] done: sentence ${i + 1} → ${secs}s audio (${elapsed}s elapsed)`, 'ok');
+        setStatus(`${i + 1}/${sentences.length} sentences done…`, ((i + 1) / sentences.length) * 90);
+        return buf;
+      });
     });
 
-    const totalMs = Date.now() - t0;
+    // Wait for all — results come back in sentence order (Promise.all preserves order)
+    const buffers = await Promise.all(promises);
     stopTimer();
-
-    // Concatenate
-    if (_workerBuffers.length === 0) throw new Error('No audio received from worker');
-    const totalSamples = _workerBuffers.reduce((n, a) => n + a.samples.length, 0);
-    const combined = new Float32Array(totalSamples);
-    let offset = 0;
-    for (const a of _workerBuffers) { combined.set(a.samples, offset); offset += a.samples.length; }
-
-    const blob = float32ToWavBlob(combined, _workerSampleRate);
-    document.getElementById('audio-player').src = URL.createObjectURL(blob);
-    setStatus('Done ✓', 100);
-
-    const durationSecs = totalSamples / _workerSampleRate;
-    log(`Worker complete: ${durationSecs.toFixed(2)}s audio in ${(totalMs/1000).toFixed(1)}s (${(durationSecs/(totalMs/1000)).toFixed(2)}× realtime)`, 'ok');
-
-    showStats({
-      'Duration':   `${durationSecs.toFixed(2)}s`,
-      'Gen time':   `${(totalMs/1000).toFixed(1)}s`,
-      'Realtime ×': `${(durationSecs/(totalMs/1000)).toFixed(2)}×`,
-      'Sentences':  String(_workerBuffers.length),
-      'File size':  formatBytes(blob.size),
-      'Voice':      voice,
-      'Mode':       'Worker ⚡',
-    });
-
-    document.getElementById('audio-wrap').classList.add('visible');
-
+    finishGeneration(buffers, Date.now() - t0, voice, `Parallel ⚡⚡ (×${Math.min(sentences.length, POOL_SIZE)})`);
   } catch (e) {
     stopTimer();
-    log(`Worker generation FAILED: ${e.message}`, 'err');
-  } finally {
-    document.getElementById('btn-generate').disabled = false;
-    document.getElementById('btn-worker').disabled = false;
-    document.getElementById('btn-stream').disabled = false;
-  }
+    log(`Parallel FAILED: ${e.message}`, 'err');
+  } finally { unlockButtons(); }
 });
 
 log('Probe ready. Select a CDN path and click "Run Health Check".', 'info');
