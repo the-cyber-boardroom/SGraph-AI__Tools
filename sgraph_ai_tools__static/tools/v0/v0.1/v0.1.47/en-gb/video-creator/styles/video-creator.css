@@ -1,0 +1,90 @@
+/* video-creator.css — tool-level layout and design tokens */
+
+:root {
+    --vc-bg:         #0a0a18;
+    --vc-surface:    #0d1117;
+    --vc-surface-2:  #161b22;
+    --vc-border:     #30363d;
+    --vc-text:       #e2e8f0;
+    --vc-text-muted: #8b949e;
+    --vc-accent:     #4ECDC4;
+    --vc-accent-2:   #1a4731;
+    --vc-danger:     #f85149;
+    --vc-success:    #3fb950;
+    --vc-radius:     6px;
+    --vc-gap:        12px;
+}
+
+*, *::before, *::after { box-sizing: border-box; }
+
+html, body {
+    margin: 0; padding: 0; height: 100%;
+    background: var(--vc-bg); color: var(--vc-text);
+    font-family: system-ui, -apple-system, sans-serif;
+    overflow: hidden;
+}
+
+body { display: flex; flex-direction: column; }
+
+/* ── Shell layout ─────────────────────────────────────────────────── */
+
+.vc-shell {
+    display: grid;
+    grid-template-columns: 380px 1fr;
+    gap: var(--vc-gap);
+    padding: var(--vc-gap);
+    height: 100%;
+    overflow: hidden;
+}
+
+.vc-left  { display: flex; flex-direction: column; gap: var(--vc-gap); overflow: hidden; }
+.vc-right { display: flex; flex-direction: column; gap: var(--vc-gap); overflow: hidden; }
+
+/* ── Section headers ──────────────────────────────────────────────── */
+
+.vc-section-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 8px 12px;
+    background: var(--vc-surface-2);
+    border: 1px solid var(--vc-border);
+    border-radius: var(--vc-radius) var(--vc-radius) 0 0;
+    font-size: 0.85rem;
+    font-weight: 600;
+    color: var(--vc-text-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+}
+
+/* ── Buttons ──────────────────────────────────────────────────────── */
+
+.btn-primary, .btn-secondary, .btn-success {
+    padding: 8px 16px;
+    border: none;
+    border-radius: var(--vc-radius);
+    font-size: 0.9rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: opacity 0.15s, transform 0.1s;
+    white-space: nowrap;
+}
+.btn-primary:disabled, .btn-secondary:disabled, .btn-success:disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
+    transform: none;
+}
+.btn-primary   { background: var(--vc-accent);   color: #000; }
+.btn-secondary { background: var(--vc-surface-2); color: var(--vc-text); border: 1px solid var(--vc-border); }
+.btn-success   { background: var(--vc-success);   color: #000; }
+.btn-primary:not(:disabled):hover   { opacity: 0.85; transform: translateY(-1px); }
+.btn-secondary:not(:disabled):hover { background: var(--vc-border); }
+.btn-success:not(:disabled):hover   { opacity: 0.85; transform: translateY(-1px); }
+
+/* ── Status text ──────────────────────────────────────────────────── */
+
+.vc-status-text {
+    font-size: 0.8rem;
+    color: var(--vc-accent);
+    font-variant-numeric: tabular-nums;
+}
