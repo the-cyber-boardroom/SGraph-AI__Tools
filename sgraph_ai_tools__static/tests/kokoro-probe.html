@@ -561,26 +561,47 @@ async function runHealthCheck() {
     return;
   }
 
-  // Step 6: list_voices
-  setStep('voices', 'running', 'Calling list_voices()…');
+  // Step 6: list_voices — try multiple API shapes
+  setStep('voices', 'running', 'Detecting voice list API…');
   await tick();
   t0 = Date.now();
   try {
-    const voices = tts.list_voices();
+    // kokoro-js API varies by version — try all known shapes
+    let voices = null;
+    if (typeof tts.list_voices === 'function') {
+      voices = tts.list_voices();
+      log('Voice API: list_voices() method', 'info');
+    }
+    if ((!voices || voices.length === 0) && tts.voices) {
+      voices = Array.isArray(tts.voices) ? tts.voices : Object.keys(tts.voices);
+      log(`Voice API: tts.voices ${Array.isArray(tts.voices) ? 'array' : 'object keys'}`, 'info');
+    }
+    if ((!voices || voices.length === 0) && tts.VOICES) {
+      voices = Array.isArray(tts.VOICES) ? tts.VOICES : Object.keys(tts.VOICES);
+      log('Voice API: tts.VOICES', 'info');
+    }
+    // Log all tts keys to help debug
+    const ttsKeys = Object.keys(tts).join(', ');
+    log(`tts instance keys: ${ttsKeys}`, 'info');
+
     const ms = Date.now() - t0;
     if (!voices || voices.length === 0) {
-      setStep('voices', 'warn', 'list_voices() returned empty array', ms);
-      log('list_voices() returned empty array', 'warn');
+      // Fall back to known voice list (from kokoro-js source / error messages)
+      voices = KNOWN_VOICES;
+      setStep('voices', 'warn', `API returned empty — using known voice list (${voices.length} voices)`, ms);
+      log(`list_voices() API empty. Using known fallback list. tts keys: ${ttsKeys}`, 'warn');
     } else {
       setStep('voices', 'pass', `${voices.length} voices: ${voices.slice(0,5).join(', ')}${voices.length > 5 ? '…' : ''}`, ms);
       log(`Voices (${voices.length}): ${voices.join(', ')}`, 'ok');
-      renderVoices(voices);
-      populateVoiceSelect(voices);
     }
+    renderVoices(voices);
+    populateVoiceSelect(voices);
   } catch (e) {
     const ms = Date.now() - t0;
-    setStep('voices', 'fail', `list_voices() threw: ${e.message}`, ms);
-    log(`list_voices() FAILED: ${e.message}`, 'err');
+    setStep('voices', 'warn', `Voice API threw: ${e.message} — using known list`, ms);
+    log(`list_voices() FAILED: ${e.message}. Falling back to known list.`, 'warn');
+    renderVoices(KNOWN_VOICES);
+    populateVoiceSelect(KNOWN_VOICES);
   }
 
   // Step 7: test generation
@@ -588,7 +609,19 @@ async function runHealthCheck() {
   await tick();
   t0 = Date.now();
   try {
-    const audio = await tts.generate('Hello.', { voice: 'af_bella', speed: 1.0 });
+    // Try voices in order until one works (API may have renamed them)
+    let audio = null;
+    const testVoices = ['af_heart', 'af_bella', 'af_sky', 'am_adam'];
+    for (const testVoice of testVoices) {
+      try {
+        audio = await tts.generate('Hello.', { voice: testVoice, speed: 1.0 });
+        log(`Test generation used voice: ${testVoice}`, 'info');
+        break;
+      } catch (ve) {
+        log(`Voice ${testVoice} failed: ${ve.message}`, 'warn');
+      }
+    }
+    if (!audio) throw new Error('All test voices failed');
     const ms = Date.now() - t0;
     const durationSecs = audio.data ? (audio.data.length / audio.sampling_rate) : '?';
     setStep('generate', 'pass', `Generated ${typeof durationSecs === 'number' ? durationSecs.toFixed(2) + 's' : '?'} of audio in ${ms}ms`, ms);
@@ -610,7 +643,18 @@ async function runHealthCheck() {
 // Voice display helpers
 // ─────────────────────────────────────────────────────────────────────────────
 
-const FEATURED_VOICES = ['af_bella', 'af_sky', 'am_adam', 'bf_emma', 'bm_george'];
+// Known voices from kokoro-js (fallback when list_voices() API is unavailable)
+// Source: error message from failed generation attempt
+const KNOWN_VOICES = [
+  'af_heart', 'af_alloy', 'af_aoede', 'af_bella', 'af_jessica', 'af_kore',
+  'af_nicole', 'af_nova', 'af_river', 'af_sarah', 'af_sky',
+  'am_adam', 'am_echo', 'am_eric', 'am_fenrir', 'am_liam', 'am_michael',
+  'am_onyx', 'am_puck', 'am_santa',
+  'bf_emma', 'bf_isabella', 'bf_alice', 'bf_lily',
+  'bm_george', 'bm_lewis', 'bm_daniel', 'bm_fable',
+];
+
+const FEATURED_VOICES = ['af_bella', 'af_heart', 'af_sky', 'am_adam', 'bf_emma', 'bm_george'];
 
 function renderVoices(voices) {
   document.getElementById('voice-card').style.display = '';
