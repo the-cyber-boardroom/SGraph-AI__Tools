@@ -560,21 +560,54 @@ async function runHealthCheck() {
     return;
   }
 
-  // Step 5: Model download (KokoroTTS.from_pretrained)
-  setStep('constructor', 'running', 'Downloading model (~160MB, may take a while)…');
-  log('Starting KokoroTTS.from_pretrained() — this downloads ~160MB on first run…', 'info');
+  // Step 5: Load model on main thread + worker in parallel.
+  // Health check does not complete until BOTH are ready.
+  setStep('constructor', 'running', 'Loading model on main thread + worker in parallel…');
+  log('Running KokoroTTS.from_pretrained() on main thread and worker simultaneously…', 'info');
   await tick();
   t0 = Date.now();
-  try {
-    tts = await KokoroTTS.from_pretrained('onnx-community/Kokoro-82M-v1.0-ONNX', {
-      dtype: 'q8',
+
+  const cdnUrl = CDN_PATHS[selectedCdn];
+
+  // Main thread load
+  const mainLoad = KokoroTTS.from_pretrained('onnx-community/Kokoro-82M-v1.0-ONNX', { dtype: 'q8' })
+    .then(result => {
+      const ms = Date.now() - t0;
+      log(`Main thread model ready in ${(ms/1000).toFixed(1)}s`, 'ok');
+      setStep('constructor', 'running', `Main thread ready (${(ms/1000).toFixed(1)}s) — waiting for worker…`);
+      return result;
     });
+
+  // Worker load — resolves when worker fires {type:'ready'}
+  const worker = getWorker();
+  const workerLoad = _workerReady
+    ? Promise.resolve()
+    : new Promise((resolve, reject) => {
+        const onMsg = (e) => {
+          if (e.data.type === 'ready') {
+            worker.removeEventListener('message', onMsg);
+            const ms = Date.now() - t0;
+            log(`Worker model ready in ${(ms/1000).toFixed(1)}s`, 'ok');
+            resolve();
+          } else if (e.data.type === 'error' && !e.data.id) {
+            worker.removeEventListener('message', onMsg);
+            reject(new Error(`Worker: ${e.data.message}`));
+          }
+        };
+        worker.addEventListener('message', onMsg);
+        worker.postMessage({ type: 'load', cdnUrl });
+      });
+
+  try {
+    [tts] = await Promise.all([mainLoad, workerLoad]);
     const ms = Date.now() - t0;
-    setStep('constructor', 'pass', `Model loaded in ${(ms/1000).toFixed(1)}s`, ms);
-    log(`Model loaded in ${(ms/1000).toFixed(1)}s`, 'ok');
+    _workerReady = true;
+    document.getElementById('btn-worker').textContent = 'Generate (Worker) ⚡';
+    setStep('constructor', 'pass', `Main thread + worker both ready in ${(ms/1000).toFixed(1)}s`, ms);
+    log(`Both models ready in ${(ms/1000).toFixed(1)}s`, 'ok');
   } catch (e) {
     const ms = Date.now() - t0;
-    setStep('constructor', 'fail', `from_pretrained failed: ${e.message}`, ms);
+    setStep('constructor', 'fail', `Model load failed: ${e.message}`, ms);
     log(`Model load FAILED: ${e.message}`, 'err');
     return;
   }
@@ -1119,26 +1152,12 @@ document.getElementById('btn-worker').addEventListener('click', async () => {
   const t0 = Date.now();
 
   try {
-    // Load model in worker if not already ready
     if (!_workerReady) {
-      setStatus('Worker: loading model…');
-      await new Promise((resolve, reject) => {
-        _workerResolve = resolve;
-        _workerReject  = reject;
-        // Listen for ready specifically
-        const onReady = (e) => {
-          if (e.data.type === 'ready') {
-            worker.removeEventListener('message', onReady);
-            resolve();
-          } else if (e.data.type === 'error') {
-            worker.removeEventListener('message', onReady);
-            reject(new Error(e.data.message));
-          }
-        };
-        worker.addEventListener('message', onReady);
-        worker.postMessage({ type: 'load', cdnUrl });
-      });
+      log('Worker not ready — run health check first.', 'err');
+      throw new Error('Worker not ready. Run health check first.');
     }
+    log('Worker ready ⚡ — generating…', 'ok');
+    setStatus('Worker generating…');
 
     // Generate
     const genId = `gen-${Date.now()}`;
