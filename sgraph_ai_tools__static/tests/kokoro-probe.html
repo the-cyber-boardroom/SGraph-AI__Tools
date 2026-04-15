@@ -316,6 +316,7 @@
   <div class="btn-row">
     <button class="btn-primary" id="btn-generate">Generate Audio</button>
     <button class="btn-secondary" id="btn-stream">Stream (chunked)</button>
+    <button class="btn-secondary" id="btn-abort" style="display:none;background:#4a1e1e;color:#f85149;border-color:#f85149">Abort (reload)</button>
   </div>
 
   <!-- Progress display — visible during generation -->
@@ -704,6 +705,7 @@ function startTimer() {
   document.getElementById('gen-elapsed').textContent = '0.0s';
   document.getElementById('gen-progress').style.display = '';
   document.getElementById('gen-bar').style.width = '0%';
+  document.getElementById('btn-abort').style.display = '';
   _timerInterval = setInterval(() => {
     const elapsed = (Date.now() - _timerStart) / 1000;
     document.getElementById('gen-elapsed').textContent = `${elapsed.toFixed(1)}s`;
@@ -714,7 +716,13 @@ function stopTimer() {
   clearInterval(_timerInterval);
   _timerInterval = null;
   document.getElementById('gen-progress').style.display = 'none';
+  document.getElementById('btn-abort').style.display = 'none';
 }
+
+document.getElementById('btn-abort').addEventListener('click', () => {
+  log('Aborting — reloading page to stop WASM thread…', 'err');
+  setTimeout(() => location.reload(), 300);
+});
 
 function setStatus(msg, barPct) {
   document.getElementById('gen-status').textContent = msg;
@@ -729,43 +737,62 @@ function setStatus(msg, barPct) {
 // so the elapsed timer can tick and the UI stays partially responsive.
 // ─────────────────────────────────────────────────────────────────────────────
 
+/**
+ * Generate audio sentence-by-sentence using tts.generate().
+ *
+ * Why not tts.stream()?  stream() yields between sentences but the WASM for
+ * each sentence still runs on the main thread.  After the first sentence,
+ * GC pressure from the large Float32Array causes subsequent chunks to stall
+ * for minutes.  Calling generate() per sentence + awaiting a tick() between
+ * calls lets the JS engine GC the previous buffer before the next WASM run.
+ */
 async function generateViaStream(text, voice, speed, label) {
-  // Estimate sentence count for progress bar
-  const sentenceCount = (text.match(/[^.!?]+[.!?]+/g) || [text]).length;
-  log(`${label}: voice=${voice} speed=${speed} chars=${text.length} ~${sentenceCount} sentences`, 'info');
-  log('Note: UI freezes WITHIN each sentence (WASM on main thread). Ticks between sentences.', 'warn');
+  // Split into sentences — each gets its own generate() call
+  const sentences = text.match(/[^.!?]+[.!?]+/g) || [text];
+  log(`${label}: voice=${voice} speed=${speed} | ${sentences.length} sentences, ${text.length} chars`, 'info');
+  log('Approach: generate() per sentence + GC yield between (avoids WASM memory stall)', 'info');
 
   startTimer();
-  setStatus(`Starting Kokoro TTS…`);
+  setStatus(`Starting — ${sentences.length} sentences to generate…`);
 
   const audioBuffers = [];
   const t0 = Date.now();
 
   try {
-    const stream = tts.stream(text, { voice, speed });
-    let chunkIndex = 0;
+    for (let i = 0; i < sentences.length; i++) {
+      const sentence = sentences[i].trim();
+      if (!sentence) continue;
 
-    for await (const { text: chunkText, audio } of stream) {
-      chunkIndex++;
+      const sentenceT0 = Date.now();
+      setStatus(
+        `Sentence ${i + 1}/${sentences.length}: "${sentence.slice(0, 50)}${sentence.length > 50 ? '…' : ''}"`,
+        (i / sentences.length) * 90
+      );
+
+      // Yield to event loop before WASM — allows timer tick + GC hint
+      await tick();
+      await tick();
+
+      const audio = await tts.generate(sentence, { voice, speed });
       const extracted = extractAudio(audio);
-      const chunkSecs = (extracted.samples.length / extracted.sampleRate).toFixed(2);
-      const elapsedMs = Date.now() - t0;
-      log(`Chunk ${chunkIndex}: "${chunkText.trim().slice(0, 45)}…" → ${chunkSecs}s audio (${elapsedMs}ms elapsed)`, 'ok');
+      const sentenceMs = Date.now() - sentenceT0;
+      const sentenceSecs = (extracted.samples.length / extracted.sampleRate).toFixed(2);
+
+      log(`Sentence ${i + 1}/${sentences.length}: "${sentence.slice(0, 50)}" → ${sentenceSecs}s audio in ${(sentenceMs/1000).toFixed(1)}s`, 'ok');
       audioBuffers.push(extracted);
 
-      // Update status between chunks — this fires because stream() yields
-      setStatus(
-        `Chunk ${chunkIndex} done (${chunkSecs}s audio) — generating next…`,
-        (chunkIndex / Math.max(sentenceCount, chunkIndex)) * 90
-      );
+      // Yield after WASM — lets GC reclaim Float32Array refs before next call
+      await tick();
+      await tick();
     }
 
     const totalMs = Date.now() - t0;
     stopTimer();
-    setStatus('Done', 100);
+    setStatus('Concatenating…', 95);
+    await tick();
 
-    // Concatenate all chunks into one buffer
-    if (audioBuffers.length === 0) throw new Error('No audio chunks generated');
+    if (audioBuffers.length === 0) throw new Error('No audio generated');
+
     const totalSamples = audioBuffers.reduce((n, a) => n + a.samples.length, 0);
     const sampleRate = audioBuffers[0].sampleRate;
     const combined = new Float32Array(totalSamples);
@@ -774,24 +801,25 @@ async function generateViaStream(text, voice, speed, label) {
 
     const blob = float32ToWavBlob(combined, sampleRate);
     document.getElementById('audio-player').src = URL.createObjectURL(blob);
+    setStatus('Done ✓', 100);
 
     const durationSecs = totalSamples / sampleRate;
-    log(`Done: ${audioBuffers.length} chunks → ${durationSecs.toFixed(2)}s audio in ${(totalMs/1000).toFixed(1)}s (${(durationSecs/(totalMs/1000)).toFixed(2)}× realtime)`, 'ok');
+    log(`Complete: ${audioBuffers.length} sentences → ${durationSecs.toFixed(2)}s audio in ${(totalMs/1000).toFixed(1)}s (${(durationSecs/(totalMs/1000)).toFixed(2)}× realtime)`, 'ok');
 
     showStats({
-      'Duration':    `${durationSecs.toFixed(2)}s`,
-      'Gen time':    `${(totalMs/1000).toFixed(1)}s`,
-      'Realtime ×':  `${(durationSecs/(totalMs/1000)).toFixed(2)}×`,
-      'Chunks':      String(audioBuffers.length),
-      'File size':   formatBytes(blob.size),
-      'Voice':       voice,
+      'Duration':   `${durationSecs.toFixed(2)}s`,
+      'Gen time':   `${(totalMs/1000).toFixed(1)}s`,
+      'Realtime ×': `${(durationSecs/(totalMs/1000)).toFixed(2)}×`,
+      'Sentences':  String(audioBuffers.length),
+      'File size':  formatBytes(blob.size),
+      'Voice':      voice,
     });
 
     document.getElementById('audio-wrap').classList.add('visible');
 
   } catch (e) {
     stopTimer();
-    log(`stream() FAILED: ${e.message}`, 'err');
+    log(`Generation FAILED: ${e.message}`, 'err');
     throw e;
   }
 }
