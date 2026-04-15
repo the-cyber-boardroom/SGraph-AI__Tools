@@ -623,9 +623,10 @@ async function runHealthCheck() {
     }
     if (!audio) throw new Error('All test voices failed');
     const ms = Date.now() - t0;
-    const durationSecs = audio.data ? (audio.data.length / audio.sampling_rate) : '?';
-    setStep('generate', 'pass', `Generated ${typeof durationSecs === 'number' ? durationSecs.toFixed(2) + 's' : '?'} of audio in ${ms}ms`, ms);
-    log(`Test generation OK: ${ms}ms for "${typeof durationSecs === 'number' ? durationSecs.toFixed(2) : '?'}s" of audio`, 'ok');
+    const { samples, sampleRate } = extractAudio(audio);
+    const durationSecs = samples.length / sampleRate;
+    setStep('generate', 'pass', `Generated ${durationSecs.toFixed(2)}s of audio in ${ms}ms`, ms);
+    log(`Test generation OK: ${ms}ms for ${durationSecs.toFixed(2)}s of audio`, 'ok');
   } catch (e) {
     const ms = Date.now() - t0;
     setStep('generate', 'fail', `generate() threw: ${e.message}`, ms);
@@ -700,11 +701,12 @@ document.getElementById('btn-generate').addEventListener('click', async () => {
     const audio = await tts.generate(text, { voice, speed });
     const genMs = Date.now() - t0;
 
-    const blob = audioToBlob(audio);
+    const { samples, sampleRate } = extractAudio(audio);
+    const blob = float32ToWavBlob(samples, sampleRate);
     const audioEl = document.getElementById('audio-player');
     audioEl.src = URL.createObjectURL(blob);
 
-    const durationSecs = audio.data ? (audio.data.length / audio.sampling_rate) : 0;
+    const durationSecs = samples.length / sampleRate;
     log(`Generated ${durationSecs.toFixed(2)}s audio in ${genMs}ms (${(durationSecs / (genMs/1000)).toFixed(1)}× realtime)`, 'ok');
 
     showStats({
@@ -748,21 +750,22 @@ document.getElementById('btn-stream').addEventListener('click', async () => {
   try {
     const stream = tts.stream(chunks, { voice, speed });
     for await (const { text: chunkText, audio } of stream) {
+      const extracted = extractAudio(audio);
       const chunkMs = Date.now() - t0 - totalGenMs;
-      log(`Chunk: "${chunkText.trim().slice(0,40)}" — ${(audio.data.length / audio.sampling_rate).toFixed(2)}s audio (${chunkMs}ms)`, 'ok');
-      audioBuffers.push(audio);
+      log(`Chunk: "${chunkText.trim().slice(0,40)}" — ${(extracted.samples.length / extracted.sampleRate).toFixed(2)}s audio (${chunkMs}ms)`, 'ok');
+      audioBuffers.push(extracted);
     }
 
     totalGenMs = Date.now() - t0;
 
     // Concatenate all Float32 buffers
-    const totalSamples = audioBuffers.reduce((n, a) => n + a.data.length, 0);
-    const sampleRate = audioBuffers[0].sampling_rate;
+    const totalSamples = audioBuffers.reduce((n, a) => n + a.samples.length, 0);
+    const sampleRate = audioBuffers[0].sampleRate;
     const combined = new Float32Array(totalSamples);
     let offset = 0;
     for (const a of audioBuffers) {
-      combined.set(a.data, offset);
-      offset += a.data.length;
+      combined.set(a.samples, offset);
+      offset += a.samples.length;
     }
 
     const blob = float32ToWavBlob(combined, sampleRate);
@@ -793,11 +796,71 @@ document.getElementById('btn-stream').addEventListener('click', async () => {
 // ─────────────────────────────────────────────────────────────────────────────
 
 /**
+ * Extract Float32Array + sampleRate from a Kokoro audio result.
+ * The shape varies by kokoro-js version — try all known layouts.
+ * Logs the actual structure to help debug unknown formats.
+ * @param {*} audio - whatever generate() returned
+ * @returns {{ samples: Float32Array, sampleRate: number }}
+ */
+function extractAudio(audio) {
+  // Log full structure for debugging
+  if (audio && typeof audio === 'object') {
+    const keys = Object.keys(audio);
+    log(`audio object keys: ${keys.join(', ')}`, 'info');
+    for (const k of keys) {
+      const v = audio[k];
+      const desc = v instanceof Float32Array ? `Float32Array(${v.length})` :
+                   v instanceof Array        ? `Array(${v.length})` :
+                   typeof v;
+      log(`  audio.${k} = ${desc}`, 'info');
+    }
+  } else {
+    log(`audio is ${audio instanceof Float32Array ? `Float32Array(${audio.length})` : typeof audio}`, 'info');
+  }
+
+  // Try all known property shapes
+  let samples = null;
+  let sampleRate = 24000; // Kokoro default
+
+  if (audio instanceof Float32Array) {
+    // Shape A: bare Float32Array
+    samples = audio;
+  } else if (audio?.data instanceof Float32Array) {
+    // Shape B: { data: Float32Array, sampling_rate }
+    samples = audio.data;
+    sampleRate = audio.sampling_rate ?? sampleRate;
+  } else if (audio?.audio instanceof Float32Array) {
+    // Shape C: { audio: Float32Array, sampling_rate }
+    samples = audio.audio;
+    sampleRate = audio.sampling_rate ?? sampleRate;
+  } else if (Array.isArray(audio?.data)) {
+    // Shape D: { data: number[], sampling_rate }
+    samples = new Float32Array(audio.data);
+    sampleRate = audio.sampling_rate ?? sampleRate;
+  } else if (audio?.[0] instanceof Float32Array) {
+    // Shape E: [ Float32Array, sampleRate ]
+    samples = audio[0];
+    sampleRate = typeof audio[1] === 'number' ? audio[1] : sampleRate;
+  } else if (audio?.audio?.data instanceof Float32Array) {
+    // Shape F: { audio: { data: Float32Array, sampling_rate } }
+    samples = audio.audio.data;
+    sampleRate = audio.audio.sampling_rate ?? sampleRate;
+  }
+
+  if (!samples) {
+    throw new Error(`Unknown audio output shape. Keys: ${audio ? Object.keys(audio).join(', ') : typeof audio}`);
+  }
+
+  log(`Extracted: Float32Array(${samples.length}) @ ${sampleRate}Hz = ${(samples.length / sampleRate).toFixed(2)}s`, 'ok');
+  return { samples, sampleRate };
+}
+
+/**
  * Convert a Kokoro audio result to a WAV Blob.
- * Kokoro returns { data: Float32Array, sampling_rate: number }.
  */
 function audioToBlob(audio) {
-  return float32ToWavBlob(audio.data, audio.sampling_rate);
+  const { samples, sampleRate } = extractAudio(audio);
+  return float32ToWavBlob(samples, sampleRate);
 }
 
 /**
