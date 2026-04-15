@@ -136,6 +136,7 @@ sgraph_ai_tools__static/
 19. **Feature branches** branch from `dev`
 20. **Branch naming:** `claude/{description}-{session-id}`
 21. **Always push with:** `git push -u origin {branch-name}`
+22. **NEVER push directly to `dev` or `main`.** Agents must only push to their designated feature branch. Merging into `dev` is a human action.
 
 ---
 
