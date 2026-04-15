@@ -5,7 +5,7 @@
    v1.1.1 changes:
      - writeVaultFile: extracts vault.accessToken if present
      - _putObject / _putRef: accept optional accessToken; adds
-       Authorization: Bearer {token} header when provided
+       x-sgraph-access-token header when provided
 
    Rewrites v1.0.0 to use the sub-tree model (one tree object per directory),
    matching the sgit-ai CLI bottom-up tree construction. All metadata fields
@@ -585,7 +585,7 @@ async function _putObject(apiBaseUrl, vaultId, writeKey, objectId, data, accessT
     const barePath = `bare/data/${objectId}`
     const url      = `${apiBaseUrl}/api/vault/write/${vaultId}/${barePath}`
     const headers  = { 'x-sgraph-vault-write-key': writeKey }
-    if (accessToken) headers['Authorization'] = `Bearer ${accessToken}`
+    if (accessToken) headers['x-sgraph-access-token'] = accessToken
     const resp     = await fetch(url, { method: 'PUT', headers, body: data })
     if (!resp.ok) {
         const body = await resp.text().catch(() => '')
@@ -608,7 +608,7 @@ async function _putRef(apiBaseUrl, vaultId, writeKey, refFileId, data, accessTok
     const barePath = fileIdToPath(refFileId)
     const url      = `${apiBaseUrl}/api/vault/write/${vaultId}/${barePath}`
     const headers  = { 'x-sgraph-vault-write-key': writeKey }
-    if (accessToken) headers['Authorization'] = `Bearer ${accessToken}`
+    if (accessToken) headers['x-sgraph-access-token'] = accessToken
     const resp     = await fetch(url, { method: 'PUT', headers, body: data })
     if (!resp.ok) {
         const body = await resp.text().catch(() => '')
