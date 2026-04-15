@@ -561,17 +561,37 @@ async function runHealthCheck() {
   }
 
   // Step 5: Model download (KokoroTTS.from_pretrained)
-  setStep('constructor', 'running', 'Downloading model (~160MB, may take a while)…');
-  log('Starting KokoroTTS.from_pretrained() — this downloads ~160MB on first run…', 'info');
+  // Also pre-warms the worker in parallel — by the time health check finishes,
+  // the worker will already have its model loaded and be ready to generate.
+  setStep('constructor', 'running', 'Downloading model (~160MB on first run) + pre-warming worker…');
+  log('Starting KokoroTTS.from_pretrained() — also pre-warming worker in parallel…', 'info');
   await tick();
   t0 = Date.now();
+
+  // Fire-and-forget worker pre-warm (runs concurrently with main-thread load)
+  const cdnUrl = CDN_PATHS[selectedCdn];
+  const workerForPrewarm = getWorker();
+  if (!_workerReady) {
+    log('Worker: starting pre-warm load in background…', 'info');
+    // Set up a one-time ready listener for pre-warm
+    const onWorkerReady = (e) => {
+      if (e.data.type === 'ready') {
+        workerForPrewarm.removeEventListener('message', onWorkerReady);
+        log('Worker: pre-warm complete — ready for generation ⚡', 'ok');
+        document.getElementById('btn-worker').textContent = 'Generate (Worker) ⚡ ready';
+      }
+    };
+    workerForPrewarm.addEventListener('message', onWorkerReady);
+    workerForPrewarm.postMessage({ type: 'load', cdnUrl });
+  }
+
   try {
     tts = await KokoroTTS.from_pretrained('onnx-community/Kokoro-82M-v1.0-ONNX', {
       dtype: 'q8',
     });
     const ms = Date.now() - t0;
-    setStep('constructor', 'pass', `Model loaded in ${(ms/1000).toFixed(1)}s`, ms);
-    log(`Model loaded in ${(ms/1000).toFixed(1)}s`, 'ok');
+    setStep('constructor', 'pass', `Model loaded in ${(ms/1000).toFixed(1)}s (worker loading in background)`, ms);
+    log(`Main thread model loaded in ${(ms/1000).toFixed(1)}s`, 'ok');
   } catch (e) {
     const ms = Date.now() - t0;
     setStep('constructor', 'fail', `from_pretrained failed: ${e.message}`, ms);
@@ -1119,13 +1139,11 @@ document.getElementById('btn-worker').addEventListener('click', async () => {
   const t0 = Date.now();
 
   try {
-    // Load model in worker if not already ready
+    // Load model in worker if not already ready (may already be loading from health check pre-warm)
     if (!_workerReady) {
-      setStatus('Worker: loading model…');
+      setStatus('Worker: loading model (not yet pre-warmed — run health check first for instant start)…');
+      log('Worker not ready — loading now. Tip: run health check first to pre-warm the worker.', 'warn');
       await new Promise((resolve, reject) => {
-        _workerResolve = resolve;
-        _workerReject  = reject;
-        // Listen for ready specifically
         const onReady = (e) => {
           if (e.data.type === 'ready') {
             worker.removeEventListener('message', onReady);
@@ -1138,6 +1156,9 @@ document.getElementById('btn-worker').addEventListener('click', async () => {
         worker.addEventListener('message', onReady);
         worker.postMessage({ type: 'load', cdnUrl });
       });
+    } else {
+      log('Worker already ready (pre-warmed during health check) ⚡', 'ok');
+      setStatus('Worker ready — generating…');
     }
 
     // Generate
