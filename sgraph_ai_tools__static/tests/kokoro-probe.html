@@ -328,7 +328,7 @@
     <div style="display:flex;align-items:center;gap:12px;margin-bottom:8px;">
       <div style="width:10px;height:10px;border-radius:50%;background:#4ECDC4;animation:pulse 1s infinite;flex-shrink:0"></div>
       <span id="gen-status" style="font-size:0.85rem;color:#c9d1d9;flex:1">Generating…</span>
-      <span id="gen-elapsed" style="font-size:1.1rem;font-weight:700;color:#4ECDC4;font-variant-numeric:tabular-nums;min-width:52px;text-align:right">0.0s</span>
+      <span id="gen-elapsed" style="font-size:1.1rem;font-weight:700;color:#4ECDC4;font-variant-numeric:tabular-nums;min-width:52px;text-align:right">0s</span>
     </div>
     <div style="height:4px;background:#21262d;border-radius:2px;overflow:hidden;">
       <div id="gen-bar" style="height:100%;background:#4ECDC4;width:0%;transition:width 0.3s ease;"></div>
@@ -748,13 +748,13 @@ let _timerStart = 0;
 
 function startTimer() {
   _timerStart = Date.now();
-  document.getElementById('gen-elapsed').textContent = '0.0s';
+  document.getElementById('gen-elapsed').textContent = '0s';
   document.getElementById('gen-progress').style.display = '';
   document.getElementById('gen-bar').style.width = '0%';
   document.getElementById('btn-abort').style.display = '';
   _timerInterval = setInterval(() => {
-    const elapsed = (Date.now() - _timerStart) / 1000;
-    document.getElementById('gen-elapsed').textContent = `${elapsed.toFixed(1)}s`;
+    const elapsed = Math.floor((Date.now() - _timerStart) / 1000);
+    document.getElementById('gen-elapsed').textContent = `${elapsed}s`;
   }, 100);
 }
 
@@ -913,7 +913,7 @@ function tick() { return new Promise(r => setTimeout(r, 0)); }
 // Worker pool — each worker is an independent Kokoro instance
 // ─────────────────────────────────────────────────────────────────────────────
 
-const POOL_SIZE = 2;
+const POOL_SIZE = 8;
 const _pool = [];       // { worker, ready }
 let _workerReady = false;
 
