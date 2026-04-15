@@ -738,9 +738,10 @@ document.getElementById('btn-stream').addEventListener('click', async () => {
 
   if (!text) { log('No text entered', 'warn'); return; }
 
-  // Split into sentences for streaming
-  const chunks = text.match(/[^.!?]+[.!?]+/g) || [text];
-  log(`Streaming ${chunks.length} chunks: ${chunks.map(c => `"${c.trim().slice(0,30)}…"`).join(', ')}`, 'info');
+  // stream() takes a single string (or TextSplitterStream) — NOT an array
+  // It splits internally and yields chunks as they generate
+  const sentences = text.match(/[^.!?]+[.!?]+/g) || [text];
+  log(`Streaming as single string (${sentences.length} sentences detected, ${text.length} chars)`, 'info');
   document.getElementById('btn-stream').disabled = true;
 
   const audioBuffers = [];
@@ -748,7 +749,7 @@ document.getElementById('btn-stream').addEventListener('click', async () => {
   const t0 = Date.now();
 
   try {
-    const stream = tts.stream(chunks, { voice, speed });
+    const stream = tts.stream(text, { voice, speed });
     for await (const { text: chunkText, audio } of stream) {
       const extracted = extractAudio(audio);
       const chunkMs = Date.now() - t0 - totalGenMs;
@@ -779,7 +780,7 @@ document.getElementById('btn-stream').addEventListener('click', async () => {
       'Duration': `${durationSecs.toFixed(2)}s`,
       'Total gen time': `${totalGenMs}ms`,
       'Realtime ×': `${(durationSecs / (totalGenMs/1000)).toFixed(1)}×`,
-      'Chunks': String(chunks.length),
+      'Chunks': String(audioBuffers.length),
       'Voice': voice,
     });
 
