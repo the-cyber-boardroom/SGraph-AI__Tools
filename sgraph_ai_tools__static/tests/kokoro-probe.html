@@ -318,6 +318,18 @@
     <button class="btn-secondary" id="btn-stream">Stream (chunked)</button>
   </div>
 
+  <!-- Progress display — visible during generation -->
+  <div id="gen-progress" style="display:none;margin-top:14px;">
+    <div style="display:flex;align-items:center;gap:12px;margin-bottom:8px;">
+      <div style="width:10px;height:10px;border-radius:50%;background:#4ECDC4;animation:pulse 1s infinite;flex-shrink:0"></div>
+      <span id="gen-status" style="font-size:0.85rem;color:#c9d1d9;flex:1">Generating…</span>
+      <span id="gen-elapsed" style="font-size:1.1rem;font-weight:700;color:#4ECDC4;font-variant-numeric:tabular-nums;min-width:52px;text-align:right">0.0s</span>
+    </div>
+    <div style="height:4px;background:#21262d;border-radius:2px;overflow:hidden;">
+      <div id="gen-bar" style="height:100%;background:#4ECDC4;width:0%;transition:width 0.3s ease;"></div>
+    </div>
+  </div>
+
   <div class="audio-wrap" id="audio-wrap">
     <audio id="audio-player" controls></audio>
     <div class="stats-row" id="stats-row"></div>
@@ -681,113 +693,147 @@ document.getElementById('speed-range').addEventListener('input', e => {
 });
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Generate full audio
+// Elapsed timer
 // ─────────────────────────────────────────────────────────────────────────────
 
-document.getElementById('btn-generate').addEventListener('click', async () => {
-  if (!tts) { log('TTS not loaded — run health check first', 'err'); return; }
+let _timerInterval = null;
+let _timerStart = 0;
 
-  const text = document.getElementById('narration-text').value.trim();
-  const voice = document.getElementById('voice-select').value;
-  const speed = parseFloat(document.getElementById('speed-range').value);
+function startTimer() {
+  _timerStart = Date.now();
+  document.getElementById('gen-elapsed').textContent = '0.0s';
+  document.getElementById('gen-progress').style.display = '';
+  document.getElementById('gen-bar').style.width = '0%';
+  _timerInterval = setInterval(() => {
+    const elapsed = (Date.now() - _timerStart) / 1000;
+    document.getElementById('gen-elapsed').textContent = `${elapsed.toFixed(1)}s`;
+  }, 100);
+}
 
-  if (!text) { log('No text entered', 'warn'); return; }
+function stopTimer() {
+  clearInterval(_timerInterval);
+  _timerInterval = null;
+  document.getElementById('gen-progress').style.display = 'none';
+}
 
-  log(`Generating: voice=${voice} speed=${speed} chars=${text.length}`, 'info');
-  document.getElementById('btn-generate').disabled = true;
-
-  const t0 = Date.now();
-  try {
-    const audio = await tts.generate(text, { voice, speed });
-    const genMs = Date.now() - t0;
-
-    const { samples, sampleRate } = extractAudio(audio);
-    const blob = float32ToWavBlob(samples, sampleRate);
-    const audioEl = document.getElementById('audio-player');
-    audioEl.src = URL.createObjectURL(blob);
-
-    const durationSecs = samples.length / sampleRate;
-    log(`Generated ${durationSecs.toFixed(2)}s audio in ${genMs}ms (${(durationSecs / (genMs/1000)).toFixed(1)}× realtime)`, 'ok');
-
-    showStats({
-      'Duration': `${durationSecs.toFixed(2)}s`,
-      'Gen time': `${genMs}ms`,
-      'Realtime ×': `${(durationSecs / (genMs/1000)).toFixed(1)}×`,
-      'File size': formatBytes(blob.size),
-      'Voice': voice,
-    });
-
-    document.getElementById('audio-wrap').classList.add('visible');
-  } catch (e) {
-    log(`generate() FAILED: ${e.message}`, 'err');
-  } finally {
-    document.getElementById('btn-generate').disabled = false;
+function setStatus(msg, barPct) {
+  document.getElementById('gen-status').textContent = msg;
+  if (barPct !== undefined) {
+    document.getElementById('gen-bar').style.width = `${Math.min(100, barPct)}%`;
   }
-});
+}
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Stream chunked audio
+// Shared streaming core — used by both buttons
+// generate() blocks the main thread; stream() yields between sentences
+// so the elapsed timer can tick and the UI stays partially responsive.
 // ─────────────────────────────────────────────────────────────────────────────
 
-document.getElementById('btn-stream').addEventListener('click', async () => {
-  if (!tts) { log('TTS not loaded — run health check first', 'err'); return; }
+async function generateViaStream(text, voice, speed, label) {
+  // Estimate sentence count for progress bar
+  const sentenceCount = (text.match(/[^.!?]+[.!?]+/g) || [text]).length;
+  log(`${label}: voice=${voice} speed=${speed} chars=${text.length} ~${sentenceCount} sentences`, 'info');
+  log('Note: UI freezes WITHIN each sentence (WASM on main thread). Ticks between sentences.', 'warn');
 
-  const text = document.getElementById('narration-text').value.trim();
-  const voice = document.getElementById('voice-select').value;
-  const speed = parseFloat(document.getElementById('speed-range').value);
-
-  if (!text) { log('No text entered', 'warn'); return; }
-
-  // stream() takes a single string (or TextSplitterStream) — NOT an array
-  // It splits internally and yields chunks as they generate
-  const sentences = text.match(/[^.!?]+[.!?]+/g) || [text];
-  log(`Streaming as single string (${sentences.length} sentences detected, ${text.length} chars)`, 'info');
-  document.getElementById('btn-stream').disabled = true;
+  startTimer();
+  setStatus(`Starting Kokoro TTS…`);
 
   const audioBuffers = [];
-  let totalGenMs = 0;
   const t0 = Date.now();
 
   try {
     const stream = tts.stream(text, { voice, speed });
+    let chunkIndex = 0;
+
     for await (const { text: chunkText, audio } of stream) {
+      chunkIndex++;
       const extracted = extractAudio(audio);
-      const chunkMs = Date.now() - t0 - totalGenMs;
-      log(`Chunk: "${chunkText.trim().slice(0,40)}" — ${(extracted.samples.length / extracted.sampleRate).toFixed(2)}s audio (${chunkMs}ms)`, 'ok');
+      const chunkSecs = (extracted.samples.length / extracted.sampleRate).toFixed(2);
+      const elapsedMs = Date.now() - t0;
+      log(`Chunk ${chunkIndex}: "${chunkText.trim().slice(0, 45)}…" → ${chunkSecs}s audio (${elapsedMs}ms elapsed)`, 'ok');
       audioBuffers.push(extracted);
+
+      // Update status between chunks — this fires because stream() yields
+      setStatus(
+        `Chunk ${chunkIndex} done (${chunkSecs}s audio) — generating next…`,
+        (chunkIndex / Math.max(sentenceCount, chunkIndex)) * 90
+      );
     }
 
-    totalGenMs = Date.now() - t0;
+    const totalMs = Date.now() - t0;
+    stopTimer();
+    setStatus('Done', 100);
 
-    // Concatenate all Float32 buffers
+    // Concatenate all chunks into one buffer
+    if (audioBuffers.length === 0) throw new Error('No audio chunks generated');
     const totalSamples = audioBuffers.reduce((n, a) => n + a.samples.length, 0);
     const sampleRate = audioBuffers[0].sampleRate;
     const combined = new Float32Array(totalSamples);
     let offset = 0;
-    for (const a of audioBuffers) {
-      combined.set(a.samples, offset);
-      offset += a.samples.length;
-    }
+    for (const a of audioBuffers) { combined.set(a.samples, offset); offset += a.samples.length; }
 
     const blob = float32ToWavBlob(combined, sampleRate);
-    const audioEl = document.getElementById('audio-player');
-    audioEl.src = URL.createObjectURL(blob);
+    document.getElementById('audio-player').src = URL.createObjectURL(blob);
 
     const durationSecs = totalSamples / sampleRate;
-    log(`Streamed ${chunks.length} chunks → ${durationSecs.toFixed(2)}s total in ${totalGenMs}ms`, 'ok');
+    log(`Done: ${audioBuffers.length} chunks → ${durationSecs.toFixed(2)}s audio in ${(totalMs/1000).toFixed(1)}s (${(durationSecs/(totalMs/1000)).toFixed(2)}× realtime)`, 'ok');
 
     showStats({
-      'Duration': `${durationSecs.toFixed(2)}s`,
-      'Total gen time': `${totalGenMs}ms`,
-      'Realtime ×': `${(durationSecs / (totalGenMs/1000)).toFixed(1)}×`,
-      'Chunks': String(audioBuffers.length),
-      'Voice': voice,
+      'Duration':    `${durationSecs.toFixed(2)}s`,
+      'Gen time':    `${(totalMs/1000).toFixed(1)}s`,
+      'Realtime ×':  `${(durationSecs/(totalMs/1000)).toFixed(2)}×`,
+      'Chunks':      String(audioBuffers.length),
+      'File size':   formatBytes(blob.size),
+      'Voice':       voice,
     });
 
     document.getElementById('audio-wrap').classList.add('visible');
+
   } catch (e) {
+    stopTimer();
     log(`stream() FAILED: ${e.message}`, 'err');
+    throw e;
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Generate button — uses stream() internally for timer responsiveness
+// ─────────────────────────────────────────────────────────────────────────────
+
+document.getElementById('btn-generate').addEventListener('click', async () => {
+  if (!tts) { log('TTS not loaded — run health check first', 'err'); return; }
+  const text  = document.getElementById('narration-text').value.trim();
+  const voice = document.getElementById('voice-select').value;
+  const speed = parseFloat(document.getElementById('speed-range').value);
+  if (!text) { log('No text entered', 'warn'); return; }
+
+  document.getElementById('btn-generate').disabled = true;
+  document.getElementById('btn-stream').disabled = true;
+  try {
+    await generateViaStream(text, voice, speed, 'Generate');
   } finally {
+    document.getElementById('btn-generate').disabled = false;
+    document.getElementById('btn-stream').disabled = false;
+  }
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Stream button — same core, just labelled differently
+// ─────────────────────────────────────────────────────────────────────────────
+
+document.getElementById('btn-stream').addEventListener('click', async () => {
+  if (!tts) { log('TTS not loaded — run health check first', 'err'); return; }
+  const text  = document.getElementById('narration-text').value.trim();
+  const voice = document.getElementById('voice-select').value;
+  const speed = parseFloat(document.getElementById('speed-range').value);
+  if (!text) { log('No text entered', 'warn'); return; }
+
+  document.getElementById('btn-generate').disabled = true;
+  document.getElementById('btn-stream').disabled = true;
+  try {
+    await generateViaStream(text, voice, speed, 'Stream');
+  } finally {
+    document.getElementById('btn-generate').disabled = false;
     document.getElementById('btn-stream').disabled = false;
   }
 });
