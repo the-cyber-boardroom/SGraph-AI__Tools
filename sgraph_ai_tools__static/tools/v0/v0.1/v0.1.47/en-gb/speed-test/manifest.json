@@ -1,0 +1,110 @@
+{
+  "name": "Speed Test",
+  "slug": "speed-test",
+  "description": "Measure upload and download speed to SG/Send infrastructure. Sim mode runs an offline AES-256-GCM crypto benchmark. Live mode measures real network throughput using ChunkedUploader and ChunkedDownloader.",
+  "icon": "⚡",
+  "version": "0.1.39",
+  "status": "beta",
+  "category": "misc",
+  "keywords": ["speed", "bandwidth", "upload", "download", "network", "diagnostic", "mbps", "crypto", "benchmark"],
+  "api": {
+    "window": "__tool",
+    "actions": [
+      {
+        "name": "runAll",
+        "description": "Run the full test sequence for the current mode (sim: encrypt+decrypt; live: upload+download).",
+        "async": true,
+        "returns": "Promise<void>"
+      },
+      {
+        "name": "runSim",
+        "description": "Run the crypto benchmark in isolation. Returns a SimResult.",
+        "async": true,
+        "params": [{ "name": "opts", "type": "{ sizeBytes?: number, onProgress?: Function }" }],
+        "returns": "Promise<SimResult>"
+      },
+      {
+        "name": "runUpload",
+        "description": "Run a live upload test using ChunkedUploader. Requires sendUrl and accessToken.",
+        "async": true,
+        "params": [{ "name": "opts", "type": "{ sendUrl?, accessToken?, sizeBytes?, chunkSize?, maxConcurrent?, onProgress? }" }],
+        "returns": "Promise<LiveUploadResult>"
+      },
+      {
+        "name": "runDownload",
+        "description": "Run a live download test against a URL using ChunkedDownloader.",
+        "async": true,
+        "params": [
+          { "name": "url",  "type": "string" },
+          { "name": "opts", "type": "{ chunkSize?, maxConcurrent?, onProgress? }" }
+        ],
+        "returns": "Promise<LiveDownloadResult>"
+      },
+      {
+        "name": "cancel",
+        "description": "Abort any running test.",
+        "async": false
+      },
+      {
+        "name": "setMode",
+        "description": "Switch between 'sim' and 'live' mode.",
+        "async": false,
+        "params": [{ "name": "mode", "type": "'sim' | 'live'" }]
+      },
+      {
+        "name": "setTarget",
+        "description": "Set the SG/Send base URL (live mode).",
+        "async": false,
+        "params": [{ "name": "url", "type": "string" }]
+      },
+      {
+        "name": "setAccessToken",
+        "description": "Set the access token for live upload (value is not logged).",
+        "async": false,
+        "params": [{ "name": "token", "type": "string" }]
+      },
+      {
+        "name": "setDownloadUrl",
+        "description": "Set the download URL for live download test.",
+        "async": false,
+        "params": [{ "name": "url", "type": "string" }]
+      },
+      {
+        "name": "getLastResult",
+        "description": "Return the most recent test result, or null.",
+        "async": false,
+        "returns": "SimResult | { upload, download } | null"
+      },
+      {
+        "name": "getHistory",
+        "description": "Return the last 10 test results with timestamps.",
+        "async": false,
+        "returns": "Array<{ ts: number, result: SimResult | LiveResult }>"
+      }
+    ],
+    "events": [
+      { "name": "tool:ready",     "description": "Fired when SgToolApi.activate() completes and window.__tool is live." },
+      { "name": "tool:connected", "description": "Not used by speed-test (no credential connection step)." }
+    ]
+  },
+  "dependencies": {
+    "core": [
+      { "module": "sg-crypto",        "path": "/core/crypto/v1/v1.0/v1.0.0/sg-crypto.js" },
+      { "module": "sg-send-crypto",   "path": "/core/send-crypto/v1/v1.0/v1.0.0/sg-send-crypto.js" },
+      { "module": "sg-send-upload",   "path": "/core/sg-send-upload/v1/v1.1/v1.1.0/sg-send-upload.js" },
+      { "module": "sg-send-download", "path": "/core/sg-send-download/v1/v1.0/v1.0.0/sg-send-download.js" },
+      { "module": "sg-tool-api",      "path": "/core/sg-tool-api/v0/v0.1/v0.1.0/sg-tool-api.js" },
+      { "module": "sg-tool-api-events","path": "/core/sg-tool-api/v0/v0.1/v0.1.0/sg-tool-api-events.js" }
+    ],
+    "components": [
+      { "module": "sg-tool-api-explorer", "path": "/components/tool-api/sg-tool-api-explorer/v0/v0.1/v0.1.0/sg-tool-api-explorer.js" },
+      { "module": "sg-tool-api-console",  "path": "/components/tool-api/sg-tool-api-console/v0/v0.1/v0.1.0/sg-tool-api-console.js" },
+      { "module": "sg-tool-api-manifest", "path": "/components/tool-api/sg-tool-api-manifest/v0/v0.1/v0.1.0/sg-tool-api-manifest.js" }
+    ],
+    "shared": [
+      { "module": "sg-site-header", "path": "/components/site-header/v1/v1.0/v1.0.2/sg-site-header.js" },
+      { "module": "sg-layout",      "path": "/core/sg-layout/v0.1.0/sg-layout.js" },
+      { "module": "tools.css",      "path": "/_common/css/tools.css" }
+    ]
+  }
+}
