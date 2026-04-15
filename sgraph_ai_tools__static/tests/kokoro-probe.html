@@ -4,6 +4,14 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Kokoro TTS Probe — tools.sgraph.ai</title>
+  <!-- Import map: lets jsdelivr dist file resolve @huggingface/transformers bare specifier -->
+  <script type="importmap">
+  {
+    "imports": {
+      "@huggingface/transformers": "https://cdn.jsdelivr.net/npm/@huggingface/transformers/dist/transformers.js"
+    }
+  }
+  </script>
   <style>
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
@@ -261,10 +269,15 @@
 <div class="card">
   <h2>CDN Path</h2>
   <div class="cdn-options">
-    <button class="cdn-btn active" data-cdn="esm.sh">esm.sh/kokoro-js@1.2.2</button>
-    <button class="cdn-btn" data-cdn="jsdelivr">jsdelivr kokoro-js@1.2.2</button>
-    <button class="cdn-btn" data-cdn="jsdelivr-latest">jsdelivr kokoro-js@latest</button>
+    <button class="cdn-btn active" data-cdn="esm.sh">esm.sh (rewrites bare specifiers)</button>
+    <button class="cdn-btn" data-cdn="jsdelivr-importmap">jsdelivr + importmap</button>
+    <button class="cdn-btn" data-cdn="jsdelivr-esm">jsdelivr .mjs</button>
+    <button class="cdn-btn" data-cdn="unpkg">unpkg</button>
   </div>
+  <p style="font-size:0.75rem;color:#8b949e;margin-top:8px;">
+    ⚠ Version @1.2.2 does not exist on npm. All paths now target <code style="color:#4ECDC4">@latest</code>.
+    The import map in &lt;head&gt; resolves <code style="color:#4ECDC4">@huggingface/transformers</code> for jsdelivr paths.
+  </p>
   <div id="cdn-url-display" style="font-family:'SF Mono','Fira Code',monospace;font-size:0.75rem;color:#4ECDC4;padding:8px 12px;background:#0d1117;border-radius:6px;border:1px solid #21262d;word-break:break-all;"></div>
 </div>
 
@@ -324,9 +337,10 @@
 // ─────────────────────────────────────────────────────────────────────────────
 
 const CDN_PATHS = {
-  'esm.sh':           'https://esm.sh/kokoro-js@1.2.2',
-  'jsdelivr':         'https://cdn.jsdelivr.net/npm/kokoro-js@1.2.2/dist/kokoro.js',
-  'jsdelivr-latest':  'https://cdn.jsdelivr.net/npm/kokoro-js/dist/kokoro.js',
+  'esm.sh':           'https://esm.sh/kokoro-js',           // no version — esm.sh resolves latest AND rewrites bare specifiers
+  'jsdelivr-importmap':'https://cdn.jsdelivr.net/npm/kokoro-js/dist/kokoro.js', // needs importmap (added in <head>)
+  'jsdelivr-esm':     'https://cdn.jsdelivr.net/npm/kokoro-js/dist/kokoro.mjs', // try .mjs variant
+  'unpkg':            'https://unpkg.com/kokoro-js/dist/kokoro.js',
 };
 
 let selectedCdn = 'esm.sh';
@@ -517,8 +531,14 @@ async function runHealthCheck() {
     log(`Dynamic import OK in ${ms}ms. KokoroTTS: ${typeof KokoroTTS}`, 'ok');
   } catch (e) {
     const ms = Date.now() - t0;
-    setStep('import', 'fail', `Import failed: ${e.message}`, ms);
-    log(`Dynamic import FAILED: ${e.message}`, 'err');
+    let hint = '';
+    if (e.message.includes('bare specifier') || e.message.includes('Relative references')) {
+      hint = ' [bare specifier — package has internal npm imports, needs esm.sh or importmap]';
+    } else if (e.message.includes('404') || e.message.includes('fetch')) {
+      hint = ' [package not found at this URL — check version/path]';
+    }
+    setStep('import', 'fail', `Import failed: ${e.message}${hint}`, ms);
+    log(`Dynamic import FAILED: ${e.message}${hint}`, 'err');
     return;
   }
 
