@@ -567,9 +567,7 @@ async function runHealthCheck() {
   await tick();
   t0 = Date.now();
 
-  const cdnUrl = CDN_PATHS[selectedCdn];
-
-  // Main thread load
+  // cdnUrl already declared at top of runHealthCheck()
   const mainLoad = KokoroTTS.from_pretrained('onnx-community/Kokoro-82M-v1.0-ONNX', { dtype: 'q8' })
     .then(result => {
       const ms = Date.now() - t0;
