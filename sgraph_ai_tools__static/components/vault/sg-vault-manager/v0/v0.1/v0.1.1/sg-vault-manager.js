@@ -6,7 +6,7 @@
  *    the user ticks "Remember key". Pre-fills the key field when a known vault
  *    is selected from the dropdown.
  *  - New "Access Token" field: an optional server-level auth token passed through
- *    to write operations as Authorization: Bearer {token}. Stored in registry.
+ *    to write operations as x-sgraph-access-token header. Stored in registry.
  *    Pre-fills when selecting a known vault.
  *  - vault:connected event detail now includes { …, accessToken }.
  *
