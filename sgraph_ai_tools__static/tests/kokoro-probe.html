@@ -255,9 +255,13 @@
       font-size: 0.75rem;
       font-family: 'SF Mono', 'Fira Code', monospace;
       color: #c9d1d9;
+      cursor: pointer;
+      transition: border-color 0.1s, background 0.1s;
     }
 
+    .voice-tag:hover { border-color: #8b949e; }
     .voice-tag.highlight { border-color: #4ECDC4; color: #4ECDC4; }
+    .voice-tag.active-voice { background: #0e2a28; border-color: #4ECDC4; color: #4ECDC4; box-shadow: 0 0 0 1px #4ECDC4; }
   </style>
 </head>
 <body>
@@ -314,7 +318,8 @@
   </div>
 
   <div class="btn-row">
-    <button class="btn-primary" id="btn-generate">Generate Audio</button>
+    <button class="btn-primary" id="btn-generate">Generate (main thread)</button>
+    <button class="btn-secondary" id="btn-worker">Generate (Worker) ⚡</button>
     <button class="btn-secondary" id="btn-stream">Stream (chunked)</button>
     <button class="btn-secondary" id="btn-abort" style="display:none;background:#4a1e1e;color:#f85149;border-color:#f85149">Abort (reload)</button>
   </div>
@@ -674,15 +679,38 @@ function renderVoices(voices) {
   document.getElementById('voice-card').style.display = '';
   const grid = document.getElementById('voice-grid');
   grid.innerHTML = voices.map(v =>
-    `<span class="voice-tag ${FEATURED_VOICES.includes(v) ? 'highlight' : ''}">${v}</span>`
+    `<span class="voice-tag ${FEATURED_VOICES.includes(v) ? 'highlight' : ''}" data-voice="${v}" title="Click to select">${v}</span>`
   ).join('');
+  // Click-to-select
+  grid.querySelectorAll('.voice-tag').forEach(tag => {
+    tag.addEventListener('click', () => {
+      const v = tag.dataset.voice;
+      document.getElementById('voice-select').value = v;
+      // Update active highlight on tags
+      grid.querySelectorAll('.voice-tag').forEach(t => t.classList.remove('active-voice'));
+      tag.classList.add('active-voice');
+      log(`Voice selected: ${v}`, 'info');
+    });
+  });
 }
 
 function populateVoiceSelect(voices) {
+  const defaultVoice = 'af_bella';
   const sel = document.getElementById('voice-select');
   sel.innerHTML = voices.map(v =>
-    `<option value="${v}" ${v === 'af_bella' ? 'selected' : ''}>${v}</option>`
+    `<option value="${v}" ${v === defaultVoice ? 'selected' : ''}>${v}</option>`
   ).join('');
+  // Sync the tag highlight to default
+  setTimeout(() => {
+    const tag = document.querySelector(`.voice-tag[data-voice="${defaultVoice}"]`);
+    if (tag) tag.classList.add('active-voice');
+  }, 0);
+  // Keep tags in sync when select changes directly
+  sel.addEventListener('change', () => {
+    document.querySelectorAll('.voice-tag').forEach(t => t.classList.remove('active-voice'));
+    const tag = document.querySelector(`.voice-tag[data-voice="${sel.value}"]`);
+    if (tag) tag.classList.add('active-voice');
+  });
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -997,6 +1025,167 @@ function formatBytes(bytes) {
 // ─────────────────────────────────────────────────────────────────────────────
 
 function tick() { return new Promise(r => setTimeout(r, 0)); }
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Worker mode — Kokoro runs in a Web Worker, main thread stays free
+// ─────────────────────────────────────────────────────────────────────────────
+
+let _worker = null;
+let _workerReady = false;
+
+function getWorker() {
+  if (_worker) return _worker;
+  log('Spawning kokoro-worker.js…', 'info');
+  _worker = new Worker('./kokoro-worker.js', { type: 'module' });
+  _worker.addEventListener('message', onWorkerMessage);
+  _worker.addEventListener('error', e => log(`Worker error: ${e.message}`, 'err'));
+  return _worker;
+}
+
+// Pending generation callback
+let _workerResolve = null;
+let _workerReject  = null;
+let _workerBuffers = [];
+let _workerSampleRate = 24000;
+
+function onWorkerMessage(e) {
+  const msg = e.data;
+
+  if (msg.type === 'loading') {
+    log(`Worker: ${msg.message}`, 'info');
+    setStatus(msg.message);
+    return;
+  }
+
+  if (msg.type === 'ready') {
+    _workerReady = true;
+    log(`Worker ready. Voices: ${msg.voices.slice(0,5).join(', ')}…`, 'ok');
+    return;
+  }
+
+  if (msg.type === 'progress') {
+    const pct = ((msg.index / msg.total) * 90).toFixed(0);
+    setStatus(`Worker: sentence ${msg.index + 1}/${msg.total} — "${msg.sentence.slice(0, 50)}…"`, pct);
+    log(`Worker: sentence ${msg.index + 1}/${msg.total} generating…`, 'info');
+    return;
+  }
+
+  if (msg.type === 'chunk') {
+    // samples.buffer was transferred (zero-copy)
+    const durationSecs = (msg.samples.length / msg.sampleRate).toFixed(2);
+    log(`Worker chunk ${msg.index + 1}: "${msg.sentence.slice(0, 45)}" → ${durationSecs}s`, 'ok');
+    _workerBuffers.push({ samples: msg.samples, sampleRate: msg.sampleRate });
+    _workerSampleRate = msg.sampleRate;
+    setStatus(`Sentence ${msg.index + 1}/${msg.total} done (${durationSecs}s) — next…`,
+              ((msg.index + 1) / msg.total) * 90);
+    return;
+  }
+
+  if (msg.type === 'done') {
+    if (_workerResolve) { _workerResolve(); _workerResolve = null; }
+    return;
+  }
+
+  if (msg.type === 'error') {
+    log(`Worker error: ${msg.message}`, 'err');
+    if (_workerReject) { _workerReject(new Error(msg.message)); _workerReject = null; }
+    return;
+  }
+}
+
+document.getElementById('btn-worker').addEventListener('click', async () => {
+  if (!tts) { log('Run health check first (loads model on main thread for comparison)', 'warn'); }
+
+  const text  = document.getElementById('narration-text').value.trim();
+  const voice = document.getElementById('voice-select').value;
+  const speed = parseFloat(document.getElementById('speed-range').value);
+  if (!text) { log('No text entered', 'warn'); return; }
+
+  const sentences = text.match(/[^.!?]+[.!?]+/g) || [text];
+  const cdnUrl = CDN_PATHS[selectedCdn];
+
+  log(`Worker mode: ${sentences.length} sentences, voice=${voice}, speed=${speed}`, 'info');
+  log('Main thread is FREE during generation — timer should tick smoothly!', 'info');
+
+  document.getElementById('btn-generate').disabled = true;
+  document.getElementById('btn-worker').disabled = true;
+  document.getElementById('btn-stream').disabled = true;
+
+  startTimer();
+  setStatus('Spawning worker…');
+  _workerBuffers = [];
+
+  const worker = getWorker();
+  const t0 = Date.now();
+
+  try {
+    // Load model in worker if not already ready
+    if (!_workerReady) {
+      setStatus('Worker: loading model…');
+      await new Promise((resolve, reject) => {
+        _workerResolve = resolve;
+        _workerReject  = reject;
+        // Listen for ready specifically
+        const onReady = (e) => {
+          if (e.data.type === 'ready') {
+            worker.removeEventListener('message', onReady);
+            resolve();
+          } else if (e.data.type === 'error') {
+            worker.removeEventListener('message', onReady);
+            reject(new Error(e.data.message));
+          }
+        };
+        worker.addEventListener('message', onReady);
+        worker.postMessage({ type: 'load', cdnUrl });
+      });
+    }
+
+    // Generate
+    const genId = `gen-${Date.now()}`;
+    await new Promise((resolve, reject) => {
+      _workerResolve = resolve;
+      _workerReject  = reject;
+      worker.postMessage({ type: 'generate', id: genId, sentences, voice, speed });
+    });
+
+    const totalMs = Date.now() - t0;
+    stopTimer();
+
+    // Concatenate
+    if (_workerBuffers.length === 0) throw new Error('No audio received from worker');
+    const totalSamples = _workerBuffers.reduce((n, a) => n + a.samples.length, 0);
+    const combined = new Float32Array(totalSamples);
+    let offset = 0;
+    for (const a of _workerBuffers) { combined.set(a.samples, offset); offset += a.samples.length; }
+
+    const blob = float32ToWavBlob(combined, _workerSampleRate);
+    document.getElementById('audio-player').src = URL.createObjectURL(blob);
+    setStatus('Done ✓', 100);
+
+    const durationSecs = totalSamples / _workerSampleRate;
+    log(`Worker complete: ${durationSecs.toFixed(2)}s audio in ${(totalMs/1000).toFixed(1)}s (${(durationSecs/(totalMs/1000)).toFixed(2)}× realtime)`, 'ok');
+
+    showStats({
+      'Duration':   `${durationSecs.toFixed(2)}s`,
+      'Gen time':   `${(totalMs/1000).toFixed(1)}s`,
+      'Realtime ×': `${(durationSecs/(totalMs/1000)).toFixed(2)}×`,
+      'Sentences':  String(_workerBuffers.length),
+      'File size':  formatBytes(blob.size),
+      'Voice':      voice,
+      'Mode':       'Worker ⚡',
+    });
+
+    document.getElementById('audio-wrap').classList.add('visible');
+
+  } catch (e) {
+    stopTimer();
+    log(`Worker generation FAILED: ${e.message}`, 'err');
+  } finally {
+    document.getElementById('btn-generate').disabled = false;
+    document.getElementById('btn-worker').disabled = false;
+    document.getElementById('btn-stream').disabled = false;
+  }
+});
 
 log('Probe ready. Select a CDN path and click "Run Health Check".', 'info');
 
