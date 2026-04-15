@@ -1,0 +1,55 @@
+/* preview.css — canvas preview panel, progress overlay */
+
+.vc-canvas-wrap {
+    position: relative;
+    background: #000;
+    border: 1px solid var(--vc-border);
+    border-top: none;
+    border-radius: 0 0 var(--vc-radius) var(--vc-radius);
+    overflow: hidden;
+    flex: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+#vc-preview-canvas {
+    max-width: 100%;
+    max-height: 100%;
+    display: block;
+    object-fit: contain;
+}
+
+/* ── Progress overlay ─────────────────────────────────────────────── */
+
+.vc-progress-overlay {
+    position: absolute;
+    bottom: 0; left: 0; right: 0;
+    padding: 10px 16px;
+    background: rgba(10,10,24,0.85);
+    backdrop-filter: blur(4px);
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    transition: opacity 0.2s;
+}
+.vc-progress-overlay.hidden { display: none; }
+
+.vc-progress-label {
+    font-size: 0.82rem;
+    color: var(--vc-text-muted);
+}
+
+.vc-progress-bar-track {
+    height: 4px;
+    background: var(--vc-border);
+    border-radius: 2px;
+    overflow: hidden;
+}
+
+.vc-progress-bar-fill {
+    height: 100%;
+    background: var(--vc-accent);
+    border-radius: 2px;
+    transition: width 0.3s;
+}
