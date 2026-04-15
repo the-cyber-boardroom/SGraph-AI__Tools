@@ -1,0 +1,84 @@
+{
+  "name": "Voice Memo",
+  "slug": "voice-memo",
+  "description": "Record, transcribe, and document voice memos locally in your browser. Zero data loss, local AI transcription via Whisper WASM, no uploads.",
+  "icon": "🎙",
+  "version": "0.1.23",
+  "status": "live",
+  "category": "audio",
+  "keywords": [
+    "voice", "memo", "audio", "transcription", "whisper", "wasm", "local", "offline", "recording"
+  ],
+  "dependencies": {
+    "core": [
+      { "module": "sg-layout",   "path": "/core/sg-layout/v0.1.0/sg-layout.js" },
+      { "module": "sg-tool-api", "path": "/core/sg-tool-api/v0/v0.1/v0.1.0/sg-tool-api.js" },
+      { "module": "sg-audio",    "path": "/core/sg-audio/v0/v0.1/v0.1.0/sg-audio.js" },
+      { "module": "sg-whisper",  "path": "/core/sg-whisper/v0/v0.1/v0.1.0/sg-whisper.js" },
+      { "module": "sg-vfs",      "path": "/core/sg-vfs/v0/v0.1/v0.1.0/sg-vfs-events.js" }
+    ],
+    "components": [
+      { "module": "sg-vfs-bus",           "path": "/components/vfs/sg-vfs-bus/v0/v0.1/v0.1.0/sg-vfs-bus.js" },
+      { "module": "sg-vfs-event-viewer",  "path": "/components/vfs/sg-vfs-event-viewer/v0/v0.1/v0.1.0/sg-vfs-event-viewer.js" },
+      { "module": "sg-audio-recorder",   "path": "/components/audio/sg-audio-recorder/v0/v0.1/v0.1.0/sg-audio-recorder.js" },
+      { "module": "sg-audio-transcript", "path": "/components/audio/sg-audio-transcript/v0/v0.1/v0.1.0/sg-audio-transcript.js" },
+      { "module": "sg-llm-connection",   "path": "/components/llm/sg-llm-connection/v0/v0.1/v0.1.4/sg-llm-connection.js" },
+      { "module": "sg-llm-model-picker", "path": "/components/llm/sg-llm-model-picker/v0/v0.1/v0.1.1/sg-llm-model-picker.js" },
+      { "module": "sg-tool-api-explorer","path": "/components/tool-api/sg-tool-api-explorer/v0/v0.1/v0.1.0/sg-tool-api-explorer.js" },
+      { "module": "sg-tool-api-console", "path": "/components/tool-api/sg-tool-api-console/v0/v0.1/v0.1.0/sg-tool-api-console.js" },
+      { "module": "sg-tool-api-manifest","path": "/components/tool-api/sg-tool-api-manifest/v0/v0.1/v0.1.0/sg-tool-api-manifest.js" }
+    ],
+    "shared": [
+      { "module": "sg-site-header", "path": "/components/site-header/v1/v1.0/v1.0.2/sg-site-header.js" },
+      { "module": "tools.css",      "path": "/_common/css/tools.css" }
+    ]
+  },
+  "api": {
+    "version": "0.1.0",
+    "note": "window.__tool is live. All transcription runs locally via Whisper WASM — no audio leaves the device.",
+    "events": [
+      { "name": "tool:ready", "when": "activate() called", "detail": "{ instanceId, tool, version }" }
+    ],
+    "actions": {
+      "getState": {
+        "params": {},
+        "returns": "{ sessionId: string|null, sessionFolder: string|null, recording: boolean, segmentCount: number, tinyModelReady: boolean, baseModelReady: boolean, transcriptLength: number }",
+        "async": false
+      },
+      "runSetup": {
+        "params": {},
+        "returns": "Promise<{ tinyModelReady: boolean, baseModelReady: boolean }>",
+        "async": true,
+        "note": "Downloads and caches Whisper WASM models (~39 MB tiny + ~74 MB base). Required before recording. Results cached in sessionStorage for 4 hours."
+      },
+      "startRecording": {
+        "params": {
+          "params": {
+            "type": "object",
+            "optional": true,
+            "note": "{ segmentDurationSeconds?: number } — default 30"
+          }
+        },
+        "returns": "Promise<{ sessionId: string, sessionFolder: string }>",
+        "async": true,
+        "note": "Requires runSetup() first. Starts a new recording session and begins segment-based transcription."
+      },
+      "stopRecording": {
+        "params": {},
+        "returns": "Promise<{ sessionId: string, segmentCount: number }>",
+        "async": true
+      },
+      "getTranscript": {
+        "params": {},
+        "returns": "{ text: string, sessionId: string|null, sessionFolder: string|null }",
+        "async": false,
+        "note": "Returns the current live transcript text (editable content of the Transcript panel)."
+      }
+    },
+    "skills": {
+      "human":   "./SKILL-human.md",
+      "browser": "./SKILL-browser.md",
+      "api":     "./SKILL-api.md"
+    }
+  }
+}

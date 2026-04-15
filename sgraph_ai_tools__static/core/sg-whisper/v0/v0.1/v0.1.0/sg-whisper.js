@@ -18,7 +18,7 @@
 // Use ESM build from jsDelivr so it works as an ES module import.
 // ─────────────────────────────────────────────────────────────────────────────
 
-const TRANSFORMERS_CDN = 'https://cdn.jsdelivr.net/npm/@xenova/transformers@2.17.2/src/transformers.js';
+const TRANSFORMERS_CDN = 'https://cdn.jsdelivr.net/npm/@xenova/transformers@2.17.2/dist/transformers.min.js';
 
 /** @type {Object|null} Cached transformers.js module */
 let _transformers = null;
