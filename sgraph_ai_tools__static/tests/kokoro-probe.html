@@ -1,0 +1,803 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Kokoro TTS Probe — tools.sgraph.ai</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: system-ui, -apple-system, sans-serif;
+      background: #0d1117;
+      color: #e6edf3;
+      padding: 32px 24px;
+      min-height: 100vh;
+    }
+
+    h1 {
+      font-size: 1.4rem;
+      font-weight: 600;
+      color: #4ECDC4;
+      margin-bottom: 4px;
+    }
+
+    .subtitle {
+      font-size: 0.8rem;
+      color: #8b949e;
+      margin-bottom: 32px;
+    }
+
+    .card {
+      background: #161b22;
+      border: 1px solid #30363d;
+      border-radius: 8px;
+      padding: 20px;
+      margin-bottom: 20px;
+    }
+
+    .card h2 {
+      font-size: 0.85rem;
+      font-weight: 600;
+      color: #8b949e;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      margin-bottom: 16px;
+    }
+
+    /* Health check steps */
+    .steps { display: flex; flex-direction: column; gap: 8px; }
+
+    .step {
+      display: flex;
+      align-items: flex-start;
+      gap: 10px;
+      font-size: 0.875rem;
+      padding: 8px 12px;
+      border-radius: 6px;
+      background: #0d1117;
+      border: 1px solid #21262d;
+    }
+
+    .step-icon {
+      width: 18px;
+      height: 18px;
+      border-radius: 50%;
+      flex-shrink: 0;
+      margin-top: 1px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 0.7rem;
+      font-weight: 700;
+    }
+
+    .step.pending   .step-icon { background: #21262d; color: #8b949e; }
+    .step.running   .step-icon { background: #1f3a5f; color: #58a6ff; animation: pulse 1s infinite; }
+    .step.pass      .step-icon { background: #1a4731; color: #3fb950; }
+    .step.fail      .step-icon { background: #4a1e1e; color: #f85149; }
+    .step.warn      .step-icon { background: #3a2e00; color: #d29922; }
+
+    @keyframes pulse { 0%,100% { opacity:1; } 50% { opacity:0.5; } }
+
+    .step-label { flex: 1; color: #c9d1d9; }
+    .step-detail { font-size: 0.75rem; color: #8b949e; margin-top: 2px; }
+
+    .step-time {
+      font-size: 0.75rem;
+      color: #4ECDC4;
+      font-variant-numeric: tabular-nums;
+      white-space: nowrap;
+    }
+
+    /* CDN toggle */
+    .cdn-options {
+      display: flex;
+      gap: 8px;
+      margin-bottom: 16px;
+      flex-wrap: wrap;
+    }
+
+    .cdn-btn {
+      padding: 6px 12px;
+      border-radius: 6px;
+      border: 1px solid #30363d;
+      background: #21262d;
+      color: #c9d1d9;
+      font-size: 0.8rem;
+      cursor: pointer;
+      font-family: 'SF Mono', 'Fira Code', monospace;
+      transition: border-color 0.15s;
+    }
+
+    .cdn-btn:hover { border-color: #4ECDC4; }
+    .cdn-btn.active { border-color: #4ECDC4; background: #0e2a28; color: #4ECDC4; }
+
+    /* Controls */
+    label {
+      display: block;
+      font-size: 0.8rem;
+      color: #8b949e;
+      margin-bottom: 6px;
+      margin-top: 14px;
+    }
+
+    label:first-of-type { margin-top: 0; }
+
+    textarea, select, input[type="range"] {
+      width: 100%;
+      background: #0d1117;
+      border: 1px solid #30363d;
+      border-radius: 6px;
+      color: #e6edf3;
+      font-size: 0.875rem;
+      padding: 10px 12px;
+    }
+
+    textarea {
+      resize: vertical;
+      min-height: 80px;
+      font-family: inherit;
+      line-height: 1.5;
+    }
+
+    select { padding: 8px 12px; cursor: pointer; }
+
+    input[type="range"] {
+      padding: 4px 12px;
+      cursor: pointer;
+      accent-color: #4ECDC4;
+    }
+
+    .range-row {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .range-row input { flex: 1; }
+    .range-val {
+      font-size: 0.8rem;
+      color: #4ECDC4;
+      font-variant-numeric: tabular-nums;
+      min-width: 36px;
+      text-align: right;
+    }
+
+    /* Buttons */
+    .btn-row { display: flex; gap: 10px; margin-top: 16px; flex-wrap: wrap; }
+
+    button {
+      padding: 8px 18px;
+      border-radius: 6px;
+      border: none;
+      font-size: 0.875rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: opacity 0.15s;
+    }
+
+    button:disabled { opacity: 0.4; cursor: default; }
+
+    .btn-primary { background: #4ECDC4; color: #0d1117; }
+    .btn-secondary { background: #21262d; color: #c9d1d9; border: 1px solid #30363d; }
+
+    /* Output */
+    .audio-wrap {
+      margin-top: 16px;
+      display: none;
+    }
+
+    .audio-wrap.visible { display: block; }
+
+    audio {
+      width: 100%;
+      margin-top: 8px;
+      border-radius: 6px;
+    }
+
+    .stats-row {
+      display: flex;
+      gap: 20px;
+      margin-top: 12px;
+      flex-wrap: wrap;
+    }
+
+    .stat {
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+    }
+
+    .stat-label { font-size: 0.7rem; color: #8b949e; text-transform: uppercase; letter-spacing: 0.08em; }
+    .stat-value { font-size: 1rem; color: #4ECDC4; font-variant-numeric: tabular-nums; font-weight: 600; }
+
+    /* Log */
+    #log {
+      background: #0d1117;
+      border: 1px solid #21262d;
+      border-radius: 6px;
+      padding: 12px;
+      font-family: 'SF Mono', 'Fira Code', monospace;
+      font-size: 0.75rem;
+      color: #8b949e;
+      max-height: 200px;
+      overflow-y: auto;
+      white-space: pre-wrap;
+      word-break: break-all;
+    }
+
+    .log-ok   { color: #3fb950; }
+    .log-err  { color: #f85149; }
+    .log-warn { color: #d29922; }
+    .log-info { color: #58a6ff; }
+
+    .voice-grid {
+      display: flex;
+      gap: 6px;
+      flex-wrap: wrap;
+      margin-top: 4px;
+    }
+
+    .voice-tag {
+      padding: 3px 8px;
+      border-radius: 4px;
+      background: #21262d;
+      border: 1px solid #30363d;
+      font-size: 0.75rem;
+      font-family: 'SF Mono', 'Fira Code', monospace;
+      color: #c9d1d9;
+    }
+
+    .voice-tag.highlight { border-color: #4ECDC4; color: #4ECDC4; }
+  </style>
+</head>
+<body>
+
+<h1>Kokoro TTS — CDN Probe</h1>
+<p class="subtitle">Validates KokoroTTS CDN import, model load, audio generation, and voice quality. v0.20.38 · 2026-04-15</p>
+
+<!-- CDN Selection -->
+<div class="card">
+  <h2>CDN Path</h2>
+  <div class="cdn-options">
+    <button class="cdn-btn active" data-cdn="esm.sh">esm.sh/kokoro-js@1.2.2</button>
+    <button class="cdn-btn" data-cdn="jsdelivr">jsdelivr kokoro-js@1.2.2</button>
+    <button class="cdn-btn" data-cdn="jsdelivr-latest">jsdelivr kokoro-js@latest</button>
+  </div>
+  <div id="cdn-url-display" style="font-family:'SF Mono','Fira Code',monospace;font-size:0.75rem;color:#4ECDC4;padding:8px 12px;background:#0d1117;border-radius:6px;border:1px solid #21262d;word-break:break-all;"></div>
+</div>
+
+<!-- Health Check -->
+<div class="card">
+  <h2>Health Check</h2>
+  <div class="steps" id="steps"></div>
+  <div class="btn-row">
+    <button class="btn-primary" id="btn-check">Run Health Check</button>
+    <button class="btn-secondary" id="btn-reset" style="display:none">Reset</button>
+  </div>
+</div>
+
+<!-- Voice List -->
+<div class="card" id="voice-card" style="display:none">
+  <h2>Available Voices</h2>
+  <div class="voice-grid" id="voice-grid"></div>
+</div>
+
+<!-- Generator -->
+<div class="card" id="gen-card" style="display:none">
+  <h2>Generate Audio</h2>
+
+  <label>Narration text</label>
+  <textarea id="narration-text">This slide shows the five core concepts we developed for the OWASP London presentation. Each concept builds on zero-knowledge principles, ensuring that sensitive data never leaves the user's device.</textarea>
+
+  <label>Voice</label>
+  <select id="voice-select"></select>
+
+  <label>Speed</label>
+  <div class="range-row">
+    <input type="range" id="speed-range" min="0.5" max="2.0" step="0.1" value="1.0">
+    <span class="range-val" id="speed-val">1.0×</span>
+  </div>
+
+  <div class="btn-row">
+    <button class="btn-primary" id="btn-generate">Generate Audio</button>
+    <button class="btn-secondary" id="btn-stream">Stream (chunked)</button>
+  </div>
+
+  <div class="audio-wrap" id="audio-wrap">
+    <audio id="audio-player" controls></audio>
+    <div class="stats-row" id="stats-row"></div>
+  </div>
+</div>
+
+<!-- Log -->
+<div class="card">
+  <h2>Console Log</h2>
+  <div id="log"></div>
+</div>
+
+<script type="module">
+
+// ─────────────────────────────────────────────────────────────────────────────
+// CDN paths to try
+// ─────────────────────────────────────────────────────────────────────────────
+
+const CDN_PATHS = {
+  'esm.sh':           'https://esm.sh/kokoro-js@1.2.2',
+  'jsdelivr':         'https://cdn.jsdelivr.net/npm/kokoro-js@1.2.2/dist/kokoro.js',
+  'jsdelivr-latest':  'https://cdn.jsdelivr.net/npm/kokoro-js/dist/kokoro.js',
+};
+
+let selectedCdn = 'esm.sh';
+let tts = null;
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Logging
+// ─────────────────────────────────────────────────────────────────────────────
+
+const logEl = document.getElementById('log');
+
+function log(msg, type = '') {
+  const cls = type ? `log-${type}` : '';
+  const ts = new Date().toISOString().slice(11, 23);
+  logEl.innerHTML += `<span class="${cls}">[${ts}] ${escHtml(msg)}\n</span>`;
+  logEl.scrollTop = logEl.scrollHeight;
+}
+
+function escHtml(s) {
+  return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Step rendering
+// ─────────────────────────────────────────────────────────────────────────────
+
+const STEP_DEFS = [
+  { id: 'webassembly',  label: 'WebAssembly available' },
+  { id: 'audiocontext', label: 'AudioContext available' },
+  { id: 'cdn',          label: 'CDN URL reachable (HEAD request)' },
+  { id: 'import',       label: 'Dynamic import() of kokoro-js' },
+  { id: 'constructor',  label: 'KokoroTTS.from_pretrained() — model download' },
+  { id: 'voices',       label: 'list_voices() returns voices' },
+  { id: 'generate',     label: 'Generate short test audio ("Hello.")' },
+];
+
+function renderSteps(states) {
+  const container = document.getElementById('steps');
+  container.innerHTML = '';
+  for (const def of STEP_DEFS) {
+    const s = states[def.id] || { status: 'pending' };
+    const icon = { pending: '·', running: '…', pass: '✓', fail: '✗', warn: '!' }[s.status] || '·';
+    container.innerHTML += `
+      <div class="step ${s.status}" id="step-${def.id}">
+        <div class="step-icon">${icon}</div>
+        <div style="flex:1">
+          <div class="step-label">${def.label}</div>
+          ${s.detail ? `<div class="step-detail">${escHtml(s.detail)}</div>` : ''}
+        </div>
+        ${s.ms !== undefined ? `<div class="step-time">${s.ms}ms</div>` : ''}
+      </div>`;
+  }
+}
+
+function setStep(id, status, detail, ms) {
+  const el = document.getElementById(`step-${id}`);
+  if (!el) return;
+  el.className = `step ${status}`;
+  const icon = { pending: '·', running: '…', pass: '✓', fail: '✗', warn: '!' }[status] || '·';
+  el.querySelector('.step-icon').textContent = icon;
+  const labelDiv = el.querySelector('.step-label');
+  // remove old detail/time
+  [...el.querySelectorAll('.step-detail')].forEach(e => e.remove());
+  [...el.querySelectorAll('.step-time')].forEach(e => e.remove());
+  if (detail) {
+    const d = document.createElement('div');
+    d.className = 'step-detail';
+    d.textContent = detail;
+    labelDiv.after(d);
+  }
+  if (ms !== undefined) {
+    const t = document.createElement('div');
+    t.className = 'step-time';
+    t.textContent = `${ms}ms`;
+    el.appendChild(t);
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// CDN selector
+// ─────────────────────────────────────────────────────────────────────────────
+
+function updateCdnDisplay() {
+  document.getElementById('cdn-url-display').textContent = CDN_PATHS[selectedCdn];
+}
+
+document.querySelectorAll('.cdn-btn').forEach(btn => {
+  btn.addEventListener('click', () => {
+    document.querySelectorAll('.cdn-btn').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    selectedCdn = btn.dataset.cdn;
+    updateCdnDisplay();
+    log(`CDN changed to: ${CDN_PATHS[selectedCdn]}`, 'info');
+  });
+});
+
+updateCdnDisplay();
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Health check
+// ─────────────────────────────────────────────────────────────────────────────
+
+const initialStates = Object.fromEntries(STEP_DEFS.map(d => [d.id, { status: 'pending' }]));
+renderSteps(initialStates);
+
+document.getElementById('btn-check').addEventListener('click', runHealthCheck);
+document.getElementById('btn-reset').addEventListener('click', () => {
+  tts = null;
+  renderSteps(initialStates);
+  document.getElementById('voice-card').style.display = 'none';
+  document.getElementById('gen-card').style.display = 'none';
+  document.getElementById('btn-check').disabled = false;
+  document.getElementById('btn-reset').style.display = 'none';
+  log('Reset — run health check again to reload.', 'warn');
+});
+
+async function runHealthCheck() {
+  document.getElementById('btn-check').disabled = true;
+  document.getElementById('btn-reset').style.display = '';
+  log('=== Health check started ===', 'info');
+
+  const cdnUrl = CDN_PATHS[selectedCdn];
+  let t0;
+
+  // Step 1: WebAssembly
+  setStep('webassembly', 'running', 'Checking...');
+  await tick();
+  if (typeof WebAssembly === 'object' && typeof WebAssembly.instantiate === 'function') {
+    setStep('webassembly', 'pass', 'WebAssembly.instantiate available');
+    log('WebAssembly: OK', 'ok');
+  } else {
+    setStep('webassembly', 'fail', 'WebAssembly not available — Kokoro cannot run');
+    log('WebAssembly: NOT available', 'err');
+    return;
+  }
+
+  // Step 2: AudioContext
+  setStep('audiocontext', 'running', 'Checking...');
+  await tick();
+  const AudioCtx = window.AudioContext || window.webkitAudioContext;
+  if (AudioCtx) {
+    setStep('audiocontext', 'pass', 'AudioContext available');
+    log('AudioContext: OK', 'ok');
+  } else {
+    setStep('audiocontext', 'fail', 'AudioContext not available');
+    log('AudioContext: NOT available', 'err');
+    return;
+  }
+
+  // Step 3: CDN reachable
+  setStep('cdn', 'running', `HEAD ${cdnUrl}`);
+  await tick();
+  t0 = Date.now();
+  try {
+    const resp = await fetch(cdnUrl, { method: 'HEAD' });
+    const ms = Date.now() - t0;
+    if (resp.ok || resp.status === 405) {
+      setStep('cdn', 'pass', `HTTP ${resp.status} — reachable`, ms);
+      log(`CDN HEAD: HTTP ${resp.status} in ${ms}ms`, 'ok');
+    } else {
+      setStep('cdn', 'warn', `HTTP ${resp.status} — may still be importable`, ms);
+      log(`CDN HEAD: HTTP ${resp.status} (unexpected)`, 'warn');
+    }
+  } catch (e) {
+    const ms = Date.now() - t0;
+    setStep('cdn', 'fail', `Network error: ${e.message}`, ms);
+    log(`CDN HEAD failed: ${e.message}`, 'err');
+    return;
+  }
+
+  // Step 4: Dynamic import
+  setStep('import', 'running', `import("${cdnUrl}")`);
+  await tick();
+  t0 = Date.now();
+  let KokoroTTS;
+  try {
+    const mod = await import(cdnUrl);
+    const ms = Date.now() - t0;
+    KokoroTTS = mod.KokoroTTS || mod.default?.KokoroTTS;
+    if (!KokoroTTS) {
+      // Log what was exported to help debug
+      const keys = Object.keys(mod).join(', ');
+      setStep('import', 'fail', `Module loaded but KokoroTTS not found. Exports: ${keys}`, ms);
+      log(`Import OK but no KokoroTTS. Module exports: ${keys}`, 'err');
+      return;
+    }
+    setStep('import', 'pass', `KokoroTTS found. Exports: ${Object.keys(mod).join(', ')}`, ms);
+    log(`Dynamic import OK in ${ms}ms. KokoroTTS: ${typeof KokoroTTS}`, 'ok');
+  } catch (e) {
+    const ms = Date.now() - t0;
+    setStep('import', 'fail', `Import failed: ${e.message}`, ms);
+    log(`Dynamic import FAILED: ${e.message}`, 'err');
+    return;
+  }
+
+  // Step 5: Model download (KokoroTTS.from_pretrained)
+  setStep('constructor', 'running', 'Downloading model (~160MB, may take a while)…');
+  log('Starting KokoroTTS.from_pretrained() — this downloads ~160MB on first run…', 'info');
+  await tick();
+  t0 = Date.now();
+  try {
+    tts = await KokoroTTS.from_pretrained('onnx-community/Kokoro-82M-v1.0-ONNX', {
+      dtype: 'q8',
+    });
+    const ms = Date.now() - t0;
+    setStep('constructor', 'pass', `Model loaded in ${(ms/1000).toFixed(1)}s`, ms);
+    log(`Model loaded in ${(ms/1000).toFixed(1)}s`, 'ok');
+  } catch (e) {
+    const ms = Date.now() - t0;
+    setStep('constructor', 'fail', `from_pretrained failed: ${e.message}`, ms);
+    log(`Model load FAILED: ${e.message}`, 'err');
+    return;
+  }
+
+  // Step 6: list_voices
+  setStep('voices', 'running', 'Calling list_voices()…');
+  await tick();
+  t0 = Date.now();
+  try {
+    const voices = tts.list_voices();
+    const ms = Date.now() - t0;
+    if (!voices || voices.length === 0) {
+      setStep('voices', 'warn', 'list_voices() returned empty array', ms);
+      log('list_voices() returned empty array', 'warn');
+    } else {
+      setStep('voices', 'pass', `${voices.length} voices: ${voices.slice(0,5).join(', ')}${voices.length > 5 ? '…' : ''}`, ms);
+      log(`Voices (${voices.length}): ${voices.join(', ')}`, 'ok');
+      renderVoices(voices);
+      populateVoiceSelect(voices);
+    }
+  } catch (e) {
+    const ms = Date.now() - t0;
+    setStep('voices', 'fail', `list_voices() threw: ${e.message}`, ms);
+    log(`list_voices() FAILED: ${e.message}`, 'err');
+  }
+
+  // Step 7: test generation
+  setStep('generate', 'running', 'Generating test audio: "Hello."…');
+  await tick();
+  t0 = Date.now();
+  try {
+    const audio = await tts.generate('Hello.', { voice: 'af_bella', speed: 1.0 });
+    const ms = Date.now() - t0;
+    const durationSecs = audio.data ? (audio.data.length / audio.sampling_rate) : '?';
+    setStep('generate', 'pass', `Generated ${typeof durationSecs === 'number' ? durationSecs.toFixed(2) + 's' : '?'} of audio in ${ms}ms`, ms);
+    log(`Test generation OK: ${ms}ms for "${typeof durationSecs === 'number' ? durationSecs.toFixed(2) : '?'}s" of audio`, 'ok');
+  } catch (e) {
+    const ms = Date.now() - t0;
+    setStep('generate', 'fail', `generate() threw: ${e.message}`, ms);
+    log(`Test generation FAILED: ${e.message}`, 'err');
+    return;
+  }
+
+  // All passed — show generator
+  document.getElementById('gen-card').style.display = '';
+  document.getElementById('btn-check').disabled = false;
+  log('=== Health check PASSED — generator ready ===', 'ok');
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Voice display helpers
+// ─────────────────────────────────────────────────────────────────────────────
+
+const FEATURED_VOICES = ['af_bella', 'af_sky', 'am_adam', 'bf_emma', 'bm_george'];
+
+function renderVoices(voices) {
+  document.getElementById('voice-card').style.display = '';
+  const grid = document.getElementById('voice-grid');
+  grid.innerHTML = voices.map(v =>
+    `<span class="voice-tag ${FEATURED_VOICES.includes(v) ? 'highlight' : ''}">${v}</span>`
+  ).join('');
+}
+
+function populateVoiceSelect(voices) {
+  const sel = document.getElementById('voice-select');
+  sel.innerHTML = voices.map(v =>
+    `<option value="${v}" ${v === 'af_bella' ? 'selected' : ''}>${v}</option>`
+  ).join('');
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Speed slider
+// ─────────────────────────────────────────────────────────────────────────────
+
+document.getElementById('speed-range').addEventListener('input', e => {
+  document.getElementById('speed-val').textContent = `${parseFloat(e.target.value).toFixed(1)}×`;
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Generate full audio
+// ─────────────────────────────────────────────────────────────────────────────
+
+document.getElementById('btn-generate').addEventListener('click', async () => {
+  if (!tts) { log('TTS not loaded — run health check first', 'err'); return; }
+
+  const text = document.getElementById('narration-text').value.trim();
+  const voice = document.getElementById('voice-select').value;
+  const speed = parseFloat(document.getElementById('speed-range').value);
+
+  if (!text) { log('No text entered', 'warn'); return; }
+
+  log(`Generating: voice=${voice} speed=${speed} chars=${text.length}`, 'info');
+  document.getElementById('btn-generate').disabled = true;
+
+  const t0 = Date.now();
+  try {
+    const audio = await tts.generate(text, { voice, speed });
+    const genMs = Date.now() - t0;
+
+    const blob = audioToBlob(audio);
+    const audioEl = document.getElementById('audio-player');
+    audioEl.src = URL.createObjectURL(blob);
+
+    const durationSecs = audio.data ? (audio.data.length / audio.sampling_rate) : 0;
+    log(`Generated ${durationSecs.toFixed(2)}s audio in ${genMs}ms (${(durationSecs / (genMs/1000)).toFixed(1)}× realtime)`, 'ok');
+
+    showStats({
+      'Duration': `${durationSecs.toFixed(2)}s`,
+      'Gen time': `${genMs}ms`,
+      'Realtime ×': `${(durationSecs / (genMs/1000)).toFixed(1)}×`,
+      'File size': formatBytes(blob.size),
+      'Voice': voice,
+    });
+
+    document.getElementById('audio-wrap').classList.add('visible');
+  } catch (e) {
+    log(`generate() FAILED: ${e.message}`, 'err');
+  } finally {
+    document.getElementById('btn-generate').disabled = false;
+  }
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Stream chunked audio
+// ─────────────────────────────────────────────────────────────────────────────
+
+document.getElementById('btn-stream').addEventListener('click', async () => {
+  if (!tts) { log('TTS not loaded — run health check first', 'err'); return; }
+
+  const text = document.getElementById('narration-text').value.trim();
+  const voice = document.getElementById('voice-select').value;
+  const speed = parseFloat(document.getElementById('speed-range').value);
+
+  if (!text) { log('No text entered', 'warn'); return; }
+
+  // Split into sentences for streaming
+  const chunks = text.match(/[^.!?]+[.!?]+/g) || [text];
+  log(`Streaming ${chunks.length} chunks: ${chunks.map(c => `"${c.trim().slice(0,30)}…"`).join(', ')}`, 'info');
+  document.getElementById('btn-stream').disabled = true;
+
+  const audioBuffers = [];
+  let totalGenMs = 0;
+  const t0 = Date.now();
+
+  try {
+    const stream = tts.stream(chunks, { voice, speed });
+    for await (const { text: chunkText, audio } of stream) {
+      const chunkMs = Date.now() - t0 - totalGenMs;
+      log(`Chunk: "${chunkText.trim().slice(0,40)}" — ${(audio.data.length / audio.sampling_rate).toFixed(2)}s audio (${chunkMs}ms)`, 'ok');
+      audioBuffers.push(audio);
+    }
+
+    totalGenMs = Date.now() - t0;
+
+    // Concatenate all Float32 buffers
+    const totalSamples = audioBuffers.reduce((n, a) => n + a.data.length, 0);
+    const sampleRate = audioBuffers[0].sampling_rate;
+    const combined = new Float32Array(totalSamples);
+    let offset = 0;
+    for (const a of audioBuffers) {
+      combined.set(a.data, offset);
+      offset += a.data.length;
+    }
+
+    const blob = float32ToWavBlob(combined, sampleRate);
+    const audioEl = document.getElementById('audio-player');
+    audioEl.src = URL.createObjectURL(blob);
+
+    const durationSecs = totalSamples / sampleRate;
+    log(`Streamed ${chunks.length} chunks → ${durationSecs.toFixed(2)}s total in ${totalGenMs}ms`, 'ok');
+
+    showStats({
+      'Duration': `${durationSecs.toFixed(2)}s`,
+      'Total gen time': `${totalGenMs}ms`,
+      'Realtime ×': `${(durationSecs / (totalGenMs/1000)).toFixed(1)}×`,
+      'Chunks': String(chunks.length),
+      'Voice': voice,
+    });
+
+    document.getElementById('audio-wrap').classList.add('visible');
+  } catch (e) {
+    log(`stream() FAILED: ${e.message}`, 'err');
+  } finally {
+    document.getElementById('btn-stream').disabled = false;
+  }
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Audio helpers
+// ─────────────────────────────────────────────────────────────────────────────
+
+/**
+ * Convert a Kokoro audio result to a WAV Blob.
+ * Kokoro returns { data: Float32Array, sampling_rate: number }.
+ */
+function audioToBlob(audio) {
+  return float32ToWavBlob(audio.data, audio.sampling_rate);
+}
+
+/**
+ * Encode Float32Array PCM to WAV Blob (16-bit, mono).
+ */
+function float32ToWavBlob(float32, sampleRate) {
+  const numSamples = float32.length;
+  const buffer = new ArrayBuffer(44 + numSamples * 2);
+  const view = new DataView(buffer);
+
+  // WAV header
+  writeStr(view, 0, 'RIFF');
+  view.setUint32(4, 36 + numSamples * 2, true);
+  writeStr(view, 8, 'WAVE');
+  writeStr(view, 12, 'fmt ');
+  view.setUint32(16, 16, true);       // chunk size
+  view.setUint16(20, 1, true);        // PCM
+  view.setUint16(22, 1, true);        // mono
+  view.setUint32(24, sampleRate, true);
+  view.setUint32(28, sampleRate * 2, true); // byte rate
+  view.setUint16(32, 2, true);        // block align
+  view.setUint16(34, 16, true);       // bits per sample
+  writeStr(view, 36, 'data');
+  view.setUint32(40, numSamples * 2, true);
+
+  // PCM samples
+  let i = 44;
+  for (let s = 0; s < numSamples; s++, i += 2) {
+    const clamped = Math.max(-1, Math.min(1, float32[s]));
+    view.setInt16(i, clamped < 0 ? clamped * 0x8000 : clamped * 0x7fff, true);
+  }
+
+  return new Blob([buffer], { type: 'audio/wav' });
+}
+
+function writeStr(view, offset, str) {
+  for (let i = 0; i < str.length; i++) view.setUint8(offset + i, str.charCodeAt(i));
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Stats display
+// ─────────────────────────────────────────────────────────────────────────────
+
+function showStats(stats) {
+  const row = document.getElementById('stats-row');
+  row.innerHTML = Object.entries(stats).map(([k, v]) =>
+    `<div class="stat"><span class="stat-label">${k}</span><span class="stat-value">${v}</span></div>`
+  ).join('');
+}
+
+function formatBytes(bytes) {
+  if (bytes < 1024) return `${bytes}B`;
+  if (bytes < 1024*1024) return `${(bytes/1024).toFixed(1)}KB`;
+  return `${(bytes/1024/1024).toFixed(1)}MB`;
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Util
+// ─────────────────────────────────────────────────────────────────────────────
+
+function tick() { return new Promise(r => setTimeout(r, 0)); }
+
+log('Probe ready. Select a CDN path and click "Run Health Check".', 'info');
+
+</script>
+</body>
+</html>
