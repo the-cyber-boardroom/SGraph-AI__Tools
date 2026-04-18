@@ -140,11 +140,9 @@ export async function mergeAsPiP(screenStream, cameraStream, options = {}) {
     const pipX = _pipX(position, width,  pipW, pad);
     const pipY = _pipY(position, height, pipH, pad);
 
-    let rafId = null;
-    let running = true;
+    let intervalId = null;
 
     function draw() {
-        if (!running) return;
         ctx.drawImage(screenVideo, 0, 0, width, height);
         ctx.save();
         ctx.beginPath();
@@ -152,10 +150,13 @@ export async function mergeAsPiP(screenStream, cameraStream, options = {}) {
         ctx.clip();
         ctx.drawImage(camVideo, pipX, pipY, pipW, pipH);
         ctx.restore();
-        rafId = requestAnimationFrame(draw);
     }
 
-    draw();
+    // setInterval instead of requestAnimationFrame: rAF is throttled to ~1fps
+    // when the tab is in the background, which is almost always the case during
+    // screen recording (user has switched to the window being captured).
+    intervalId = setInterval(draw, 1000 / fps);
+    draw(); // draw first frame immediately
 
     // Combine canvas video with audio tracks from both inputs
     const canvasStream = canvas.captureStream(fps);
@@ -166,8 +167,7 @@ export async function mergeAsPiP(screenStream, cameraStream, options = {}) {
     const merged = new MediaStream([...canvasStream.getVideoTracks(), ...audioTracks]);
 
     function stop() {
-        running = false;
-        if (rafId !== null) cancelAnimationFrame(rafId);
+        if (intervalId !== null) { clearInterval(intervalId); intervalId = null; }
         screenVideo.srcObject = null;
         camVideo.srcObject    = null;
     }
