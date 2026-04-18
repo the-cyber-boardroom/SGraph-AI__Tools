@@ -1,0 +1,71 @@
+/* preview.css — live preview, PiP badge, post-recording player */
+
+.preview-panel {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    height: 100%;
+}
+
+.preview-panel__title {
+    font-size: 13px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: var(--rec-muted);
+    flex-shrink: 0;
+}
+
+.preview-placeholder {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 12px;
+    color: var(--rec-muted);
+    border: 2px dashed var(--rec-border);
+    border-radius: var(--rec-radius);
+    min-height: 200px;
+}
+
+.preview-placeholder__icon { font-size: 40px; }
+
+.preview-live {
+    position: relative;
+    border-radius: var(--rec-radius);
+    overflow: hidden;
+    background: #000;
+    border: 1px solid rgba(220, 38, 38, 0.4);
+}
+
+.preview-video {
+    display: block;
+    width: 100%;
+    height: auto;
+    max-height: 60vh;
+    object-fit: contain;
+    background: #000;
+}
+
+.preview-live__badge {
+    position: absolute;
+    top: 10px;
+    left: 10px;
+    background: #dc2626;
+    color: #fff;
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    padding: 3px 8px;
+    border-radius: 4px;
+}
+
+.preview-playback {
+    flex: 1;
+}
+
+.preview-playback sg-video-player {
+    display: block;
+    height: 100%;
+}

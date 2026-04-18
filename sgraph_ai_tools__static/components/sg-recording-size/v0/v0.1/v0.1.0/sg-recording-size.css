@@ -1,0 +1,50 @@
+:host {
+    display: inline-block;
+    font-family: system-ui, sans-serif;
+}
+
+.sg-rs {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 4px 10px;
+    background: rgba(255,255,255,0.05);
+    border: 1px solid rgba(255,255,255,0.12);
+    border-radius: 6px;
+    transition: border-color 0.2s, background 0.2s;
+}
+
+.sg-rs__label {
+    font-size: 12px;
+    color: rgba(226, 232, 240, 0.6);
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    user-select: none;
+}
+
+.sg-rs__value {
+    font-family: 'SF Mono', 'Fira Code', monospace;
+    font-size: 14px;
+    font-weight: 600;
+    color: #e2e8f0;
+    min-width: 6ch;
+    text-align: right;
+}
+
+/* Warn state */
+.sg-rs--warn {
+    border-color: rgba(251, 191, 36, 0.5);
+    background: rgba(251, 191, 36, 0.08);
+}
+.sg-rs--warn .sg-rs__value {
+    color: #fbbf24;
+}
+
+/* Limit state */
+.sg-rs--limit {
+    border-color: rgba(239, 68, 68, 0.6);
+    background: rgba(239, 68, 68, 0.1);
+}
+.sg-rs--limit .sg-rs__value {
+    color: #ef4444;
+}
