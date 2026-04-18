@@ -207,65 +207,52 @@ export function initControls(container, state, config, api, emit) {
         }
     });
 
-    // ── Stop ──────────────────────────────────────────────────────────────────
+    // ── Stop button — triggers stop; all UI handled by RECORD_STOP listener ──
 
     btnStop.addEventListener('click', async () => {
+        if (state.status !== 'recording') return;
         btnStop.disabled     = true;
         statusEl.textContent = 'Stopping…';
-        clearInterval(timerInterval);
-        timerInterval = null;
-
         try {
-            const result = await api.stopRecording();
-            statusEl.textContent = `Done — ${_formatMs(result.durationMs)}, ${_formatBytes(result.sizeBytes)}`;
-
-            // Show post-recording UI with per-track download buttons
-            rowActions.style.display = 'none';
-            rowMode.style.display    = 'none';
-            rowStatus.style.display  = 'none';
-            rowPost.style.display    = '';
-
-            const ts = Date.now();
-
-            // Show per-track download buttons with file sizes
-            if (state.blobs.combined) {
-                btnDlCombined.style.display = '';
-                btnDlCombined.textContent   = `⬇ Combined PiP  ${_formatBytes(state.blobs.combined.size)}`;
-                btnDlCombined.onclick = _makeDownloadHandler(
-                    () => state.blobs.combined,
-                    () => `combined-${ts}.webm`,
-                );
-            }
-            if (state.blobs.screen) {
-                btnDlScreen.style.display = '';
-                btnDlScreen.textContent   = `⬇ Screen  ${_formatBytes(state.blobs.screen.size)}`;
-                btnDlScreen.onclick = _makeDownloadHandler(
-                    () => state.blobs.screen,
-                    () => `screen-${ts}.webm`,
-                );
-            }
-            if (state.blobs.camera) {
-                btnDlCamera.style.display = '';
-                btnDlCamera.textContent   = `⬇ Camera  ${_formatBytes(state.blobs.camera.size)}`;
-                btnDlCamera.onclick = _makeDownloadHandler(
-                    () => state.blobs.camera,
-                    () => `camera-${ts}.webm`,
-                );
-            }
-            if (state.blobs.audio) {
-                btnDlAudio.style.display = '';
-                btnDlAudio.textContent   = `⬇ Audio  ${_formatBytes(state.blobs.audio.size)}`;
-                btnDlAudio.onclick = _makeDownloadHandler(
-                    () => state.blobs.audio,
-                    () => `audio-${ts}.webm`,
-                );
-            }
+            await api.stopRecording();
         } catch (err) {
             statusEl.textContent = `Error: ${err.message}`;
             btnRecord.disabled   = false;
             modeSelect.disabled  = false;
         }
     });
+
+    // ── RECORD_STOP — handles both manual stop AND auto-stop (screen ended) ──
+
+    window.addEventListener(SGA_RECORDER.RECORD_STOP, (e) => {
+        // Clear timer regardless of how recording stopped
+        clearInterval(timerInterval);
+        timerInterval    = null;
+        btnStop.disabled = true;
+
+        const { durationMs, sizeBytes } = e.detail;
+        statusEl.textContent = `Done — ${_formatMs(durationMs)}, ${_formatBytes(sizeBytes)}`;
+
+        // Switch to post-recording UI
+        rowActions.style.display = 'none';
+        rowMode.style.display    = 'none';
+        rowStatus.style.display  = 'none';
+        rowPost.style.display    = '';
+
+        const ts = Date.now();
+        _wireDownloadBtn(btnDlCombined, 'combined', '⬇ Combined',  ts);
+        _wireDownloadBtn(btnDlScreen,   'screen',   '⬇ Screen',    ts);
+        _wireDownloadBtn(btnDlCamera,   'camera',   '⬇ Camera',    ts);
+        _wireDownloadBtn(btnDlAudio,    'audio',    '⬇ Audio',     ts);
+    });
+
+    function _wireDownloadBtn(btn, key, label, ts) {
+        const blob = state.blobs[key];
+        if (!blob) { btn.style.display = 'none'; return; }
+        btn.style.display = '';
+        btn.textContent   = `${label}  ${_formatBytes(blob.size)}`;
+        btn.onclick = _makeDownloadHandler(() => state.blobs[key], () => `${key}-${ts}.webm`);
+    }
 
     // ── New Recording ─────────────────────────────────────────────────────────
 
@@ -282,24 +269,24 @@ export function initControls(container, state, config, api, emit) {
         btnDlCamera.style.display   = 'none';
         btnDlAudio.style.display    = 'none';
 
-        btnRecord.disabled    = false;
-        btnPreview.disabled   = false;
-        btnStop.disabled      = true;
-        modeSelect.disabled   = false;
-        timerEl.textContent   = '0s';
-        statusEl.textContent  = 'Ready';
+        btnRecord.disabled     = false;
+        btnPreview.disabled    = false;
+        btnStop.disabled       = true;
+        modeSelect.disabled    = false;
+        timerEl.textContent    = '0s';
+        statusEl.textContent   = 'Ready';
         btnPreview.textContent = '👁 Preview';
         btnPreview.onclick     = null;
         _updatePreviewBtn(config.mode);
         if (recSize?.reset) recSize.reset();
     });
 
-    // ── Wire sg-recording-size to primary MediaRecorder ───────────────────────
+    // ── Live size update via pipeline progress events ─────────────────────────
+    // RECORD_PROGRESS is dispatched by every recorder's dataavailable handler,
+    // giving a running total of bytes across all active tracks.
 
-    window.addEventListener(SGA_RECORDER.RECORD_START, () => {
-        if (recSize?.attach && state.mediaRecorder) {
-            recSize.attach(state.mediaRecorder);
-        }
+    window.addEventListener(SGA_RECORDER.RECORD_PROGRESS, (e) => {
+        if (recSize?.update) recSize.update(e.detail.totalBytes);
     });
 }
 

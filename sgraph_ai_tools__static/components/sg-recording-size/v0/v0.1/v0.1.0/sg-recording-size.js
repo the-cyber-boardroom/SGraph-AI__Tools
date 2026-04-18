@@ -71,6 +71,15 @@ export class SgRecordingSize extends SgComponent {
     }
 
     /**
+     * Directly set the accumulated byte count (used by pipeline progress events).
+     * @param {number} bytes
+     */
+    update(bytes) {
+        this.#bytes = bytes;
+        if (this._isReady) { this._render(); this._checkThresholds(); }
+    }
+
+    /**
      * Reset the byte counter and threshold fire flags.
      */
     reset() {
