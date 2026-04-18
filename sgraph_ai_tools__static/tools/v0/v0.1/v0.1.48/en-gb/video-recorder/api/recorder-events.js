@@ -10,6 +10,7 @@ export const SGA_RECORDER = Object.freeze({
     PREVIEW_START:    'tool:preview:start',
     PREVIEW_STOP:     'tool:preview:stop',
     RECORD_START:     'tool:record:start',
+    RECORD_PROGRESS:  'tool:record:progress',
     RECORD_STOP:      'tool:record:stop',
     RESET:            'tool:reset',
     ENCRYPT_PROGRESS: 'tool:encrypt:progress',

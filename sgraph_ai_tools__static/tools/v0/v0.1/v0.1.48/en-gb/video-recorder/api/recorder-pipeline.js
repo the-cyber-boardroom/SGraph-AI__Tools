@@ -163,6 +163,18 @@ export async function startPipeline() {
             _startRecorder('audio', new MediaStream(audioTracks));
         }
 
+        // ── Non-PiP combined recorder (camera+audio or screen+audio) ─────
+        // Gives a single video+audio file for the most common recording modes.
+        if (!(rawCamera && rawScreen)) {
+            const videoTracks = [
+                ...(rawCamera ? rawCamera.getVideoTracks() : []),
+                ...(rawScreen ? rawScreen.getVideoTracks() : []),
+            ];
+            if (videoTracks.length > 0 && audioTracks.length > 0) {
+                _startRecorder('combined', new MediaStream([...videoTracks, ...audioTracks]));
+            }
+        }
+
         // ── PiP composite recorder (camera+screen modes only) ─────────────
         // Records camera overlaid on screen in real time alongside the separate tracks.
         if (rawCamera && rawScreen) {
@@ -300,7 +312,12 @@ function _startRecorder(name, stream) {
     _chunks[name]    = [];
     _recorders[name] = new MediaRecorder(stream, opts);
     _recorders[name].ondataavailable = (e) => {
-        if (e.data.size > 0) _chunks[name].push(e.data);
+        if (e.data.size > 0) {
+            _chunks[name].push(e.data);
+            const total = Object.values(_chunks)
+                .reduce((sum, arr) => sum + arr.reduce((s, b) => s + b.size, 0), 0);
+            _dispatchOnWindow(SGA_RECORDER.RECORD_PROGRESS, { totalBytes: total });
+        }
     };
     _recorders[name].start(100);
 }

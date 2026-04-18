@@ -99,16 +99,18 @@
 .ctrl-btn--download {
     background: #0d9488;
     color: #fff;
-    font-size: 15px;
-    padding: 12px 16px;
+    font-size: 16px;
+    padding: 14px 16px;
     border-radius: 8px;
     border: none;
     cursor: pointer;
     font-weight: 700;
     width: 100%;
-    transition: background 0.15s;
+    transition: background 0.15s, box-shadow 0.15s;
+    box-shadow: 0 0 0 3px rgba(13,148,136,0.35);
+    letter-spacing: 0.01em;
 }
-.ctrl-btn--download:hover { background: #0f766e; }
+.ctrl-btn--download:hover { background: #0f766e; box-shadow: 0 0 0 4px rgba(13,148,136,0.5); }
 
 .ctrl-btn--download-sec {
     background: rgba(13,148,136,0.15);
