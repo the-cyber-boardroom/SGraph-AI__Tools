@@ -110,6 +110,12 @@ export async function startPipeline() {
         let rawScreen = null;
         if (flags.screen) {
             rawScreen = await getScreenStream({ audio: false });
+            // Auto-stop recording when the user clicks "Stop sharing" in the browser UI
+            rawScreen.getVideoTracks().forEach(track => {
+                track.addEventListener('ended', () => {
+                    if (state.status === 'recording') stopPipeline().catch(() => {});
+                });
+            });
         }
 
         // Camera (reuse preview stream if available to avoid re-requesting permissions)
