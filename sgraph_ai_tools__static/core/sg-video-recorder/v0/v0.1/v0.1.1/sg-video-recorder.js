@@ -35,16 +35,20 @@ export function isSupported() {
 
 /**
  * Returns the best available MIME type for the current browser.
- * Preference order: vp9+opus → vp8+opus → webm → mp4
- * On Safari, this returns 'video/mp4'.
+ * Preference order: mp4/H.264+AAC → mp4 → vp9+opus → vp8+opus → webm
+ * MP4/H.264 is preferred because it is compatible with QuickTime on macOS and
+ * most upload platforms. Chrome 108+ on macOS supports H.264 MediaRecorder.
+ * Firefox only supports WebM so it falls through to vp9/vp8.
  * @returns {string}
  */
 export function getBestMimeType() {
     const candidates = [
+        'video/mp4;codecs=avc1,mp4a.40.2', // H.264 + AAC — QuickTime / macOS compatible
+        'video/mp4;codecs=avc1',
+        'video/mp4',
         'video/webm;codecs=vp9,opus',
         'video/webm;codecs=vp8,opus',
         'video/webm',
-        'video/mp4',
     ];
     return candidates.find(m => MediaRecorder.isTypeSupported(m)) ?? 'video/webm';
 }
