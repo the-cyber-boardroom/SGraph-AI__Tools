@@ -45,6 +45,15 @@ export function initControls(container, state, config, api, emit) {
                 </select>
             </div>
 
+            <div class="ctrl-row" id="row-rec-mode">
+                <label class="ctrl-label">Tracks</label>
+                <div class="ctrl-toggle-group" id="rec-mode-group">
+                    <button class="ctrl-toggle" data-value="combined">Combined</button>
+                    <button class="ctrl-toggle" data-value="combined+separate">All tracks</button>
+                    <button class="ctrl-toggle" data-value="separate">Separate</button>
+                </div>
+            </div>
+
             <div class="ctrl-row ctrl-row--actions" id="row-actions">
                 <button id="btn-preview" class="ctrl-btn ctrl-btn--preview">
                     👁 Preview
@@ -87,17 +96,19 @@ export function initControls(container, state, config, api, emit) {
         </section>
     `;
 
-    const modeSelect  = container.querySelector('#mode-select');
-    const btnPreview  = container.querySelector('#btn-preview');
-    const btnRecord   = container.querySelector('#btn-record');
-    const btnStop     = container.querySelector('#btn-stop');
-    const timerEl     = container.querySelector('#rec-timer');
-    const statusEl    = container.querySelector('#ctrl-status');
-    const recSize     = container.querySelector('#rec-size');
-    const rowActions  = container.querySelector('#row-actions');
-    const rowMode     = container.querySelector('#row-mode');
-    const rowStatus   = container.querySelector('#row-status');
-    const rowPost     = container.querySelector('#row-post');
+    const modeSelect    = container.querySelector('#mode-select');
+    const recModeGroup  = container.querySelector('#rec-mode-group');
+    const rowRecMode    = container.querySelector('#row-rec-mode');
+    const btnPreview    = container.querySelector('#btn-preview');
+    const btnRecord     = container.querySelector('#btn-record');
+    const btnStop       = container.querySelector('#btn-stop');
+    const timerEl       = container.querySelector('#rec-timer');
+    const statusEl      = container.querySelector('#ctrl-status');
+    const recSize       = container.querySelector('#rec-size');
+    const rowActions    = container.querySelector('#row-actions');
+    const rowMode       = container.querySelector('#row-mode');
+    const rowStatus     = container.querySelector('#row-status');
+    const rowPost       = container.querySelector('#row-post');
     const btnDlCombined = container.querySelector('#btn-dl-combined');
     const btnDlScreen   = container.querySelector('#btn-dl-screen');
     const btnDlCamera   = container.querySelector('#btn-dl-camera');
@@ -106,6 +117,23 @@ export function initControls(container, state, config, api, emit) {
 
     modeSelect.value = config.mode;
     let timerInterval = null;
+
+    // ── Recording mode toggle ──────────────────────────────────────────────────
+
+    function _setRecMode(value) {
+        config.recordingMode = value;
+        recModeGroup.querySelectorAll('.ctrl-toggle').forEach(btn => {
+            btn.classList.toggle('ctrl-toggle--active', btn.dataset.value === value);
+        });
+    }
+
+    recModeGroup.addEventListener('click', (e) => {
+        const btn = e.target.closest('.ctrl-toggle');
+        if (!btn || btn.disabled) return;
+        _setRecMode(btn.dataset.value);
+    });
+
+    _setRecMode(config.recordingMode);
 
     // ── Helpers ───────────────────────────────────────────────────────────────
 
@@ -182,6 +210,7 @@ export function initControls(container, state, config, api, emit) {
         btnPreview.disabled  = true;
         btnStop.disabled     = false;
         modeSelect.disabled  = true;
+        recModeGroup.querySelectorAll('.ctrl-toggle').forEach(b => { b.disabled = true; });
         statusEl.textContent = 'Starting…';
         btnPreview.textContent = '👁 Preview';
         btnPreview.onclick     = null;
@@ -234,10 +263,11 @@ export function initControls(container, state, config, api, emit) {
         statusEl.textContent = `Done — ${_formatMs(durationMs)}, ${_formatBytes(sizeBytes)}`;
 
         // Switch to post-recording UI
-        rowActions.style.display = 'none';
-        rowMode.style.display    = 'none';
-        rowStatus.style.display  = 'none';
-        rowPost.style.display    = '';
+        rowActions.style.display  = 'none';
+        rowMode.style.display     = 'none';
+        rowRecMode.style.display  = 'none';
+        rowStatus.style.display   = 'none';
+        rowPost.style.display     = '';
 
         const ts = Date.now();
         _wireDownloadBtn(btnDlCombined, 'combined', '⬇ Combined',  ts);
@@ -259,10 +289,11 @@ export function initControls(container, state, config, api, emit) {
     btnNew.addEventListener('click', () => { api.newRecording(); });
 
     window.addEventListener(SGA_RECORDER.RESET, () => {
-        rowPost.style.display    = 'none';
-        rowActions.style.display = '';
-        rowMode.style.display    = '';
-        rowStatus.style.display  = '';
+        rowPost.style.display     = 'none';
+        rowActions.style.display  = '';
+        rowMode.style.display     = '';
+        rowRecMode.style.display  = '';
+        rowStatus.style.display   = '';
 
         btnDlCombined.style.display = 'none';
         btnDlScreen.style.display   = 'none';
@@ -273,6 +304,7 @@ export function initControls(container, state, config, api, emit) {
         btnPreview.disabled    = false;
         btnStop.disabled       = true;
         modeSelect.disabled    = false;
+        recModeGroup.querySelectorAll('.ctrl-toggle').forEach(b => { b.disabled = false; });
         timerEl.textContent    = '0s';
         statusEl.textContent   = 'Ready';
         btnPreview.textContent = '👁 Preview';
