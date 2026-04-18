@@ -54,6 +54,15 @@ export function initControls(container, state, config, api, emit) {
                 </div>
             </div>
 
+            <div class="ctrl-row" id="row-quality">
+                <label class="ctrl-label">Quality</label>
+                <div class="ctrl-toggle-group" id="quality-group">
+                    <button class="ctrl-toggle" data-value="1000000">1 Mbps</button>
+                    <button class="ctrl-toggle" data-value="2500000">2.5 Mbps</button>
+                    <button class="ctrl-toggle" data-value="5000000">5 Mbps</button>
+                </div>
+            </div>
+
             <div class="ctrl-row ctrl-row--actions" id="row-actions">
                 <button id="btn-preview" class="ctrl-btn ctrl-btn--preview">
                     👁 Preview
@@ -99,6 +108,8 @@ export function initControls(container, state, config, api, emit) {
     const modeSelect    = container.querySelector('#mode-select');
     const recModeGroup  = container.querySelector('#rec-mode-group');
     const rowRecMode    = container.querySelector('#row-rec-mode');
+    const qualityGroup  = container.querySelector('#quality-group');
+    const rowQuality    = container.querySelector('#row-quality');
     const btnPreview    = container.querySelector('#btn-preview');
     const btnRecord     = container.querySelector('#btn-record');
     const btnStop       = container.querySelector('#btn-stop');
@@ -134,6 +145,23 @@ export function initControls(container, state, config, api, emit) {
     });
 
     _setRecMode(config.recordingMode);
+
+    // ── Quality (video bitrate) toggle ────────────────────────────────────────
+
+    function _setQuality(bps) {
+        config.videoBitsPerSecond = bps;
+        qualityGroup.querySelectorAll('.ctrl-toggle').forEach(btn => {
+            btn.classList.toggle('ctrl-toggle--active', Number(btn.dataset.value) === bps);
+        });
+    }
+
+    qualityGroup.addEventListener('click', (e) => {
+        const btn = e.target.closest('.ctrl-toggle');
+        if (!btn || btn.disabled) return;
+        _setQuality(Number(btn.dataset.value));
+    });
+
+    _setQuality(config.videoBitsPerSecond);
 
     // ── Helpers ───────────────────────────────────────────────────────────────
 
@@ -211,6 +239,7 @@ export function initControls(container, state, config, api, emit) {
         btnStop.disabled     = false;
         modeSelect.disabled  = true;
         recModeGroup.querySelectorAll('.ctrl-toggle').forEach(b => { b.disabled = true; });
+        qualityGroup.querySelectorAll('.ctrl-toggle').forEach(b => { b.disabled = true; });
         statusEl.textContent = 'Starting…';
         btnPreview.textContent = '👁 Preview';
         btnPreview.onclick     = null;
@@ -266,6 +295,7 @@ export function initControls(container, state, config, api, emit) {
         rowActions.style.display  = 'none';
         rowMode.style.display     = 'none';
         rowRecMode.style.display  = 'none';
+        rowQuality.style.display  = 'none';
         rowStatus.style.display   = 'none';
         rowPost.style.display     = '';
 
@@ -296,6 +326,7 @@ export function initControls(container, state, config, api, emit) {
         rowActions.style.display  = '';
         rowMode.style.display     = '';
         rowRecMode.style.display  = '';
+        rowQuality.style.display  = '';
         rowStatus.style.display   = '';
 
         btnDlCombined.style.display = 'none';
@@ -308,6 +339,7 @@ export function initControls(container, state, config, api, emit) {
         btnStop.disabled       = true;
         modeSelect.disabled    = false;
         recModeGroup.querySelectorAll('.ctrl-toggle').forEach(b => { b.disabled = false; });
+        qualityGroup.querySelectorAll('.ctrl-toggle').forEach(b => { b.disabled = false; });
         timerEl.textContent    = '0s';
         statusEl.textContent   = 'Ready';
         btnPreview.textContent = '👁 Preview';
