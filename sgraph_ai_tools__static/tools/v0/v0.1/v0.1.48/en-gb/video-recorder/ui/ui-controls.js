@@ -281,7 +281,10 @@ export function initControls(container, state, config, api, emit) {
         if (!blob) { btn.style.display = 'none'; return; }
         btn.style.display = '';
         btn.textContent   = `${label}  ${_formatBytes(blob.size)}`;
-        btn.onclick = _makeDownloadHandler(() => state.blobs[key], () => `${key}-${ts}.webm`);
+        btn.onclick = _makeDownloadHandler(
+            () => state.blobs[key],
+            () => `${key}-${ts}.${state.blobs[key]?.type.includes('mp4') ? 'mp4' : 'webm'}`,
+        );
     }
 
     // ── New Recording ─────────────────────────────────────────────────────────

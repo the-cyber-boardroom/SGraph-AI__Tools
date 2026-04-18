@@ -369,35 +369,68 @@ function _dispatchOnWindow(name, detail = {}) {
 
 /**
  * Patch the EBML Duration element (ID 0x4489) in a WebM blob.
- * MediaRecorder writes Duration=0; this replaces it with the real millisecond value
- * so players and upload platforms read the correct length.
+ * MediaRecorder writes Duration=0; this replaces it with the real value
+ * scaled correctly using the file's own TimecodeScale (default 1ms/unit).
+ * No-op for MP4 blobs (different container) and blobs without Duration element.
  *
  * @param {Blob} blob
  * @param {number} durationMs
  * @returns {Promise<Blob>}
  */
 async function _fixWebMDuration(blob, durationMs) {
-    // Duration lives in SegmentInfo, always within the first few KB
-    const maxScan = Math.min(blob.size, 4096);
-    const header  = await blob.slice(0, maxScan).arrayBuffer();
-    const arr     = new Uint8Array(header);
+    if (!blob.type.includes('webm')) return blob; // MP4 — no EBML to patch
 
-    for (let i = 0; i < arr.length - 11; i++) {
-        if (arr[i] !== 0x44 || arr[i + 1] !== 0x89) continue;
-        const sz = arr[i + 2];
+    const scanSize = Math.min(blob.size, 65536);
+    const header   = await blob.slice(0, scanSize).arrayBuffer();
+    const arr      = new Uint8Array(header);
 
-        if (sz === 0x88) {
-            // 8-byte float64 — need the full buffer to write into
-            const full = await blob.arrayBuffer();
-            new DataView(full).setFloat64(i + 3, durationMs, false);
-            return new Blob([full], { type: blob.type });
+    // Decode an EBML VINT at position pos; returns { value, bytes } or null
+    function readVint(pos) {
+        if (pos >= arr.length) return null;
+        const b = arr[pos];
+        if (b & 0x80) return { value: b & 0x7F,             bytes: 1 };
+        if (b & 0x40) return { value: ((b & 0x3F) << 8)  | arr[pos + 1],                               bytes: 2 };
+        if (b & 0x20) return { value: ((b & 0x1F) << 16) | (arr[pos + 1] << 8) | arr[pos + 2],         bytes: 3 };
+        if (b & 0x10) return { value: ((b & 0x0F) << 24) | (arr[pos + 1] << 16) | (arr[pos + 2] << 8) | arr[pos + 3], bytes: 4 };
+        return null;
+    }
+
+    // TimecodeScale (0x2A D7 B1) — nanoseconds per timecode unit, default 1_000_000 (1ms)
+    let timecodeScale  = 1_000_000;
+    let durationOffset = -1;
+    let durationFloat32 = false;
+
+    for (let i = 0; i < arr.length - 12; i++) {
+        // TimecodeScale element ID: 3 bytes 0x2A 0xD7 0xB1
+        if (arr[i] === 0x2A && arr[i + 1] === 0xD7 && arr[i + 2] === 0xB1) {
+            const sz = readVint(i + 3);
+            if (sz && sz.value >= 1 && sz.value <= 8) {
+                const d = i + 3 + sz.bytes;
+                let v = 0;
+                for (let b = 0; b < sz.value; b++) v = v * 256 + arr[d + b];
+                if (v > 0) timecodeScale = v;
+            }
         }
-        if (sz === 0x84) {
-            // 4-byte float32
-            const full = await blob.arrayBuffer();
-            new DataView(full).setFloat32(i + 3, durationMs, false);
-            return new Blob([full], { type: blob.type });
+
+        // Duration element ID: 2 bytes 0x44 0x89
+        if (arr[i] === 0x44 && arr[i + 1] === 0x89) {
+            const sz = readVint(i + 2);
+            if (sz && (sz.value === 8 || sz.value === 4)) {
+                durationOffset  = i + 2 + sz.bytes;
+                durationFloat32 = sz.value === 4;
+                break;
+            }
         }
     }
-    return blob; // Duration element not found; return original unchanged
+
+    if (durationOffset < 0) return blob; // no Duration element found
+
+    // Duration in timecode units: ms → ns → divide by scale
+    const durationUnits = (durationMs * 1_000_000) / timecodeScale;
+
+    const full = await blob.arrayBuffer();
+    const dv   = new DataView(full);
+    if (durationFloat32) dv.setFloat32(durationOffset, durationUnits, false);
+    else                 dv.setFloat64(durationOffset, durationUnits, false);
+    return new Blob([full], { type: blob.type });
 }
