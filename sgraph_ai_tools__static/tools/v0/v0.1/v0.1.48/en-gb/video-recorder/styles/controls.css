@@ -110,6 +110,13 @@
 }
 .ctrl-btn--download:hover { background: #0f766e; }
 
+.ctrl-btn--download-sec {
+    background: rgba(13,148,136,0.15);
+    color: #2dd4bf;
+    border: 1px solid rgba(13,148,136,0.4);
+}
+.ctrl-btn--download-sec:hover { background: rgba(13,148,136,0.25); }
+
 .ctrl-btn--new {
     background: rgba(255,255,255,0.08);
     color: var(--rec-text);

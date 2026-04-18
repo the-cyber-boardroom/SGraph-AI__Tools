@@ -1,7 +1,7 @@
 /**
  * ui-controls.js
- * Mode selector, record/stop/preview buttons, timer, recording-size, and
- * post-recording download + new-recording buttons.
+ * Mode selector, record/stop/preview buttons, timer, recording-size display,
+ * and per-track download + new-recording buttons after stop.
  * @module ui-controls
  */
 
@@ -14,7 +14,7 @@ const MODES = [
     { value: 'screen',              label: '🖥 Screen only (silent)',               needsCamera: false, needsScreen: true  },
     { value: 'camera+audio',        label: '🎥 Camera + Microphone',               needsCamera: true,  needsScreen: false },
     { value: 'screen+audio',        label: '🖥🎙 Screen + Microphone',             needsCamera: false, needsScreen: true  },
-    { value: 'camera+screen',       label: '📷🖥 Camera overlay on screen',        needsCamera: true,  needsScreen: true  },
+    { value: 'camera+screen',       label: '📷🖥 Camera + Screen (silent)',        needsCamera: true,  needsScreen: true  },
     { value: 'camera+screen+audio', label: '🎥🖥🎙 Camera + Screen + Microphone', needsCamera: true,  needsScreen: true  },
 ];
 
@@ -66,10 +66,19 @@ export function initControls(container, state, config, api, emit) {
                 <span class="ctrl-status" id="ctrl-status">Ready</span>
             </div>
 
-            <!-- Post-recording actions — shown after stop -->
+            <!-- Post-recording download buttons — shown per available track -->
             <div class="ctrl-row ctrl-row--post" id="row-post" style="display:none">
-                <button id="btn-download-big" class="ctrl-btn ctrl-btn--download">
-                    ⬇ Download WebM
+                <button id="btn-dl-combined" class="ctrl-btn ctrl-btn--download" style="display:none">
+                    ⬇ Combined PiP
+                </button>
+                <button id="btn-dl-screen" class="ctrl-btn ctrl-btn--download ctrl-btn--download-sec" style="display:none">
+                    ⬇ Screen
+                </button>
+                <button id="btn-dl-camera" class="ctrl-btn ctrl-btn--download ctrl-btn--download-sec" style="display:none">
+                    ⬇ Camera
+                </button>
+                <button id="btn-dl-audio" class="ctrl-btn ctrl-btn--download ctrl-btn--download-sec" style="display:none">
+                    ⬇ Audio
                 </button>
                 <button id="btn-new-recording" class="ctrl-btn ctrl-btn--new">
                     ↺ New Recording
@@ -78,27 +87,64 @@ export function initControls(container, state, config, api, emit) {
         </section>
     `;
 
-    const modeSelect    = container.querySelector('#mode-select');
-    const btnPreview    = container.querySelector('#btn-preview');
-    const btnRecord     = container.querySelector('#btn-record');
-    const btnStop       = container.querySelector('#btn-stop');
-    const timerEl       = container.querySelector('#rec-timer');
-    const statusEl      = container.querySelector('#ctrl-status');
-    const recSize       = container.querySelector('#rec-size');
-    const rowActions    = container.querySelector('#row-actions');
-    const rowMode       = container.querySelector('#row-mode');
-    const rowStatus     = container.querySelector('#row-status');
-    const rowPost       = container.querySelector('#row-post');
-    const btnDownload   = container.querySelector('#btn-download-big');
+    const modeSelect  = container.querySelector('#mode-select');
+    const btnPreview  = container.querySelector('#btn-preview');
+    const btnRecord   = container.querySelector('#btn-record');
+    const btnStop     = container.querySelector('#btn-stop');
+    const timerEl     = container.querySelector('#rec-timer');
+    const statusEl    = container.querySelector('#ctrl-status');
+    const recSize     = container.querySelector('#rec-size');
+    const rowActions  = container.querySelector('#row-actions');
+    const rowMode     = container.querySelector('#row-mode');
+    const rowStatus   = container.querySelector('#row-status');
+    const rowPost     = container.querySelector('#row-post');
+    const btnDlCombined = container.querySelector('#btn-dl-combined');
+    const btnDlScreen   = container.querySelector('#btn-dl-screen');
+    const btnDlCamera   = container.querySelector('#btn-dl-camera');
+    const btnDlAudio    = container.querySelector('#btn-dl-audio');
     const btnNew        = container.querySelector('#btn-new-recording');
 
     modeSelect.value = config.mode;
     let timerInterval = null;
 
+    // ── Helpers ───────────────────────────────────────────────────────────────
+
+    function _modeHasCamera(mode) { return mode.includes('camera'); }
+
+    function _updatePreviewBtn(mode) {
+        // Preview is only meaningful for camera modes (getDisplayMedia can't preview)
+        btnPreview.style.display = _modeHasCamera(mode) ? '' : 'none';
+    }
+
+    function _makeDownloadHandler(blobFn, filenameFn) {
+        return () => {
+            const blob = blobFn();
+            if (!blob) return;
+            const a    = document.createElement('a');
+            a.href     = URL.createObjectURL(blob);
+            a.download = filenameFn();
+            a.click();
+            setTimeout(() => URL.revokeObjectURL(a.href), 10_000);
+        };
+    }
+
+    function _resetPreviewBtn() {
+        btnPreview.textContent = '👁 Preview';
+        btnPreview.onclick     = null;
+        btnPreview.disabled    = false;
+        modeSelect.disabled    = false;
+        btnRecord.disabled     = false;
+    }
+
+    // ── Init ──────────────────────────────────────────────────────────────────
+
+    _updatePreviewBtn(config.mode);
+
     // ── Mode selector ─────────────────────────────────────────────────────────
 
     modeSelect.addEventListener('change', () => {
         config.mode = modeSelect.value;
+        _updatePreviewBtn(config.mode);
     });
 
     // ── Preview ──────────────────────────────────────────────────────────────
@@ -111,12 +157,11 @@ export function initControls(container, state, config, api, emit) {
 
         try {
             await api.startPreview();
-            btnPreview.textContent  = '✕ Stop Preview';
-            btnPreview.disabled     = false;
-            btnRecord.disabled      = false;
-            statusEl.textContent    = 'Preview active — click Start Recording';
+            btnPreview.textContent = '✕ Stop Preview';
+            btnPreview.disabled    = false;
+            btnRecord.disabled     = false;
+            statusEl.textContent   = 'Preview active — click Start Recording';
 
-            // After first click: toggle to stop preview
             btnPreview.onclick = () => {
                 api.stopPreview();
                 _resetPreviewBtn();
@@ -130,14 +175,6 @@ export function initControls(container, state, config, api, emit) {
         }
     });
 
-    function _resetPreviewBtn() {
-        btnPreview.textContent = '👁 Preview';
-        btnPreview.onclick     = null; // revert to normal listener
-        btnPreview.disabled    = false;
-        modeSelect.disabled    = false;
-        btnRecord.disabled     = false;
-    }
-
     // ── Record ────────────────────────────────────────────────────────────────
 
     btnRecord.addEventListener('click', async () => {
@@ -146,8 +183,6 @@ export function initControls(container, state, config, api, emit) {
         btnStop.disabled     = false;
         modeSelect.disabled  = true;
         statusEl.textContent = 'Starting…';
-
-        // Reset preview button state (preview stream reused or discarded internally)
         btnPreview.textContent = '👁 Preview';
         btnPreview.onclick     = null;
 
@@ -177,7 +212,6 @@ export function initControls(container, state, config, api, emit) {
     btnStop.addEventListener('click', async () => {
         btnStop.disabled     = true;
         statusEl.textContent = 'Stopping…';
-
         clearInterval(timerInterval);
         timerInterval = null;
 
@@ -185,23 +219,46 @@ export function initControls(container, state, config, api, emit) {
             const result = await api.stopRecording();
             statusEl.textContent = `Done — ${_formatMs(result.durationMs)}, ${_formatBytes(result.sizeBytes)}`;
 
-            // Show post-recording UI
+            // Show post-recording UI with per-track download buttons
             rowActions.style.display = 'none';
             rowMode.style.display    = 'none';
             rowStatus.style.display  = 'none';
             rowPost.style.display    = '';
 
-            // Wire download button now that blob is available
-            if (state.blob) {
-                const ext      = state.blob.type.includes('mp4') ? 'mp4' : 'webm';
-                const filename = `recording-${Date.now()}.${ext}`;
-                btnDownload.onclick = () => {
-                    const a    = document.createElement('a');
-                    a.href     = URL.createObjectURL(state.blob);
-                    a.download = filename;
-                    a.click();
-                    setTimeout(() => URL.revokeObjectURL(a.href), 10_000);
-                };
+            const ts = Date.now();
+
+            // Show per-track download buttons with file sizes
+            if (state.blobs.combined) {
+                btnDlCombined.style.display = '';
+                btnDlCombined.textContent   = `⬇ Combined PiP  ${_formatBytes(state.blobs.combined.size)}`;
+                btnDlCombined.onclick = _makeDownloadHandler(
+                    () => state.blobs.combined,
+                    () => `combined-${ts}.webm`,
+                );
+            }
+            if (state.blobs.screen) {
+                btnDlScreen.style.display = '';
+                btnDlScreen.textContent   = `⬇ Screen  ${_formatBytes(state.blobs.screen.size)}`;
+                btnDlScreen.onclick = _makeDownloadHandler(
+                    () => state.blobs.screen,
+                    () => `screen-${ts}.webm`,
+                );
+            }
+            if (state.blobs.camera) {
+                btnDlCamera.style.display = '';
+                btnDlCamera.textContent   = `⬇ Camera  ${_formatBytes(state.blobs.camera.size)}`;
+                btnDlCamera.onclick = _makeDownloadHandler(
+                    () => state.blobs.camera,
+                    () => `camera-${ts}.webm`,
+                );
+            }
+            if (state.blobs.audio) {
+                btnDlAudio.style.display = '';
+                btnDlAudio.textContent   = `⬇ Audio  ${_formatBytes(state.blobs.audio.size)}`;
+                btnDlAudio.onclick = _makeDownloadHandler(
+                    () => state.blobs.audio,
+                    () => `audio-${ts}.webm`,
+                );
             }
         } catch (err) {
             statusEl.textContent = `Error: ${err.message}`;
@@ -212,29 +269,32 @@ export function initControls(container, state, config, api, emit) {
 
     // ── New Recording ─────────────────────────────────────────────────────────
 
-    btnNew.addEventListener('click', () => {
-        api.newRecording();
-    });
+    btnNew.addEventListener('click', () => { api.newRecording(); });
 
     window.addEventListener(SGA_RECORDER.RESET, () => {
-        // Restore recording UI
         rowPost.style.display    = 'none';
         rowActions.style.display = '';
         rowMode.style.display    = '';
         rowStatus.style.display  = '';
 
-        btnRecord.disabled   = false;
-        btnPreview.disabled  = false;
-        btnStop.disabled     = true;
-        modeSelect.disabled  = false;
-        timerEl.textContent  = '0s';
-        statusEl.textContent = 'Ready';
+        btnDlCombined.style.display = 'none';
+        btnDlScreen.style.display   = 'none';
+        btnDlCamera.style.display   = 'none';
+        btnDlAudio.style.display    = 'none';
+
+        btnRecord.disabled    = false;
+        btnPreview.disabled   = false;
+        btnStop.disabled      = true;
+        modeSelect.disabled   = false;
+        timerEl.textContent   = '0s';
+        statusEl.textContent  = 'Ready';
         btnPreview.textContent = '👁 Preview';
         btnPreview.onclick     = null;
+        _updatePreviewBtn(config.mode);
         if (recSize?.reset) recSize.reset();
     });
 
-    // ── Wire sg-recording-size to MediaRecorder ───────────────────────────────
+    // ── Wire sg-recording-size to primary MediaRecorder ───────────────────────
 
     window.addEventListener(SGA_RECORDER.RECORD_START, () => {
         if (recSize?.attach && state.mediaRecorder) {
