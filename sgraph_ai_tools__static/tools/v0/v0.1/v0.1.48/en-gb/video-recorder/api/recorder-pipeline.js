@@ -119,14 +119,16 @@ export async function startPipeline() {
         }
 
         // Camera (reuse preview stream if available to avoid re-requesting permissions)
-        let rawCamera = null;
+        let rawCamera    = null;
+        let needsWarmUp  = false;
         if (flags.camera) {
             if (state.previewStream) {
                 rawCamera           = state.previewStream;
                 state.previewStream = null;
                 state.previewStop   = null;
             } else {
-                rawCamera = await getCameraStream({ audio: flags.audio });
+                rawCamera   = await getCameraStream({ audio: flags.audio });
+                needsWarmUp = true; // fresh sensor — allow auto-exposure to settle
             }
         }
 
@@ -135,6 +137,10 @@ export async function startPipeline() {
         if (flags.audio && !flags.camera) {
             rawAudio = await getAudioStream();
         }
+
+        // Camera warm-up: without a prior preview the sensor needs ~300 ms to
+        // settle auto-exposure; otherwise the first frames are black/very dark.
+        if (needsWarmUp) await new Promise(r => setTimeout(r, 300));
 
         // ── Store raw streams for cleanup ──────────────────────────────────
         state.streams = {};
