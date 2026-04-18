@@ -20,6 +20,12 @@ export class RecordingConfig {
         this.audioBitsPerSecond = 128_000;
         /** @type {{ position?: 'tr'|'tl'|'br'|'bl', scale?: number }} */
         this.pipOptions         = { position: 'br', scale: 0.2 };
+        /** Controls which MediaRecorders run.
+         *  'combined'          — one output file (lowest CPU, best compatibility)
+         *  'combined+separate' — combined file plus each track individually
+         *  'separate'          — individual tracks only, no composite
+         * @type {'combined'|'combined+separate'|'separate'} */
+        this.recordingMode      = 'combined';
     }
 }
 

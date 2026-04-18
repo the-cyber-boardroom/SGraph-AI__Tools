@@ -127,6 +127,42 @@
 }
 .ctrl-btn--new:hover:not(:disabled) { background: rgba(255,255,255,0.14); }
 
+.ctrl-toggle-group {
+    display: flex;
+    border-radius: 6px;
+    overflow: hidden;
+    border: 1px solid var(--rec-border);
+}
+
+.ctrl-toggle {
+    flex: 1;
+    padding: 7px 6px;
+    background: rgba(0,0,0,0.3);
+    border: none;
+    border-right: 1px solid var(--rec-border);
+    color: var(--rec-muted);
+    font-size: 11px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: background 0.15s, color 0.15s;
+    text-align: center;
+    line-height: 1.2;
+}
+.ctrl-toggle:last-child { border-right: none; }
+
+.ctrl-toggle--active {
+    background: #0d9488;
+    color: #fff;
+}
+.ctrl-toggle:hover:not(.ctrl-toggle--active):not(:disabled) {
+    background: rgba(255,255,255,0.08);
+    color: var(--rec-text);
+}
+.ctrl-toggle:disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
+}
+
 .ctrl-timer {
     font-family: 'SF Mono', 'Fira Code', monospace;
     font-size: 20px;

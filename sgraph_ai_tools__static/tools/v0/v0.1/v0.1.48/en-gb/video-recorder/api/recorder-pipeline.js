@@ -144,28 +144,43 @@ export async function startPipeline() {
 
         // ── Start independent MediaRecorders ───────────────────────────────
 
-        // Camera: video tracks only (audio travels separately)
-        if (rawCamera && rawCamera.getVideoTracks().length > 0) {
-            _startRecorder('camera', new MediaStream(rawCamera.getVideoTracks()));
-        }
-
-        // Screen: video tracks only
-        if (rawScreen && rawScreen.getVideoTracks().length > 0) {
-            _startRecorder('screen', new MediaStream(rawScreen.getVideoTracks()));
-        }
-
-        // Audio: from camera stream (if camera+audio mode) or standalone stream
+        // Audio tracks shared across all recorder decisions below
         const audioTracks = [
             ...(rawCamera ? rawCamera.getAudioTracks() : []),
             ...(rawAudio  ? rawAudio.getAudioTracks()  : []),
         ];
-        if (audioTracks.length > 0) {
+
+        // Determine whether a combined (composite) output is possible for this capture.
+        // When no viable combined exists (e.g. camera-only, screen-only, audio-only),
+        // separate recorders are always started regardless of recordingMode.
+        const willHaveCombined =
+            (rawCamera && rawScreen) // PiP path
+            || (
+                ((rawCamera?.getVideoTracks().length ?? 0) + (rawScreen?.getVideoTracks().length ?? 0)) > 0
+                && audioTracks.length > 0
+            );
+
+        const startSeparate = config.recordingMode !== 'combined' || !willHaveCombined;
+        const startCombined = config.recordingMode !== 'separate';
+
+        // Camera: video tracks only (audio travels separately)
+        if (rawCamera && rawCamera.getVideoTracks().length > 0 && startSeparate) {
+            _startRecorder('camera', new MediaStream(rawCamera.getVideoTracks()));
+        }
+
+        // Screen: video tracks only
+        if (rawScreen && rawScreen.getVideoTracks().length > 0 && startSeparate) {
+            _startRecorder('screen', new MediaStream(rawScreen.getVideoTracks()));
+        }
+
+        // Audio
+        if (audioTracks.length > 0 && startSeparate) {
             _startRecorder('audio', new MediaStream(audioTracks));
         }
 
         // ── Non-PiP combined recorder (camera+audio or screen+audio) ─────
         // Gives a single video+audio file for the most common recording modes.
-        if (!(rawCamera && rawScreen)) {
+        if (!(rawCamera && rawScreen) && startCombined) {
             const videoTracks = [
                 ...(rawCamera ? rawCamera.getVideoTracks() : []),
                 ...(rawScreen ? rawScreen.getVideoTracks() : []),
@@ -177,7 +192,7 @@ export async function startPipeline() {
 
         // ── PiP composite recorder (camera+screen modes only) ─────────────
         // Records camera overlaid on screen in real time alongside the separate tracks.
-        if (rawCamera && rawScreen) {
+        if (rawCamera && rawScreen && startCombined) {
             const pip = await mergeAsPiP(rawScreen, rawCamera, config.pipOptions);
             _pipStop = pip.stop;
 
@@ -192,8 +207,8 @@ export async function startPipeline() {
         // ── Update shared state ───────────────────────────────────────────
         // stream for live preview: prefer screen (most informative)
         state.stream        = rawScreen ?? rawCamera ?? rawAudio ?? null;
-        // primary recorder for sg-recording-size wiring
-        state.mediaRecorder = _recorders.screen ?? _recorders.camera ?? _recorders.audio ?? null;
+        // primary recorder for sg-recording-size wiring (prefer combined for single-track modes)
+        state.mediaRecorder = _recorders.screen ?? _recorders.camera ?? _recorders.audio ?? _recorders.combined ?? null;
         state.startedAt     = Date.now();
         state.blobs         = {};
         state.status        = 'recording';
@@ -243,16 +258,25 @@ export async function stopPipeline() {
 
         const durationMs = Date.now() - state.startedAt;
 
+        // Patch WebM duration metadata — MediaRecorder writes Duration=0 in the EBML
+        // header; fix it so players and upload platforms (LinkedIn etc.) read correct length.
+        const [fixedCamera, fixedScreen, fixedAudio, fixedCombined] = await Promise.all([
+            cameraBlob   ? _fixWebMDuration(cameraBlob,   durationMs) : null,
+            screenBlob   ? _fixWebMDuration(screenBlob,   durationMs) : null,
+            audioBlob    ? _fixWebMDuration(audioBlob,    durationMs) : null,
+            combinedBlob ? _fixWebMDuration(combinedBlob, durationMs) : null,
+        ]);
+
         // Collect blobs
-        if (cameraBlob)   state.blobs.camera   = cameraBlob;
-        if (screenBlob)   state.blobs.screen   = screenBlob;
-        if (audioBlob)    state.blobs.audio    = audioBlob;
-        if (combinedBlob) state.blobs.combined = combinedBlob;
+        if (fixedCamera)   state.blobs.camera   = fixedCamera;
+        if (fixedScreen)   state.blobs.screen   = fixedScreen;
+        if (fixedAudio)    state.blobs.audio    = fixedAudio;
+        if (fixedCombined) state.blobs.combined = fixedCombined;
 
         // Primary blob for the video player (combined > screen > camera > audio-only)
-        state.blob = combinedBlob ?? screenBlob ?? cameraBlob ?? audioBlob ?? null;
+        state.blob = fixedCombined ?? fixedScreen ?? fixedCamera ?? fixedAudio ?? null;
 
-        const totalBytes = [cameraBlob, screenBlob, audioBlob, combinedBlob]
+        const totalBytes = [fixedCamera, fixedScreen, fixedAudio, fixedCombined]
             .filter(Boolean)
             .reduce((sum, b) => sum + b.size, 0);
 
@@ -341,4 +365,39 @@ function _stopRecorder(name) {
 
 function _dispatchOnWindow(name, detail = {}) {
     window.dispatchEvent(new CustomEvent(name, { detail }));
+}
+
+/**
+ * Patch the EBML Duration element (ID 0x4489) in a WebM blob.
+ * MediaRecorder writes Duration=0; this replaces it with the real millisecond value
+ * so players and upload platforms read the correct length.
+ *
+ * @param {Blob} blob
+ * @param {number} durationMs
+ * @returns {Promise<Blob>}
+ */
+async function _fixWebMDuration(blob, durationMs) {
+    // Duration lives in SegmentInfo, always within the first few KB
+    const maxScan = Math.min(blob.size, 4096);
+    const header  = await blob.slice(0, maxScan).arrayBuffer();
+    const arr     = new Uint8Array(header);
+
+    for (let i = 0; i < arr.length - 11; i++) {
+        if (arr[i] !== 0x44 || arr[i + 1] !== 0x89) continue;
+        const sz = arr[i + 2];
+
+        if (sz === 0x88) {
+            // 8-byte float64 — need the full buffer to write into
+            const full = await blob.arrayBuffer();
+            new DataView(full).setFloat64(i + 3, durationMs, false);
+            return new Blob([full], { type: blob.type });
+        }
+        if (sz === 0x84) {
+            // 4-byte float32
+            const full = await blob.arrayBuffer();
+            new DataView(full).setFloat32(i + 3, durationMs, false);
+            return new Blob([full], { type: blob.type });
+        }
+    }
+    return blob; // Duration element not found; return original unchanged
 }
