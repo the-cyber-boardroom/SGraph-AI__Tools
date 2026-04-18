@@ -86,11 +86,15 @@ export function initPreview(container, state, config, api, emit) {
     window.addEventListener(SGA_RECORDER.RECORD_START, () => {
         pregameVideo.srcObject = null;
 
-        if (state.stream) {
+        const hasVideo = state.stream?.getVideoTracks().length > 0;
+        if (hasVideo) {
             liveVideo.srcObject = state.stream;
             liveVideo.play().catch(() => {});
+            _showOnly('live');
+        } else {
+            // Audio-only mode — no video to display
+            _showOnly('placeholder');
         }
-        _showOnly('live');
     });
 
     window.addEventListener(SGA_RECORDER.RECORD_STOP, () => {
