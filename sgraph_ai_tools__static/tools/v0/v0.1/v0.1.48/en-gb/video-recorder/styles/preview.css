@@ -61,6 +61,10 @@
     border-radius: 4px;
 }
 
+.preview-live__badge--preview {
+    background: #0d9488;
+}
+
 .preview-playback {
     flex: 1;
 }

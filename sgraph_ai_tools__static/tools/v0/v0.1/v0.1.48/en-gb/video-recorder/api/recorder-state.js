@@ -26,28 +26,37 @@ export class RecordingConfig {
 export class RecordingState {
     constructor() {
         /** @type {RecordingStatus} */
-        this.status      = 'idle';
+        this.status        = 'idle';
         /** @type {Blob|null} */
-        this.blob        = null;
-        this.durationMs  = 0;
-        this.sizeBytes   = 0;
-        this.startedAt   = null;
-        /** @type {MediaStream|null} */
-        this.stream      = null;
+        this.blob          = null;
+        this.durationMs    = 0;
+        this.sizeBytes     = 0;
+        this.startedAt     = null;
+        /** @type {MediaStream|null} active recording stream */
+        this.stream        = null;
         /** @type {Function|null} stops PiP compositor if active */
-        this.stopCapture = null;
+        this.stopCapture   = null;
+        /** @type {MediaRecorder|null} active MediaRecorder instance */
+        this.mediaRecorder = null;
+        /** @type {MediaStream|null} pre-recording preview stream */
+        this.previewStream = null;
+        /** @type {Function|null} stops preview stream */
+        this.previewStop   = null;
         /** @type {string|null} last error message */
-        this.lastError   = null;
+        this.lastError     = null;
     }
 
     reset() {
-        this.status      = 'idle';
-        this.blob        = null;
-        this.durationMs  = 0;
-        this.sizeBytes   = 0;
-        this.startedAt   = null;
-        this.stream      = null;
-        this.stopCapture = null;
-        this.lastError   = null;
+        this.status        = 'idle';
+        this.blob          = null;
+        this.durationMs    = 0;
+        this.sizeBytes     = 0;
+        this.startedAt     = null;
+        this.stream        = null;
+        this.stopCapture   = null;
+        this.mediaRecorder = null;
+        this.previewStream = null;
+        this.previewStop   = null;
+        this.lastError     = null;
     }
 }

@@ -147,3 +147,12 @@ export function startRecordingStream(stream, options = {}) {
     _recorder.ondataavailable = (e) => { if (e.data.size > 0) _chunks.push(e.data); };
     _recorder.start(100);
 }
+
+/**
+ * Returns the active MediaRecorder instance, or null if not recording.
+ * Useful for wiring size-tracking components after startRecordingStream().
+ * @returns {MediaRecorder|null}
+ */
+export function getRecorder() {
+    return _recorder;
+}
