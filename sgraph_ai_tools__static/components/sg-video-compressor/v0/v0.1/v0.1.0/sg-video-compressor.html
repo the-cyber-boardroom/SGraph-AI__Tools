@@ -1,0 +1,41 @@
+<div class="vc" data-state="idle">
+  <div class="vc-controls">
+    <label class="vc-field">
+      <span class="vc-field__label">Resolution</span>
+      <select id="vc-resolution" class="vc-select">
+        <option value="original">Original</option>
+        <option value="1080p">1080p</option>
+        <option value="720p" selected>720p</option>
+        <option value="480p">480p</option>
+        <option value="360p">360p</option>
+      </select>
+    </label>
+
+    <label class="vc-field">
+      <span class="vc-field__label">Format</span>
+      <select id="vc-format" class="vc-select">
+        <option value="mp4" selected>MP4</option>
+        <option value="webm">WebM</option>
+      </select>
+    </label>
+
+    <label class="vc-field">
+      <span class="vc-field__label">Video kbps</span>
+      <input id="vc-video-kbps" class="vc-input" type="number" min="200" max="8000" step="100" value="1500">
+    </label>
+
+    <label class="vc-field">
+      <span class="vc-field__label">Audio kbps</span>
+      <input id="vc-audio-kbps" class="vc-input" type="number" min="64" max="320" step="32" value="128">
+    </label>
+  </div>
+
+  <div class="vc-progress" hidden>
+    <div class="vc-progress__track">
+      <div class="vc-progress__bar"></div>
+    </div>
+    <span class="vc-progress__label">0%</span>
+  </div>
+
+  <span class="vc-status"></span>
+</div>
