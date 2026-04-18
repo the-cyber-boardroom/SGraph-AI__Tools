@@ -25,7 +25,8 @@ const SEND_URL = 'https://send.sgraph.ai';
  * @returns {Promise<{ token: string, shareUrl: string }>}
  */
 export async function saveSendFile(blob, opts = {}, onProgress) {
-    const filename    = opts.filename ?? `recording-${Date.now()}.webm`;
+    const ext         = blob.type.includes('mp4') ? 'mp4' : 'webm';
+    const filename    = opts.filename ?? `recording-${Date.now()}.${ext}`;
     const accessToken = opts.accessToken ?? localStorage.getItem('sgraph-send-token');
 
     if (!accessToken) {

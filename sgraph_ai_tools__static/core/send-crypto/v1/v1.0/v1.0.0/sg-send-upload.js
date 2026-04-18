@@ -126,7 +126,10 @@ async function directUpload(ciphertext, transferId, sendUrl, accessToken, onProg
   if (!createRes.ok) {
     throw new Error(`Transfer create failed: ${createRes.status} ${createRes.statusText}`);
   }
-  const { id } = await createRes.json();
+  const createData = await createRes.json();
+  // API may return { id } (legacy) or { transfer_id, upload_url } (current)
+  const id = createData.id ?? createData.transfer_id;
+  if (!id) throw new Error('Transfer create response missing id / transfer_id');
 
   progress(onProgress, 60, 'uploading');
 
