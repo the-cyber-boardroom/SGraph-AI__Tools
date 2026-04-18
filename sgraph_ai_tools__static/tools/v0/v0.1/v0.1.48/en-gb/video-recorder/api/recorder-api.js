@@ -1,22 +1,22 @@
 /**
  * recorder-api.js
  * Entry point — registers SgToolApi, calls activate() before UI init.
- * All 10 window.__tool methods are live as soon as tool:ready fires.
+ * All window.__tool methods are live as soon as tool:ready fires.
  *
  * JS-API-first rule: activate() must be called before any UI init.
  *
  * @module recorder-api
  */
 
-import { SgToolApi }                                      from '/core/sg-tool-api/v0/v0.1/v0.1.0/sg-tool-api.js';
-import { config, state, startPipeline, stopPipeline }    from './recorder-pipeline.js';
-import { RecordingConfig }                                from './recorder-state.js';
-import { SGA_RECORDER }                                   from './recorder-events.js';
-import { saveSendFile }                                   from './save-sg-send.js';
-import { saveFolder }                                     from './save-folder.js';
-import { saveVault }                                      from './save-vault.js';
-import { isCameraSupported, isScreenSupported }          from '/core/sg-capture/v0/v0.1/v0.1.0/sg-capture.js';
-import { init as initShell }                              from '../ui/ui-shell.js';
+import { SgToolApi }                                             from '/core/sg-tool-api/v0/v0.1/v0.1.0/sg-tool-api.js';
+import { config, state, startPipeline, stopPipeline,
+         startPreview, stopPreview, resetPipeline }              from './recorder-pipeline.js';
+import { RecordingConfig }                                       from './recorder-state.js';
+import { SGA_RECORDER }                                          from './recorder-events.js';
+import { saveSendFile }                                          from './save-sg-send.js';
+import { saveFolder }                                            from './save-folder.js';
+import { isCameraSupported, isScreenSupported }                  from '/core/sg-capture/v0/v0.1/v0.1.0/sg-capture.js';
+import { init as initShell }                                     from '../ui/ui-shell.js';
 
 // ─── API instance ─────────────────────────────────────────────────────────────
 
@@ -60,6 +60,24 @@ function setMode({ mode }) {
 }
 
 /**
+ * Show a camera preview before recording. Requests permissions early.
+ * @returns {Promise<{}>}
+ */
+async function startPreviewApi() {
+    await startPreview();
+    return {};
+}
+
+/**
+ * Stop any active camera preview.
+ * @returns {{}}
+ */
+function stopPreviewApi() {
+    stopPreview();
+    return {};
+}
+
+/**
  * Begin recording. Must be called directly from a user gesture if screen mode is active.
  * @param {{ format?: 'webm'|'mp4' }} [params]
  * @returns {Promise<{}>}
@@ -79,15 +97,26 @@ async function stopRecording() {
 }
 
 /**
+ * Reset to idle so a new recording can be started.
+ * @returns {{}}
+ */
+function newRecording() {
+    resetPipeline();
+    return {};
+}
+
+/**
  * Encrypt and upload the recording to SG/Send.
- * @param {{ filename?: string }} [params]
+ * Reads access token from localStorage 'sgraph-send-token' or params.accessToken.
+ * @param {{ filename?: string, accessToken?: string }} [params]
  * @returns {Promise<{ token: string, shareUrl: string }>}
  */
-async function saveSendFileApi({ filename } = {}) {
+async function saveSendFileApi({ filename, accessToken } = {}) {
     if (!state.blob) throw new Error('No recording available — call stopRecording() first');
+    const token = accessToken ?? localStorage.getItem('sgraph-send-token');
     state.status = 'saving';
     try {
-        const result = await saveSendFile(state.blob, { filename });
+        const result = await saveSendFile(state.blob, { filename, accessToken: token });
         state.status = 'stopped';
         return result;
     } catch (err) {
@@ -115,35 +144,17 @@ async function saveFolderApi({ folderName, screenshots } = {}) {
 }
 
 /**
- * Save recording to an SGraph Vault.
- * @param {{ vaultId: string, vaultKey: string, message?: string }} params
- * @returns {Promise<{ commitHash: string, vaultUrl: string }>}
- */
-async function saveVaultApi({ vaultId, vaultKey, message } = {}) {
-    if (!state.blob) throw new Error('No recording available — call stopRecording() first');
-    state.status = 'saving';
-    try {
-        const result = await saveVault(state.blob, { vaultId, vaultKey, message, durationMs: state.durationMs });
-        state.status = 'stopped';
-        return result;
-    } catch (err) {
-        state.status = 'error';
-        throw err;
-    }
-}
-
-/**
  * Return a status snapshot.
  * @returns {{ status: string, mode: string, durationMs: number, sizeBytes: number, hasBlob: boolean, lastError: string|null }}
  */
 function getStatus() {
     return {
-        status:    state.status,
-        mode:      config.mode,
+        status:     state.status,
+        mode:       config.mode,
         durationMs: state.durationMs,
-        sizeBytes: state.sizeBytes,
-        hasBlob:   state.blob !== null,
-        lastError: state.lastError,
+        sizeBytes:  state.sizeBytes,
+        hasBlob:    state.blob !== null,
+        lastError:  state.lastError,
     };
 }
 
@@ -160,16 +171,18 @@ function setConfig(params) {
 // ─── Registration + activation ────────────────────────────────────────────────
 
 api
-    .register('connect',        connect,        { async: true })
-    .register('setMode',        setMode,        { async: false, events: [SGA_RECORDER.MODE_SET] })
-    .register('startRecording', startRecording, { async: true,  events: [SGA_RECORDER.RECORD_START] })
-    .register('stopRecording',  stopRecording,  { async: true,  events: [SGA_RECORDER.RECORD_STOP] })
-    .register('saveSendFile',   saveSendFileApi, { async: true, events: [SGA_RECORDER.SAVE_PROGRESS, SGA_RECORDER.SAVE_COMPLETE] })
-    .register('saveFolder',     saveFolderApi,  { async: true,  events: [SGA_RECORDER.SAVE_PROGRESS, SGA_RECORDER.SAVE_COMPLETE] })
-    .register('saveVault',      saveVaultApi,   { async: true,  events: [SGA_RECORDER.SAVE_PROGRESS, SGA_RECORDER.SAVE_COMPLETE] })
-    .register('getStatus',      getStatus,      { async: false })
-    .register('getConfig',      getConfig,      { async: false })
-    .register('setConfig',      setConfig,      { async: false });
+    .register('connect',        connect,          { async: true })
+    .register('setMode',        setMode,          { async: false, events: [SGA_RECORDER.MODE_SET] })
+    .register('startPreview',   startPreviewApi,  { async: true,  events: [SGA_RECORDER.PREVIEW_START] })
+    .register('stopPreview',    stopPreviewApi,   { async: false, events: [SGA_RECORDER.PREVIEW_STOP] })
+    .register('startRecording', startRecording,   { async: true,  events: [SGA_RECORDER.RECORD_START] })
+    .register('stopRecording',  stopRecording,    { async: true,  events: [SGA_RECORDER.RECORD_STOP] })
+    .register('newRecording',   newRecording,     { async: false, events: [SGA_RECORDER.RESET] })
+    .register('saveSendFile',   saveSendFileApi,  { async: true,  events: [SGA_RECORDER.SAVE_PROGRESS, SGA_RECORDER.SAVE_COMPLETE] })
+    .register('saveFolder',     saveFolderApi,    { async: true,  events: [SGA_RECORDER.SAVE_PROGRESS, SGA_RECORDER.SAVE_COMPLETE] })
+    .register('getStatus',      getStatus,        { async: false })
+    .register('getConfig',      getConfig,        { async: false })
+    .register('setConfig',      setConfig,        { async: false });
 
 // JS-API-first: activate before UI so window.__tool is live from tool:ready
 api.activate();

@@ -208,8 +208,24 @@
 
 .export-input:focus { border-color: var(--rec-accent); }
 
-/* Download section */
+/* Token input row (SG/Send) */
 
-.export-download {
-    margin-top: auto;
+.export-token-row {
+    display: flex;
+    gap: 6px;
+    align-items: center;
+}
+
+.export-token-row .export-input {
+    flex: 1;
+}
+
+.export-btn--ghost-sm {
+    background: transparent;
+    color: var(--rec-muted);
+    border: 1px solid var(--rec-border);
+    padding: 5px 10px;
+    font-size: 11px;
+    white-space: nowrap;
+    flex-shrink: 0;
 }
