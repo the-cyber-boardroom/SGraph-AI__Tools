@@ -9,7 +9,7 @@
  * @module recorder-pipeline
  */
 
-import { getCameraStream, getAudioStream, getScreenStream } from '/core/sg-capture/v0/v0.1/v0.1.0/sg-capture.js';
+import { getCameraStream, getAudioStream, getScreenStream, mergeAsPiP } from '/core/sg-capture/v0/v0.1/v0.1.0/sg-capture.js';
 import { getBestMimeType }                                   from '/core/sg-video-recorder/v0/v0.1/v0.1.1/sg-video-recorder.js';
 import { RecordingConfig, RecordingState }                   from './recorder-state.js';
 import { SGA_RECORDER }                                      from './recorder-events.js';
@@ -34,11 +34,14 @@ const MODE_FLAGS = {
 
 // ─── Per-track MediaRecorder state ───────────────────────────────────────────
 
-/** @type {{ camera?: MediaRecorder, screen?: MediaRecorder, audio?: MediaRecorder }} */
+/** @type {{ camera?: MediaRecorder, screen?: MediaRecorder, audio?: MediaRecorder, combined?: MediaRecorder }} */
 const _recorders = {};
 
-/** @type {{ camera?: Blob[], screen?: Blob[], audio?: Blob[] }} */
+/** @type {{ camera?: Blob[], screen?: Blob[], audio?: Blob[], combined?: Blob[] }} */
 const _chunks    = {};
+
+/** Stops the PiP canvas compositor if active. @type {Function|null} */
+let _pipStop = null;
 
 // ─── Preview ──────────────────────────────────────────────────────────────────
 
@@ -154,6 +157,20 @@ export async function startPipeline() {
             _startRecorder('audio', new MediaStream(audioTracks));
         }
 
+        // ── PiP composite recorder (camera+screen modes only) ─────────────
+        // Records camera overlaid on screen in real time alongside the separate tracks.
+        if (rawCamera && rawScreen) {
+            const pip = await mergeAsPiP(rawScreen, rawCamera, config.pipOptions);
+            _pipStop = pip.stop;
+
+            // Add all audio tracks to the composite stream
+            const combinedStream = audioTracks.length > 0
+                ? new MediaStream([...pip.stream.getVideoTracks(), ...audioTracks])
+                : pip.stream;
+
+            _startRecorder('combined', combinedStream);
+        }
+
         // ── Update shared state ───────────────────────────────────────────
         // stream for live preview: prefer screen (most informative)
         state.stream        = rawScreen ?? rawCamera ?? rawAudio ?? null;
@@ -195,24 +212,29 @@ export async function stopPipeline() {
     if (state.status !== 'recording') throw new Error('No active recording');
 
     try {
-        // Stop all recorders in parallel
-        const [cameraBlob, screenBlob, audioBlob] = await Promise.all([
+        // Stop all recorders in parallel, then tear down the PiP compositor
+        const [cameraBlob, screenBlob, audioBlob, combinedBlob] = await Promise.all([
             _stopRecorder('camera'),
             _stopRecorder('screen'),
             _stopRecorder('audio'),
+            _stopRecorder('combined'),
         ]);
+
+        // Tear down PiP canvas compositor after recorders have flushed their data
+        if (_pipStop) { _pipStop(); _pipStop = null; }
 
         const durationMs = Date.now() - state.startedAt;
 
         // Collect blobs
-        if (cameraBlob) state.blobs.camera = cameraBlob;
-        if (screenBlob) state.blobs.screen = screenBlob;
-        if (audioBlob)  state.blobs.audio  = audioBlob;
+        if (cameraBlob)   state.blobs.camera   = cameraBlob;
+        if (screenBlob)   state.blobs.screen   = screenBlob;
+        if (audioBlob)    state.blobs.audio    = audioBlob;
+        if (combinedBlob) state.blobs.combined = combinedBlob;
 
-        // Primary blob for the video player (screen > camera > audio-only)
-        state.blob = screenBlob ?? cameraBlob ?? audioBlob ?? null;
+        // Primary blob for the video player (combined > screen > camera > audio-only)
+        state.blob = combinedBlob ?? screenBlob ?? cameraBlob ?? audioBlob ?? null;
 
-        const totalBytes = [cameraBlob, screenBlob, audioBlob]
+        const totalBytes = [cameraBlob, screenBlob, audioBlob, combinedBlob]
             .filter(Boolean)
             .reduce((sum, b) => sum + b.size, 0);
 
@@ -230,9 +252,10 @@ export async function stopPipeline() {
             durationMs,
             sizeBytes: totalBytes,
             tracks: {
-                camera: cameraBlob?.size ?? null,
-                screen: screenBlob?.size ?? null,
-                audio:  audioBlob?.size  ?? null,
+                camera:   cameraBlob?.size   ?? null,
+                screen:   screenBlob?.size   ?? null,
+                audio:    audioBlob?.size    ?? null,
+                combined: combinedBlob?.size ?? null,
             },
         });
 
@@ -251,6 +274,7 @@ export async function stopPipeline() {
  */
 export function resetPipeline() {
     if (state.previewStop) state.previewStop();
+    if (_pipStop) { _pipStop(); _pipStop = null; }
     state.reset();
     _dispatchOnWindow(SGA_RECORDER.RESET, {});
 }

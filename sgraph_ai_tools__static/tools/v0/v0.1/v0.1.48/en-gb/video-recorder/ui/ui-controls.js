@@ -68,14 +68,17 @@ export function initControls(container, state, config, api, emit) {
 
             <!-- Post-recording download buttons — shown per available track -->
             <div class="ctrl-row ctrl-row--post" id="row-post" style="display:none">
-                <button id="btn-dl-screen" class="ctrl-btn ctrl-btn--download" style="display:none">
-                    ⬇ Screen (WebM)
+                <button id="btn-dl-combined" class="ctrl-btn ctrl-btn--download" style="display:none">
+                    ⬇ Combined PiP
+                </button>
+                <button id="btn-dl-screen" class="ctrl-btn ctrl-btn--download ctrl-btn--download-sec" style="display:none">
+                    ⬇ Screen
                 </button>
                 <button id="btn-dl-camera" class="ctrl-btn ctrl-btn--download ctrl-btn--download-sec" style="display:none">
-                    ⬇ Camera (WebM)
+                    ⬇ Camera
                 </button>
                 <button id="btn-dl-audio" class="ctrl-btn ctrl-btn--download ctrl-btn--download-sec" style="display:none">
-                    ⬇ Audio (WebM)
+                    ⬇ Audio
                 </button>
                 <button id="btn-new-recording" class="ctrl-btn ctrl-btn--new">
                     ↺ New Recording
@@ -95,10 +98,11 @@ export function initControls(container, state, config, api, emit) {
     const rowMode     = container.querySelector('#row-mode');
     const rowStatus   = container.querySelector('#row-status');
     const rowPost     = container.querySelector('#row-post');
-    const btnDlScreen = container.querySelector('#btn-dl-screen');
-    const btnDlCamera = container.querySelector('#btn-dl-camera');
-    const btnDlAudio  = container.querySelector('#btn-dl-audio');
-    const btnNew      = container.querySelector('#btn-new-recording');
+    const btnDlCombined = container.querySelector('#btn-dl-combined');
+    const btnDlScreen   = container.querySelector('#btn-dl-screen');
+    const btnDlCamera   = container.querySelector('#btn-dl-camera');
+    const btnDlAudio    = container.querySelector('#btn-dl-audio');
+    const btnNew        = container.querySelector('#btn-new-recording');
 
     modeSelect.value = config.mode;
     let timerInterval = null;
@@ -222,8 +226,19 @@ export function initControls(container, state, config, api, emit) {
             rowPost.style.display    = '';
 
             const ts = Date.now();
+
+            // Show per-track download buttons with file sizes
+            if (state.blobs.combined) {
+                btnDlCombined.style.display = '';
+                btnDlCombined.textContent   = `⬇ Combined PiP  ${_formatBytes(state.blobs.combined.size)}`;
+                btnDlCombined.onclick = _makeDownloadHandler(
+                    () => state.blobs.combined,
+                    () => `combined-${ts}.webm`,
+                );
+            }
             if (state.blobs.screen) {
                 btnDlScreen.style.display = '';
+                btnDlScreen.textContent   = `⬇ Screen  ${_formatBytes(state.blobs.screen.size)}`;
                 btnDlScreen.onclick = _makeDownloadHandler(
                     () => state.blobs.screen,
                     () => `screen-${ts}.webm`,
@@ -231,6 +246,7 @@ export function initControls(container, state, config, api, emit) {
             }
             if (state.blobs.camera) {
                 btnDlCamera.style.display = '';
+                btnDlCamera.textContent   = `⬇ Camera  ${_formatBytes(state.blobs.camera.size)}`;
                 btnDlCamera.onclick = _makeDownloadHandler(
                     () => state.blobs.camera,
                     () => `camera-${ts}.webm`,
@@ -238,6 +254,7 @@ export function initControls(container, state, config, api, emit) {
             }
             if (state.blobs.audio) {
                 btnDlAudio.style.display = '';
+                btnDlAudio.textContent   = `⬇ Audio  ${_formatBytes(state.blobs.audio.size)}`;
                 btnDlAudio.onclick = _makeDownloadHandler(
                     () => state.blobs.audio,
                     () => `audio-${ts}.webm`,
@@ -260,9 +277,10 @@ export function initControls(container, state, config, api, emit) {
         rowMode.style.display    = '';
         rowStatus.style.display  = '';
 
-        btnDlScreen.style.display = 'none';
-        btnDlCamera.style.display = 'none';
-        btnDlAudio.style.display  = 'none';
+        btnDlCombined.style.display = 'none';
+        btnDlScreen.style.display   = 'none';
+        btnDlCamera.style.display   = 'none';
+        btnDlAudio.style.display    = 'none';
 
         btnRecord.disabled    = false;
         btnPreview.disabled   = false;
