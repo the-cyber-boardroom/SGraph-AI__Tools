@@ -277,7 +277,7 @@ function _initPreviewTab(el, state, config, layout) {
     liveBadge.style.display = 'none';
     el.appendChild(liveBadge);
 
-    // Viz animation panel (viz+audio mode)
+    // Viz animation panel (viz+audio and screen+viz+audio modes)
     const vizWrap = document.createElement('div');
     vizWrap.style.cssText = 'position:absolute;inset:0;display:none;';
     el.appendChild(vizWrap);
@@ -293,14 +293,30 @@ function _initPreviewTab(el, state, config, layout) {
     vizBadge.style.cssText = 'display:none;background:#6366f1;';
     el.appendChild(vizBadge);
 
+    // Camera PiP overlay for screen+camera recording modes
+    const camPip = document.createElement('video');
+    camPip.autoplay = true;
+    camPip.muted    = true;
+    camPip.setAttribute('playsinline', '');
+    camPip.style.cssText = [
+        'position:absolute', 'bottom:16px', 'right:16px',
+        'width:200px', 'border-radius:8px', 'display:none',
+        'border:2px solid rgba(255,255,255,0.18)', 'background:#000',
+    ].join(';');
+    el.appendChild(camPip);
+
     function _showOnly(which) {
-        placeholder.style.display  = which === 'placeholder'  ? 'flex'  : 'none';
-        pregameVideo.style.display = which === 'pregame'      ? 'block' : 'none';
-        pregameBadge.style.display = which === 'pregame'      ? 'block' : 'none';
-        liveVideo.style.display    = which === 'live'         ? 'block' : 'none';
-        liveBadge.style.display    = which === 'live'         ? 'block' : 'none';
-        vizWrap.style.display      = which === 'viz'          ? 'block' : 'none';
-        vizBadge.style.display     = which === 'viz'          ? 'block' : 'none';
+        placeholder.style.display  = which === 'placeholder' ? 'flex'  : 'none';
+        pregameVideo.style.display = which === 'pregame'     ? 'block' : 'none';
+        pregameBadge.style.display = which === 'pregame'     ? 'block' : 'none';
+        liveVideo.style.display    = which === 'live'        ? 'block' : 'none';
+        liveBadge.style.display    = which === 'live'        ? 'block' : 'none';
+        // Reset viz to full-screen; callers set PiP styles explicitly after
+        vizWrap.style.cssText = which === 'viz'
+            ? 'position:absolute;inset:0;display:block;'
+            : 'position:absolute;inset:0;display:none;';
+        vizBadge.style.display = which === 'viz' ? 'block' : 'none';
+        camPip.style.display   = 'none';
     }
 
     _showOnly('placeholder');
@@ -324,14 +340,41 @@ function _initPreviewTab(el, state, config, layout) {
     window.addEventListener(SGA_RECORDER.RECORD_START, () => {
         pregameVideo.srcObject = null;
 
-        // Switch the right stack back to the Preview tab so the live feed is visible
         layout.dispatchEvent(new CustomEvent('sg-layout:focus-panel', {
             detail: { id: 't-preview' },
         }));
 
-        if (config.mode === 'viz+audio') {
-            // Viz element was already started by vizProvider.start() — just show it
+        const mode = config.mode;
+
+        if (mode === 'viz+audio') {
+            // Viz fullscreen — already started by vizProvider.start()
             _showOnly('viz');
+
+        } else if (mode === 'screen+viz+audio') {
+            // Screen main view + viz as PiP in bottom-right corner
+            liveVideo.srcObject = state.stream;
+            liveVideo.play().catch(() => {});
+            _showOnly('live');
+            vizWrap.style.cssText = [
+                'position:absolute', 'bottom:16px', 'right:16px',
+                'width:200px', 'height:112px', 'display:block',
+                'border-radius:8px', 'overflow:hidden',
+                'border:2px solid rgba(255,255,255,0.18)',
+            ].join(';');
+            vizBadge.style.display = 'block';
+
+        } else if (mode.includes('screen') && mode.includes('camera')) {
+            // Screen main view + camera PiP in bottom-right corner
+            liveVideo.srcObject = state.stream;
+            liveVideo.play().catch(() => {});
+            _showOnly('live');
+            const camStream = state.streams?.camera;
+            if (camStream) {
+                camPip.srcObject = camStream;
+                camPip.play().catch(() => {});
+                camPip.style.display = 'block';
+            }
+
         } else {
             const hasVideo = state.stream?.getVideoTracks().length > 0;
             if (hasVideo) {
@@ -346,31 +389,33 @@ function _initPreviewTab(el, state, config, layout) {
 
     window.addEventListener(SGA_RECORDER.RECORD_STOP, () => {
         liveVideo.srcObject = null;
+        camPip.srcObject    = null;
         _showOnly('placeholder');
     });
 
     window.addEventListener(SGA_RECORDER.RESET, () => {
         liveVideo.srcObject    = null;
         pregameVideo.srcObject = null;
+        camPip.srcObject       = null;
         _showOnly('placeholder');
     });
 
-    // ── vizProvider — called by recorder-pipeline for viz+audio mode ──────────
+    // ── vizProvider — called by recorder-pipeline for viz modes ──────────────
     const vizProvider = {
         async start(micStream, fps) {
-            // Show the wrap now so canvas gets real layout dimensions before captureStream()
-            vizWrap.style.display = 'block';
+            // Show vizWrap full-size so canvas gets real layout dimensions
+            vizWrap.style.cssText = 'position:absolute;inset:0;display:block;';
             await vizEl.whenReady();
             vizEl.setMode(config.vizMode || 'mirror-wave');
             await vizEl.setSource(micStream);
             vizEl.start();
-            // One animation frame ensures ResizeObserver has fired and canvas size is synced
+            // One rAF ensures ResizeObserver has fired and canvas size is set
             await new Promise(r => requestAnimationFrame(r));
             return vizEl.captureStream(fps);
         },
         stop() {
             vizEl.stop();
-            vizWrap.style.display = 'none';
+            vizWrap.style.cssText = 'position:absolute;inset:0;display:none;';
         },
     };
 
