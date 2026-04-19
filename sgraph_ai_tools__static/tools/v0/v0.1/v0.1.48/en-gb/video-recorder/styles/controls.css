@@ -127,6 +127,42 @@
 }
 .ctrl-btn--new:hover:not(:disabled) { background: rgba(255,255,255,0.14); }
 
+.ctrl-options {
+    border-top: 1px solid var(--rec-border);
+    padding-top: 10px;
+    margin-top: 2px;
+}
+
+.ctrl-options__summary {
+    font-size: 11px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    color: var(--rec-muted);
+    cursor: pointer;
+    user-select: none;
+    list-style: none;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+.ctrl-options__summary::-webkit-details-marker { display: none; }
+.ctrl-options__summary::after {
+    content: '▾';
+    font-size: 10px;
+    transition: transform 0.15s;
+}
+.ctrl-options[open] .ctrl-options__summary::after {
+    transform: rotate(-180deg);
+}
+
+.ctrl-options__body {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    padding-top: 10px;
+}
+
 .ctrl-toggle-group {
     display: flex;
     border-radius: 6px;

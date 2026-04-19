@@ -40,7 +40,7 @@ export async function saveSendFile(blob, opts = {}, onProgress) {
         if (onProgress) onProgress(percent, stage);
     });
 
-    const shareUrl = `${SEND_URL}/#${result.token}`;
+    const shareUrl = `${SEND_URL}/en-gb/browse/#${result.token}`;
     _dispatch(SGA_RECORDER.SAVE_COMPLETE, { target: 'sg-send', token: result.token, url: shareUrl });
 
     return { token: result.token, shareUrl };

@@ -45,24 +45,6 @@ export function initControls(container, state, config, api, emit) {
                 </select>
             </div>
 
-            <div class="ctrl-row" id="row-rec-mode">
-                <label class="ctrl-label">Tracks</label>
-                <div class="ctrl-toggle-group" id="rec-mode-group">
-                    <button class="ctrl-toggle" data-value="combined">Combined</button>
-                    <button class="ctrl-toggle" data-value="combined+separate">All tracks</button>
-                    <button class="ctrl-toggle" data-value="separate">Separate</button>
-                </div>
-            </div>
-
-            <div class="ctrl-row" id="row-quality">
-                <label class="ctrl-label">Quality</label>
-                <div class="ctrl-toggle-group" id="quality-group">
-                    <button class="ctrl-toggle" data-value="1000000">1 Mbps</button>
-                    <button class="ctrl-toggle" data-value="2500000">2.5 Mbps</button>
-                    <button class="ctrl-toggle" data-value="5000000">5 Mbps</button>
-                </div>
-            </div>
-
             <div class="ctrl-row ctrl-row--actions" id="row-actions">
                 <button id="btn-preview" class="ctrl-btn ctrl-btn--preview">
                     👁 Preview
@@ -83,6 +65,29 @@ export function initControls(container, state, config, api, emit) {
             <div class="ctrl-row">
                 <span class="ctrl-status" id="ctrl-status">Ready</span>
             </div>
+
+            <!-- Advanced options — collapsed by default -->
+            <details class="ctrl-options" id="row-options">
+                <summary class="ctrl-options__summary">Options</summary>
+                <div class="ctrl-options__body">
+                    <div class="ctrl-row">
+                        <label class="ctrl-label">Output streams — how many files are recorded</label>
+                        <div class="ctrl-toggle-group" id="rec-mode-group">
+                            <button class="ctrl-toggle" data-value="combined">1 stream</button>
+                            <button class="ctrl-toggle" data-value="combined+separate">All streams</button>
+                            <button class="ctrl-toggle" data-value="separate">Split</button>
+                        </div>
+                    </div>
+                    <div class="ctrl-row">
+                        <label class="ctrl-label">Quality</label>
+                        <div class="ctrl-toggle-group" id="quality-group">
+                            <button class="ctrl-toggle" data-value="1000000">1 Mbps</button>
+                            <button class="ctrl-toggle" data-value="2500000">2.5 Mbps</button>
+                            <button class="ctrl-toggle" data-value="5000000">5 Mbps</button>
+                        </div>
+                    </div>
+                </div>
+            </details>
 
             <!-- Post-recording download buttons — shown per available track -->
             <div class="ctrl-row ctrl-row--post" id="row-post" style="display:none">
@@ -107,9 +112,8 @@ export function initControls(container, state, config, api, emit) {
 
     const modeSelect    = container.querySelector('#mode-select');
     const recModeGroup  = container.querySelector('#rec-mode-group');
-    const rowRecMode    = container.querySelector('#row-rec-mode');
     const qualityGroup  = container.querySelector('#quality-group');
-    const rowQuality    = container.querySelector('#row-quality');
+    const rowOptions    = container.querySelector('#row-options');
     const btnPreview    = container.querySelector('#btn-preview');
     const btnRecord     = container.querySelector('#btn-record');
     const btnStop       = container.querySelector('#btn-stop');
@@ -294,8 +298,7 @@ export function initControls(container, state, config, api, emit) {
         // Switch to post-recording UI
         rowActions.style.display  = 'none';
         rowMode.style.display     = 'none';
-        rowRecMode.style.display  = 'none';
-        rowQuality.style.display  = 'none';
+        rowOptions.style.display  = 'none';
         rowStatus.style.display   = 'none';
         rowPost.style.display     = '';
 
@@ -325,8 +328,7 @@ export function initControls(container, state, config, api, emit) {
         rowPost.style.display     = 'none';
         rowActions.style.display  = '';
         rowMode.style.display     = '';
-        rowRecMode.style.display  = '';
-        rowQuality.style.display  = '';
+        rowOptions.style.display  = '';
         rowStatus.style.display   = '';
 
         btnDlCombined.style.display = 'none';
