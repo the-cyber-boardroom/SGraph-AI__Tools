@@ -339,10 +339,7 @@ function _initPreviewTab(el, state, config, layout) {
 
     window.addEventListener(SGA_RECORDER.RECORD_START, () => {
         pregameVideo.srcObject = null;
-
-        layout.dispatchEvent(new CustomEvent('sg-layout:focus-panel', {
-            detail: { id: 't-preview' },
-        }));
+        layout.focusPanel('t-preview');
 
         const mode = config.mode;
 
@@ -403,14 +400,17 @@ function _initPreviewTab(el, state, config, layout) {
     // ── vizProvider — called by recorder-pipeline for viz modes ──────────────
     const vizProvider = {
         async start(micStream, fps) {
+            // Focus preview tab so the panel is visible before we size the canvas
+            layout.focusPanel('t-preview');
             // Show vizWrap full-size so canvas gets real layout dimensions
             vizWrap.style.cssText = 'position:absolute;inset:0;display:block;';
             await vizEl.whenReady();
-            vizEl.setMode(config.vizMode || 'mirror-wave');
+            vizEl.setMode(config.vizMode || 'mirror-eq');
             await vizEl.setSource(micStream);
             vizEl.start();
-            // One rAF ensures ResizeObserver has fired and canvas size is set
-            await new Promise(r => requestAnimationFrame(r));
+            // Two rAFs: first lets the tab switch reflow, second ensures
+            // ResizeObserver has fired and canvas dimensions are correct
+            await new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r)));
             return vizEl.captureStream(fps);
         },
         stop() {
