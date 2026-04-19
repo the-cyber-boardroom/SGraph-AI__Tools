@@ -1,0 +1,447 @@
+<!DOCTYPE html>
+<html lang="en-GB">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Tests — sg-vault-tree-model.js</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: 'SF Mono', 'Fira Code', 'Consolas', monospace;
+            background: #0a0e1a;
+            color: #e2e8f0;
+            padding: 2rem;
+            line-height: 1.6;
+        }
+        h1 { font-size: 1.25rem; margin-bottom: 1rem; color: #4ECDC4; }
+        h2 { font-size: 1rem; margin: 1.5rem 0 0.75rem; color: #94a3b8; border-bottom: 1px solid #1e293b; padding-bottom: 0.25rem; }
+        .test       { padding: 0.25rem 0; font-size: 0.8125rem; }
+        .test.pass  { color: #4ECDC4; }
+        .test.fail  { color: #e94560; }
+        .summary {
+            margin-top: 1.5rem;
+            padding: 1rem;
+            border-radius: 6px;
+            font-size: 0.875rem;
+            font-weight: 600;
+        }
+        .summary.all-pass { background: rgba(78,205,196,0.15); color: #4ECDC4; border: 1px solid rgba(78,205,196,0.3); }
+        .summary.has-fail { background: rgba(233,69,96,0.15); color: #e94560; border: 1px solid rgba(233,69,96,0.3); }
+        .detail     { color: #64748b; font-size: 0.75rem; margin-left: 1.5rem; }
+        .timing     { color: #64748b; font-size: 0.75rem; }
+    </style>
+</head>
+<body>
+    <h1>sg-vault-tree-model.js — Test Suite</h1>
+    <div id="output"></div>
+    <div id="summary"></div>
+
+    <script type="module">
+        import { createTreeModel } from '/core/vault-tree-model/v1/v1.0/v1.0.0/sg-vault-tree-model.js';
+
+        const output  = document.getElementById('output');
+        const summary = document.getElementById('summary');
+        let passed = 0, failed = 0, total = 0;
+        const t0 = performance.now();
+
+        function log(msg, cls) {
+            const div = document.createElement('div');
+            div.className = `test ${cls}`;
+            div.textContent = msg;
+            output.appendChild(div);
+        }
+
+        function detail(msg) {
+            const div = document.createElement('div');
+            div.className = 'detail';
+            div.textContent = msg;
+            output.appendChild(div);
+        }
+
+        function heading(msg) {
+            const h = document.createElement('h2');
+            h.textContent = msg;
+            output.appendChild(h);
+        }
+
+        function assert(condition, testName, extra) {
+            total++;
+            if (condition) {
+                passed++;
+                log(`PASS  ${testName}`, 'pass');
+            } else {
+                failed++;
+                log(`FAIL  ${testName}`, 'fail');
+                if (extra) detail(extra);
+            }
+        }
+
+        function assertEqual(actual, expected, testName) {
+            const ok = JSON.stringify(actual) === JSON.stringify(expected);
+            assert(ok, testName, `expected ${JSON.stringify(expected)}, got ${JSON.stringify(actual)}`);
+        }
+
+        function assertThrows(fn, testName) {
+            total++;
+            try {
+                fn();
+                failed++;
+                log(`FAIL  ${testName}`, 'fail');
+                detail('Expected an error but none was thrown');
+            } catch {
+                passed++;
+                log(`PASS  ${testName}`, 'pass');
+            }
+        }
+
+        // ── Test data ──────────────────────────────────────────────────────
+
+        const ROOT_ENTRIES = [
+            { name: 'README.md', blob_id: 'obj-cas-imm-aaa111bbb222', size: 1234, content_hash: 'abc123' },
+            { name: 'config.json', blob_id: 'obj-cas-imm-ccc333ddd444', size: 567, content_hash: 'def456' },
+            { name: 'docs', tree_id: 'obj-cas-imm-eee555fff666' },
+            { name: 'src', tree_id: 'obj-cas-imm-ggg777hhh888' },
+        ];
+
+        const DOCS_ENTRIES = [
+            { name: 'guide.md', blob_id: 'obj-cas-imm-iii999jjj000', size: 2048, content_hash: 'ghi789' },
+            { name: 'api', tree_id: 'obj-cas-imm-kkk111lll222' },
+        ];
+
+        const SETTINGS_ENTRIES = [
+            { name: '.vault-settings', blob_id: 'obj-cas-imm-settings01' },
+            { name: 'file.txt', blob_id: 'obj-cas-imm-file01', size: 100, content_hash: 'abc' },
+        ];
+
+        // ── Tests ──────────────────────────────────────────────────────────
+
+        heading('1. createTreeModel()');
+        {
+            const model = createTreeModel();
+            assert(model !== null, 'createTreeModel returns a non-null object');
+            assert(typeof model.loadRoot === 'function', 'has loadRoot method');
+            assert(typeof model.loadSubTree === 'function', 'has loadSubTree method');
+            assert(typeof model.needsLoading === 'function', 'has needsLoading method');
+            assert(typeof model.getNode === 'function', 'has getNode method');
+            assert(typeof model.insertFile === 'function', 'has insertFile method');
+            assert(typeof model.listFolder === 'function', 'has listFolder method');
+            assert(typeof model.getStats === 'function', 'has getStats method');
+        }
+
+        heading('2. loadRoot()');
+        {
+            const model = createTreeModel();
+            model.loadRoot(ROOT_ENTRIES);
+
+            const root = model.getRoot();
+            assert(root !== null, 'root node exists after loadRoot');
+            assert(root._loaded === true, 'root is marked as loaded');
+            assertEqual(Object.keys(root.children).length, 4, 'root has 4 children');
+
+            const readme = root.children['README.md'];
+            assert(readme.type === 'file', 'README.md is a file');
+            assertEqual(readme.blob_id, 'obj-cas-imm-aaa111bbb222', 'README.md has correct blob_id');
+            assertEqual(readme.size, 1234, 'README.md has correct size');
+
+            const docs = root.children['docs'];
+            assert(docs.type === 'folder', 'docs is a folder');
+            assert(docs._loaded === false, 'docs is a stub (not loaded)');
+            assertEqual(docs._tree_id, 'obj-cas-imm-eee555fff666', 'docs has correct tree_id');
+        }
+
+        heading('3. getNode()');
+        {
+            const model = createTreeModel();
+            model.loadRoot(ROOT_ENTRIES);
+
+            const root = model.getNode('/');
+            assert(root !== null, 'getNode("/") returns root');
+            assert(root === model.getRoot(), 'getNode("/") same as getRoot()');
+
+            const readme = model.getNode('/README.md');
+            assert(readme !== null, 'getNode("/README.md") finds file');
+            assertEqual(readme.blob_id, 'obj-cas-imm-aaa111bbb222', 'correct blob_id via getNode');
+
+            const docs = model.getNode('/docs');
+            assert(docs !== null, 'getNode("/docs") finds folder');
+            assert(docs.type === 'folder', '/docs is folder');
+
+            const missing = model.getNode('/nonexistent');
+            assert(missing === null, 'getNode for missing path returns null');
+
+            const deep = model.getNode('/docs/nested/deep');
+            assert(deep === null, 'getNode for unloaded deep path returns null');
+        }
+
+        heading('4. needsLoading() and getTreeId()');
+        {
+            const model = createTreeModel();
+            model.loadRoot(ROOT_ENTRIES);
+
+            assert(model.needsLoading('/docs') === true, 'stub folder needs loading');
+            assert(model.needsLoading('/src') === true, 'another stub needs loading');
+            assert(model.needsLoading('/') === false, 'root does not need loading');
+            assert(model.needsLoading('/README.md') === false, 'file does not need loading');
+            assert(model.needsLoading('/nonexistent') === false, 'missing path does not need loading');
+
+            assertEqual(model.getTreeId('/docs'), 'obj-cas-imm-eee555fff666', 'getTreeId for stub folder');
+            assert(model.getTreeId('/') === null, 'getTreeId for loaded folder is null');
+            assert(model.getTreeId('/README.md') === null, 'getTreeId for file is null');
+        }
+
+        heading('5. loadSubTree()');
+        {
+            const model = createTreeModel();
+            model.loadRoot(ROOT_ENTRIES);
+
+            const loaded = model.loadSubTree('/docs', DOCS_ENTRIES);
+            assert(loaded === true, 'loadSubTree returns true on first load');
+
+            const docs = model.getNode('/docs');
+            assert(docs._loaded === true, 'docs is now loaded');
+            assertEqual(Object.keys(docs.children).length, 2, 'docs has 2 children');
+
+            const guide = model.getNode('/docs/guide.md');
+            assert(guide !== null, 'can navigate to docs/guide.md');
+            assertEqual(guide.blob_id, 'obj-cas-imm-iii999jjj000', 'guide.md has correct blob_id');
+
+            const api = model.getNode('/docs/api');
+            assert(api !== null, 'docs/api folder exists');
+            assert(api.type === 'folder', 'docs/api is a folder');
+            assert(api._loaded === false, 'docs/api is a stub');
+
+            assert(model.needsLoading('/docs') === false, 'docs no longer needs loading');
+            assert(model.needsLoading('/docs/api') === true, 'docs/api still needs loading');
+
+            const again = model.loadSubTree('/docs', []);
+            assert(again === false, 'loadSubTree returns false if already loaded');
+        }
+
+        heading('6. listFolder()');
+        {
+            const model = createTreeModel();
+            model.loadRoot(ROOT_ENTRIES);
+            model.loadSubTree('/docs', DOCS_ENTRIES);
+
+            const rootList = model.listFolder('/');
+            assertEqual(rootList.length, 4, 'root lists 4 entries');
+
+            const files = rootList.filter(e => e.type === 'file');
+            const folders = rootList.filter(e => e.type === 'folder');
+            assertEqual(files.length, 2, '2 files in root');
+            assertEqual(folders.length, 2, '2 folders in root');
+
+            const docsList = model.listFolder('/docs');
+            assertEqual(docsList.length, 2, 'docs lists 2 entries');
+
+            const empty = model.listFolder('/nonexistent');
+            assertEqual(empty.length, 0, 'missing folder returns empty array');
+
+            const fileList = model.listFolder('/README.md');
+            assertEqual(fileList.length, 0, 'listing a file returns empty array');
+        }
+
+        heading('7. insertFile()');
+        {
+            const model = createTreeModel();
+            model.loadRoot(ROOT_ENTRIES);
+
+            model.insertFile('/', 'new-file.txt', {
+                blob_id: 'obj-cas-imm-newfile01',
+                size: 42,
+                content_hash: 'new123',
+            });
+
+            const node = model.getNode('/new-file.txt');
+            assert(node !== null, 'inserted file exists');
+            assertEqual(node.blob_id, 'obj-cas-imm-newfile01', 'inserted file has correct blob_id');
+            assertEqual(node.size, 42, 'inserted file has correct size');
+            assertEqual(model.listFolder('/').length, 5, 'root now has 5 entries');
+        }
+
+        heading('8. updateFile()');
+        {
+            const model = createTreeModel();
+            model.loadRoot(ROOT_ENTRIES);
+
+            model.updateFile('/', 'README.md', {
+                blob_id: 'obj-cas-imm-updated01',
+                size: 9999,
+                content_hash: 'upd123',
+            });
+
+            const node = model.getNode('/README.md');
+            assertEqual(node.blob_id, 'obj-cas-imm-updated01', 'blob_id updated');
+            assertEqual(node.size, 9999, 'size updated');
+            assertEqual(node.content_hash, 'upd123', 'content_hash updated');
+        }
+
+        heading('9. removeEntry()');
+        {
+            const model = createTreeModel();
+            model.loadRoot(ROOT_ENTRIES);
+
+            model.removeEntry('/', 'config.json');
+            assert(model.getNode('/config.json') === null, 'removed file is gone');
+            assertEqual(model.listFolder('/').length, 3, 'root now has 3 entries');
+
+            assertThrows(() => model.removeEntry('/', 'nonexistent'), 'removeEntry throws for missing entry');
+        }
+
+        heading('10. renameEntry()');
+        {
+            const model = createTreeModel();
+            model.loadRoot(ROOT_ENTRIES);
+
+            model.renameEntry('/', 'README.md', 'CHANGELOG.md');
+            assert(model.getNode('/README.md') === null, 'old name is gone');
+            const renamed = model.getNode('/CHANGELOG.md');
+            assert(renamed !== null, 'new name exists');
+            assertEqual(renamed.blob_id, 'obj-cas-imm-aaa111bbb222', 'blob_id preserved after rename');
+
+            assertThrows(() => model.renameEntry('/', 'config.json', 'CHANGELOG.md'),
+                'renameEntry throws on name collision');
+            assertThrows(() => model.renameEntry('/', 'nonexistent', 'something'),
+                'renameEntry throws for missing entry');
+        }
+
+        heading('11. moveEntry()');
+        {
+            const model = createTreeModel();
+            model.loadRoot(ROOT_ENTRIES);
+            model.loadSubTree('/docs', DOCS_ENTRIES);
+
+            model.moveEntry('/', 'config.json', '/docs');
+            assert(model.getNode('/config.json') === null, 'file removed from source');
+            const moved = model.getNode('/docs/config.json');
+            assert(moved !== null, 'file exists at destination');
+            assertEqual(moved.blob_id, 'obj-cas-imm-ccc333ddd444', 'blob_id preserved after move');
+
+            assertThrows(() => model.moveEntry('/', 'README.md', '/src'),
+                'moveEntry throws when dest folder is a stub');
+        }
+
+        heading('12. createFolder()');
+        {
+            const model = createTreeModel();
+            model.loadRoot(ROOT_ENTRIES);
+
+            model.createFolder('/', 'archive');
+            const folder = model.getNode('/archive');
+            assert(folder !== null, 'created folder exists');
+            assert(folder.type === 'folder', 'created entry is a folder');
+            assert(folder._loaded === true, 'new folder is loaded (empty)');
+            assertEqual(Object.keys(folder.children).length, 0, 'new folder has no children');
+
+            assertThrows(() => model.createFolder('/', 'docs'),
+                'createFolder throws on name collision');
+        }
+
+        heading('13. buildTreeEntries()');
+        {
+            const model = createTreeModel();
+            model.loadRoot(ROOT_ENTRIES);
+            model.loadSubTree('/docs', DOCS_ENTRIES);
+
+            const entries = model.buildTreeEntries(model.getRoot());
+            assert(entries.length >= 4, 'buildTreeEntries returns entries for all children');
+
+            const readmeEntry = entries.find(e => e.name === 'README.md');
+            assert(readmeEntry !== null, 'README.md in entries');
+            assertEqual(readmeEntry.blob_id, 'obj-cas-imm-aaa111bbb222', 'file entry has blob_id');
+            assert(readmeEntry.tree_id === null, 'file entry has null tree_id');
+
+            const srcEntry = entries.find(e => e.name === 'src');
+            assert(srcEntry !== null, 'src in entries');
+            assertEqual(srcEntry.tree_id, 'obj-cas-imm-ggg777hhh888', 'stub folder preserves tree_id');
+            assert(srcEntry.blob_id === null, 'folder entry has null blob_id');
+
+            const docsEntry = entries.find(e => e.name === 'docs');
+            assert(docsEntry !== null, 'docs in entries');
+            assert(docsEntry.tree_id === null, 'loaded folder has null tree_id (needs rebuild)');
+            assert(docsEntry._children !== undefined, 'loaded folder has _children for recursion');
+        }
+
+        heading('14. getStats()');
+        {
+            const model = createTreeModel();
+            model.loadRoot(ROOT_ENTRIES);
+
+            const stats1 = model.getStats();
+            assertEqual(stats1.totalFiles, 2, '2 files at root');
+            assertEqual(stats1.totalFolders, 2, '2 folders at root');
+            assertEqual(stats1.stubFolders, 2, '2 stub folders initially');
+            assertEqual(stats1.loadedFolders, 0, '0 loaded sub-folders initially');
+
+            model.loadSubTree('/docs', DOCS_ENTRIES);
+            const stats2 = model.getStats();
+            assertEqual(stats2.totalFiles, 3, '3 files after loading docs');
+            assertEqual(stats2.totalFolders, 3, '3 folders (docs + api + src)');
+            assertEqual(stats2.stubFolders, 2, '2 stubs remain (src + docs/api)');
+            assertEqual(stats2.loadedFolders, 1, '1 loaded sub-folder (docs)');
+        }
+
+        heading('15. getAllFilePaths()');
+        {
+            const model = createTreeModel();
+            model.loadRoot(ROOT_ENTRIES);
+            model.loadSubTree('/docs', DOCS_ENTRIES);
+
+            const paths = model.getAllFilePaths();
+            assert(paths.includes('/README.md'), 'includes /README.md');
+            assert(paths.includes('/config.json'), 'includes /config.json');
+            assert(paths.includes('/docs/guide.md'), 'includes /docs/guide.md');
+            assertEqual(paths.length, 3, '3 file paths (src and docs/api are stubs, not traversed)');
+        }
+
+        heading('16. Settings handling');
+        {
+            const model = createTreeModel();
+            model.loadRoot(SETTINGS_ENTRIES);
+
+            assertEqual(model.getSettingsBlobId(), 'obj-cas-imm-settings01', '.vault-settings blob_id captured');
+            assert(model.getNode('/.vault-settings') === null, '.vault-settings not in tree as a file');
+            assertEqual(model.listFolder('/').length, 1, 'only file.txt in listing');
+
+            assert(model.getSettings() === null, 'settings initially null');
+            model.setSettings({ theme: 'dark' });
+            assertEqual(model.getSettings().theme, 'dark', 'settings set and retrieved');
+        }
+
+        heading('17. loadRoot() resets state');
+        {
+            const model = createTreeModel();
+            model.loadRoot(ROOT_ENTRIES);
+            model.insertFile('/', 'extra.txt', { blob_id: 'x', size: 1, content_hash: '' });
+            assertEqual(model.listFolder('/').length, 5, '5 entries before reset');
+
+            model.loadRoot(ROOT_ENTRIES);
+            assertEqual(model.listFolder('/').length, 4, 'back to 4 entries after loadRoot reset');
+        }
+
+        heading('18. Edge cases');
+        {
+            const model = createTreeModel();
+            model.loadRoot([]);
+            assertEqual(model.listFolder('/').length, 0, 'empty root is valid');
+
+            const emptyStats = model.getStats();
+            assertEqual(emptyStats.totalFiles, 0, 'empty tree: 0 files');
+            assertEqual(emptyStats.totalFolders, 0, 'empty tree: 0 folders');
+
+            assertThrows(() => model.insertFile('/nonexistent', 'file.txt', { blob_id: 'x', size: 0, content_hash: '' }),
+                'insertFile into nonexistent folder throws');
+
+            assertThrows(() => model.updateFile('/', 'nonexistent.txt', { blob_id: 'x', size: 0, content_hash: '' }),
+                'updateFile on nonexistent file throws');
+        }
+
+        // ── Summary ────────────────────────────────────────────────────────
+
+        const elapsed = (performance.now() - t0).toFixed(1);
+        const allPassed = failed === 0;
+        summary.className = `summary ${allPassed ? 'all-pass' : 'has-fail'}`;
+        summary.innerHTML = `${allPassed ? 'ALL PASSED' : 'FAILURES DETECTED'} — ${passed}/${total} passed, ${failed} failed <span class="timing">(${elapsed} ms)</span>`;
+    </script>
+</body>
+</html>
