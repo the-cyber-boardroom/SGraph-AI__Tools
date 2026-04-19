@@ -1,0 +1,419 @@
+<!DOCTYPE html>
+<html lang="en-GB">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>sg-audio-viz v0.1.0 — Tests + Demo</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: #0a0a18;
+            color: #e2e8f0;
+            display: flex;
+            flex-direction: column;
+            height: 100vh;
+            overflow: hidden;
+        }
+
+        /* ── Test results panel ──────────────────────────────────────── */
+
+        #test-results {
+            padding: 14px 18px;
+            background: #0d0d22;
+            border-bottom: 1px solid rgba(255,255,255,0.08);
+            font-size: 12.5px;
+            flex-shrink: 0;
+        }
+        #test-results h2 { font-size: 13px; font-weight: 700; margin-bottom: 8px; color: #94a3b8; }
+        .test-pass  { color: #34d399; }
+        .test-fail  { color: #f87171; font-weight: 600; }
+        .test-line  { margin: 2px 0; font-family: 'SF Mono', monospace; font-size: 11.5px; }
+        .test-summary { margin-top: 8px; font-weight: 700; font-size: 13px; }
+
+        /* ── Demo area ───────────────────────────────────────────────── */
+
+        #demo {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            min-height: 0;
+            background: #0a0a18;
+        }
+
+        /* Controls bar */
+        #controls {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 10px 16px;
+            background: #111127;
+            border-bottom: 1px solid rgba(255,255,255,0.08);
+            flex-wrap: wrap;
+            flex-shrink: 0;
+        }
+
+        button {
+            padding: 6px 12px;
+            border: none;
+            border-radius: 6px;
+            font-size: 12px;
+            font-weight: 600;
+            cursor: pointer;
+            background: rgba(255,255,255,0.08);
+            color: #e2e8f0;
+            border: 1px solid rgba(255,255,255,0.1);
+            transition: background 0.15s;
+        }
+        button:hover:not(:disabled) { background: rgba(255,255,255,0.14); }
+        button:disabled { opacity: 0.35; cursor: not-allowed; }
+        button.active   { background: #6366f1; border-color: #6366f1; color: #fff; }
+
+        .sep { width: 1px; height: 24px; background: rgba(255,255,255,0.1); flex-shrink: 0; }
+        .label { font-size: 11px; color: rgba(226,232,240,0.5); white-space: nowrap; }
+
+        #status {
+            margin-left: auto;
+            font-size: 11px;
+            color: rgba(226,232,240,0.5);
+            font-family: 'SF Mono', monospace;
+        }
+        #status.live { color: #34d399; }
+        #status.err  { color: #f87171; }
+
+        /* Color pickers row */
+        #color-row {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+        input[type="color"] {
+            width: 28px;
+            height: 28px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            padding: 0;
+            background: none;
+        }
+
+        /* Visualizer canvas wrapper */
+        #viz-wrap {
+            flex: 1;
+            min-height: 0;
+            position: relative;
+        }
+
+        sg-audio-viz {
+            display: block;
+            width: 100%;
+            height: 100%;
+        }
+
+        /* captureStream preview overlay */
+        #capture-wrap {
+            position: absolute;
+            bottom: 16px;
+            right: 16px;
+            width: 180px;
+            background: #111127;
+            border: 1px solid rgba(255,255,255,0.12);
+            border-radius: 8px;
+            overflow: hidden;
+            display: none;
+        }
+        #capture-wrap.visible { display: block; }
+        #capture-wrap .cap-label {
+            font-size: 10px;
+            font-weight: 700;
+            color: rgba(226,232,240,0.5);
+            text-transform: uppercase;
+            letter-spacing: 0.08em;
+            padding: 5px 8px;
+            background: rgba(0,0,0,0.4);
+        }
+        #capture-video {
+            display: block;
+            width: 100%;
+            aspect-ratio: 16/9;
+            background: #000;
+        }
+    </style>
+</head>
+<body>
+
+<!-- ── Automated test results ─────────────────────────────────────────────── -->
+<div id="test-results">
+    <h2>sg-audio-viz v0.1.0 — Unit Tests</h2>
+    <div id="results">Running…</div>
+</div>
+
+<!-- ── Interactive demo ───────────────────────────────────────────────────── -->
+<div id="demo">
+    <div id="controls">
+
+        <span class="label">Source:</span>
+        <button id="btn-mic">🎙 Mic</button>
+        <button id="btn-osc">〜 Oscillator</button>
+        <button id="btn-stop-src" disabled>■ Stop source</button>
+
+        <div class="sep"></div>
+
+        <span class="label">Mode:</span>
+        <button class="mode-btn active" data-mode="waveform">Waveform</button>
+        <button class="mode-btn" data-mode="bars">Bars</button>
+        <button class="mode-btn" data-mode="mirror-bars">Mirror bars</button>
+        <button class="mode-btn" data-mode="circular-wave">Circular wave</button>
+        <button class="mode-btn" data-mode="circular-bars">Circular bars</button>
+        <button class="mode-btn" data-mode="blob">Blob</button>
+
+        <div class="sep"></div>
+
+        <div id="color-row">
+            <span class="label">Colors:</span>
+            <input type="color" id="color-primary"   value="#6366f1" title="Primary color">
+            <input type="color" id="color-secondary" value="#a78bfa" title="Secondary color">
+        </div>
+
+        <div class="sep"></div>
+
+        <button id="btn-capture">captureStream()</button>
+
+        <div id="status">idle</div>
+    </div>
+
+    <div id="viz-wrap">
+        <sg-audio-viz id="viz" mode="waveform"></sg-audio-viz>
+
+        <!-- captureStream() preview -->
+        <div id="capture-wrap">
+            <div class="cap-label">captureStream() preview</div>
+            <video id="capture-video" autoplay muted playsinline></video>
+        </div>
+    </div>
+</div>
+
+<script type="module">
+import { SgAudioViz, AUDIO_VIZ_MODES, AUDIO_VIZ_EVENTS }
+    from '/components/sg-audio-viz/v0/v0.1/v0.1.0/sg-audio-viz.js';
+
+// ── Automated unit tests ──────────────────────────────────────────────────────
+
+const results = document.getElementById('results');
+
+function pass(msg) {
+    const el = document.createElement('div');
+    el.className = 'test-line test-pass';
+    el.textContent = `✓ ${msg}`;
+    results.appendChild(el);
+}
+
+function fail(msg) {
+    const el = document.createElement('div');
+    el.className = 'test-line test-fail';
+    el.textContent = `✗ ${msg}`;
+    results.appendChild(el);
+}
+
+function assert(cond, msg) {
+    cond ? pass(msg) : fail(msg);
+    return cond;
+}
+
+async function runTests() {
+    let ok = 0, total = 0;
+
+    const t = (cond, msg) => { total++; if (assert(cond, msg)) ok++; };
+
+    // 1 — Static exports
+    t(Array.isArray(AUDIO_VIZ_MODES),                 'AUDIO_VIZ_MODES is an array');
+    t(AUDIO_VIZ_MODES.length === 6,                   'AUDIO_VIZ_MODES has 6 entries');
+    t(AUDIO_VIZ_MODES.includes('waveform'),           'modes includes waveform');
+    t(AUDIO_VIZ_MODES.includes('blob'),               'modes includes blob');
+    t(typeof AUDIO_VIZ_EVENTS.SOURCE_SET === 'string','AUDIO_VIZ_EVENTS.SOURCE_SET is a string');
+    t(typeof AUDIO_VIZ_EVENTS.MODE_CHANGED === 'string','AUDIO_VIZ_EVENTS.MODE_CHANGED is a string');
+    t(typeof AUDIO_VIZ_EVENTS.ERROR === 'string',     'AUDIO_VIZ_EVENTS.ERROR is a string');
+
+    // 2 — Custom element registered
+    t(customElements.get('sg-audio-viz') === SgAudioViz, 'sg-audio-viz registered with customElements');
+
+    // 3 — Instance in DOM
+    const viz = document.getElementById('viz');
+    t(viz instanceof SgAudioViz,      'element in DOM is SgAudioViz instance');
+    t(viz instanceof HTMLElement,     'element is HTMLElement');
+
+    // 4 — Wait for ready
+    try {
+        await viz.whenReady();
+        t(true,            'whenReady() resolves');
+        t(viz.isReady,     'isReady is true after whenReady()');
+    } catch (e) {
+        t(false, `whenReady() rejected: ${e.message}`);
+    }
+
+    // 5 — Public API surface
+    t(typeof viz.setSource     === 'function', 'setSource() exists');
+    t(typeof viz.setMode       === 'function', 'setMode() exists');
+    t(typeof viz.setColors     === 'function', 'setColors() exists');
+    t(typeof viz.start         === 'function', 'start() exists');
+    t(typeof viz.stop          === 'function', 'stop() exists');
+    t(typeof viz.captureStream === 'function', 'captureStream() exists');
+    t(typeof viz.getAnalyser   === 'function', 'getAnalyser() exists');
+    t(typeof viz.destroy       === 'function', 'destroy() exists');
+
+    // 6 — setMode validation
+    let threw = false;
+    try { viz.setMode('not-a-real-mode'); } catch (_) { threw = true; }
+    t(threw, 'setMode throws on unknown mode');
+
+    AUDIO_VIZ_MODES.forEach(m => {
+        let ok = true;
+        try { viz.setMode(m); } catch (_) { ok = false; }
+        t(ok, `setMode('${m}') accepted`);
+    });
+
+    // 7 — captureStream returns MediaStream
+    const stream = viz.captureStream(30);
+    t(stream instanceof MediaStream,               'captureStream() returns MediaStream');
+    t(stream.getVideoTracks().length === 1,        'captureStream() stream has 1 video track');
+    t(stream.getAudioTracks().length === 0,        'captureStream() stream has 0 audio tracks');
+
+    // 8 — getAnalyser returns null before setSource
+    t(viz.getAnalyser() === null, 'getAnalyser() is null before setSource()');
+
+    // 9 — No-source idle animation starts without throwing
+    let startThrew = false;
+    try { viz.start(); } catch (e) { startThrew = true; }
+    t(!startThrew, 'start() without source does not throw');
+    viz.stop();
+
+    // ── Summary
+    const summary = document.createElement('div');
+    summary.className = 'test-summary ' + (ok === total ? 'test-pass' : 'test-fail');
+    summary.textContent = `${ok}/${total} passed`;
+    results.appendChild(summary);
+}
+
+await runTests();
+
+// ── Interactive demo ──────────────────────────────────────────────────────────
+
+const viz    = document.getElementById('viz');
+const status = document.getElementById('status');
+
+await viz.whenReady();
+viz.start();   // starts idle animation immediately
+
+// Source buttons
+let micStream = null;
+let oscCtx    = null;
+let oscNode   = null;
+
+function setStatus(msg, cls = '') {
+    status.textContent = msg;
+    status.className   = cls;
+}
+
+document.getElementById('btn-mic').addEventListener('click', async () => {
+    stopCurrentSource();
+    try {
+        micStream = await navigator.mediaDevices.getUserMedia({ audio: true, video: false });
+        await viz.setSource(micStream);
+        document.getElementById('btn-stop-src').disabled = false;
+        setStatus('🎙 mic live', 'live');
+    } catch (e) {
+        setStatus(`mic: ${e.message}`, 'err');
+    }
+});
+
+document.getElementById('btn-osc').addEventListener('click', async () => {
+    stopCurrentSource();
+    // Synthesize a tone via Web Audio — no mic permission needed
+    oscCtx  = new AudioContext();
+    const dest = oscCtx.createMediaStreamDestination();
+
+    // Two oscillators, slightly detuned for a richer waveform
+    for (const [freq, detune] of [[220, 0], [220, 7], [440, 0]]) {
+        const o = oscCtx.createOscillator();
+        const g = oscCtx.createGain();
+        o.type = 'sawtooth';
+        o.frequency.value = freq;
+        o.detune.value    = detune;
+        g.gain.value      = 0.3;
+        o.connect(g);
+        g.connect(dest);
+        o.start();
+    }
+
+    oscNode = dest.stream;
+    await viz.setSource(oscNode);
+    document.getElementById('btn-stop-src').disabled = false;
+    setStatus('〜 oscillator', 'live');
+});
+
+document.getElementById('btn-stop-src').addEventListener('click', stopCurrentSource);
+
+function stopCurrentSource() {
+    if (micStream) {
+        micStream.getTracks().forEach(t => t.stop());
+        micStream = null;
+    }
+    if (oscCtx) {
+        oscCtx.close().catch(() => {});
+        oscCtx = null;
+        oscNode = null;
+    }
+    document.getElementById('btn-stop-src').disabled = true;
+    setStatus('idle');
+}
+
+// Mode buttons
+document.querySelectorAll('.mode-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+        document.querySelectorAll('.mode-btn').forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+        viz.setMode(btn.dataset.mode);
+    });
+});
+
+// Color pickers
+document.getElementById('color-primary').addEventListener('input', e => {
+    viz.setColors({ primary: e.target.value });
+});
+document.getElementById('color-secondary').addEventListener('input', e => {
+    viz.setColors({ secondary: e.target.value });
+});
+
+// captureStream() preview
+const captureWrap  = document.getElementById('capture-wrap');
+const captureVideo = document.getElementById('capture-video');
+let capturing = false;
+
+document.getElementById('btn-capture').addEventListener('click', () => {
+    capturing = !capturing;
+    if (capturing) {
+        const stream = viz.captureStream(30);
+        captureVideo.srcObject = stream;
+        captureVideo.play().catch(() => {});
+        captureWrap.classList.add('visible');
+        document.getElementById('btn-capture').classList.add('active');
+        document.getElementById('btn-capture').textContent = 'captureStream() ✓';
+    } else {
+        captureVideo.srcObject = null;
+        captureWrap.classList.remove('visible');
+        document.getElementById('btn-capture').classList.remove('active');
+        document.getElementById('btn-capture').textContent = 'captureStream()';
+    }
+});
+
+// Event logging
+viz.addEventListener(AUDIO_VIZ_EVENTS.SOURCE_SET, e => {
+    setStatus(`source: ${e.detail.type}`, 'live');
+});
+viz.addEventListener(AUDIO_VIZ_EVENTS.ERROR, e => {
+    setStatus(`error: ${e.detail.message}`, 'err');
+});
+</script>
+</body>
+</html>
