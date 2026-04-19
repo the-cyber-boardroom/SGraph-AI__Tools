@@ -24,7 +24,8 @@
       { "module": "sg-layout",               "path": "/core/sg-layout/v0.1.0/sg-layout.js" },
       { "module": "sg-tool-api-explorer",    "path": "/components/tool-api/sg-tool-api-explorer/v0/v0.1/v0.1.0/sg-tool-api-explorer.js" },
       { "module": "sg-tool-api-console",     "path": "/components/tool-api/sg-tool-api-console/v0/v0.1/v0.1.0/sg-tool-api-console.js" },
-      { "module": "sg-tool-api-manifest",    "path": "/components/tool-api/sg-tool-api-manifest/v0/v0.1/v0.1.0/sg-tool-api-manifest.js" }
+      { "module": "sg-tool-api-manifest",    "path": "/components/tool-api/sg-tool-api-manifest/v0/v0.1/v0.1.0/sg-tool-api-manifest.js" },
+      { "module": "sg-audio-viz",           "path": "/components/sg-audio-viz/v0/v0.1/v0.1.0/sg-audio-viz.js" }
     ],
     "loader": [
       { "phase": 1, "type": "css", "path": "/core/sg-layout/v0.1.0/sg-layout.css" },

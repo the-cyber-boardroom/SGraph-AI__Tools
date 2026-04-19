@@ -18,6 +18,7 @@ const MODES = [
     { value: 'screen+audio',        label: '🖥🎙 Screen + Microphone',             needsCamera: false, needsScreen: true  },
     { value: 'camera+screen',       label: '📷🖥 Camera + Screen (silent)',        needsCamera: true,  needsScreen: true  },
     { value: 'camera+screen+audio', label: '🎥🖥🎙 Camera + Screen + Microphone', needsCamera: true,  needsScreen: true  },
+    { value: 'viz+audio',           label: '🎵 Audio Visualizer + Microphone',    needsCamera: false, needsScreen: false },
 ];
 
 /**
@@ -51,6 +52,20 @@ export function initControls(container, state, config, api, emit) {
                 <label class="ctrl-label" for="mode-select">Mode</label>
                 <select id="mode-select" class="ctrl-select">
                     ${modeOptions}
+                </select>
+            </div>
+
+            <div class="ctrl-row" id="row-viz-style" style="display:none">
+                <label class="ctrl-label" for="viz-style-select">Viz style</label>
+                <select id="viz-style-select" class="ctrl-select">
+                    <option value="mirror-wave">Mirror Wave (ribbon)</option>
+                    <option value="smooth-eq">Smooth EQ (filled spectrum)</option>
+                    <option value="mirror-bars">Mirror Bars</option>
+                    <option value="mirror-eq">Mirror EQ</option>
+                    <option value="circular-bars">Circular Bars</option>
+                    <option value="circular-wave">Circular Wave</option>
+                    <option value="blob">Blob</option>
+                    <option value="waveform">Waveform</option>
                 </select>
             </div>
 
@@ -100,9 +115,11 @@ export function initControls(container, state, config, api, emit) {
         </section>
     `;
 
-    const nameInput     = container.querySelector('#rec-name');
-    const modeSelect    = container.querySelector('#mode-select');
-    const recModeGroup  = container.querySelector('#rec-mode-group');
+    const nameInput      = container.querySelector('#rec-name');
+    const modeSelect     = container.querySelector('#mode-select');
+    const vizStyleRow    = container.querySelector('#row-viz-style');
+    const vizStyleSelect = container.querySelector('#viz-style-select');
+    const recModeGroup   = container.querySelector('#rec-mode-group');
     const qualityGroup  = container.querySelector('#quality-group');
     const rowOptions    = container.querySelector('#row-options');
     const btnPreview    = container.querySelector('#btn-preview');
@@ -112,8 +129,9 @@ export function initControls(container, state, config, api, emit) {
     const statusEl      = container.querySelector('#ctrl-status');
     const recSize       = container.querySelector('#rec-size');
 
-    modeSelect.value = config.mode;
-    let timerInterval = null;
+    modeSelect.value     = config.mode;
+    vizStyleSelect.value = config.vizMode;
+    let timerInterval    = null;
 
     // ── Recording name ────────────────────────────────────────────────────────
 
@@ -163,6 +181,10 @@ export function initControls(container, state, config, api, emit) {
         btnPreview.style.display = _modeHasCamera(mode) ? '' : 'none';
     }
 
+    function _updateVizRow(mode) {
+        vizStyleRow.style.display = mode === 'viz+audio' ? '' : 'none';
+    }
+
     function _resetPreviewBtn() {
         btnPreview.textContent = '👁 Preview';
         btnPreview.onclick     = null;
@@ -179,12 +201,18 @@ export function initControls(container, state, config, api, emit) {
     // ── Init ──────────────────────────────────────────────────────────────────
 
     _updatePreviewBtn(config.mode);
+    _updateVizRow(config.mode);
 
     // ── Mode selector ─────────────────────────────────────────────────────────
 
     modeSelect.addEventListener('change', () => {
         config.mode = modeSelect.value;
         _updatePreviewBtn(config.mode);
+        _updateVizRow(config.mode);
+    });
+
+    vizStyleSelect.addEventListener('change', () => {
+        config.vizMode = vizStyleSelect.value;
     });
 
     // ── Preview ──────────────────────────────────────────────────────────────

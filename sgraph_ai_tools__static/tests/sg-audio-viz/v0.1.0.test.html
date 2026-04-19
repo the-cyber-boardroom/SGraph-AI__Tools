@@ -170,6 +170,7 @@
         <button class="mode-btn" data-mode="blob">Blob</button>
         <button class="mode-btn" data-mode="eq-bands">EQ bands</button>
         <button class="mode-btn" data-mode="mirror-eq">Mirror EQ</button>
+        <button class="mode-btn" data-mode="smooth-eq">Smooth EQ</button>
 
         <div class="sep"></div>
 
@@ -231,7 +232,7 @@ async function runTests() {
 
     // 1 — Static exports
     t(Array.isArray(AUDIO_VIZ_MODES),                 'AUDIO_VIZ_MODES is an array');
-    t(AUDIO_VIZ_MODES.length === 9,                   'AUDIO_VIZ_MODES has 9 entries');
+    t(AUDIO_VIZ_MODES.length === 10,                   'AUDIO_VIZ_MODES has 10 entries');
     t(AUDIO_VIZ_MODES.includes('waveform'),           'modes includes waveform');
     t(AUDIO_VIZ_MODES.includes('blob'),               'modes includes blob');
     t(typeof AUDIO_VIZ_EVENTS.SOURCE_SET === 'string','AUDIO_VIZ_EVENTS.SOURCE_SET is a string');
