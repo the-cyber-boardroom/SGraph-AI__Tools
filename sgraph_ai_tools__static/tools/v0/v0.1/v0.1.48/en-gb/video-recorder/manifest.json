@@ -27,6 +27,7 @@
       { "phase": 1, "type": "css", "path": "./styles/controls.css" },
       { "phase": 1, "type": "css", "path": "./styles/preview.css" },
       { "phase": 1, "type": "css", "path": "./styles/export.css" },
+      { "phase": 1, "type": "css", "path": "./styles/api-pane.css" },
       { "phase": 2, "type": "js",  "path": "/components/sg-recording-size/v0/v0.1/v0.1.0/sg-recording-size.js" },
       { "phase": 2, "type": "js",  "path": "/components/sg-video-player/v0/v0.1/v0.1.0/sg-video-player.js" },
       { "phase": 3, "type": "js",  "entry": true, "path": "./api/recorder-api.js" }
