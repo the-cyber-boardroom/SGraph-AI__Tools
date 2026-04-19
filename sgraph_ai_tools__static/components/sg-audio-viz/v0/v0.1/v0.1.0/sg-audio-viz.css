@@ -1,0 +1,16 @@
+/* sg-audio-viz.css — host fills its container; canvas fills the host */
+
+:host {
+    display: block;
+    width: 100%;
+    height: 100%;
+    overflow: hidden;
+    background: var(--viz-bg, #000);
+    border-radius: inherit;
+}
+
+canvas {
+    display: block;
+    width: 100%;
+    height: 100%;
+}
