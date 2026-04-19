@@ -66,8 +66,8 @@ export function initControls(container, state, config, api, emit) {
                 <span class="ctrl-status" id="ctrl-status">Ready</span>
             </div>
 
-            <!-- Advanced options — collapsed by default -->
-            <details class="ctrl-options" id="row-options">
+            <!-- Advanced options — open by default, collapsible -->
+            <details class="ctrl-options" id="row-options" open>
                 <summary class="ctrl-options__summary">Options</summary>
                 <div class="ctrl-options__body">
                     <div class="ctrl-row">
