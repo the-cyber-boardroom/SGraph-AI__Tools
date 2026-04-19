@@ -1,7 +1,9 @@
 /**
  * ui-controls.js
- * Mode selector, record/stop/preview buttons, timer, recording-size display,
- * and per-track download + new-recording buttons after stop.
+ * Mode selector, recording name input, record/stop/preview buttons,
+ * timer, recording-size display, and advanced options.
+ *
+ * Post-recording downloads/share live in the per-recording tab (ui-recording-tab.js).
  * @module ui-controls
  */
 
@@ -37,6 +39,13 @@ export function initControls(container, state, config, api, emit) {
     container.innerHTML = `
         <section class="ctrl-panel">
             <h2 class="ctrl-panel__title">Recording</h2>
+
+            <div class="ctrl-row" id="row-name">
+                <label class="ctrl-label" for="rec-name">Recording name</label>
+                <input id="rec-name" class="ctrl-select" type="text"
+                       placeholder="e.g. Team Meeting"
+                       autocomplete="off" spellcheck="false" />
+            </div>
 
             <div class="ctrl-row" id="row-mode">
                 <label class="ctrl-label" for="mode-select">Mode</label>
@@ -88,28 +97,10 @@ export function initControls(container, state, config, api, emit) {
                     </div>
                 </div>
             </details>
-
-            <!-- Post-recording download buttons — shown per available track -->
-            <div class="ctrl-row ctrl-row--post" id="row-post" style="display:none">
-                <button id="btn-dl-combined" class="ctrl-btn ctrl-btn--download" style="display:none">
-                    ⬇ Combined PiP
-                </button>
-                <button id="btn-dl-screen" class="ctrl-btn ctrl-btn--download ctrl-btn--download-sec" style="display:none">
-                    ⬇ Screen
-                </button>
-                <button id="btn-dl-camera" class="ctrl-btn ctrl-btn--download ctrl-btn--download-sec" style="display:none">
-                    ⬇ Camera
-                </button>
-                <button id="btn-dl-audio" class="ctrl-btn ctrl-btn--download ctrl-btn--download-sec" style="display:none">
-                    ⬇ Audio
-                </button>
-                <button id="btn-new-recording" class="ctrl-btn ctrl-btn--new">
-                    ↺ New Recording
-                </button>
-            </div>
         </section>
     `;
 
+    const nameInput     = container.querySelector('#rec-name');
     const modeSelect    = container.querySelector('#mode-select');
     const recModeGroup  = container.querySelector('#rec-mode-group');
     const qualityGroup  = container.querySelector('#quality-group');
@@ -120,20 +111,17 @@ export function initControls(container, state, config, api, emit) {
     const timerEl       = container.querySelector('#rec-timer');
     const statusEl      = container.querySelector('#ctrl-status');
     const recSize       = container.querySelector('#rec-size');
-    const rowActions    = container.querySelector('#row-actions');
-    const rowMode       = container.querySelector('#row-mode');
-    const rowStatus     = container.querySelector('#row-status');
-    const rowPost       = container.querySelector('#row-post');
-    const btnDlCombined = container.querySelector('#btn-dl-combined');
-    const btnDlScreen   = container.querySelector('#btn-dl-screen');
-    const btnDlCamera   = container.querySelector('#btn-dl-camera');
-    const btnDlAudio    = container.querySelector('#btn-dl-audio');
-    const btnNew        = container.querySelector('#btn-new-recording');
 
     modeSelect.value = config.mode;
     let timerInterval = null;
 
-    // ── Recording mode toggle ──────────────────────────────────────────────────
+    // ── Recording name ────────────────────────────────────────────────────────
+
+    nameInput.addEventListener('input', () => {
+        config.recordingName = nameInput.value.trim();
+    });
+
+    // ── Recording mode toggle ─────────────────────────────────────────────────
 
     function _setRecMode(value) {
         config.recordingMode = value;
@@ -172,20 +160,7 @@ export function initControls(container, state, config, api, emit) {
     function _modeHasCamera(mode) { return mode.includes('camera'); }
 
     function _updatePreviewBtn(mode) {
-        // Preview is only meaningful for camera modes (getDisplayMedia can't preview)
         btnPreview.style.display = _modeHasCamera(mode) ? '' : 'none';
-    }
-
-    function _makeDownloadHandler(blobFn, filenameFn) {
-        return () => {
-            const blob = blobFn();
-            if (!blob) return;
-            const a    = document.createElement('a');
-            a.href     = URL.createObjectURL(blob);
-            a.download = filenameFn();
-            a.click();
-            setTimeout(() => URL.revokeObjectURL(a.href), 10_000);
-        };
     }
 
     function _resetPreviewBtn() {
@@ -194,6 +169,11 @@ export function initControls(container, state, config, api, emit) {
         btnPreview.disabled    = false;
         modeSelect.disabled    = false;
         btnRecord.disabled     = false;
+    }
+
+    function _enableOptions(enabled) {
+        recModeGroup.querySelectorAll('.ctrl-toggle').forEach(b => { b.disabled = !enabled; });
+        qualityGroup.querySelectorAll('.ctrl-toggle').forEach(b => { b.disabled = !enabled; });
     }
 
     // ── Init ──────────────────────────────────────────────────────────────────
@@ -238,15 +218,23 @@ export function initControls(container, state, config, api, emit) {
     // ── Record ────────────────────────────────────────────────────────────────
 
     btnRecord.addEventListener('click', async () => {
+        // Auto-reset if a recording was already stopped
+        if (state.status === 'stopped') {
+            api.newRecording();
+        }
+
         btnRecord.disabled   = true;
         btnPreview.disabled  = true;
         btnStop.disabled     = false;
         modeSelect.disabled  = true;
-        recModeGroup.querySelectorAll('.ctrl-toggle').forEach(b => { b.disabled = true; });
-        qualityGroup.querySelectorAll('.ctrl-toggle').forEach(b => { b.disabled = true; });
+        nameInput.disabled   = true;
+        _enableOptions(false);
         statusEl.textContent = 'Starting…';
         btnPreview.textContent = '👁 Preview';
         btnPreview.onclick     = null;
+
+        // Capture the name at recording start
+        config.recordingName = nameInput.value.trim();
 
         try {
             await api.startRecording({ format: config.format });
@@ -265,11 +253,13 @@ export function initControls(container, state, config, api, emit) {
             btnPreview.disabled  = false;
             btnStop.disabled     = true;
             modeSelect.disabled  = false;
+            nameInput.disabled   = false;
+            _enableOptions(true);
             statusEl.textContent = `Error: ${err.message}`;
         }
     });
 
-    // ── Stop button — triggers stop; all UI handled by RECORD_STOP listener ──
+    // ── Stop ──────────────────────────────────────────────────────────────────
 
     btnStop.addEventListener('click', async () => {
         if (state.status !== 'recording') return;
@@ -281,67 +271,38 @@ export function initControls(container, state, config, api, emit) {
             statusEl.textContent = `Error: ${err.message}`;
             btnRecord.disabled   = false;
             modeSelect.disabled  = false;
+            nameInput.disabled   = false;
         }
     });
 
-    // ── RECORD_STOP — handles both manual stop AND auto-stop (screen ended) ──
+    // ── RECORD_STOP ───────────────────────────────────────────────────────────
 
     window.addEventListener(SGA_RECORDER.RECORD_STOP, (e) => {
-        // Clear timer regardless of how recording stopped
         clearInterval(timerInterval);
         timerInterval    = null;
         btnStop.disabled = true;
+        btnRecord.disabled   = false;
+        btnPreview.disabled  = false;
+        modeSelect.disabled  = false;
+        nameInput.disabled   = false;
+        _enableOptions(true);
 
         const { durationMs, sizeBytes } = e.detail;
-        statusEl.textContent = `Done — ${_formatMs(durationMs)}, ${_formatBytes(sizeBytes)}`;
-
-        // Switch to post-recording UI
-        rowActions.style.display  = 'none';
-        rowMode.style.display     = 'none';
-        rowOptions.style.display  = 'none';
-        rowStatus.style.display   = 'none';
-        rowPost.style.display     = '';
-
-        const ts = Date.now();
-        _wireDownloadBtn(btnDlCombined, 'combined', '⬇ Combined',  ts);
-        _wireDownloadBtn(btnDlScreen,   'screen',   '⬇ Screen',    ts);
-        _wireDownloadBtn(btnDlCamera,   'camera',   '⬇ Camera',    ts);
-        _wireDownloadBtn(btnDlAudio,    'audio',    '⬇ Audio',     ts);
+        statusEl.textContent = `Done — ${_formatMs(durationMs)}, ${_formatBytes(sizeBytes)}. Start new recording or review the tab.`;
     });
 
-    function _wireDownloadBtn(btn, key, label, ts) {
-        const blob = state.blobs[key];
-        if (!blob) { btn.style.display = 'none'; return; }
-        btn.style.display = '';
-        btn.textContent   = `${label}  ${_formatBytes(blob.size)}`;
-        btn.onclick = _makeDownloadHandler(
-            () => state.blobs[key],
-            () => `${key}-${ts}.${state.blobs[key]?.type.includes('mp4') ? 'mp4' : 'webm'}`,
-        );
-    }
-
-    // ── New Recording ─────────────────────────────────────────────────────────
-
-    btnNew.addEventListener('click', () => { api.newRecording(); });
+    // ── RESET ─────────────────────────────────────────────────────────────────
 
     window.addEventListener(SGA_RECORDER.RESET, () => {
-        rowPost.style.display     = 'none';
-        rowActions.style.display  = '';
-        rowMode.style.display     = '';
-        rowOptions.style.display  = '';
-        rowStatus.style.display   = '';
-
-        btnDlCombined.style.display = 'none';
-        btnDlScreen.style.display   = 'none';
-        btnDlCamera.style.display   = 'none';
-        btnDlAudio.style.display    = 'none';
+        clearInterval(timerInterval);
+        timerInterval = null;
 
         btnRecord.disabled     = false;
         btnPreview.disabled    = false;
         btnStop.disabled       = true;
         modeSelect.disabled    = false;
-        recModeGroup.querySelectorAll('.ctrl-toggle').forEach(b => { b.disabled = false; });
-        qualityGroup.querySelectorAll('.ctrl-toggle').forEach(b => { b.disabled = false; });
+        nameInput.disabled     = false;
+        _enableOptions(true);
         timerEl.textContent    = '0s';
         statusEl.textContent   = 'Ready';
         btnPreview.textContent = '👁 Preview';
@@ -350,9 +311,7 @@ export function initControls(container, state, config, api, emit) {
         if (recSize?.reset) recSize.reset();
     });
 
-    // ── Live size update via pipeline progress events ─────────────────────────
-    // RECORD_PROGRESS is dispatched by every recorder's dataavailable handler,
-    // giving a running total of bytes across all active tracks.
+    // ── Live size update ──────────────────────────────────────────────────────
 
     window.addEventListener(SGA_RECORDER.RECORD_PROGRESS, (e) => {
         if (recSize?.update) recSize.update(e.detail.totalBytes);

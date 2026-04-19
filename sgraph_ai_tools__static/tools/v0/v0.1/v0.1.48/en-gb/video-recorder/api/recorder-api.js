@@ -168,6 +168,16 @@ function setConfig(params) {
     Object.assign(config, params);
 }
 
+/**
+ * Set the recording name — used as download filename and tab title.
+ * @param {{ name: string }} params
+ * @returns {{ name: string }}
+ */
+function setRecordingName({ name }) {
+    config.recordingName = String(name ?? '').trim();
+    return { name: config.recordingName };
+}
+
 // ─── Registration + activation ────────────────────────────────────────────────
 
 api
@@ -181,11 +191,12 @@ api
     .register('saveSendFile',   saveSendFileApi,  { async: true,  events: [SGA_RECORDER.SAVE_PROGRESS, SGA_RECORDER.SAVE_COMPLETE] })
     .register('saveFolder',     saveFolderApi,    { async: true,  events: [SGA_RECORDER.SAVE_PROGRESS, SGA_RECORDER.SAVE_COMPLETE] })
     .register('getStatus',      getStatus,        { async: false })
-    .register('getConfig',      getConfig,        { async: false })
-    .register('setConfig',      setConfig,        { async: false });
+    .register('getConfig',         getConfig,         { async: false })
+    .register('setConfig',         setConfig,         { async: false })
+    .register('setRecordingName',  setRecordingName,  { async: false });
 
 // JS-API-first: activate before UI so window.__tool is live from tool:ready
 api.activate();
 
-// Hand off to UI shell
-initShell(state, config, api, emit);
+// Hand off to UI shell (async — sg-layout needs LAYOUT_READY before mounting)
+await initShell(state, config, api, emit);

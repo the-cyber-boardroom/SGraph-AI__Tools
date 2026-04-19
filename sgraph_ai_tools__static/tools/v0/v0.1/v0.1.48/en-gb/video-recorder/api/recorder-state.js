@@ -26,6 +26,8 @@ export class RecordingConfig {
          *  'separate'          — individual tracks only, no composite
          * @type {'combined'|'combined+separate'|'separate'} */
         this.recordingMode      = 'combined';
+        /** Name used for download filenames and the recording tab title. */
+        this.recordingName      = '';
     }
 }
 
