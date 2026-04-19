@@ -255,6 +255,7 @@ export class SgAudioViz extends SgComponent {
         const dpr = devicePixelRatio || 1;
         const w   = Math.round(this.#canvas.clientWidth  * dpr);
         const h   = Math.round(this.#canvas.clientHeight * dpr);
+        if (w === 0 || h === 0) return; // element hidden — preserve canvas size for captureStream
         if (this.#canvas.width !== w || this.#canvas.height !== h) {
             this.#canvas.width  = w;
             this.#canvas.height = h;

@@ -31,6 +31,7 @@ const MODE_FLAGS = {
     'camera+screen':       { camera: true,  audio: false, screen: true,  viz: false },
     'camera+screen+audio': { camera: true,  audio: true,  screen: true,  viz: false },
     'viz+audio':           { camera: false, audio: true,  screen: false, viz: true  },
+    'screen+viz+audio':   { camera: false, audio: true,  screen: true,  viz: true  },
 };
 
 // ─── Per-track MediaRecorder state ───────────────────────────────────────────
@@ -177,14 +178,23 @@ export async function startPipeline() {
         const startSeparate = config.recordingMode !== 'combined' || !willHaveCombined;
         const startCombined = config.recordingMode !== 'separate';
 
-        // ── Viz+audio recorder (canvas replaces camera) ───────────────────
-        // A single combined recorder: viz canvas video + mic audio.
-        // All other recorder branches are skipped in this mode.
+        // ── Viz recorder — fullscreen or PiP over screen ─────────────────
+        // A single combined recorder. All other recorder branches are skipped.
         if (rawViz) {
-            _startRecorder('combined', new MediaStream([
-                ...rawViz.getVideoTracks(),
-                ...rawAudio.getAudioTracks(),
-            ]));
+            if (rawScreen) {
+                // Viz canvas composited as PiP overlay on the screen stream
+                const pip = await mergeAsPiP(rawScreen, rawViz, config.pipOptions);
+                _pipStop  = pip.stop;
+                const stream = audioTracks.length > 0
+                    ? new MediaStream([...pip.stream.getVideoTracks(), ...audioTracks])
+                    : pip.stream;
+                _startRecorder('combined', stream);
+            } else {
+                _startRecorder('combined', new MediaStream([
+                    ...rawViz.getVideoTracks(),
+                    ...rawAudio.getAudioTracks(),
+                ]));
+            }
         }
 
         // ── Camera: video tracks only (audio travels separately) ──────────

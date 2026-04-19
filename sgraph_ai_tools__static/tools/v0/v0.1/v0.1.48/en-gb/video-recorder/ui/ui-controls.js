@@ -1,25 +1,42 @@
 /**
  * ui-controls.js
- * Mode selector, recording name input, record/stop/preview buttons,
- * timer, recording-size display, and advanced options.
+ * 3-panel mode builder (Screen | Audio | Camera/Viz), recording name input,
+ * record/stop buttons, timer, recording-size display, and advanced options.
  *
- * Post-recording downloads/share live in the per-recording tab (ui-recording-tab.js).
+ * Mode is derived from three independent toggles:
+ *   useScreen  — bool
+ *   useAudio   — bool
+ *   camViz     — 'none' | 'camera' | 'viz'
+ *
+ * Post-recording downloads/share live in ui-recording-tab.js.
  * @module ui-controls
  */
 
 import { isCameraSupported, isScreenSupported } from '/core/sg-capture/v0/v0.1/v0.1.0/sg-capture.js';
 import { SGA_RECORDER } from '../api/recorder-events.js';
 
-const MODES = [
-    { value: 'audio',               label: '🎙 Microphone only',                   needsCamera: false, needsScreen: false },
-    { value: 'camera',              label: '📷 Camera only (silent)',               needsCamera: true,  needsScreen: false },
-    { value: 'screen',              label: '🖥 Screen only (silent)',               needsCamera: false, needsScreen: true  },
-    { value: 'camera+audio',        label: '🎥 Camera + Microphone',               needsCamera: true,  needsScreen: false },
-    { value: 'screen+audio',        label: '🖥🎙 Screen + Microphone',             needsCamera: false, needsScreen: true  },
-    { value: 'camera+screen',       label: '📷🖥 Camera + Screen (silent)',        needsCamera: true,  needsScreen: true  },
-    { value: 'camera+screen+audio', label: '🎥🖥🎙 Camera + Screen + Microphone', needsCamera: true,  needsScreen: true  },
-    { value: 'viz+audio',           label: '🎵 Audio Visualizer + Microphone',    needsCamera: false, needsScreen: false },
-];
+// ── Mode derivation ───────────────────────────────────────────────────────────
+
+function _deriveMode(useScreen, useAudio, camViz) {
+    if (camViz === 'viz')    return useScreen ? 'screen+viz+audio' : 'viz+audio';
+    if (useScreen && camViz === 'camera' && useAudio) return 'camera+screen+audio';
+    if (useScreen && camViz === 'camera')             return 'camera+screen';
+    if (useScreen && useAudio)                        return 'screen+audio';
+    if (useScreen)                                    return 'screen';
+    if (camViz === 'camera' && useAudio)              return 'camera+audio';
+    if (camViz === 'camera')                          return 'camera';
+    if (useAudio)                                     return 'audio';
+    return 'audio'; // fallback — must record something
+}
+
+/** Parse config.mode back into the three toggle state values. */
+function _parseModeState(mode) {
+    return {
+        useScreen: mode.includes('screen') && !mode.startsWith('viz'),
+        useAudio:  mode.includes('audio') || mode.startsWith('viz'),
+        camViz:    mode.includes('camera') ? 'camera' : (mode.includes('viz') ? 'viz' : 'none'),
+    };
+}
 
 /**
  * @param {HTMLElement} container
@@ -31,11 +48,6 @@ const MODES = [
 export function initControls(container, state, config, api, emit) {
     const cameraOk = isCameraSupported();
     const screenOk = isScreenSupported();
-
-    const modeOptions = MODES.map(m => {
-        const disabled = (m.needsCamera && !cameraOk) || (m.needsScreen && !screenOk);
-        return `<option value="${m.value}" ${disabled ? 'disabled' : ''}>${m.label}${disabled ? ' (unsupported)' : ''}</option>`;
-    }).join('');
 
     container.innerHTML = `
         <section class="ctrl-panel">
@@ -49,10 +61,40 @@ export function initControls(container, state, config, api, emit) {
             </div>
 
             <div class="ctrl-row" id="row-mode">
-                <label class="ctrl-label" for="mode-select">Mode</label>
-                <select id="mode-select" class="ctrl-select">
-                    ${modeOptions}
-                </select>
+                <label class="ctrl-label">Mode</label>
+                <div class="mode-builder" id="mode-builder">
+
+                    <div class="mode-col" id="col-screen">
+                        <div class="mode-col__hd">
+                            <span class="mode-col__icon">🖥</span>
+                            <span class="mode-col__name">Screen</span>
+                        </div>
+                        <button class="mode-col__toggle" id="toggle-screen"
+                                ${!screenOk ? 'disabled title="Screen capture unsupported"' : ''}>Off</button>
+                    </div>
+
+                    <div class="mode-col" id="col-audio">
+                        <div class="mode-col__hd">
+                            <span class="mode-col__icon">🎙</span>
+                            <span class="mode-col__name">Audio</span>
+                        </div>
+                        <button class="mode-col__toggle" id="toggle-audio">Off</button>
+                    </div>
+
+                    <div class="mode-col mode-col--cam" id="col-cam">
+                        <div class="mode-col__hd">
+                            <span class="mode-col__icon">📷</span>
+                            <span class="mode-col__name">Camera / Viz</span>
+                        </div>
+                        <div class="mode-col__opts" id="cam-opts">
+                            <button class="mode-col__opt" data-cam="none">Off</button>
+                            <button class="mode-col__opt" data-cam="camera"
+                                    ${!cameraOk ? 'disabled title="Camera unsupported"' : ''}>Camera</button>
+                            <button class="mode-col__opt" data-cam="viz">Viz</button>
+                        </div>
+                    </div>
+
+                </div>
             </div>
 
             <div class="ctrl-row" id="row-viz-style" style="display:none">
@@ -70,7 +112,7 @@ export function initControls(container, state, config, api, emit) {
             </div>
 
             <div class="ctrl-row ctrl-row--actions" id="row-actions">
-                <button id="btn-preview" class="ctrl-btn ctrl-btn--preview">
+                <button id="btn-preview" class="ctrl-btn ctrl-btn--preview" style="display:none">
                     👁 Preview
                 </button>
                 <button id="btn-record" class="ctrl-btn ctrl-btn--record">
@@ -90,7 +132,6 @@ export function initControls(container, state, config, api, emit) {
                 <span class="ctrl-status" id="ctrl-status">Ready</span>
             </div>
 
-            <!-- Advanced options — open by default, collapsible -->
             <details class="ctrl-options" id="row-options" open>
                 <summary class="ctrl-options__summary">Options</summary>
                 <div class="ctrl-options__body">
@@ -115,23 +156,71 @@ export function initControls(container, state, config, api, emit) {
         </section>
     `;
 
+    // ── DOM refs ──────────────────────────────────────────────────────────────
+
     const nameInput      = container.querySelector('#rec-name');
-    const modeSelect     = container.querySelector('#mode-select');
+    const toggleScreen   = container.querySelector('#toggle-screen');
+    const toggleAudio    = container.querySelector('#toggle-audio');
+    const camOpts        = container.querySelector('#cam-opts');
     const vizStyleRow    = container.querySelector('#row-viz-style');
     const vizStyleSelect = container.querySelector('#viz-style-select');
     const recModeGroup   = container.querySelector('#rec-mode-group');
-    const qualityGroup  = container.querySelector('#quality-group');
-    const rowOptions    = container.querySelector('#row-options');
-    const btnPreview    = container.querySelector('#btn-preview');
-    const btnRecord     = container.querySelector('#btn-record');
-    const btnStop       = container.querySelector('#btn-stop');
-    const timerEl       = container.querySelector('#rec-timer');
-    const statusEl      = container.querySelector('#ctrl-status');
-    const recSize       = container.querySelector('#rec-size');
+    const qualityGroup   = container.querySelector('#quality-group');
+    const btnPreview     = container.querySelector('#btn-preview');
+    const btnRecord      = container.querySelector('#btn-record');
+    const btnStop        = container.querySelector('#btn-stop');
+    const timerEl        = container.querySelector('#rec-timer');
+    const statusEl       = container.querySelector('#ctrl-status');
+    const recSize        = container.querySelector('#rec-size');
 
-    modeSelect.value     = config.mode;
+    let timerInterval = null;
+
+    // ── Mode builder state ────────────────────────────────────────────────────
+
+    let { useScreen, useAudio, camViz } = _parseModeState(config.mode);
+
+    function _applyModeState() {
+        config.mode = _deriveMode(useScreen, useAudio, camViz);
+
+        toggleScreen.textContent = useScreen ? 'On' : 'Off';
+        toggleScreen.classList.toggle('mode-col__toggle--on', useScreen);
+
+        toggleAudio.textContent = useAudio ? 'On' : 'Off';
+        toggleAudio.classList.toggle('mode-col__toggle--on', useAudio);
+
+        camOpts.querySelectorAll('.mode-col__opt').forEach(btn => {
+            btn.classList.toggle('mode-col__opt--active', btn.dataset.cam === camViz);
+        });
+
+        vizStyleRow.style.display  = camViz === 'viz' ? '' : 'none';
+        btnPreview.style.display   = camViz === 'camera' ? '' : 'none';
+    }
+
     vizStyleSelect.value = config.vizMode;
-    let timerInterval    = null;
+    _applyModeState();
+
+    toggleScreen.addEventListener('click', () => {
+        if (toggleScreen.disabled) return;
+        useScreen = !useScreen;
+        _applyModeState();
+    });
+
+    toggleAudio.addEventListener('click', () => {
+        if (toggleAudio.disabled) return;
+        useAudio = !useAudio;
+        _applyModeState();
+    });
+
+    camOpts.addEventListener('click', (e) => {
+        const btn = e.target.closest('.mode-col__opt');
+        if (!btn || btn.disabled) return;
+        camViz = btn.dataset.cam;
+        _applyModeState();
+    });
+
+    vizStyleSelect.addEventListener('change', () => {
+        config.vizMode = vizStyleSelect.value;
+    });
 
     // ── Recording name ────────────────────────────────────────────────────────
 
@@ -156,7 +245,7 @@ export function initControls(container, state, config, api, emit) {
 
     _setRecMode(config.recordingMode);
 
-    // ── Quality (video bitrate) toggle ────────────────────────────────────────
+    // ── Quality toggle ────────────────────────────────────────────────────────
 
     function _setQuality(bps) {
         config.videoBitsPerSecond = bps;
@@ -175,52 +264,25 @@ export function initControls(container, state, config, api, emit) {
 
     // ── Helpers ───────────────────────────────────────────────────────────────
 
-    function _modeHasCamera(mode) { return mode.includes('camera'); }
-
-    function _updatePreviewBtn(mode) {
-        btnPreview.style.display = _modeHasCamera(mode) ? '' : 'none';
-    }
-
-    function _updateVizRow(mode) {
-        vizStyleRow.style.display = mode === 'viz+audio' ? '' : 'none';
-    }
-
-    function _resetPreviewBtn() {
-        btnPreview.textContent = '👁 Preview';
-        btnPreview.onclick     = null;
-        btnPreview.disabled    = false;
-        modeSelect.disabled    = false;
-        btnRecord.disabled     = false;
-    }
-
     function _enableOptions(enabled) {
         recModeGroup.querySelectorAll('.ctrl-toggle').forEach(b => { b.disabled = !enabled; });
         qualityGroup.querySelectorAll('.ctrl-toggle').forEach(b => { b.disabled = !enabled; });
     }
 
-    // ── Init ──────────────────────────────────────────────────────────────────
+    function _lockModeBuilder(locked) {
+        toggleScreen.disabled = locked || !screenOk;
+        toggleAudio.disabled  = locked;
+        camOpts.querySelectorAll('.mode-col__opt').forEach(b => {
+            b.disabled = locked || (b.dataset.cam === 'camera' && !cameraOk);
+        });
+    }
 
-    _updatePreviewBtn(config.mode);
-    _updateVizRow(config.mode);
-
-    // ── Mode selector ─────────────────────────────────────────────────────────
-
-    modeSelect.addEventListener('change', () => {
-        config.mode = modeSelect.value;
-        _updatePreviewBtn(config.mode);
-        _updateVizRow(config.mode);
-    });
-
-    vizStyleSelect.addEventListener('change', () => {
-        config.vizMode = vizStyleSelect.value;
-    });
-
-    // ── Preview ──────────────────────────────────────────────────────────────
+    // ── Preview ───────────────────────────────────────────────────────────────
 
     btnPreview.addEventListener('click', async () => {
         btnPreview.disabled  = true;
         btnRecord.disabled   = true;
-        modeSelect.disabled  = true;
+        _lockModeBuilder(true);
         statusEl.textContent = 'Requesting permissions…';
 
         try {
@@ -232,13 +294,17 @@ export function initControls(container, state, config, api, emit) {
 
             btnPreview.onclick = () => {
                 api.stopPreview();
-                _resetPreviewBtn();
-                statusEl.textContent = 'Ready';
+                btnPreview.textContent = '👁 Preview';
+                btnPreview.onclick     = null;
+                btnPreview.disabled    = false;
+                btnRecord.disabled     = false;
+                _lockModeBuilder(false);
+                statusEl.textContent   = 'Ready';
             };
         } catch (err) {
             btnPreview.disabled  = false;
             btnRecord.disabled   = false;
-            modeSelect.disabled  = false;
+            _lockModeBuilder(false);
             statusEl.textContent = `Error: ${err.message}`;
         }
     });
@@ -246,22 +312,18 @@ export function initControls(container, state, config, api, emit) {
     // ── Record ────────────────────────────────────────────────────────────────
 
     btnRecord.addEventListener('click', async () => {
-        // Auto-reset if a recording was already stopped
-        if (state.status === 'stopped') {
-            api.newRecording();
-        }
+        if (state.status === 'stopped') api.newRecording();
 
-        btnRecord.disabled   = true;
-        btnPreview.disabled  = true;
-        btnStop.disabled     = false;
-        modeSelect.disabled  = true;
-        nameInput.disabled   = true;
+        btnRecord.disabled     = true;
+        btnPreview.disabled    = true;
+        btnStop.disabled       = false;
+        _lockModeBuilder(true);
+        nameInput.disabled     = true;
         _enableOptions(false);
-        statusEl.textContent = 'Starting…';
+        statusEl.textContent   = 'Starting…';
         btnPreview.textContent = '👁 Preview';
         btnPreview.onclick     = null;
 
-        // Capture the name at recording start
         config.recordingName = nameInput.value.trim();
 
         try {
@@ -280,7 +342,7 @@ export function initControls(container, state, config, api, emit) {
             btnRecord.disabled   = false;
             btnPreview.disabled  = false;
             btnStop.disabled     = true;
-            modeSelect.disabled  = false;
+            _lockModeBuilder(false);
             nameInput.disabled   = false;
             _enableOptions(true);
             statusEl.textContent = `Error: ${err.message}`;
@@ -298,7 +360,6 @@ export function initControls(container, state, config, api, emit) {
         } catch (err) {
             statusEl.textContent = `Error: ${err.message}`;
             btnRecord.disabled   = false;
-            modeSelect.disabled  = false;
             nameInput.disabled   = false;
         }
     });
@@ -307,14 +368,13 @@ export function initControls(container, state, config, api, emit) {
 
     window.addEventListener(SGA_RECORDER.RECORD_STOP, (e) => {
         clearInterval(timerInterval);
-        timerInterval    = null;
-        btnStop.disabled = true;
-        btnRecord.disabled   = false;
-        btnPreview.disabled  = false;
-        modeSelect.disabled  = false;
-        nameInput.disabled   = false;
+        timerInterval      = null;
+        btnStop.disabled   = true;
+        btnRecord.disabled = false;
+        _lockModeBuilder(false);
+        nameInput.disabled = false;
         _enableOptions(true);
-
+        _applyModeState();
         const { durationMs, sizeBytes } = e.detail;
         statusEl.textContent = `Done — ${_formatMs(durationMs)}, ${_formatBytes(sizeBytes)}. Start new recording or review the tab.`;
     });
@@ -324,18 +384,16 @@ export function initControls(container, state, config, api, emit) {
     window.addEventListener(SGA_RECORDER.RESET, () => {
         clearInterval(timerInterval);
         timerInterval = null;
-
-        btnRecord.disabled     = false;
-        btnPreview.disabled    = false;
-        btnStop.disabled       = true;
-        modeSelect.disabled    = false;
-        nameInput.disabled     = false;
+        btnRecord.disabled   = false;
+        btnStop.disabled     = true;
+        nameInput.disabled   = false;
+        _lockModeBuilder(false);
         _enableOptions(true);
         timerEl.textContent    = '0s';
         statusEl.textContent   = 'Ready';
         btnPreview.textContent = '👁 Preview';
         btnPreview.onclick     = null;
-        _updatePreviewBtn(config.mode);
+        _applyModeState();
         if (recSize?.reset) recSize.reset();
     });
 
