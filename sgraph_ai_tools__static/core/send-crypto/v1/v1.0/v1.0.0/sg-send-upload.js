@@ -117,21 +117,22 @@ async function directUpload(ciphertext, transferId, sendUrl, accessToken, onProg
     'Content-Type':          'application/json',
   };
 
-  // Step 1 — create transfer
+  // Step 1 — create transfer, passing our token-derived ID so the server
+  // registers the file under the same ID the download page will look up.
   const createRes = await fetch(`${sendUrl}/api/transfers/create`, {
     method:  'POST',
     headers,
-    body:    JSON.stringify({ transferId, size: ciphertext.byteLength }),
+    body:    JSON.stringify({ transfer_id: transferId, file_size_bytes: ciphertext.byteLength }),
   });
-  if (!createRes.ok) {
+  // 409 = transfer ID already exists (e.g. duplicate upload); treat as OK
+  if (!createRes.ok && createRes.status !== 409) {
     throw new Error(`Transfer create failed: ${createRes.status} ${createRes.statusText}`);
   }
-  const { id } = await createRes.json();
 
   progress(onProgress, 60, 'uploading');
 
-  // Step 2 — upload raw bytes
-  const uploadRes = await fetch(`${sendUrl}/api/transfers/upload/${id}`, {
+  // Step 2 — upload raw bytes, always using the token-derived transferId
+  const uploadRes = await fetch(`${sendUrl}/api/transfers/upload/${transferId}`, {
     method:  'POST',
     headers: {
       'x-sgraph-access-token': accessToken,
@@ -146,7 +147,7 @@ async function directUpload(ciphertext, transferId, sendUrl, accessToken, onProg
   progress(onProgress, 85, 'uploading');
 
   // Step 3 — complete
-  const completeRes = await fetch(`${sendUrl}/api/transfers/complete/${id}`, {
+  const completeRes = await fetch(`${sendUrl}/api/transfers/complete/${transferId}`, {
     method:  'POST',
     headers,
   });
@@ -185,7 +186,7 @@ async function multipartUpload(ciphertext, transferId, sendUrl, accessToken, onP
   const initRes = await fetch(`${sendUrl}/api/presigned/initiate`, {
     method:  'POST',
     headers,
-    body:    JSON.stringify({ transferId, size: totalSize, parts: partCount }),
+    body:    JSON.stringify({ transfer_id: transferId, file_size_bytes: totalSize, parts: partCount }),
   });
   if (!initRes.ok) {
     throw new Error(`Multipart initiate failed: ${initRes.status} ${initRes.statusText}`);
@@ -263,6 +264,37 @@ export async function uploadFile(blob, filename, sendUrl, accessToken, onProgres
   progress(onProgress, 35, 'encrypting');
 
   const ciphertext = await encrypt(envelope, key);
+
+  // ── Debug info ────────────────────────────────────────────────────────────
+  // IV is the first 12 bytes prepended by encrypt(); extract for logging.
+  const ivHex = Array.from(ciphertext.slice(0, 12), b => b.toString(16).padStart(2, '0')).join('');
+
+  console.group('[SG/Send] Upload debug');
+  console.log('Token (share with recipient):', token);
+  console.log('Transfer ID (SHA-256 of token, first 6 bytes):', transferId);
+  console.log('Key derivation:', {
+    algorithm:  'PBKDF2-SHA-256',
+    salt:       'sgraph-send-v1',
+    iterations: 600_000,
+    keyLength:  '256-bit AES-GCM',
+    password:   token,
+  });
+  console.log('SGMETA envelope:', {
+    magic:          'SGMETA (0x53 47 4D 45 54 41)',
+    metadataJson:   JSON.stringify({ filename }),
+    rawFileBytes:   rawBytes.byteLength,
+    envelopeBytes:  envelope.byteLength,
+  });
+  console.log('Encryption:', {
+    cipher:          'AES-256-GCM',
+    ivHex,
+    ivBytes:         12,
+    ciphertextBytes: ciphertext.byteLength,
+    layout:          'IV (12 bytes) || ciphertext',
+  });
+  console.log('Upload target:', `${sendUrl}/api/transfers/upload/${transferId}`);
+  console.groupEnd();
+  // ─────────────────────────────────────────────────────────────────────────
 
   progress(onProgress, 50, 'encrypting');
 

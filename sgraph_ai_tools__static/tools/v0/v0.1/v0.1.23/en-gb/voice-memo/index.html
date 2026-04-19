@@ -153,8 +153,6 @@
     <div id="app-root">
         <!-- VFS bus with IndexedDB provider for zero-loss segment persistence -->
         <sg-vfs-bus id="vfs-bus" provider="indexeddb"></sg-vfs-bus>
-
-        <sg-layout id="layout"></sg-layout>
     </div>
 
     <script type="module" src="/components/vfs/sg-vfs-bus/v0/v0.1/v0.1.0/sg-vfs-bus.js"></script>
@@ -163,21 +161,25 @@
     <script type="module" src="/components/audio/sg-audio-transcript/v0/v0.1/v0.1.0/sg-audio-transcript.js"></script>
     <script type="module" src="/components/llm/sg-llm-connection/v0/v0.1/v0.1.4/sg-llm-connection.js"></script>
     <script type="module" src="/components/llm/sg-llm-model-picker/v0/v0.1/v0.1.1/sg-llm-model-picker.js"></script>
+    <script type="module" src="/components/tool-api/sg-tool-api-explorer/v0/v0.1/v0.1.0/sg-tool-api-explorer.js"></script>
+    <script type="module" src="/components/tool-api/sg-tool-api-console/v0/v0.1/v0.1.0/sg-tool-api-console.js"></script>
+    <script type="module" src="/components/tool-api/sg-tool-api-manifest/v0/v0.1/v0.1.0/sg-tool-api-manifest.js"></script>
 
     <script type="module">
 import { SgLayout }   from '/core/sg-layout/v0.1.0/sg-layout.js';
 import { SGL_EVENTS } from '/core/sg-layout/v0.1.0/sg-layout-events.js';
 import { SGL_VFS }    from '/core/sg-vfs/v0/v0.1/v0.1.0/sg-vfs-events.js';
 import { newRequestId } from '/core/sg-vfs/v0/v0.1/v0.1.0/sg-vfs-request-id.js';
+import { SgToolApi }  from '/core/sg-tool-api/v0/v0.1/v0.1.0/sg-tool-api.js';
+import { SGA_TOOL }   from '/core/sg-tool-api/v0/v0.1/v0.1.0/sg-tool-api-events.js';
 import { runHealthCheck as whisperHealthCheck, loadWhisperModel, transcribeBuffer, MODEL_TINY, MODEL_BASE, isHealthCheckCached }
     from '/core/sg-whisper/v0/v0.1/v0.1.0/sg-whisper.js';
 import { SGR_EVENTS }
     from '/components/audio/sg-audio-recorder/v0/v0.1/v0.1.0/sg-audio-recorder.js';
 
 // ── DOM refs ──────────────────────────────────────────────────────────────────
-const appRoot  = document.getElementById('app-root');
-const busEl    = document.getElementById('vfs-bus');
-const layoutEl = document.getElementById('layout');
+const appRoot = document.getElementById('app-root');
+const busEl   = document.getElementById('vfs-bus');
 
 // ── State ─────────────────────────────────────────────────────────────────────
 let vfs           = null;
@@ -222,54 +224,91 @@ function getSessionFolder(sid) {
     return `/voice-memos/${sid}`;
 }
 
-// ── sg-layout definition ──────────────────────────────────────────────────────
-layoutEl.style.cssText = 'display:block;width:100%;height:100%;';
+// ── VFS provider ready (register before any await so we don't miss the event) ──
+appRoot.addEventListener(SGL_VFS.PROVIDER_READY, () => { vfs = busEl.vfs; });
 
-// Register BEFORE setLayout — LAYOUT_READY fires via internal bus (not DOM events)
-const layoutReady = new Promise(resolve => layoutEl.events.on(SGL_EVENTS.LAYOUT_READY, resolve));
+// ── Outer layout: column split [tool area / dev panel] ────────────────────────
+const outerLayout = document.createElement('sg-layout');
+outerLayout.style.cssText = 'display:block;width:100%;height:100%;';
+appRoot.appendChild(outerLayout);
 
-layoutEl.setLayout({
+const outerReady = new Promise(resolve => outerLayout.events.on(SGL_EVENTS.LAYOUT_READY, resolve));
+outerLayout.setLayout({
+    type: 'column', id: 'outer', sizes: [0.74, 0.26],
+    children: [
+        { type: 'stack', id: 's-tool', activeTab: 0,
+          tabs: [{ type: 'tab', id: 't-tool-area', title: 'Tool', tag: 'div', locked: true, closable: false }] },
+        { type: 'stack', id: 's-dev', activeTab: 0,
+          tabs: [
+              { type: 'tab', id: 't-explorer', title: '\u26a1 Explorer', tag: 'div', locked: false, closable: false },
+              { type: 'tab', id: 't-console',  title: '\u003e Console',  tag: 'div', locked: false, closable: false },
+              { type: 'tab', id: 't-manifest', title: '\u{1F4CB} Manifest', tag: 'div', locked: false, closable: false },
+          ] },
+    ],
+});
+await outerReady;
+
+const toolAreaPanel = outerLayout.getPanelElement('t-tool-area');
+const explorerPanel = outerLayout.getPanelElement('t-explorer');
+const consolePanel  = outerLayout.getPanelElement('t-console');
+const manifestPanel = outerLayout.getPanelElement('t-manifest');
+
+// ── Mount dev panel components ────────────────────────────────────────────────
+const mountDev = (panel, tag) => {
+    panel.style.cssText = 'width:100%;height:100%;display:block;overflow:hidden;';
+    const el = document.createElement(tag);
+    el.style.cssText = 'display:block;width:100%;height:100%;';
+    panel.appendChild(el);
+    return el;
+};
+mountDev(explorerPanel, 'sg-tool-api-explorer');
+mountDev(consolePanel,  'sg-tool-api-console');
+mountDev(manifestPanel, 'sg-tool-api-manifest');
+
+// ── Inner layout: tool content ────────────────────────────────────────────────
+toolAreaPanel.style.cssText = 'width:100%;height:100%;display:block;overflow:hidden;';
+const innerLayout = document.createElement('sg-layout');
+innerLayout.style.cssText = 'display:block;width:100%;height:100%;';
+toolAreaPanel.appendChild(innerLayout);
+
+const innerReady = new Promise(resolve => innerLayout.events.on(SGL_EVENTS.LAYOUT_READY, resolve));
+innerLayout.setLayout({
     type: 'row', id: 'root', sizes: [0.28, 0.44, 0.28],
     children: [
         // LEFT: Setup + Recorder + Vault config
         { type: 'column', id: 'col-left', sizes: [0.35, 0.45, 0.20],
           children: [
             { type: 'stack', id: 's-setup',  activeTab: 0,
-              tabs: [{ type: 'tab', id: 'tab-setup',  title: '⚙️ Setup',  tag: 'div', closable: false }] },
+              tabs: [{ type: 'tab', id: 'tab-setup',  title: '\u2699\ufe0f Setup',  tag: 'div', closable: false }] },
             { type: 'stack', id: 's-record', activeTab: 0,
-              tabs: [{ type: 'tab', id: 'tab-record', title: '🎙 Record', tag: 'div', closable: false }] },
+              tabs: [{ type: 'tab', id: 'tab-record', title: '\ud83c\udfa4 Record', tag: 'div', closable: false }] },
             { type: 'stack', id: 's-vault',  activeTab: 0,
-              tabs: [{ type: 'tab', id: 'tab-vault',  title: '🔐 Vault',  tag: 'div', closable: false }] },
+              tabs: [{ type: 'tab', id: 'tab-vault',  title: '\ud83d\udd10 Vault',  tag: 'div', closable: false }] },
           ]},
         // CENTRE: Live captions + Transcript editor + Pipeline
         { type: 'column', id: 'col-centre', sizes: [0.40, 0.35, 0.25],
           children: [
-            { type: 'stack', id: 's-captions',    activeTab: 0,
-              tabs: [{ type: 'tab', id: 'tab-captions',    title: '💬 Live Captions',  tag: 'div', closable: false }] },
-            { type: 'stack', id: 's-transcript',  activeTab: 0,
-              tabs: [{ type: 'tab', id: 'tab-transcript',  title: '📝 Transcript',     tag: 'div', closable: false }] },
-            { type: 'stack', id: 's-pipeline',    activeTab: 0,
-              tabs: [{ type: 'tab', id: 'tab-pipeline',    title: '🚀 Pipeline',       tag: 'div', closable: false }] },
+            { type: 'stack', id: 's-captions',   activeTab: 0,
+              tabs: [{ type: 'tab', id: 'tab-captions',   title: '\ud83d\udcac Live Captions', tag: 'div', closable: false }] },
+            { type: 'stack', id: 's-transcript', activeTab: 0,
+              tabs: [{ type: 'tab', id: 'tab-transcript', title: '\ud83d\udcdd Transcript',    tag: 'div', closable: false }] },
+            { type: 'stack', id: 's-pipeline',   activeTab: 0,
+              tabs: [{ type: 'tab', id: 'tab-pipeline',   title: '\ud83d\ude80 Pipeline',      tag: 'div', closable: false }] },
           ]},
         // RIGHT: VFS Events
         { type: 'stack', id: 's-events', activeTab: 0,
-          tabs: [{ type: 'tab', id: 'tab-events', title: '📊 Events', tag: 'sg-vfs-event-viewer', closable: false }] },
+          tabs: [{ type: 'tab', id: 'tab-events', title: '\ud83d\udcca Events', tag: 'sg-vfs-event-viewer', closable: false }] },
     ],
 });
+await innerReady;
 
-// ── VFS provider ready (register before await so we don't miss the event) ─────
-appRoot.addEventListener(SGL_VFS.PROVIDER_READY, () => {
-    vfs = busEl.vfs;
-});
-
-// ── Build panels once layout is ready ─────────────────────────────────────────
-await layoutReady;
-buildSetupPanel(layoutEl.getPanelElement('tab-setup'));
-buildRecordPanel(layoutEl.getPanelElement('tab-record'));
-buildVaultPanel(layoutEl.getPanelElement('tab-vault'));
-buildCaptionsPanel(layoutEl.getPanelElement('tab-captions'));
-buildTranscriptPanel(layoutEl.getPanelElement('tab-transcript'));
-buildPipelinePanel(layoutEl.getPanelElement('tab-pipeline'));
+// ── Build panels ──────────────────────────────────────────────────────────────
+buildSetupPanel(innerLayout.getPanelElement('tab-setup'));
+buildRecordPanel(innerLayout.getPanelElement('tab-record'));
+buildVaultPanel(innerLayout.getPanelElement('tab-vault'));
+buildCaptionsPanel(innerLayout.getPanelElement('tab-captions'));
+buildTranscriptPanel(innerLayout.getPanelElement('tab-transcript'));
+buildPipelinePanel(innerLayout.getPanelElement('tab-pipeline'));
 
 // =============================================================================
 // SETUP PANEL — WASM health check
@@ -674,6 +713,64 @@ function showPipelineResult(msg, type = 'info') {
     el.className = 'result-msg ' + (type === 'error' ? 'error' : 'ok');
     el.textContent = msg;
 }
+
+// =============================================================================
+// SgToolApi registration
+// =============================================================================
+
+const api = new SgToolApi({
+    name:     'voice-memo',
+    version:  { api: '0.1.0', ui: '0.1.23', content: '0.1.0' },
+    manifest: './manifest.json',
+    skills:   {
+        human:   './SKILL-human.md',
+        browser: './SKILL-browser.md',
+        api:     './SKILL-api.md',
+    },
+});
+
+// ── getState ──────────────────────────────────────────────────────────────────
+api.register('getState', () => ({
+    sessionId,
+    sessionFolder,
+    recording:      document.getElementById('recorder')?.isRecording ?? false,
+    segmentCount:   parseInt(document.getElementById('session-seg-label')?.textContent || '0', 10),
+    tinyModelReady: !!tinyModel,
+    baseModelReady: !!baseModel,
+    transcriptLength: document.getElementById('transcript-area')?.value?.length ?? 0,
+}), { async: false });
+
+// ── runSetup ──────────────────────────────────────────────────────────────────
+api.register('runSetup', async () => {
+    await runSetup();
+    return { tinyModelReady: !!tinyModel, baseModelReady: !!baseModel };
+}, { async: true, events: [SGA_TOOL.TOOL_READY] });
+
+// ── startRecording ────────────────────────────────────────────────────────────
+api.register('startRecording', async (params = {}) => {
+    const btn = document.getElementById('btn-start-recording');
+    if (!btn || btn.disabled) throw new Error('Run setup first — models not loaded');
+    const dur = params.segmentDurationSeconds ?? 30;
+    const rec = document.getElementById('recorder');
+    if (rec) rec.setAttribute('segment-duration', dur * 1000);
+    btn.click();
+    return { sessionId, sessionFolder };
+}, { async: true });
+
+// ── stopRecording ─────────────────────────────────────────────────────────────
+api.register('stopRecording', async () => {
+    const rec = document.getElementById('recorder');
+    if (rec?.isRecording) await rec.stop();
+    return { sessionId, segmentCount: parseInt(document.getElementById('session-seg-label')?.textContent || '0', 10) };
+}, { async: true });
+
+// ── getTranscript ─────────────────────────────────────────────────────────────
+api.register('getTranscript', () => {
+    const area = document.getElementById('transcript-area');
+    return { text: area?.value ?? '', sessionId, sessionFolder };
+}, { async: false });
+
+api.activate();
 
     </script>
 

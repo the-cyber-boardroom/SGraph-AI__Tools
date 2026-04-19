@@ -1,0 +1,63 @@
+/* recorder.css — layout, dark theme tokens, global tool styles */
+
+:root {
+    --rec-bg:       #0a0a18;
+    --rec-surface:  #111127;
+    --rec-border:   rgba(255,255,255,0.08);
+    --rec-text:     #e2e8f0;
+    --rec-muted:    rgba(226,232,240,0.5);
+    --rec-accent:   #6366f1;
+    --rec-danger:   #ef4444;
+    --rec-success:  #34d399;
+    --rec-warn:     #fbbf24;
+    --rec-radius:   10px;
+}
+
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+html, body {
+    height: 100%;
+    background: var(--rec-bg);
+    color: var(--rec-text);
+    font-family: system-ui, -apple-system, sans-serif;
+    font-size: 14px;
+    overflow: hidden;
+}
+
+body { display: flex; flex-direction: column; }
+
+#layout-wrap {
+    flex: 1;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+}
+
+.rec-layout {
+    display: grid;
+    grid-template-columns: 300px 1fr 320px;
+    grid-template-rows: 1fr;
+    gap: 0;
+    height: 100%;
+    overflow: hidden;
+}
+
+.rec-panel {
+    overflow-y: auto;
+    padding: 16px;
+    border-right: 1px solid var(--rec-border);
+}
+
+.rec-panel:last-child { border-right: none; }
+
+@media (max-width: 900px) {
+    .rec-layout {
+        grid-template-columns: 1fr;
+        grid-template-rows: auto auto 1fr;
+        overflow-y: auto;
+    }
+    .rec-panel {
+        border-right: none;
+        border-bottom: 1px solid var(--rec-border);
+    }
+}
