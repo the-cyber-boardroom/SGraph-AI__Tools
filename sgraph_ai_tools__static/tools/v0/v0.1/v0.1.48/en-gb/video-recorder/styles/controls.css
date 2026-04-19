@@ -38,6 +38,11 @@
     color: var(--rec-muted);
 }
 
+.ctrl-label--normal {
+    text-transform: none;
+    letter-spacing: 0;
+}
+
 .ctrl-select {
     background: rgba(0,0,0,0.4);
     border: 1px solid var(--rec-border);

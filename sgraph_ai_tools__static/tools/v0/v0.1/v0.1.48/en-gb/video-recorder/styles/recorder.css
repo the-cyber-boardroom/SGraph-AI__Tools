@@ -34,26 +34,39 @@ body { display: flex; flex-direction: column; }
 }
 
 .rec-layout {
+    flex: 1;
     display: grid;
-    grid-template-columns: 300px 1fr 320px;
-    grid-template-rows: 1fr;
-    gap: 0;
-    height: 100%;
+    grid-template-columns: 340px 1fr;
     overflow: hidden;
+    min-height: 0;
 }
 
 .rec-panel {
     overflow-y: auto;
     padding: 16px;
     border-right: 1px solid var(--rec-border);
+    display: flex;
+    flex-direction: column;
+    gap: 0;
 }
 
 .rec-panel:last-child { border-right: none; }
 
-@media (max-width: 900px) {
+/* Left sidebar — scrollable, controls + save stacked */
+.rec-panel--controls {
+    gap: 0;
+}
+
+.rec-divider {
+    border: none;
+    border-top: 1px solid var(--rec-border);
+    margin: 16px 0;
+}
+
+@media (max-width: 800px) {
     .rec-layout {
         grid-template-columns: 1fr;
-        grid-template-rows: auto auto 1fr;
+        grid-template-rows: auto 1fr;
         overflow-y: auto;
     }
     .rec-panel {

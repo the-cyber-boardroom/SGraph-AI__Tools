@@ -71,7 +71,7 @@ export function initControls(container, state, config, api, emit) {
                 <summary class="ctrl-options__summary">Options</summary>
                 <div class="ctrl-options__body">
                     <div class="ctrl-row">
-                        <label class="ctrl-label">Output streams — how many files are recorded</label>
+                        <label class="ctrl-label ctrl-label--normal">Output streams — how many files are recorded</label>
                         <div class="ctrl-toggle-group" id="rec-mode-group">
                             <button class="ctrl-toggle" data-value="combined">1 stream</button>
                             <button class="ctrl-toggle" data-value="combined+separate">All streams</button>
