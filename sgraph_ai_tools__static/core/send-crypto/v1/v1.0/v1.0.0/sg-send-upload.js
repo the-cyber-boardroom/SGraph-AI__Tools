@@ -267,6 +267,37 @@ export async function uploadFile(blob, filename, sendUrl, accessToken, onProgres
 
   const ciphertext = await encrypt(envelope, key);
 
+  // ── Debug info ────────────────────────────────────────────────────────────
+  // IV is the first 12 bytes prepended by encrypt(); extract for logging.
+  const ivHex = Array.from(ciphertext.slice(0, 12), b => b.toString(16).padStart(2, '0')).join('');
+
+  console.group('[SG/Send] Upload debug');
+  console.log('Token (share with recipient):', token);
+  console.log('Transfer ID (SHA-256 of token, first 6 bytes):', transferId);
+  console.log('Key derivation:', {
+    algorithm:  'PBKDF2-SHA-256',
+    salt:       'sgraph-send-v1',
+    iterations: 600_000,
+    keyLength:  '256-bit AES-GCM',
+    password:   token,
+  });
+  console.log('SGMETA envelope:', {
+    magic:          'SGMETA (0x53 47 4D 45 54 41)',
+    metadataJson:   JSON.stringify({ filename }),
+    rawFileBytes:   rawBytes.byteLength,
+    envelopeBytes:  envelope.byteLength,
+  });
+  console.log('Encryption:', {
+    cipher:          'AES-256-GCM',
+    ivHex,
+    ivBytes:         12,
+    ciphertextBytes: ciphertext.byteLength,
+    layout:          'IV (12 bytes) || ciphertext',
+  });
+  console.log('Upload target:', `${sendUrl}/api/transfers/upload/${transferId}`);
+  console.groupEnd();
+  // ─────────────────────────────────────────────────────────────────────────
+
   progress(onProgress, 50, 'encrypting');
 
   // 4. Upload
