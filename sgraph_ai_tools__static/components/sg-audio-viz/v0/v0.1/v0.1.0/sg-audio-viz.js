@@ -3,7 +3,7 @@
  * Audio-reactive canvas animation component.
  * Zero external dependencies — Web Audio API + Canvas 2D only.
  *
- * Modes: waveform · bars · mirror-bars · circular-wave · circular-bars · blob
+ * Modes: waveform · bars · mirror-bars · mirror-wave · circular-wave · circular-bars · blob · eq-bands · mirror-eq
  * Sources: MediaStream · HTMLMediaElement · Blob · URL string
  *
  * The canvas can be captured as a MediaStream via captureStream(fps), making
@@ -18,7 +18,9 @@ import { SgComponent } from '/components/base/v1/v1.0/v1.0.0/sg-component.js';
 // ── Public constants ──────────────────────────────────────────────────────────
 
 export const AUDIO_VIZ_MODES = Object.freeze([
-    'waveform', 'bars', 'mirror-bars', 'circular-wave', 'circular-bars', 'blob',
+    'waveform', 'bars', 'mirror-bars', 'mirror-wave',
+    'circular-wave', 'circular-bars', 'blob',
+    'eq-bands', 'mirror-eq',
 ]);
 
 export const AUDIO_VIZ_EVENTS = Object.freeze({
@@ -36,6 +38,21 @@ const DEFAULT_FFT     = 2048;
 const SMOOTHING       = 0.8;
 const MIN_DB          = -90;
 const MAX_DB          = -10;
+
+// EQ band definitions — 8 bands covering the audible range
+const EQ_BANDS = Object.freeze([
+    { lo:    20, hi:    80, label: 'Sub'  },
+    { lo:    80, hi:   250, label: 'Bass' },
+    { lo:   250, hi:   600, label: 'Low'  },
+    { lo:   600, hi:  1500, label: 'Mid'  },
+    { lo:  1500, hi:  3500, label: '2k'   },
+    { lo:  3500, hi:  7000, label: '5k'   },
+    { lo:  7000, hi: 12000, label: '10k'  },
+    { lo: 12000, hi: 22050, label: 'Air'  },
+]);
+
+const PEAK_HOLD   = 45;    // frames before peak starts falling (~0.75 s at 60 fps)
+const PEAK_DECAY  = 0.012; // amplitude units lost per frame after hold
 
 // ── Component ─────────────────────────────────────────────────────────────────
 
@@ -67,6 +84,8 @@ export class SgAudioViz extends SgComponent {
 
     #freqData   = null;   // Uint8Array — FFT frequency bins
     #timeData   = null;   // Uint8Array — time-domain waveform
+    #sampleRate = 48000;  // AudioContext.sampleRate (for bin↔Hz mapping)
+    #peaks      = null;   // { values: Float32Array, hold: Uint16Array } — EQ peak meters
 
     // ── Lifecycle ─────────────────────────────────────────────────────────────
 
@@ -215,6 +234,7 @@ export class SgAudioViz extends SgComponent {
         if (this.#audioCtx && this.#audioCtx.state !== 'closed') return;
 
         this.#audioCtx = new AudioContext();
+        this.#sampleRate = this.#audioCtx.sampleRate;
         this.#analyser = this.#audioCtx.createAnalyser();
         this.#analyser.fftSize               = this.#fftSize;
         this.#analyser.smoothingTimeConstant = SMOOTHING;
@@ -224,6 +244,7 @@ export class SgAudioViz extends SgComponent {
         const bins     = this.#analyser.frequencyBinCount;
         this.#freqData = new Uint8Array(bins);
         this.#timeData = new Uint8Array(this.#analyser.fftSize);
+        this.#peaks    = null;  // reset so EQ re-initialises for new context
     }
 
     async #loadUrl(url, revokeOnEnd) {
@@ -291,12 +312,15 @@ export class SgAudioViz extends SgComponent {
         this.#analyser.getByteTimeDomainData(this.#timeData);
 
         switch (this.#mode) {
-            case 'waveform':      this.#drawWaveform(ctx, W, H);      break;
-            case 'bars':          this.#drawBars(ctx, W, H, false);   break;
-            case 'mirror-bars':   this.#drawBars(ctx, W, H, true);    break;
-            case 'circular-wave': this.#drawCircularWave(ctx, W, H);  break;
-            case 'circular-bars': this.#drawCircularBars(ctx, W, H);  break;
-            case 'blob':          this.#drawBlob(ctx, W, H);          break;
+            case 'waveform':      this.#drawWaveform(ctx, W, H);        break;
+            case 'bars':          this.#drawBars(ctx, W, H, false);     break;
+            case 'mirror-bars':   this.#drawBars(ctx, W, H, true);      break;
+            case 'mirror-wave':   this.#drawMirrorWave(ctx, W, H);      break;
+            case 'circular-wave': this.#drawCircularWave(ctx, W, H);    break;
+            case 'circular-bars': this.#drawCircularBars(ctx, W, H);    break;
+            case 'blob':          this.#drawBlob(ctx, W, H);            break;
+            case 'eq-bands':      this.#drawEqBands(ctx, W, H, false);  break;
+            case 'mirror-eq':     this.#drawEqBands(ctx, W, H, true);   break;
         }
     }
 
@@ -426,6 +450,163 @@ export class SgAudioViz extends SgComponent {
         ctx.arc(cx, cy, innerR * 0.88, 0, Math.PI * 2);
         ctx.fillStyle = this.#colorPrimary + '22';
         ctx.fill();
+    }
+
+    /**
+     * Filled waveform ribbon — top and bottom edges both extend outward from
+     * the centre using Math.abs(v), so the shape always stays symmetric and
+     * grows wider with louder signal. Creates an organic "breathing" silhouette.
+     *
+     * Formula per sample i:
+     *   v       = |data[i]/128 - 1|   (0 = silence, 1 = full scale)
+     *   y_top   = cy - v * amp        (top edge, above centre)
+     *   y_bot   = cy + v * amp        (bottom edge, below centre — same distance)
+     */
+    #drawMirrorWave(ctx, W, H) {
+        const data = this.#timeData;
+        const cy   = H / 2;
+        const amp  = H * 0.44;
+        const dpr  = devicePixelRatio || 1;
+        const len  = data.length;
+
+        // ── Filled ribbon shape ───────────────────────────────────────────────
+        ctx.beginPath();
+
+        // Top edge: left → right
+        for (let i = 0; i < len; i++) {
+            const v = Math.abs(data[i] / 128 - 1);
+            const x = (i / (len - 1)) * W;
+            const y = cy - v * amp;
+            i === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y);
+        }
+        // Bottom edge: right → left (closes the ribbon)
+        for (let i = len - 1; i >= 0; i--) {
+            const v = Math.abs(data[i] / 128 - 1);
+            const x = (i / (len - 1)) * W;
+            ctx.lineTo(x, cy + v * amp);
+        }
+        ctx.closePath();
+
+        const fillGrad = ctx.createLinearGradient(0, 0, 0, H);
+        fillGrad.addColorStop(0,   this.#colorSec     + 'aa');
+        fillGrad.addColorStop(0.5, this.#colorPrimary + 'dd');
+        fillGrad.addColorStop(1,   this.#colorSec     + 'aa');
+        ctx.fillStyle = fillGrad;
+        ctx.fill();
+
+        // ── Outline edges ─────────────────────────────────────────────────────
+        const lineGrad = ctx.createLinearGradient(0, 0, W, 0);
+        lineGrad.addColorStop(0,   this.#colorPrimary);
+        lineGrad.addColorStop(0.5, this.#colorSec);
+        lineGrad.addColorStop(1,   this.#colorPrimary);
+        ctx.strokeStyle = lineGrad;
+        ctx.lineWidth   = 1.5 * dpr;
+        ctx.lineJoin    = 'round';
+
+        for (const sign of [-1, 1]) {
+            ctx.beginPath();
+            for (let i = 0; i < len; i++) {
+                const v = Math.abs(data[i] / 128 - 1);
+                const x = (i / (len - 1)) * W;
+                const y = cy + sign * v * amp;
+                i === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y);
+            }
+            ctx.stroke();
+        }
+    }
+
+    /**
+     * 8-band graphic EQ with peak meters.
+     * Bands are defined logarithmically (EQ_BANDS). Each band averages the FFT
+     * bins that fall within its frequency range using the AudioContext sample rate.
+     *
+     * Peak meters: a thin line sits at the peak value, holds for PEAK_HOLD frames,
+     * then falls at PEAK_DECAY amplitude units per frame.
+     *
+     * mirror=true reflects the bars symmetrically above AND below the centre line.
+     */
+    #drawEqBands(ctx, W, H, mirror) {
+        const count = EQ_BANDS.length;
+        const sr    = this.#sampleRate;
+        const fftSz = this.#analyser.fftSize;
+        const data  = this.#freqData;
+        const dpr   = devicePixelRatio || 1;
+
+        // Lazily init peak state
+        if (!this.#peaks || this.#peaks.values.length !== count) {
+            this.#peaks = {
+                values: new Float32Array(count),
+                hold:   new Uint16Array(count),
+            };
+        }
+        const pk = this.#peaks;
+
+        // Layout
+        const padX   = W * 0.035;
+        const usableW = W - padX * 2;
+        const barW   = usableW / count;
+        const gap    = Math.max(2 * dpr, barW * 0.18);
+        const maxBarH = mirror ? H * 0.42 : H * 0.78;
+        const baseY  = mirror ? H / 2 : H - H * 0.1;
+
+        // Text settings (only rendered if bars are wide enough)
+        const showLabel = (barW - gap) > 18 * dpr;
+        ctx.font      = `${Math.max(9, Math.round(10 * dpr))}px system-ui,sans-serif`;
+        ctx.textAlign = 'center';
+
+        for (let i = 0; i < count; i++) {
+            const { lo, hi, label } = EQ_BANDS[i];
+
+            // Average FFT bins within the band's frequency range
+            const loB = Math.max(0, Math.round(lo * fftSz / sr));
+            const hiB = Math.min(data.length - 1, Math.round(hi * fftSz / sr));
+            const v   = (hiB >= loB) ? _avg(data, loB, hiB + 1) / 255 : 0;
+
+            // Update peak meter
+            if (v >= pk.values[i]) {
+                pk.values[i] = v;
+                pk.hold[i]   = 0;
+            } else {
+                pk.hold[i]++;
+                if (pk.hold[i] > PEAK_HOLD) {
+                    pk.values[i] = Math.max(0, pk.values[i] - PEAK_DECAY);
+                }
+            }
+
+            const bH   = Math.max(2 * dpr, v * maxBarH);
+            const pkH  = Math.max(2 * dpr, pk.values[i] * maxBarH);
+            const x    = padX + i * barW + gap / 2;
+            const bW   = barW - gap;
+
+            // Bar colour: low-freq → primary, high-freq → secondary
+            const t = i / (count - 1);
+            ctx.fillStyle = _blend(this.#colorPrimary, this.#colorSec, t);
+
+            if (mirror) {
+                ctx.fillRect(x, baseY - bH, bW, bH);
+                ctx.fillRect(x, baseY,       bW, bH);
+            } else {
+                ctx.fillRect(x, baseY - bH, bW, bH);
+            }
+
+            // Peak indicator line
+            ctx.fillStyle = '#ffffffbb';
+            if (mirror) {
+                ctx.fillRect(x, baseY - pkH - dpr, bW, 2 * dpr);
+                ctx.fillRect(x, baseY + pkH - dpr, bW, 2 * dpr);
+            } else {
+                ctx.fillRect(x, baseY - pkH - dpr, bW, 2 * dpr);
+            }
+
+            // Frequency label
+            if (showLabel) {
+                ctx.fillStyle = 'rgba(226,232,240,0.38)';
+                const labelY = mirror
+                    ? baseY + maxBarH + 14 * dpr
+                    : baseY + 13 * dpr;
+                ctx.fillText(label, x + bW / 2, labelY);
+            }
+        }
     }
 
     /** Organic morphing shape — bass energy drives size, waveform drives outline. */
