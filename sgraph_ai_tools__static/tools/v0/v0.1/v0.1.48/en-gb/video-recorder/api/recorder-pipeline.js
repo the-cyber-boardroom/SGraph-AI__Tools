@@ -23,13 +23,14 @@ export const state  = new RecordingState();
 // ─── Mode → source flags ──────────────────────────────────────────────────────
 
 const MODE_FLAGS = {
-    'audio':               { camera: false, audio: true,  screen: false },
-    'camera':              { camera: true,  audio: false, screen: false },
-    'screen':              { camera: false, audio: false, screen: true  },
-    'camera+audio':        { camera: true,  audio: true,  screen: false },
-    'screen+audio':        { camera: false, audio: true,  screen: true  },
-    'camera+screen':       { camera: true,  audio: false, screen: true  },
-    'camera+screen+audio': { camera: true,  audio: true,  screen: true  },
+    'audio':               { camera: false, audio: true,  screen: false, viz: false },
+    'camera':              { camera: true,  audio: false, screen: false, viz: false },
+    'screen':              { camera: false, audio: false, screen: true,  viz: false },
+    'camera+audio':        { camera: true,  audio: true,  screen: false, viz: false },
+    'screen+audio':        { camera: false, audio: true,  screen: true,  viz: false },
+    'camera+screen':       { camera: true,  audio: false, screen: true,  viz: false },
+    'camera+screen+audio': { camera: true,  audio: true,  screen: true,  viz: false },
+    'viz+audio':           { camera: false, audio: true,  screen: false, viz: true  },
 };
 
 // ─── Per-track MediaRecorder state ───────────────────────────────────────────
@@ -132,7 +133,7 @@ export async function startPipeline() {
             }
         }
 
-        // Standalone audio (screen+audio or audio-only modes)
+        // Standalone audio (screen+audio, audio-only, and viz+audio modes)
         let rawAudio = null;
         if (flags.audio && !flags.camera) {
             rawAudio = await getAudioStream();
@@ -141,6 +142,13 @@ export async function startPipeline() {
         // Camera warm-up: without a prior preview the sensor needs ~300 ms to
         // settle auto-exposure; otherwise the first frames are black/very dark.
         if (needsWarmUp) await new Promise(r => setTimeout(r, 300));
+
+        // Viz canvas stream — replaces camera for viz+audio mode.
+        // vizProvider.start() feeds the mic into sg-audio-viz and returns its captureStream().
+        let rawViz = null;
+        if (flags.viz && config.vizProvider) {
+            rawViz = await config.vizProvider.start(rawAudio, config.fps);
+        }
 
         // ── Store raw streams for cleanup ──────────────────────────────────
         state.streams = {};
@@ -169,24 +177,34 @@ export async function startPipeline() {
         const startSeparate = config.recordingMode !== 'combined' || !willHaveCombined;
         const startCombined = config.recordingMode !== 'separate';
 
-        // Camera: video tracks only (audio travels separately)
-        if (rawCamera && rawCamera.getVideoTracks().length > 0 && startSeparate) {
+        // ── Viz+audio recorder (canvas replaces camera) ───────────────────
+        // A single combined recorder: viz canvas video + mic audio.
+        // All other recorder branches are skipped in this mode.
+        if (rawViz) {
+            _startRecorder('combined', new MediaStream([
+                ...rawViz.getVideoTracks(),
+                ...rawAudio.getAudioTracks(),
+            ]));
+        }
+
+        // ── Camera: video tracks only (audio travels separately) ──────────
+        if (!rawViz && rawCamera && rawCamera.getVideoTracks().length > 0 && startSeparate) {
             _startRecorder('camera', new MediaStream(rawCamera.getVideoTracks()));
         }
 
-        // Screen: video tracks only
-        if (rawScreen && rawScreen.getVideoTracks().length > 0 && startSeparate) {
+        // ── Screen: video tracks only ─────────────────────────────────────
+        if (!rawViz && rawScreen && rawScreen.getVideoTracks().length > 0 && startSeparate) {
             _startRecorder('screen', new MediaStream(rawScreen.getVideoTracks()));
         }
 
-        // Audio
-        if (audioTracks.length > 0 && startSeparate) {
+        // ── Audio ─────────────────────────────────────────────────────────
+        if (!rawViz && audioTracks.length > 0 && startSeparate) {
             _startRecorder('audio', new MediaStream(audioTracks));
         }
 
         // ── Non-PiP combined recorder (camera+audio or screen+audio) ─────
         // Gives a single video+audio file for the most common recording modes.
-        if (!(rawCamera && rawScreen) && startCombined) {
+        if (!rawViz && !(rawCamera && rawScreen) && startCombined) {
             const videoTracks = [
                 ...(rawCamera ? rawCamera.getVideoTracks() : []),
                 ...(rawScreen ? rawScreen.getVideoTracks() : []),
@@ -198,7 +216,7 @@ export async function startPipeline() {
 
         // ── PiP composite recorder (camera+screen modes only) ─────────────
         // Records camera overlaid on screen in real time alongside the separate tracks.
-        if (rawCamera && rawScreen && startCombined) {
+        if (!rawViz && rawCamera && rawScreen && startCombined) {
             const pip = await mergeAsPiP(rawScreen, rawCamera, config.pipOptions);
             _pipStop = pip.stop;
 
@@ -296,6 +314,9 @@ export async function stopPipeline() {
         state.streams = {};
         state.stream  = null;
 
+        // Stop viz animation (pauses rAF, disconnects audio source)
+        config.vizProvider?.stop();
+
         _dispatchOnWindow(SGA_RECORDER.RECORD_STOP, {
             durationMs,
             sizeBytes: totalBytes,
@@ -323,6 +344,7 @@ export async function stopPipeline() {
 export function resetPipeline() {
     if (state.previewStop) state.previewStop();
     if (_pipStop) { _pipStop(); _pipStop = null; }
+    config.vizProvider?.stop();
     state.reset();
     _dispatchOnWindow(SGA_RECORDER.RESET, {});
 }

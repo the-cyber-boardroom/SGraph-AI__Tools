@@ -24,6 +24,7 @@ import '/core/sg-layout/v0.1.0/sg-layout.js';
 import '/components/tool-api/sg-tool-api-explorer/v0/v0.1/v0.1.0/sg-tool-api-explorer.js';
 import '/components/tool-api/sg-tool-api-console/v0/v0.1/v0.1.0/sg-tool-api-console.js';
 import '/components/tool-api/sg-tool-api-manifest/v0/v0.1/v0.1.0/sg-tool-api-manifest.js';
+import '/components/sg-audio-viz/v0/v0.1/v0.1.0/sg-audio-viz.js';
 
 let _recCount = 0;
 
@@ -74,9 +75,10 @@ export async function init(state, config, api, emit) {
         initControls(controlsEl, state, config, api, emit);
     }
 
-    // ── Preview tab: live camera/screen feed ──────────────────────────────────
+    // ── Preview tab: live camera/screen feed + viz animation ─────────────────
     if (previewEl) {
-        _initPreviewTab(previewEl, state, layout);
+        const { vizProvider } = _initPreviewTab(previewEl, state, config, layout);
+        config.vizProvider = vizProvider;
     }
 
     // ── On RECORD_STOP: add a recording tab to s-preview ─────────────────────
@@ -233,7 +235,7 @@ export async function init(state, config, api, emit) {
 
 // ── Preview tab setup ─────────────────────────────────────────────────────────
 
-function _initPreviewTab(el, state, layout) {
+function _initPreviewTab(el, state, config, layout) {
     el.style.cssText = 'height:100%;overflow:hidden;background:var(--rec-bg,#0a0a18);position:relative;';
 
     // Placeholder
@@ -260,7 +262,7 @@ function _initPreviewTab(el, state, layout) {
     pregameBadge.style.display = 'none';
     el.appendChild(pregameBadge);
 
-    // Live recording video
+    // Live recording video (camera / screen modes)
     const liveVideo = document.createElement('video');
     liveVideo.className = 'preview-video';
     liveVideo.autoplay = true;
@@ -275,12 +277,30 @@ function _initPreviewTab(el, state, layout) {
     liveBadge.style.display = 'none';
     el.appendChild(liveBadge);
 
+    // Viz animation panel (viz+audio mode)
+    const vizWrap = document.createElement('div');
+    vizWrap.style.cssText = 'position:absolute;inset:0;display:none;';
+    el.appendChild(vizWrap);
+
+    const vizEl = document.createElement('sg-audio-viz');
+    vizEl.setAttribute('mode', 'mirror-wave');
+    vizEl.style.cssText = 'display:block;width:100%;height:100%;';
+    vizWrap.appendChild(vizEl);
+
+    const vizBadge = document.createElement('div');
+    vizBadge.className = 'preview-live__badge';
+    vizBadge.textContent = '● VIZ REC';
+    vizBadge.style.cssText = 'display:none;background:#6366f1;';
+    el.appendChild(vizBadge);
+
     function _showOnly(which) {
-        placeholder.style.display  = which === 'placeholder'  ? 'flex' : 'none';
+        placeholder.style.display  = which === 'placeholder'  ? 'flex'  : 'none';
         pregameVideo.style.display = which === 'pregame'      ? 'block' : 'none';
         pregameBadge.style.display = which === 'pregame'      ? 'block' : 'none';
         liveVideo.style.display    = which === 'live'         ? 'block' : 'none';
         liveBadge.style.display    = which === 'live'         ? 'block' : 'none';
+        vizWrap.style.display      = which === 'viz'          ? 'block' : 'none';
+        vizBadge.style.display     = which === 'viz'          ? 'block' : 'none';
     }
 
     _showOnly('placeholder');
@@ -309,13 +329,18 @@ function _initPreviewTab(el, state, layout) {
             detail: { id: 't-preview' },
         }));
 
-        const hasVideo = state.stream?.getVideoTracks().length > 0;
-        if (hasVideo) {
-            liveVideo.srcObject = state.stream;
-            liveVideo.play().catch(() => {});
-            _showOnly('live');
+        if (config.mode === 'viz+audio') {
+            // Viz element was already started by vizProvider.start() — just show it
+            _showOnly('viz');
         } else {
-            _showOnly('placeholder');
+            const hasVideo = state.stream?.getVideoTracks().length > 0;
+            if (hasVideo) {
+                liveVideo.srcObject = state.stream;
+                liveVideo.play().catch(() => {});
+                _showOnly('live');
+            } else {
+                _showOnly('placeholder');
+            }
         }
     });
 
@@ -329,6 +354,27 @@ function _initPreviewTab(el, state, layout) {
         pregameVideo.srcObject = null;
         _showOnly('placeholder');
     });
+
+    // ── vizProvider — called by recorder-pipeline for viz+audio mode ──────────
+    const vizProvider = {
+        async start(micStream, fps) {
+            // Show the wrap now so canvas gets real layout dimensions before captureStream()
+            vizWrap.style.display = 'block';
+            await vizEl.whenReady();
+            vizEl.setMode(config.vizMode || 'mirror-wave');
+            await vizEl.setSource(micStream);
+            vizEl.start();
+            // One animation frame ensures ResizeObserver has fired and canvas size is synced
+            await new Promise(r => requestAnimationFrame(r));
+            return vizEl.captureStream(fps);
+        },
+        stop() {
+            vizEl.stop();
+            vizWrap.style.display = 'none';
+        },
+    };
+
+    return { vizProvider };
 }
 
 // ── Skills panel ──────────────────────────────────────────────────────────────

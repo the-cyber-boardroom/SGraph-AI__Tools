@@ -1,33 +1,29 @@
 /**
  * sg-audio-viz.js
- * Audio-reactive canvas animation component.
- * Zero external dependencies — Web Audio API + Canvas 2D only.
+ * Audio-reactive canvas animation Web Component.
+ * Rendering is delegated to sg-audio-viz-draw.js.
  *
- * Modes: waveform · bars · mirror-bars · mirror-wave · circular-wave · circular-bars · blob · eq-bands · mirror-eq
+ * Modes: waveform · bars · mirror-bars · mirror-wave · circular-wave ·
+ *        circular-bars · blob · eq-bands · mirror-eq · smooth-eq
+ *
  * Sources: MediaStream · HTMLMediaElement · Blob · URL string
  *
- * The canvas can be captured as a MediaStream via captureStream(fps), making
- * it a drop-in camera-replacement track for MediaRecorder.
+ * The canvas can be captured as a MediaStream via captureStream(fps),
+ * making it a drop-in camera-replacement track for MediaRecorder.
  *
  * @module sg-audio-viz
  * @version 0.1.0
  */
 
 import { SgComponent } from '/components/base/v1/v1.0/v1.0.0/sg-component.js';
+import {
+    AUDIO_VIZ_MODES, AUDIO_VIZ_EVENTS,
+    drawIdle, drawWaveform, drawBars, drawMirrorWave,
+    drawCircularWave, drawCircularBars, drawBlob,
+    drawEqBands, drawSmoothEq,
+} from './sg-audio-viz-draw.js';
 
-// ── Public constants ──────────────────────────────────────────────────────────
-
-export const AUDIO_VIZ_MODES = Object.freeze([
-    'waveform', 'bars', 'mirror-bars', 'mirror-wave',
-    'circular-wave', 'circular-bars', 'blob',
-    'eq-bands', 'mirror-eq',
-]);
-
-export const AUDIO_VIZ_EVENTS = Object.freeze({
-    SOURCE_SET:   'sg-audio-viz:source-set',
-    MODE_CHANGED: 'sg-audio-viz:mode-changed',
-    ERROR:        'sg-audio-viz:error',
-});
+export { AUDIO_VIZ_MODES, AUDIO_VIZ_EVENTS };
 
 // ── Defaults & tuning ─────────────────────────────────────────────────────────
 
@@ -38,21 +34,6 @@ const DEFAULT_FFT     = 2048;
 const SMOOTHING       = 0.8;
 const MIN_DB          = -90;
 const MAX_DB          = -10;
-
-// EQ band definitions — 8 bands covering the audible range
-const EQ_BANDS = Object.freeze([
-    { lo:    20, hi:    80, label: 'Sub'  },
-    { lo:    80, hi:   250, label: 'Bass' },
-    { lo:   250, hi:   600, label: 'Low'  },
-    { lo:   600, hi:  1500, label: 'Mid'  },
-    { lo:  1500, hi:  3500, label: '2k'   },
-    { lo:  3500, hi:  7000, label: '5k'   },
-    { lo:  7000, hi: 12000, label: '10k'  },
-    { lo: 12000, hi: 22050, label: 'Air'  },
-]);
-
-const PEAK_HOLD   = 45;    // frames before peak starts falling (~0.75 s at 60 fps)
-const PEAK_DECAY  = 0.012; // amplitude units lost per frame after hold
 
 // ── Component ─────────────────────────────────────────────────────────────────
 
@@ -76,7 +57,7 @@ export class SgAudioViz extends SgComponent {
     #audioCtx   = null;   // AudioContext
     #analyser   = null;   // AnalyserNode
     #sourceNode = null;   // MediaStreamSourceNode | MediaElementSourceNode
-    #sourceEl   = null;   // Audio element (created for Blob/URL sources)
+    #sourceEl   = null;   // Audio element created for Blob/URL sources
 
     #canvas     = null;   // HTMLCanvasElement (shadow DOM)
     #canvasCtx  = null;   // CanvasRenderingContext2D
@@ -85,7 +66,6 @@ export class SgAudioViz extends SgComponent {
     #freqData   = null;   // Uint8Array — FFT frequency bins
     #timeData   = null;   // Uint8Array — time-domain waveform
     #sampleRate = 48000;  // AudioContext.sampleRate (for bin↔Hz mapping)
-    #peaks      = null;   // { values: Float32Array, hold: Uint16Array } — EQ peak meters
 
     // ── Lifecycle ─────────────────────────────────────────────────────────────
 
@@ -109,16 +89,12 @@ export class SgAudioViz extends SgComponent {
     onReady() {
         this.#canvas    = this.$('canvas');
         this.#canvasCtx = this.#canvas.getContext('2d');
-
         this.#resizeObs = new ResizeObserver(() => this.#syncSize());
         this.#resizeObs.observe(this.#canvas);
         this.#syncSize();
     }
 
-    cleanup() {
-        this.destroy();
-        super.cleanup();
-    }
+    cleanup() { this.destroy(); super.cleanup(); }
 
     // ── Public API ────────────────────────────────────────────────────────────
 
@@ -162,7 +138,7 @@ export class SgAudioViz extends SgComponent {
 
     /**
      * Switch to a different visualization mode.
-     * @param {'waveform'|'bars'|'mirror-bars'|'circular-wave'|'circular-bars'|'blob'} mode
+     * @param {string} mode  one of AUDIO_VIZ_MODES
      */
     setMode(mode) {
         if (!AUDIO_VIZ_MODES.includes(mode)) throw new Error(`Unknown mode: ${mode}`);
@@ -171,7 +147,7 @@ export class SgAudioViz extends SgComponent {
     }
 
     /**
-     * Update rendering colors without stopping the animation.
+     * Update rendering colours without stopping the animation.
      * @param {{ primary?: string, secondary?: string }} colors
      */
     setColors({ primary, secondary } = {}) {
@@ -208,12 +184,10 @@ export class SgAudioViz extends SgComponent {
     }
 
     /**
-     * Return the raw AnalyserNode for advanced use (e.g. meter, beat detection).
+     * Return the raw AnalyserNode for advanced use (meter, beat detection, etc.).
      * @returns {AnalyserNode|null}
      */
-    getAnalyser() {
-        return this.#analyser;
-    }
+    getAnalyser() { return this.#analyser; }
 
     /** Stop animation, close AudioContext, disconnect ResizeObserver. */
     destroy() {
@@ -233,9 +207,9 @@ export class SgAudioViz extends SgComponent {
     async #ensureAudioCtx() {
         if (this.#audioCtx && this.#audioCtx.state !== 'closed') return;
 
-        this.#audioCtx = new AudioContext();
+        this.#audioCtx   = new AudioContext();
         this.#sampleRate = this.#audioCtx.sampleRate;
-        this.#analyser = this.#audioCtx.createAnalyser();
+        this.#analyser   = this.#audioCtx.createAnalyser();
         this.#analyser.fftSize               = this.#fftSize;
         this.#analyser.smoothingTimeConstant = SMOOTHING;
         this.#analyser.minDecibels           = MIN_DB;
@@ -244,7 +218,6 @@ export class SgAudioViz extends SgComponent {
         const bins     = this.#analyser.frequencyBinCount;
         this.#freqData = new Uint8Array(bins);
         this.#timeData = new Uint8Array(this.#analyser.fftSize);
-        this.#peaks    = null;  // reset so EQ re-initialises for new context
     }
 
     async #loadUrl(url, revokeOnEnd) {
@@ -304,384 +277,32 @@ export class SgAudioViz extends SgComponent {
         ctx.clearRect(0, 0, W, H);
 
         if (!this.#analyser) {
-            this.#drawIdle(ctx, W, H);
+            drawIdle(ctx, W, H, { primary: this.#colorPrimary });
             return;
         }
 
         this.#analyser.getByteFrequencyData(this.#freqData);
         this.#analyser.getByteTimeDomainData(this.#timeData);
 
+        const colors = { primary: this.#colorPrimary, secondary: this.#colorSec };
+        const freq   = { ...colors, freqData: this.#freqData };
+        const time   = { ...colors, timeData: this.#timeData };
+        const both   = { ...colors, freqData: this.#freqData, timeData: this.#timeData };
+        const eq     = { ...freq, sampleRate: this.#sampleRate, fftSize: this.#analyser.fftSize };
+
         switch (this.#mode) {
-            case 'waveform':      this.#drawWaveform(ctx, W, H);        break;
-            case 'bars':          this.#drawBars(ctx, W, H, false);     break;
-            case 'mirror-bars':   this.#drawBars(ctx, W, H, true);      break;
-            case 'mirror-wave':   this.#drawMirrorWave(ctx, W, H);      break;
-            case 'circular-wave': this.#drawCircularWave(ctx, W, H);    break;
-            case 'circular-bars': this.#drawCircularBars(ctx, W, H);    break;
-            case 'blob':          this.#drawBlob(ctx, W, H);            break;
-            case 'eq-bands':      this.#drawEqBands(ctx, W, H, false);  break;
-            case 'mirror-eq':     this.#drawEqBands(ctx, W, H, true);   break;
+            case 'waveform':      drawWaveform    (ctx, W, H, time);                       break;
+            case 'bars':          drawBars        (ctx, W, H, { ...freq, mirror: false }); break;
+            case 'mirror-bars':   drawBars        (ctx, W, H, { ...freq, mirror: true  }); break;
+            case 'mirror-wave':   drawMirrorWave  (ctx, W, H, time);                       break;
+            case 'circular-wave': drawCircularWave(ctx, W, H, time);                       break;
+            case 'circular-bars': drawCircularBars(ctx, W, H, freq);                       break;
+            case 'blob':          drawBlob        (ctx, W, H, both);                       break;
+            case 'eq-bands':      drawEqBands     (ctx, W, H, { ...eq, mirror: false });   break;
+            case 'mirror-eq':     drawEqBands     (ctx, W, H, { ...eq, mirror: true  });   break;
+            case 'smooth-eq':     drawSmoothEq    (ctx, W, H, eq);                         break;
         }
     }
-
-    // ── Visualization modes ───────────────────────────────────────────────────
-
-    /** Pulsing ring shown while no source is connected. */
-    #drawIdle(ctx, W, H) {
-        const t = performance.now() / 1000;
-        const r = Math.min(W, H) * 0.18 + Math.sin(t * 1.2) * Math.min(W, H) * 0.015;
-        ctx.beginPath();
-        ctx.arc(W / 2, H / 2, r, 0, Math.PI * 2);
-        ctx.strokeStyle = this.#colorPrimary + '44';
-        ctx.lineWidth   = 1.5 * (devicePixelRatio || 1);
-        ctx.stroke();
-    }
-
-    /** Classic oscilloscope line — time-domain waveform, gradient-coloured. */
-    #drawWaveform(ctx, W, H) {
-        const data = this.#timeData;
-        const dpr  = devicePixelRatio || 1;
-
-        const grad = ctx.createLinearGradient(0, 0, W, 0);
-        grad.addColorStop(0,   this.#colorPrimary);
-        grad.addColorStop(0.5, this.#colorSec);
-        grad.addColorStop(1,   this.#colorPrimary);
-
-        ctx.beginPath();
-        ctx.lineWidth   = 2 * dpr;
-        ctx.strokeStyle = grad;
-        ctx.lineJoin    = 'round';
-
-        const sliceW = W / data.length;
-        for (let i = 0; i < data.length; i++) {
-            // data[i]: 0–255, centred at 128 (silence). Map to 0–H centred at H/2.
-            const y = (data[i] / 128) * (H / 2);
-            i === 0 ? ctx.moveTo(0, y) : ctx.lineTo(i * sliceW, y);
-        }
-        ctx.stroke();
-    }
-
-    /** Vertical frequency bars. mirror=true reflects them symmetrically. */
-    #drawBars(ctx, W, H, mirror) {
-        const data  = this.#freqData;
-        const dpr   = devicePixelRatio || 1;
-        const count = Math.min(data.length, Math.floor(W / (3 * dpr)));
-        const barW  = W / count;
-        const gap   = Math.max(1, barW * 0.15);
-        const step  = Math.floor(data.length / count);
-
-        const grad = ctx.createLinearGradient(0, H, 0, 0);
-        grad.addColorStop(0,   this.#colorPrimary);
-        grad.addColorStop(0.6, this.#colorSec);
-        grad.addColorStop(1,   '#ffffffcc');
-
-        for (let i = 0; i < count; i++) {
-            const v  = data[i * step] / 255;
-            const bH = Math.max(2 * dpr, v * (mirror ? H / 2 : H));
-            const x  = i * barW + gap / 2;
-            ctx.fillStyle = grad;
-            if (mirror) {
-                ctx.fillRect(x, H / 2 - bH, barW - gap, bH);
-                ctx.fillRect(x, H / 2,       barW - gap, bH);
-            } else {
-                ctx.fillRect(x, H - bH, barW - gap, bH);
-            }
-        }
-    }
-
-    /** Time-domain waveform mapped to a closed circle — voice bubble shape. */
-    #drawCircularWave(ctx, W, H) {
-        const data  = this.#timeData;
-        const cx    = W / 2;
-        const cy    = H / 2;
-        const baseR = Math.min(W, H) * 0.28;
-        const ampR  = Math.min(W, H) * 0.16;
-        const dpr   = devicePixelRatio || 1;
-
-        const grad = ctx.createRadialGradient(cx, cy, baseR * 0.5, cx, cy, baseR + ampR);
-        grad.addColorStop(0, this.#colorPrimary);
-        grad.addColorStop(1, this.#colorSec);
-
-        ctx.beginPath();
-        ctx.lineWidth   = 2 * dpr;
-        ctx.strokeStyle = grad;
-
-        for (let i = 0; i <= data.length; i++) {
-            const v     = data[i % data.length] / 128 - 1;  // -1 to +1
-            const angle = (i / data.length) * Math.PI * 2 - Math.PI / 2;
-            const r     = baseR + v * ampR;
-            const x     = cx + Math.cos(angle) * r;
-            const y     = cy + Math.sin(angle) * r;
-            i === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y);
-        }
-        ctx.closePath();
-        ctx.stroke();
-    }
-
-    /** 128 frequency bars radiating outward from a central disc. */
-    #drawCircularBars(ctx, W, H) {
-        const data    = this.#freqData;
-        const cx      = W / 2;
-        const cy      = H / 2;
-        const innerR  = Math.min(W, H) * 0.18;
-        const maxBarH = Math.min(W, H) * 0.30;
-        const count   = 128;
-        const dpr     = devicePixelRatio || 1;
-        const step    = Math.floor(data.length / count);
-
-        ctx.lineCap = 'round';
-
-        for (let i = 0; i < count; i++) {
-            const v     = data[i * step] / 255;
-            const angle = (i / count) * Math.PI * 2 - Math.PI / 2;
-            const barH  = Math.max(2 * dpr, v * maxBarH);
-
-            ctx.strokeStyle = _blend(this.#colorPrimary, this.#colorSec, v);
-            ctx.lineWidth   = Math.max(dpr, (2 * Math.PI * innerR / count) * 0.65);
-
-            ctx.beginPath();
-            ctx.moveTo(cx + Math.cos(angle) * innerR,          cy + Math.sin(angle) * innerR);
-            ctx.lineTo(cx + Math.cos(angle) * (innerR + barH), cy + Math.sin(angle) * (innerR + barH));
-            ctx.stroke();
-        }
-
-        // Centre fill disc
-        ctx.beginPath();
-        ctx.arc(cx, cy, innerR * 0.88, 0, Math.PI * 2);
-        ctx.fillStyle = this.#colorPrimary + '22';
-        ctx.fill();
-    }
-
-    /**
-     * Filled waveform ribbon — top and bottom edges both extend outward from
-     * the centre using Math.abs(v), so the shape always stays symmetric and
-     * grows wider with louder signal. Creates an organic "breathing" silhouette.
-     *
-     * Formula per sample i:
-     *   v       = |data[i]/128 - 1|   (0 = silence, 1 = full scale)
-     *   y_top   = cy - v * amp        (top edge, above centre)
-     *   y_bot   = cy + v * amp        (bottom edge, below centre — same distance)
-     */
-    #drawMirrorWave(ctx, W, H) {
-        const data = this.#timeData;
-        const cy   = H / 2;
-        const amp  = H * 0.44;
-        const dpr  = devicePixelRatio || 1;
-        const len  = data.length;
-
-        // ── Filled ribbon shape ───────────────────────────────────────────────
-        ctx.beginPath();
-
-        // Top edge: left → right
-        for (let i = 0; i < len; i++) {
-            const v = Math.abs(data[i] / 128 - 1);
-            const x = (i / (len - 1)) * W;
-            const y = cy - v * amp;
-            i === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y);
-        }
-        // Bottom edge: right → left (closes the ribbon)
-        for (let i = len - 1; i >= 0; i--) {
-            const v = Math.abs(data[i] / 128 - 1);
-            const x = (i / (len - 1)) * W;
-            ctx.lineTo(x, cy + v * amp);
-        }
-        ctx.closePath();
-
-        const fillGrad = ctx.createLinearGradient(0, 0, 0, H);
-        fillGrad.addColorStop(0,   this.#colorSec     + 'aa');
-        fillGrad.addColorStop(0.5, this.#colorPrimary + 'dd');
-        fillGrad.addColorStop(1,   this.#colorSec     + 'aa');
-        ctx.fillStyle = fillGrad;
-        ctx.fill();
-
-        // ── Outline edges ─────────────────────────────────────────────────────
-        const lineGrad = ctx.createLinearGradient(0, 0, W, 0);
-        lineGrad.addColorStop(0,   this.#colorPrimary);
-        lineGrad.addColorStop(0.5, this.#colorSec);
-        lineGrad.addColorStop(1,   this.#colorPrimary);
-        ctx.strokeStyle = lineGrad;
-        ctx.lineWidth   = 1.5 * dpr;
-        ctx.lineJoin    = 'round';
-
-        for (const sign of [-1, 1]) {
-            ctx.beginPath();
-            for (let i = 0; i < len; i++) {
-                const v = Math.abs(data[i] / 128 - 1);
-                const x = (i / (len - 1)) * W;
-                const y = cy + sign * v * amp;
-                i === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y);
-            }
-            ctx.stroke();
-        }
-    }
-
-    /**
-     * 8-band graphic EQ with peak meters.
-     * Bands are defined logarithmically (EQ_BANDS). Each band averages the FFT
-     * bins that fall within its frequency range using the AudioContext sample rate.
-     *
-     * Peak meters: a thin line sits at the peak value, holds for PEAK_HOLD frames,
-     * then falls at PEAK_DECAY amplitude units per frame.
-     *
-     * mirror=true reflects the bars symmetrically above AND below the centre line.
-     */
-    #drawEqBands(ctx, W, H, mirror) {
-        const count = EQ_BANDS.length;
-        const sr    = this.#sampleRate;
-        const fftSz = this.#analyser.fftSize;
-        const data  = this.#freqData;
-        const dpr   = devicePixelRatio || 1;
-
-        // Lazily init peak state
-        if (!this.#peaks || this.#peaks.values.length !== count) {
-            this.#peaks = {
-                values: new Float32Array(count),
-                hold:   new Uint16Array(count),
-            };
-        }
-        const pk = this.#peaks;
-
-        // Layout
-        const padX   = W * 0.035;
-        const usableW = W - padX * 2;
-        const barW   = usableW / count;
-        const gap    = Math.max(2 * dpr, barW * 0.18);
-        const maxBarH = mirror ? H * 0.42 : H * 0.78;
-        const baseY  = mirror ? H / 2 : H - H * 0.1;
-
-        // Text settings (only rendered if bars are wide enough)
-        const showLabel = (barW - gap) > 18 * dpr;
-        ctx.font      = `${Math.max(9, Math.round(10 * dpr))}px system-ui,sans-serif`;
-        ctx.textAlign = 'center';
-
-        for (let i = 0; i < count; i++) {
-            const { lo, hi, label } = EQ_BANDS[i];
-
-            // Average FFT bins within the band's frequency range
-            const loB = Math.max(0, Math.round(lo * fftSz / sr));
-            const hiB = Math.min(data.length - 1, Math.round(hi * fftSz / sr));
-            const v   = (hiB >= loB) ? _avg(data, loB, hiB + 1) / 255 : 0;
-
-            // Update peak meter
-            if (v >= pk.values[i]) {
-                pk.values[i] = v;
-                pk.hold[i]   = 0;
-            } else {
-                pk.hold[i]++;
-                if (pk.hold[i] > PEAK_HOLD) {
-                    pk.values[i] = Math.max(0, pk.values[i] - PEAK_DECAY);
-                }
-            }
-
-            const bH   = Math.max(2 * dpr, v * maxBarH);
-            const pkH  = Math.max(2 * dpr, pk.values[i] * maxBarH);
-            const x    = padX + i * barW + gap / 2;
-            const bW   = barW - gap;
-
-            // Bar colour: low-freq → primary, high-freq → secondary
-            const t = i / (count - 1);
-            ctx.fillStyle = _blend(this.#colorPrimary, this.#colorSec, t);
-
-            if (mirror) {
-                ctx.fillRect(x, baseY - bH, bW, bH);
-                ctx.fillRect(x, baseY,       bW, bH);
-            } else {
-                ctx.fillRect(x, baseY - bH, bW, bH);
-            }
-
-            // Peak indicator line
-            ctx.fillStyle = '#ffffffbb';
-            if (mirror) {
-                ctx.fillRect(x, baseY - pkH - dpr, bW, 2 * dpr);
-                ctx.fillRect(x, baseY + pkH - dpr, bW, 2 * dpr);
-            } else {
-                ctx.fillRect(x, baseY - pkH - dpr, bW, 2 * dpr);
-            }
-
-            // Frequency label
-            if (showLabel) {
-                ctx.fillStyle = 'rgba(226,232,240,0.38)';
-                const labelY = mirror
-                    ? baseY + maxBarH + 14 * dpr
-                    : baseY + 13 * dpr;
-                ctx.fillText(label, x + bW / 2, labelY);
-            }
-        }
-    }
-
-    /** Organic morphing shape — bass energy drives size, waveform drives outline. */
-    #drawBlob(ctx, W, H) {
-        const timeData = this.#timeData;
-        const freqData = this.#freqData;
-        const cx       = W / 2;
-        const cy       = H / 2;
-        const baseR    = Math.min(W, H) * 0.22;
-        const PTS      = 64;
-
-        const bass = _avg(freqData, 0, 8) / 255;
-        const R    = baseR * (1 + bass * 0.38);
-
-        // Sample time-domain data around the circle
-        const pts = [];
-        for (let i = 0; i < PTS; i++) {
-            const idx   = Math.floor(i / PTS * timeData.length);
-            const v     = timeData[idx] / 128 - 1;  // -1 to +1
-            const angle = (i / PTS) * Math.PI * 2 - Math.PI / 2;
-            const r     = Math.max(R * 0.4, R + v * R * 0.45);
-            pts.push([cx + Math.cos(angle) * r, cy + Math.sin(angle) * r]);
-        }
-
-        // Smooth closed curve: quadratic bezier through midpoints between samples
-        ctx.beginPath();
-        for (let i = 0; i < PTS; i++) {
-            const [x0, y0] = pts[i];
-            const [x1, y1] = pts[(i + 1) % PTS];
-            const mx = (x0 + x1) / 2;
-            const my = (y0 + y1) / 2;
-            i === 0 ? ctx.moveTo(mx, my) : ctx.quadraticCurveTo(x0, y0, mx, my);
-        }
-        ctx.closePath();
-
-        const grad = ctx.createRadialGradient(cx, cy, 0, cx, cy, R * 1.4);
-        grad.addColorStop(0,   this.#colorSec     + 'dd');
-        grad.addColorStop(0.6, this.#colorPrimary + 'aa');
-        grad.addColorStop(1,   this.#colorPrimary + '11');
-
-        ctx.fillStyle   = grad;
-        ctx.fill();
-        ctx.strokeStyle = this.#colorPrimary + 'bb';
-        ctx.lineWidth   = 1.5 * (devicePixelRatio || 1);
-        ctx.stroke();
-    }
-}
-
-// ── Module-private helpers ────────────────────────────────────────────────────
-
-/** Average a slice of a Uint8Array. */
-function _avg(arr, start, end) {
-    const n = Math.min(end, arr.length) - start;
-    if (n <= 0) return 0;
-    let sum = 0;
-    for (let i = start; i < start + n; i++) sum += arr[i];
-    return sum / n;
-}
-
-/** Linear interpolate between two hex colours. t = 0..1. */
-function _blend(hex1, hex2, t) {
-    const a = _parseHex(hex1);
-    const b = _parseHex(hex2);
-    if (!a || !b) return hex1;
-    const r  = Math.round(a[0] + (b[0] - a[0]) * t);
-    const g  = Math.round(a[1] + (b[1] - a[1]) * t);
-    const bv = Math.round(a[2] + (b[2] - a[2]) * t);
-    return `rgb(${r},${g},${bv})`;
-}
-
-function _parseHex(hex) {
-    let h = (hex ?? '').trim().replace('#', '');
-    if (h.length === 3) h = h[0]+h[0]+h[1]+h[1]+h[2]+h[2];
-    if (h.length !== 6) return null;
-    return [parseInt(h.slice(0, 2), 16), parseInt(h.slice(2, 4), 16), parseInt(h.slice(4, 6), 16)];
 }
 
 // ── Registration ──────────────────────────────────────────────────────────────
