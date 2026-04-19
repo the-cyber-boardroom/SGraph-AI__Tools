@@ -76,7 +76,7 @@ export async function init(state, config, api, emit) {
 
     // ── Preview tab: live camera/screen feed ──────────────────────────────────
     if (previewEl) {
-        _initPreviewTab(previewEl, state);
+        _initPreviewTab(previewEl, state, layout);
     }
 
     // ── On RECORD_STOP: add a recording tab to s-preview ─────────────────────
@@ -233,7 +233,7 @@ export async function init(state, config, api, emit) {
 
 // ── Preview tab setup ─────────────────────────────────────────────────────────
 
-function _initPreviewTab(el, state) {
+function _initPreviewTab(el, state, layout) {
     el.style.cssText = 'height:100%;overflow:hidden;background:var(--rec-bg,#0a0a18);position:relative;';
 
     // Placeholder
@@ -303,6 +303,12 @@ function _initPreviewTab(el, state) {
 
     window.addEventListener(SGA_RECORDER.RECORD_START, () => {
         pregameVideo.srcObject = null;
+
+        // Switch the right stack back to the Preview tab so the live feed is visible
+        layout.dispatchEvent(new CustomEvent('sg-layout:focus-panel', {
+            detail: { id: 't-preview' },
+        }));
+
         const hasVideo = state.stream?.getVideoTracks().length > 0;
         if (hasVideo) {
             liveVideo.srcObject = state.stream;

@@ -73,12 +73,13 @@ export function initRecordingTab(container, primaryBlob, blobs, durationMs, size
 
     const player = container.querySelector('#rec-player');
     if (player && primaryBlob) {
-        const _mount = () => { if (player.setBlob) player.setBlob(primaryBlob); };
-        if (customElements.get('sg-video-player')) {
-            _mount();
-        } else {
-            customElements.whenDefined('sg-video-player').then(_mount);
-        }
+        // SgComponent.connectedCallback is async (fetches CSS + HTML).
+        // Wait for the component to be fully ready before calling setBlob.
+        player.whenReady().then(() => {
+            player.setBlob(primaryBlob);
+        }).catch(err => {
+            console.warn('[rec-tab] sg-video-player ready timeout:', err);
+        });
     }
 
     // ── Download buttons ──────────────────────────────────────────────────────
