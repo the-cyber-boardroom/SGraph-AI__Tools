@@ -117,24 +117,22 @@ async function directUpload(ciphertext, transferId, sendUrl, accessToken, onProg
     'Content-Type':          'application/json',
   };
 
-  // Step 1 — create transfer
+  // Step 1 — create transfer, passing our token-derived ID so the server
+  // registers the file under the same ID the download page will look up.
   const createRes = await fetch(`${sendUrl}/api/transfers/create`, {
     method:  'POST',
     headers,
-    body:    JSON.stringify({ transferId, size: ciphertext.byteLength }),
+    body:    JSON.stringify({ transfer_id: transferId, file_size_bytes: ciphertext.byteLength }),
   });
-  if (!createRes.ok) {
+  // 409 = transfer ID already exists (e.g. duplicate upload); treat as OK
+  if (!createRes.ok && createRes.status !== 409) {
     throw new Error(`Transfer create failed: ${createRes.status} ${createRes.statusText}`);
   }
-  const createData = await createRes.json();
-  // API may return { id } (legacy) or { transfer_id, upload_url } (current)
-  const id = createData.id ?? createData.transfer_id;
-  if (!id) throw new Error('Transfer create response missing id / transfer_id');
 
   progress(onProgress, 60, 'uploading');
 
-  // Step 2 — upload raw bytes
-  const uploadRes = await fetch(`${sendUrl}/api/transfers/upload/${id}`, {
+  // Step 2 — upload raw bytes, always using the token-derived transferId
+  const uploadRes = await fetch(`${sendUrl}/api/transfers/upload/${transferId}`, {
     method:  'POST',
     headers: {
       'x-sgraph-access-token': accessToken,
@@ -149,7 +147,7 @@ async function directUpload(ciphertext, transferId, sendUrl, accessToken, onProg
   progress(onProgress, 85, 'uploading');
 
   // Step 3 — complete
-  const completeRes = await fetch(`${sendUrl}/api/transfers/complete/${id}`, {
+  const completeRes = await fetch(`${sendUrl}/api/transfers/complete/${transferId}`, {
     method:  'POST',
     headers,
   });
@@ -188,7 +186,7 @@ async function multipartUpload(ciphertext, transferId, sendUrl, accessToken, onP
   const initRes = await fetch(`${sendUrl}/api/presigned/initiate`, {
     method:  'POST',
     headers,
-    body:    JSON.stringify({ transferId, size: totalSize, parts: partCount }),
+    body:    JSON.stringify({ transfer_id: transferId, file_size_bytes: totalSize, parts: partCount }),
   });
   if (!initRes.ok) {
     throw new Error(`Multipart initiate failed: ${initRes.status} ${initRes.statusText}`);
