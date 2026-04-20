@@ -32,22 +32,28 @@ export const DRIVE_APPDATA_SCOPE = 'https://www.googleapis.com/auth/drive.appdat
  * GIS must already be loaded (sg-auth-google loads it).
  *
  * @param {string} clientId  Google OAuth client ID
+ * @param {{ hint?: string, prompt?: string }} [opts]
+ *   hint   — login_hint (email) to skip account chooser
+ *   prompt — GIS prompt override: '' for silent (fails if consent needed),
+ *            'consent' to force re-consent, 'select_account' for picker (default)
  * @returns {Promise<string>} access token (valid ~1 hour)
  */
-export function requestAccess(clientId) {
+export function requestAccess(clientId, { hint = '', prompt = 'select_account' } = {}) {
     return new Promise((resolve, reject) => {
         if (!window.google?.accounts?.oauth2) {
             reject(new Error('GIS oauth2 not loaded — sign in with Google first'));
             return;
         }
-        const client = google.accounts.oauth2.initTokenClient({
+        const config = {
             client_id: clientId,
             scope: DRIVE_APPDATA_SCOPE,
             callback: r => r.error
                 ? reject(new Error(r.error_description || r.error))
                 : resolve(r.access_token),
-        });
-        client.requestAccessToken();
+        };
+        if (hint) config.hint = hint;
+        const client = google.accounts.oauth2.initTokenClient(config);
+        client.requestAccessToken({ prompt });
     });
 }
 
