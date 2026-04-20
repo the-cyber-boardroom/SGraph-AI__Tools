@@ -292,7 +292,7 @@ export function drawEqBands(ctx, W, H, { freqData, primary, secondary, sampleRat
  * Driven by FFT data (not time-domain waveform).
  */
 export function drawSmoothEq(ctx, W, H, { freqData, primary, secondary, sampleRate, fftSize }) {
-    const N      = 256;
+    const N      = 512;
     const data   = freqData;
     const cy     = H / 2;
     const amp    = H * 0.44;

@@ -283,7 +283,7 @@ function _initPreviewTab(el, state, config, layout) {
     el.appendChild(vizWrap);
 
     const vizEl = document.createElement('sg-audio-viz');
-    vizEl.setAttribute('mode', 'mirror-wave');
+    vizEl.setAttribute('mode', 'smooth-eq');
     vizEl.style.cssText = 'display:block;width:100%;height:100%;';
     vizWrap.appendChild(vizEl);
 
@@ -405,7 +405,7 @@ function _initPreviewTab(el, state, config, layout) {
             // Show vizWrap full-size so canvas gets real layout dimensions
             vizWrap.style.cssText = 'position:absolute;inset:0;display:block;';
             await vizEl.whenReady();
-            vizEl.setMode(config.vizMode || 'mirror-eq');
+            vizEl.setMode(config.vizMode || 'smooth-eq');
             await vizEl.setSource(micStream);
             vizEl.start();
             // Two rAFs: first lets the tab switch reflow, second ensures
