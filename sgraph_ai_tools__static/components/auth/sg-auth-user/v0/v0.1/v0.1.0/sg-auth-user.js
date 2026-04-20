@@ -9,7 +9,7 @@
  * @version 0.1.0
  */
 
-import { listTokens, hasValidToken, clearAll } from '../../../sg-auth-tokens/v0/v0.1/v0.1.0/sg-auth-tokens.js';
+import { listTokens, hasValidToken, clearAll } from '../../../../sg-auth-tokens/v0/v0.1/v0.1.0/sg-auth-tokens.js';
 
 const _CSS = `
 :host { display: block; font-family: system-ui, sans-serif; }

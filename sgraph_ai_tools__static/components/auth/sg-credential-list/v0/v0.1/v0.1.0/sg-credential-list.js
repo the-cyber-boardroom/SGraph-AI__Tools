@@ -8,7 +8,7 @@
  * @version 0.1.0
  */
 
-import { getIndex, get, store, markRemoved } from '../../../sg-credential-store/v0/v0.1/v0.1.0/sg-credential-store.js';
+import { getIndex, get, store, markRemoved } from '../../../../sg-credential-store/v0/v0.1/v0.1.0/sg-credential-store.js';
 
 function _relTime(ms) {
     const diff = Date.now() - ms;
