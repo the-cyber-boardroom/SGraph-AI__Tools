@@ -24,6 +24,13 @@ const VIZ_MODES = [
     ['blob',          'Blob'],
 ];
 
+const REGEN_SPEEDS = [
+    ['1',  '1× (real-time)'],
+    ['2',  '2× faster'],
+    ['4',  '4× faster'],
+    ['8',  '8× faster'],
+];
+
 /**
  * @param {HTMLElement} container   sg-layout panel element (already in DOM)
  * @param {Blob|null}   primaryBlob primary blob (combined/best track) for player + upload
@@ -65,6 +72,9 @@ export function initRecordingTab(container, primaryBlob, blobs, durationMs, size
                     <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
                         <select id="regen-mode" style="flex:1;min-width:120px;background:rgba(0,0,0,0.4);border:1px solid var(--rec-border);border-radius:6px;color:var(--rec-text);font-size:12px;padding:6px 8px;outline:none;cursor:pointer;">
                             ${VIZ_MODES.map(([v, l]) => `<option value="${v}"${v === vizMode ? ' selected' : ''}>${l}</option>`).join('')}
+                        </select>
+                        <select id="regen-speed" style="background:rgba(0,0,0,0.4);border:1px solid var(--rec-border);border-radius:6px;color:var(--rec-text);font-size:12px;padding:6px 8px;outline:none;cursor:pointer;">
+                            ${REGEN_SPEEDS.map(([v, l]) => `<option value="${v}">${l}</option>`).join('')}
                         </select>
                         <button id="regen-btn" class="rec-btn rec-btn--dl">↺ Regenerate Viz</button>
                     </div>
@@ -166,17 +176,21 @@ export function initRecordingTab(container, primaryBlob, blobs, durationMs, size
     if (vizWasHidden && onRegenerate) {
         const regenBtn    = container.querySelector('#regen-btn');
         const modeSelect  = container.querySelector('#regen-mode');
+        const speedSelect = container.querySelector('#regen-speed');
         const regenStatus = container.querySelector('#regen-status');
 
         regenBtn?.addEventListener('click', async () => {
-            const mode = modeSelect.value;
+            const mode  = modeSelect.value;
+            const speed = parseFloat(speedSelect.value) || 1;
             regenBtn.disabled       = true;
-            regenStatus.textContent = 'Generating… (plays back the audio in real-time)';
+            regenStatus.textContent = speed > 1
+                ? `Generating at ${speed}× speed…`
+                : 'Generating… (plays back the audio in real-time)';
             regenStatus.style.color = 'var(--rec-muted)';
             regenStatus.style.display = '';
 
             try {
-                const newBlob = await onRegenerate(mode);
+                const newBlob = await onRegenerate(mode, speed);
 
                 // Update player
                 player?.whenReady().then(() => player.setBlob(newBlob)).catch(() => {});

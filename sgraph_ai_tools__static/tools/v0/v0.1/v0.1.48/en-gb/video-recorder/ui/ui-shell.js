@@ -107,7 +107,7 @@ export async function init(state, config, api, emit) {
             if (tabEl) {
                 tabEl.style.cssText = 'height:100%;overflow:hidden;';
                 const onRegenerate = (capturedBlob && vizWasHidden)
-                    ? (mode) => _reRenderViz(capturedBlob, mode, config.fps || 30)
+                    ? (mode, speed = 1) => _reRenderViz(capturedBlob, mode, config.fps || 30, speed)
                     : null;
                 initRecordingTab(tabEl, capturedBlob, capturedBlobs, durationMs, sizeBytes, name, {
                     vizWasHidden,
@@ -442,7 +442,7 @@ function _initPreviewTab(el, state, config, layout) {
 // identical to the source, so no quality is lost beyond what the original
 // MediaRecorder encoding already introduced.
 
-async function _reRenderViz(recordedBlob, mode, fps = 30) {
+async function _reRenderViz(recordedBlob, mode, fps = 30, speed = 1) {
     const W = 1280, H = 720;
 
     // 1. Create temporary off-screen viz element
@@ -490,7 +490,8 @@ async function _reRenderViz(recordedBlob, mode, fps = 30) {
         recorder.ondataavailable = e => e.data.size && chunks.push(e.data);
         recorder.start();
 
-        // 5. Play, wait for end, collect blob
+        // 5. Play at requested speed, wait for end, collect blob
+        videoEl.playbackRate = speed;
         await videoEl.play();
 
         return await new Promise((resolve, reject) => {
