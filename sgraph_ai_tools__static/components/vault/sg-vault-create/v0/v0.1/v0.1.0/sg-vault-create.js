@@ -1,16 +1,14 @@
 /**
- * sg-vault-create — Vault creation panel.
+ * sg-vault-create — Vault creation panel using simple tokens.
  *
- * UI for bootstrapping a brand-new vault from scratch. Generates a passphrase
- * and vaultId (or accepts user input), derives keys, writes the empty tree +
- * initial commit + named HEAD ref to the server, and emits vault:created with
- * the new vault key for the user to save.
+ * Generates a simple token (word-word-NNNN) which derives both the encryption
+ * key and vault ID. Creates the vault on the server (5 PUTs) and emits
+ * vault:connected with a fully open VaultSession.
  *
- * After successful creation, also emits vault:connected with a fully open
- * VaultSession so other components automatically pick up the new vault.
+ * The token IS the vault key — the user must save it to reconnect.
  *
  * Bus events emitted:
- *   vault:created   — { vaultId, vaultKey, passphrase, keys, commitId, treeId }
+ *   vault:created   — { token, vaultId, keys, commitId, treeId }
  *   vault:connected — { session, vault, vaultId, apiBaseUrl, keys }
  *
  * Attributes:
@@ -20,13 +18,8 @@
  * @version 0.1.0
  */
 
-import {
-    createVault, generateVaultId, generateMemorablePassphrase,
-} from '/core/vault-init/v1/v1.0/v1.0.0/sg-vault-init.js';
-
-import {
-    createSession,
-} from '/core/vault-session/v1/v1.0/v1.0.0/sg-vault-session.js';
+import { createVault, generateToken } from '/core/vault-init/v1/v1.0/v1.0.0/sg-vault-init.js';
+import { createSession } from '/core/vault-session/v1/v1.0/v1.0.0/sg-vault-session.js';
 
 export class SgVaultCreate extends HTMLElement {
 
@@ -39,7 +32,7 @@ export class SgVaultCreate extends HTMLElement {
     connectedCallback() {
         this._render();
         this._bindEvents();
-        this._regenerate();
+        this._regenerateToken();
     }
 
     get apiUrl() {
@@ -186,18 +179,10 @@ export class SgVaultCreate extends HTMLElement {
 
   <div id="form-area">
     <div class="vc-field">
-      <label class="vc-label" for="passphrase">Passphrase</label>
+      <label class="vc-label" for="token">Vault Token (word-word-NNNN)</label>
       <div class="vc-row">
-        <input id="passphrase" class="vc-input" type="text" spellcheck="false">
-        <button id="btn-regen-pass" class="vc-btn-icon" title="Generate new">↻</button>
-      </div>
-    </div>
-
-    <div class="vc-field">
-      <label class="vc-label" for="vault-id">Vault ID (lowercase hex)</label>
-      <div class="vc-row">
-        <input id="vault-id" class="vc-input" type="text" spellcheck="false" maxlength="24">
-        <button id="btn-regen-id" class="vc-btn-icon" title="Generate new">↻</button>
+        <input id="token" class="vc-input" type="text" spellcheck="false" placeholder="storm-crisp-0285">
+        <button id="btn-regen" class="vc-btn-icon" title="Generate new token">&#x21bb;</button>
       </div>
     </div>
 
@@ -227,38 +212,27 @@ export class SgVaultCreate extends HTMLElement {
 
     _bindEvents() {
         this.shadowRoot.getElementById('btn-create').addEventListener('click', () => this._create());
-        this.shadowRoot.getElementById('btn-regen-pass').addEventListener('click', () => this._regeneratePassphrase());
-        this.shadowRoot.getElementById('btn-regen-id').addEventListener('click', () => this._regenerateVaultId());
+        this.shadowRoot.getElementById('btn-regen').addEventListener('click', () => this._regenerateToken());
     }
 
-    _regenerate() {
-        this._regeneratePassphrase();
-        this._regenerateVaultId();
-    }
-
-    _regeneratePassphrase() {
-        this.shadowRoot.getElementById('passphrase').value = generateMemorablePassphrase();
-    }
-
-    _regenerateVaultId() {
-        this.shadowRoot.getElementById('vault-id').value = generateVaultId();
+    _regenerateToken() {
+        this.shadowRoot.getElementById('token').value = generateToken();
     }
 
     // ── Create flow ────────────────────────────────────────────────────────
 
     async _create() {
-        const passphrase  = this.shadowRoot.getElementById('passphrase').value.trim();
-        const vaultId     = this.shadowRoot.getElementById('vault-id').value.trim().toLowerCase();
+        const token       = this.shadowRoot.getElementById('token').value.trim().toLowerCase();
         const apiBase     = (this.shadowRoot.getElementById('api-url').value.trim() || this.apiUrl).replace(/\/$/, '');
         const accessToken = this.shadowRoot.getElementById('access-token').value.trim() || null;
         const btn         = this.shadowRoot.getElementById('btn-create');
 
-        if (!passphrase) {
-            this._showStatus('Passphrase required.', 'error');
+        if (!token) {
+            this._showStatus('Vault token required.', 'error');
             return;
         }
-        if (!/^[0-9a-z]{4,24}$/.test(vaultId)) {
-            this._showStatus('Vault ID must be 4-24 lowercase hex characters.', 'error');
+        if (!/^[a-z]+-[a-z]+-\d{4}$/.test(token)) {
+            this._showStatus('Token must be in word-word-NNNN format (e.g. storm-crisp-0285).', 'error');
             return;
         }
         if (!accessToken) {
@@ -267,13 +241,12 @@ export class SgVaultCreate extends HTMLElement {
         }
 
         btn.disabled = true;
-        this._showStatus('<span class="spinner"></span>Deriving keys + writing initial commit…', 'info');
+        this._showStatus('<span class="spinner"></span>Deriving keys + writing initial commit\u2026', 'info');
 
         try {
             const result = await createVault({
                 apiBaseUrl: apiBase,
-                passphrase,
-                vaultId,
+                token,
                 accessToken,
             });
 
@@ -281,7 +254,6 @@ export class SgVaultCreate extends HTMLElement {
             this._showResult(result, apiBase);
             this._showStatus('Vault created.', 'success');
 
-            // Auto-open a session for the newly created vault and emit vault:connected
             const session = createSession({
                 apiBaseUrl:  apiBase,
                 vaultId:     result.vaultId,
@@ -291,9 +263,8 @@ export class SgVaultCreate extends HTMLElement {
             await session.open();
 
             this._emit('vault:created', {
+                token:      result.token,
                 vaultId:    result.vaultId,
-                vaultKey:   result.vaultKey,
-                passphrase: result.passphrase,
                 keys:       result.keys,
                 commitId:   result.commitId,
                 treeId:     result.treeId,
@@ -319,19 +290,21 @@ export class SgVaultCreate extends HTMLElement {
 
         area.innerHTML = `
 <div class="vc-result">
-  <div class="vc-result-title">✓ Vault Created</div>
+  <div class="vc-result-title">\u2713 Vault Created</div>
 
-  <div class="vc-label" style="margin-top:0.5rem">Vault Key (save this!)</div>
-  <div class="vc-key-display" id="key-display">${_esc(result.vaultKey)}</div>
+  <div class="vc-label" style="margin-top:0.5rem">Vault Token (save this!)</div>
+  <div class="vc-key-display" id="token-display">${_esc(result.token)}</div>
   <div>
-    <button class="vc-copy-btn" id="btn-copy-key">Copy Key</button>
-    <button class="vc-copy-btn" id="btn-copy-id">Copy ID</button>
+    <button class="vc-copy-btn" id="btn-copy-token">Copy Token</button>
   </div>
 
   <div class="vc-warn">
-    ⚠️ This is the only time the vault key will be shown. Save it now —
+    \u26a0\ufe0f This is the only time the vault token will be shown. Save it now \u2014
     without it, the vault contents are unrecoverable.
   </div>
+
+  <div class="vc-label" style="margin-top:0.5rem">Vault ID (derived from token)</div>
+  <div class="vc-key-display">${_esc(result.vaultId)}</div>
 
   <div class="vc-label" style="margin-top:0.5rem">Server</div>
   <div class="vc-key-display">${_esc(apiBase)}</div>
@@ -341,15 +314,10 @@ export class SgVaultCreate extends HTMLElement {
 </div>
 `;
 
-        area.querySelector('#btn-copy-key').addEventListener('click', () => {
-            navigator.clipboard?.writeText(result.vaultKey)
-                .then(() => this._showStatus('Key copied to clipboard.', 'success'))
-                .catch(() => this._showStatus('Copy failed — select manually.', 'error'));
-        });
-        area.querySelector('#btn-copy-id').addEventListener('click', () => {
-            navigator.clipboard?.writeText(result.vaultId)
-                .then(() => this._showStatus('Vault ID copied.', 'success'))
-                .catch(() => this._showStatus('Copy failed.', 'error'));
+        area.querySelector('#btn-copy-token').addEventListener('click', () => {
+            navigator.clipboard?.writeText(result.token)
+                .then(() => this._showStatus('Token copied to clipboard.', 'success'))
+                .catch(() => this._showStatus('Copy failed \u2014 select manually.', 'error'));
         });
     }
 

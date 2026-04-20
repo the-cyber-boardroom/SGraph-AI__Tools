@@ -2,126 +2,124 @@
    SGraph — Vault Init Module
    v1.0.0 — Bootstrap a brand-new vault from scratch
 
-   Creates the three foundational objects on the server for an empty vault:
-     1. Empty tree object (tree_v1, no entries)
-     2. Initial commit object (commit_v2, empty parents, points to empty tree)
-     3. Named HEAD ref pointing to the initial commit
+   Creates the foundational objects on the server for an empty vault using a
+   simple token (word-word-NNNN format) which derives both the encryption key
+   and vault ID.
+
+   Protocol (5 PUTs):
+     1. Encrypted settings blob (.vault-settings)
+     2. Root tree object (tree_v1, contains settings entry)
+     3. Initial commit object (commit_v2, empty parents, points to root tree)
+     4. Clone ref (ref-pid-muw-* for branch 'web-ui') → commit
+     5. Named HEAD ref (ref-pid-muw-*) → commit
 
    After init, a fresh VaultSession can open the vault and start committing.
 
    Usage:
-     import { createVault, generateVaultId, generateMemorablePassphrase }
-       from '/core/vault-init/v1/v1.0/v1.0.0/sg-vault-init.js'
+     import { createVault } from '/core/vault-init/v1/v1.0/v1.0.0/sg-vault-init.js'
+     import { generateToken } from '/core/send-crypto/v1/v1.0/v1.0.0/sg-send-crypto.js'
 
+     const token = generateToken()   // e.g. 'storm-crisp-0285'
      const result = await createVault({
-       apiBaseUrl: 'https://send.sgraph.ai',
-       passphrase: 'my secret phrase',  // optional, generated if missing
-       vaultId:    'abc123def456',      // optional, generated if missing
+       apiBaseUrl:  'https://send.sgraph.ai',
+       token,
+       accessToken: 'server-access-token',
      })
-     // result = { vaultId, vaultKey, keys, commitId, treeId }
-     // vaultKey is "passphrase:vaultId" — the user must save this
+     // result = { token, vaultId, keys, commitId, treeId }
 
    ============================================================================= */
 
-import { deriveWriteKeys } from '/core/vault-write/v1/v1.1/v1.1.1/sg-vault-write.js'
-import { encryptMetadata, computeObjectId }
+import { deriveWriteKeysFromSimpleToken }
+    from '/core/vault-write/v1/v1.1/v1.1.1/sg-vault-write.js'
+
+import { encryptMetadata, computeObjectId, deriveBranchRefFileId }
     from '/core/vault-client/v1/v1.2/v1.2.1/sg-vault-client.js'
 
+import { generateToken, isFriendlyToken }
+    from '/core/send-crypto/v1/v1.0/v1.0.0/sg-send-crypto.js'
+
+export { generateToken, isFriendlyToken }
+
 const IV_LENGTH = 12
-const DEFAULT_VAULT_ID_LENGTH = 12
-
-const PASSPHRASE_WORDS = [
-    'amber', 'beach', 'cloud', 'delta', 'ember', 'forge', 'glass', 'haven',
-    'ivory', 'jolly', 'koala', 'lemon', 'magic', 'noble', 'ocean', 'piano',
-    'quill', 'raven', 'storm', 'tiger', 'umbra', 'vivid', 'wheat', 'xenon',
-    'yacht', 'zebra', 'agile', 'brave', 'crisp', 'dusty', 'eager', 'fancy',
-]
 
 /**
- * Generate a random vault ID (lowercase hex).
+ * Create a new empty vault on the server using a simple token.
  *
- * @param {number} [length=12] - Length in hex characters (4-24)
- * @returns {string}
- */
-export function generateVaultId(length = DEFAULT_VAULT_ID_LENGTH) {
-    if (length < 4 || length > 24) {
-        throw new Error('vaultId length must be 4-24')
-    }
-    const bytes = crypto.getRandomValues(new Uint8Array(Math.ceil(length / 2)))
-    return Array.from(bytes)
-        .map(b => b.toString(16).padStart(2, '0'))
-        .join('')
-        .slice(0, length)
-}
-
-/**
- * Generate a memorable passphrase: word-word-word-word-word-word
+ * The token (word-word-NNNN) is the single secret. From it we derive:
+ *   - read_key + write_key (via PBKDF2 + HKDF)
+ *   - vault_id (SHA-256(token)[:12])
+ *   - ref file IDs (HMAC-based)
  *
- * Uses 6 words from a 32-word list (~30 bits entropy) combined with a
- * separate vaultId for key derivation salt. No number suffix — the
- * vaultId provides uniqueness; the passphrase provides memorability.
- *
- * @param {number} [wordCount=6] - Number of words
- * @returns {string}
- */
-export function generateMemorablePassphrase(wordCount = 6) {
-    const words = []
-    const buf = crypto.getRandomValues(new Uint32Array(wordCount))
-    for (let i = 0; i < wordCount; i++) {
-        words.push(PASSPHRASE_WORDS[buf[i] % PASSPHRASE_WORDS.length])
-    }
-    return words.join('-')
-}
-
-/**
- * Create a new empty vault on the server.
- * Writes empty tree + initial commit + named HEAD ref.
+ * Follows the vault protocol: writes settings blob, root tree, commit,
+ * clone ref, and named HEAD ref (5 PUTs total).
  *
  * @param {object} config
  * @param {string} config.apiBaseUrl - API base URL (e.g. https://send.sgraph.ai)
- * @param {string} [config.passphrase] - Vault passphrase (generated if missing)
- * @param {string} [config.vaultId]   - Vault ID hex (generated if missing)
- * @param {string} [config.accessToken] - Optional server access token
- * @param {string} [config.message='Initial commit'] - Initial commit message
+ * @param {string} [config.token] - Simple token word-word-NNNN (generated if missing)
+ * @param {string} [config.accessToken] - Server access token (required for write)
+ * @param {string} [config.message='Initial vault creation'] - Initial commit message
+ * @param {string} [config.vaultName='Untitled Vault'] - Vault display name
+ * @param {string} [config.branchName='web-ui'] - Clone branch name
  * @returns {Promise<{
+ *   token: string,
  *   vaultId: string,
- *   vaultKey: string,
  *   keys: object,
  *   commitId: string,
  *   treeId: string,
- *   passphrase: string
  * }>}
  */
 export async function createVault(config) {
-    const apiBaseUrl = config.apiBaseUrl.replace(/\/$/, '')
-    const passphrase = config.passphrase || generateMemorablePassphrase()
-    const vaultId    = config.vaultId    || generateVaultId()
-    const message    = config.message    || 'Initial commit'
+    const apiBaseUrl  = config.apiBaseUrl.replace(/\/$/, '')
+    const token       = config.token || generateToken()
     const accessToken = config.accessToken || null
+    const message     = config.message    || 'Initial vault creation'
+    const vaultName   = config.vaultName  || 'Untitled Vault'
+    const branchName  = config.branchName || 'web-ui'
 
-    if (!/^[0-9a-z]{4,24}$/.test(vaultId)) {
-        throw new Error('vaultId must be 4-24 lowercase hex characters')
+    if (!isFriendlyToken(token)) {
+        throw new Error(`Invalid token format: "${token}". Expected word-word-NNNN.`)
     }
 
-    // 1. Derive keys
-    const keys = await deriveWriteKeys(passphrase, vaultId)
+    // 1. Derive all keys from the simple token
+    const keys = await deriveWriteKeysFromSimpleToken(token)
     if (!keys.writeKey) {
         throw new Error('Failed to derive write key')
     }
+    const { vaultId } = keys
 
-    // 2. Build encryption key once
+    // 2. Build encryption key
     const encKey = await crypto.subtle.importKey(
         'raw', keys.readKeyBytes,
         { name: 'AES-GCM' }, false, ['encrypt', 'decrypt']
     )
 
-    // 3. Create empty tree object
-    const treeJson   = JSON.stringify({ schema: 'tree_v1', entries: [] })
+    // 3. Create settings blob
+    const settings = {
+        vault_name:  vaultName,
+        vault_id:    vaultId,
+        created:     new Date().toISOString(),
+        version:     3,
+        description: '',
+    }
+    const settingsCipher = await _encrypt(encKey, new TextEncoder().encode(JSON.stringify(settings)))
+    const settingsBlobId = await computeObjectId(settingsCipher)
+    await _putObject(apiBaseUrl, vaultId, settingsBlobId, settingsCipher, keys.writeKey, accessToken)
+
+    // 4. Create root tree with .vault-settings entry
+    const settingsEntry = {
+        blob_id:          settingsBlobId,
+        name_enc:         await encryptMetadata(keys.readKeyBytes, '.vault-settings'),
+        size_enc:         await encryptMetadata(keys.readKeyBytes, String(JSON.stringify(settings).length)),
+        content_hash_enc: await encryptMetadata(keys.readKeyBytes, settingsBlobId.slice(-12)),
+        content_type_enc: await encryptMetadata(keys.readKeyBytes, 'application/json'),
+        large:            false,
+    }
+    const treeJson   = JSON.stringify({ schema: 'tree_v1', entries: [settingsEntry] })
     const treeCipher = await _encrypt(encKey, new TextEncoder().encode(treeJson))
     const treeId     = await computeObjectId(treeCipher)
     await _putObject(apiBaseUrl, vaultId, treeId, treeCipher, keys.writeKey, accessToken)
 
-    // 4. Create initial commit object
+    // 5. Create initial commit object
     const msgCipher = await encryptMetadata(keys.readKeyBytes, message)
     const commitData = {
         schema:       'commit_v2',
@@ -138,16 +136,22 @@ export async function createVault(config) {
     const commitId = await computeObjectId(commitCipher)
     await _putObject(apiBaseUrl, vaultId, commitId, commitCipher, keys.writeKey, accessToken)
 
-    // 5. Write named HEAD ref pointing to the initial commit
-    const refCipher = await _encrypt(
+    // 6. Write clone ref (branch 'web-ui') → commit
+    const cloneRefFileId = await deriveBranchRefFileId(keys.readKeyBytes, vaultId, branchName)
+    const cloneRefCipher = await _encrypt(
         encKey, new TextEncoder().encode(JSON.stringify({ commit_id: commitId }))
     )
-    await _putRef(apiBaseUrl, vaultId, keys.refFileId, refCipher, keys.writeKey, accessToken)
+    await _putRef(apiBaseUrl, vaultId, cloneRefFileId, cloneRefCipher, keys.writeKey, accessToken)
+
+    // 7. Write named HEAD ref → same commit (starts in sync, ahead=0)
+    const namedRefCipher = await _encrypt(
+        encKey, new TextEncoder().encode(JSON.stringify({ commit_id: commitId }))
+    )
+    await _putRef(apiBaseUrl, vaultId, keys.refFileId, namedRefCipher, keys.writeKey, accessToken)
 
     return {
+        token,
         vaultId,
-        passphrase,
-        vaultKey: `${passphrase}:${vaultId}`,
         keys,
         commitId,
         treeId,
