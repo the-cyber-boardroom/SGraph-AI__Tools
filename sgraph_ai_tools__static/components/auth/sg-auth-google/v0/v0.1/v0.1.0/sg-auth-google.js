@@ -12,7 +12,7 @@
  * @version 0.1.0
  */
 
-import { saveToken, getToken, removeToken } from '../../../sg-auth-tokens/v0/v0.1/v0.1.0/sg-auth-tokens.js';
+import { saveToken, getToken, removeToken } from '../../../../sg-auth-tokens/v0/v0.1/v0.1.0/sg-auth-tokens.js';
 
 const GIS_URL      = 'https://accounts.google.com/gsi/client';
 const PROVIDER     = 'google';
