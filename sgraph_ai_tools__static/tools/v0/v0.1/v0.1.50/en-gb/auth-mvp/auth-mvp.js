@@ -36,5 +36,6 @@ import '/components/vault/sg-vault-picker/v0/v0.1/v0.1.0/sg-vault-picker.js';
 import { api } from './api/auth-api.js';
 import { init } from './ui/ui-shell.js';
 
-await init();
+const config = await fetch('./config.json').then(r => r.json()).catch(() => ({}));
+await init(config);
 api.activate();
