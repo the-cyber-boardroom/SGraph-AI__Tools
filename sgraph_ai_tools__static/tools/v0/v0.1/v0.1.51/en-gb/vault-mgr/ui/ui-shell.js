@@ -116,21 +116,11 @@ export async function init(config = {}) {
             renderLeft();
             renderRight();
             if (!state.drive) {
-                // Wait for GIS to load, then attempt silent Drive connect
                 const user = getUser();
-                const hint = user?.email || '';
-                let retries = 0;
-                const tryConnect = () => {
-                    if (!window.google?.accounts?.oauth2) {
-                        if (++retries < 15) setTimeout(tryConnect, 200);
-                        return;
-                    }
-                    cb.connectDrive({ hint, prompt: '' }).catch(() => {
-                        renderLeft();
-                        renderRight();
-                    });
-                };
-                tryConnect();
+                cb.connectDrive({ hint: user?.email || '', prompt: '' }).catch(() => {
+                    renderLeft();
+                    renderRight();
+                });
             }
         }
     });
