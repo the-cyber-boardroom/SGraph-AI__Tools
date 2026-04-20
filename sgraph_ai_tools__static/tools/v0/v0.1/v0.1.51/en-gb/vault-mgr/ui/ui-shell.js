@@ -5,7 +5,7 @@
  */
 
 import { SGL_EVENTS } from '/core/sg-layout/v0.1.0/sg-layout-events.js';
-import { onAuthChange, isSignedIn } from '/core/auth-context/v0/v0.1/v0.1.0/sg-auth-context.js';
+import { onAuthChange, isSignedIn, getUser } from '/core/auth-context/v0/v0.1/v0.1.0/sg-auth-context.js';
 import { requestAccess, DriveAppData } from '/core/drive-appdata/v0/v0.1/v0.1.0/sg-drive-appdata.js';
 import { VaultStore } from '../api/vault-store.js';
 import { buildLeftPanel } from './ui-left-panel.js';
