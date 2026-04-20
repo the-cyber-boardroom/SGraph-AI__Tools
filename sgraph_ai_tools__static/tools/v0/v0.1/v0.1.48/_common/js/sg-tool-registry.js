@@ -19,6 +19,7 @@
 
    v0.1.48 changes:
      - Added 'voice-memo' to TOOL_SLUGS under Media (manifest.json added in v0.1.48).
+     - Added 'video-recorder' to TOOL_SLUGS under Media.
    ================================================================================= */
 
 /**
@@ -34,7 +35,7 @@ const TOOL_SLUGS = [
     // AI Pipelines
     'playbooklm', 'page-builder',
     // Media
-    'image-tools', 'video-tools', 'voice-memo',
+    'image-tools', 'video-tools', 'voice-memo', 'video-recorder',
     // Vault & Send
     'vault', 'vault-browser', 'openrouter', 'sg-send-cli',
     // Code & Runtime
