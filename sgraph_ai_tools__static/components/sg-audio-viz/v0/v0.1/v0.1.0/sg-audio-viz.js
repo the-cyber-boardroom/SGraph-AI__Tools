@@ -53,6 +53,8 @@ export class SgAudioViz extends SgComponent {
 
     #running    = false;
     #rafId      = null;
+    #rafIsTimer = false;   // true when #rafId is a setTimeout handle (background tab)
+    #visHandler = null;    // visibilitychange listener (registered while running)
 
     #audioCtx   = null;   // AudioContext
     #analyser   = null;   // AnalyserNode
@@ -155,11 +157,16 @@ export class SgAudioViz extends SgComponent {
         if (secondary) this.#colorSec     = secondary;
     }
 
-    /** Start (or resume) the requestAnimationFrame render loop. */
+    /** Start (or resume) the render loop. */
     start() {
         if (this.#running) return;
         this.#running = true;
         this.#audioCtx?.resume().catch(() => {});
+        // Resume AudioContext if the browser suspended it while the tab was hidden.
+        this.#visHandler = () => {
+            if (!document.hidden) this.#audioCtx?.resume().catch(() => {});
+        };
+        document.addEventListener('visibilitychange', this.#visHandler);
         this.#loop();
     }
 
@@ -167,8 +174,13 @@ export class SgAudioViz extends SgComponent {
     stop() {
         this.#running = false;
         if (this.#rafId !== null) {
-            cancelAnimationFrame(this.#rafId);
+            if (this.#rafIsTimer) clearTimeout(this.#rafId);
+            else cancelAnimationFrame(this.#rafId);
             this.#rafId = null;
+        }
+        if (this.#visHandler) {
+            document.removeEventListener('visibilitychange', this.#visHandler);
+            this.#visHandler = null;
         }
     }
 
@@ -266,7 +278,17 @@ export class SgAudioViz extends SgComponent {
 
     #loop() {
         if (!this.#running) return;
-        this.#rafId = requestAnimationFrame(() => this.#loop());
+        // When the page is hidden (background tab), rAF is throttled to ~1 fps.
+        // Use setTimeout instead — Chrome exempts tabs with active media streams
+        // from aggressive timer throttling, so this fires at near-normal rates.
+        // Same pattern used by mergeAsPiP in sg-capture.js for screen recording.
+        if (document.hidden) {
+            this.#rafIsTimer = true;
+            this.#rafId = setTimeout(() => this.#loop(), 1000 / 30);
+        } else {
+            this.#rafIsTimer = false;
+            this.#rafId = requestAnimationFrame(() => this.#loop());
+        }
         this.#draw();
     }
 
