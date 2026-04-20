@@ -4,7 +4,7 @@
  * @version 0.1.50
  */
 
-import { CHECKS, checkState, iconFor, setGoogleEl, CLIENT_ID_KEY, RUNNERS } from '../api/checks.js';
+import { CHECKS, checkState, iconFor, setGoogleEl, setDriveEl, CLIENT_ID_KEY, RUNNERS } from '../api/checks.js';
 
 /**
  * Build the left "Checks" panel into the given element.
@@ -130,6 +130,13 @@ function _buildCheckSection(check) {
     }
     if (check.id === 'credlist') {
         inner.innerHTML = `<sg-credential-list style="display:block;"></sg-credential-list>`;
+    }
+    if (check.id === 'driveappdata') {
+        inner.innerHTML = `<sg-drive-appdata id="am-drive-comp" style="display:block;"></sg-drive-appdata>`;
+        requestAnimationFrame(() => {
+            const comp = document.getElementById('am-drive-comp');
+            if (comp) setDriveEl(comp);
+        });
     }
 
     if (inner.innerHTML.trim()) section.appendChild(inner);

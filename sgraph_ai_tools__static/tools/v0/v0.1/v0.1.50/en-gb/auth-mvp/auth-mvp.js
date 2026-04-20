@@ -31,6 +31,7 @@ import '/components/auth/sg-auth-user/v0/v0.1/v0.1.0/sg-auth-user.js';
 import '/components/auth/sg-credential-store/v0/v0.1/v0.1.0/sg-credential-store.js';
 import '/components/auth/sg-credential-list/v0/v0.1/v0.1.0/sg-credential-list.js';
 import '/components/vault/sg-vault-picker/v0/v0.1/v0.1.0/sg-vault-picker.js';
+import '/components/drive/sg-drive-appdata/v0/v0.1/v0.1.0/sg-drive-appdata.js';
 
 // ── Tool modules ───────────────────────────────────────────────────────────────
 import { api } from './api/auth-api.js';
