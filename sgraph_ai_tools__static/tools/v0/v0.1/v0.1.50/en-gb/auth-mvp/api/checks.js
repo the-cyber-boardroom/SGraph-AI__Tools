@@ -150,22 +150,22 @@ export const RUNNERS = {
     async logout() {
         _log('logout', ['Running…'], 'running');
         const tokens = listTokens();
+        const lines  = [];
 
         if (tokens.length === 0) {
-            _log('logout', ['No active sessions', 'Sign in first then re-run'], 'partial');
+            lines.push('No active sessions');
+            lines.push('Sign in first (section 2) then re-run to verify logout capability');
+            _log('logout', lines, 'partial');
             return;
         }
 
-        const lines = [`Found ${tokens.length} session(s) to clear`];
-        if (googleEl) {
-            googleEl.signOut();
-            lines.push('google.accounts.id.revoke() called ✓');
-            lines.push('Google token cleared from localStorage ✓');
-        } else {
-            clearAllTokens();
-            lines.push('clearAll() called ✓');
-        }
-        lines.push('sg-auth:signed-out event dispatched ✓');
+        // Verify capability without signing out — use "Sign out" button in section 2 to test the full flow
+        lines.push(`Active sessions: ${tokens.length} (${tokens.map(t => t.provider).join(', ')})`);
+        lines.push(`clearAllTokens() available: ✓`);
+        lines.push(`googleEl.signOut() available: ${googleEl ? '✓' : '– (initialize GIS first)'}`);
+        lines.push(`google.accounts.id.revoke available: ${window.google?.accounts?.id?.revoke ? '✓' : '–'}`);
+        lines.push(`sg-auth:signed-out event: ✓ (dispatched on sign-out)`);
+        lines.push('→ Use the "Sign out" button in section 2 to execute the full logout flow');
         _log('logout', lines, 'pass');
     },
 

@@ -226,7 +226,7 @@ export class SgAuthGoogle extends HTMLElement {
             wrap.innerHTML = `
                 <div class="signed-in">
                     ${claims.picture
-                        ? `<img class="avatar" src="${claims.picture}" alt="">`
+                        ? `<img class="avatar" src="${claims.picture}" alt="" referrerpolicy="no-referrer">`
                         : `<div class="avatar-ph">👤</div>`}
                     <div class="info">
                         <div class="name">${claims.name || claims.email || 'Google user'}</div>

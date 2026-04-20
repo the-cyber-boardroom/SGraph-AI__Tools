@@ -123,7 +123,7 @@ export class SgAuthUser extends HTMLElement {
             panel.innerHTML = `
                 <div class="user-row">
                     ${claims.picture
-                        ? `<img class="avatar" src="${claims.picture}" alt="">`
+                        ? `<img class="avatar" src="${claims.picture}" alt="" referrerpolicy="no-referrer">`
                         : `<div class="avatar-ph">👤</div>`}
                     <div class="user-info">
                         <div class="user-name">${claims.name || claims.email || 'Unknown user'}</div>
