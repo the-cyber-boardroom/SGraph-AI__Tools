@@ -45,6 +45,9 @@ const _chunks    = {};
 /** Stops the PiP canvas compositor if active. @type {Function|null} */
 let _pipStop = null;
 
+/** Cloned mic stream given to vizProvider; stopped separately after recording. @type {MediaStream|null} */
+let _vizAudioClone = null;
+
 // ─── Preview ──────────────────────────────────────────────────────────────────
 
 /**
@@ -145,10 +148,14 @@ export async function startPipeline() {
         if (needsWarmUp) await new Promise(r => setTimeout(r, 300));
 
         // Viz canvas stream — replaces camera for viz+audio mode.
-        // vizProvider.start() feeds the mic into sg-audio-viz and returns its captureStream().
+        // Clone rawAudio before handing it to the AudioContext: createMediaStreamSource()
+        // on a background tab's suspended AudioContext can block the original tracks from
+        // delivering audio to MediaRecorder. The clone is independent; the original is
+        // used exclusively by MediaRecorder.
         let rawViz = null;
         if (flags.viz && config.vizProvider) {
-            rawViz = await config.vizProvider.start(rawAudio, config.fps);
+            _vizAudioClone = rawAudio ? rawAudio.clone() : null;
+            rawViz = await config.vizProvider.start(_vizAudioClone ?? rawAudio, config.fps);
         }
 
         // ── Store raw streams for cleanup ──────────────────────────────────
@@ -324,8 +331,14 @@ export async function stopPipeline() {
         state.streams = {};
         state.stream  = null;
 
-        // Stop viz animation (pauses rAF, disconnects audio source)
+        // Stop viz animation (pauses loop, disconnects audio source)
         config.vizProvider?.stop();
+
+        // Stop cloned mic tracks given to vizProvider
+        if (_vizAudioClone) {
+            _vizAudioClone.getTracks().forEach(t => t.stop());
+            _vizAudioClone = null;
+        }
 
         _dispatchOnWindow(SGA_RECORDER.RECORD_STOP, {
             durationMs,
@@ -355,6 +368,10 @@ export function resetPipeline() {
     if (state.previewStop) state.previewStop();
     if (_pipStop) { _pipStop(); _pipStop = null; }
     config.vizProvider?.stop();
+    if (_vizAudioClone) {
+        _vizAudioClone.getTracks().forEach(t => t.stop());
+        _vizAudioClone = null;
+    }
     state.reset();
     _dispatchOnWindow(SGA_RECORDER.RESET, {});
 }
