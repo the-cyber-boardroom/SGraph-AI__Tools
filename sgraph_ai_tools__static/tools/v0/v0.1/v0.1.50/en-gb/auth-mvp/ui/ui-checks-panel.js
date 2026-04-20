@@ -10,9 +10,13 @@ import { CHECKS, checkState, iconFor, setGoogleEl, CLIENT_ID_KEY, RUNNERS } from
  * Build the left "Checks" panel into the given element.
  * @param {HTMLElement} el
  */
-export function buildChecksPanel(el) {
+export function buildChecksPanel(el, config = {}) {
     el.style.cssText = 'overflow-y:auto;height:100%;background:#080812;box-sizing:border-box;';
 
+    // Config provides the default; localStorage override wins once user saves manually
+    if (config.googleClientId && !localStorage.getItem(CLIENT_ID_KEY)) {
+        localStorage.setItem(CLIENT_ID_KEY, config.googleClientId);
+    }
     const clientId = localStorage.getItem(CLIENT_ID_KEY) || '';
 
     // ── Setup section ─────────────────────────────────────────────────────────

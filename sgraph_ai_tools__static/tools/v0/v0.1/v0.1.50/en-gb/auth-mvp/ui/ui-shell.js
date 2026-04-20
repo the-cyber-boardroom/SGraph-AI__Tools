@@ -9,7 +9,7 @@ import { buildDevPanel } from '../dev-panel.js';
 import { buildChecksPanel } from './ui-checks-panel.js';
 import { buildOutputPanels } from './ui-output-panel.js';
 
-export async function init() {
+export async function init(config = {}) {
     const layoutWrap = document.getElementById('layout-wrap');
     layoutWrap.style.cssText = 'display:flex;flex-direction:column;height:100%;overflow:hidden;';
 
@@ -57,6 +57,6 @@ export async function init() {
     const eventsPanel = layout.getPanelElement('t-events');
     const vaultsPanel = layout.getPanelElement('t-vaults');
 
-    buildChecksPanel(checksPanel);
+    buildChecksPanel(checksPanel, config);
     buildOutputPanels(outputPanel, eventsPanel, vaultsPanel);
 }
