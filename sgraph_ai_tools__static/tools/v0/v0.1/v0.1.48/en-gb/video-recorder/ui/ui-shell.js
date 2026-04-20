@@ -477,11 +477,13 @@ async function _reRenderViz(recordedBlob, mode, fps = 30, speed = 1) {
         // Two rAFs so canvas dimensions sync before captureStream
         await new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r)));
 
-        // 4. Build combined stream: new viz video + original audio (via analyser passthrough)
+        // 4. Build output stream.
+        // At speed > 1× the audio is pitch-shifted (chipmunk) so we drop it — viz
+        // only. The original Audio download has the clean track.
+        // At 1× we include audio — analyser passthrough is bit-identical to source.
         const vizVideoTrack = tempViz.captureStream(fps).getVideoTracks()[0];
-        const audioTrack    = tempViz.getAudioCaptureStream()?.getAudioTracks()[0];
-        const tracks        = [vizVideoTrack, audioTrack].filter(Boolean);
-        const combined      = new MediaStream(tracks);
+        const audioTrack    = speed === 1 ? tempViz.getAudioCaptureStream()?.getAudioTracks()[0] : null;
+        const combined      = new MediaStream([vizVideoTrack, audioTrack].filter(Boolean));
 
         const mimeType = MediaRecorder.isTypeSupported('video/webm;codecs=vp8,opus')
             ? 'video/webm;codecs=vp8,opus' : 'video/webm';
