@@ -147,19 +147,20 @@ export function initRecordingTab(container, primaryBlob, blobs, durationMs, size
     // ── Regenerate visualisation ──────────────────────────────────────────────
 
     function _rebuildDlBtns(newBlob) {
-        dlBtns.innerHTML = '';
+        // Insert the regenerated blob as a new primary download at the top,
+        // keeping all original track downloads intact below it.
         const ext = newBlob.type.includes('mp4') ? 'mp4' : 'webm';
         const btn = document.createElement('button');
         btn.className   = 'rec-btn rec-btn--dl rec-btn--dl-primary';
-        btn.textContent = `⬇ Regenerated  ${_formatBytes(newBlob.size)}`;
+        btn.textContent = `⬇ Regenerated Viz  ${_formatBytes(newBlob.size)}`;
         btn.addEventListener('click', () => {
             const a = document.createElement('a');
             a.href     = URL.createObjectURL(newBlob);
-            a.download = `${safeName}-viz.${ext}`;
+            a.download = `${safeName}-viz-regen.${ext}`;
             a.click();
             setTimeout(() => URL.revokeObjectURL(a.href), 10_000);
         });
-        dlBtns.appendChild(btn);
+        dlBtns.insertBefore(btn, dlBtns.firstChild);
     }
 
     if (vizWasHidden && onRegenerate) {
