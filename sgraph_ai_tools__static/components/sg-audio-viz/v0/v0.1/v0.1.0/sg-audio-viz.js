@@ -58,7 +58,8 @@ export class SgAudioViz extends SgComponent {
 
     #audioCtx       = null;   // AudioContext
     #analyser       = null;   // AnalyserNode
-    #keepAliveDest  = null;   // MediaStreamDestination — keeps AudioContext active in background
+    #keepAliveDest  = null;   // MediaStreamDestination — keeps AudioContext graph active
+    #silentSrc      = null;   // BufferSourceNode (silence) → destination — exempts page from Chrome background-tab timer throttling
     #sourceNode     = null;   // MediaStreamSourceNode | MediaElementSourceNode
     #sourceEl   = null;   // Audio element created for Blob/URL sources
 
@@ -207,6 +208,8 @@ export class SgAudioViz extends SgComponent {
         this.stop();
         this.#teardownSource();
         if (this.#audioCtx) {
+            try { this.#silentSrc?.stop(); } catch (_) {}
+            this.#silentSrc = null;
             this.#audioCtx.close().catch(() => {});
             this.#audioCtx = null;
             this.#analyser  = null;
@@ -232,13 +235,26 @@ export class SgAudioViz extends SgComponent {
         this.#freqData = new Uint8Array(bins);
         this.#timeData = new Uint8Array(this.#analyser.fftSize);
 
-        // Connect analyser → MediaStreamDestination to keep the AudioContext active
-        // when the tab is in the background. Audio goes to a local stream buffer,
-        // NOT to the speakers, so there is no feedback path into Chrome's echo
-        // canceller (routing mic → speakers was causing AEC to suppress the mic
-        // after ~2 s and break audio recording).
+        // Two-part background-tab strategy:
+        //
+        // 1. analyser → MediaStreamDestination  keeps the audio graph active so
+        //    the AudioContext doesn't suspend. Audio goes to a local stream buffer,
+        //    NOT to the speakers (mic → speakers was causing Chrome AEC to suppress
+        //    the mic after ~2 s and break recording).
+        //
+        // 2. silentBuffer → audioCtx.destination  routes all-zero audio to the real
+        //    output so Chrome sees "active audio" and exempts this page from
+        //    background-tab setTimeout throttling (~1 s → infinity without this).
+        //    The buffer is silence, so there is no feedback path for AEC.
         this.#keepAliveDest = this.#audioCtx.createMediaStreamDestination();
         this.#analyser.connect(this.#keepAliveDest);
+
+        const sr = this.#audioCtx.sampleRate;
+        this.#silentSrc = this.#audioCtx.createBufferSource();
+        this.#silentSrc.buffer = this.#audioCtx.createBuffer(1, sr, sr); // 1 s silence (all zeros)
+        this.#silentSrc.loop = true;
+        this.#silentSrc.connect(this.#audioCtx.destination);
+        this.#silentSrc.start();
     }
 
     async #loadUrl(url, revokeOnEnd) {
