@@ -17,7 +17,8 @@
       { "module": "sg-vault-tree-model", "path": "/core/vault-tree-model/v1/v1.0/v1.0.0/sg-vault-tree-model.js" },
       { "module": "sg-vault-session", "path": "/core/vault-session/v1/v1.0/v1.0.0/sg-vault-session.js" },
       { "module": "sg-vault-mutations", "path": "/core/vault-mutations/v1/v1.0/v1.0.0/sg-vault-mutations.js" },
-      { "module": "sg-vault-init", "path": "/core/vault-init/v1/v1.0/v1.0.0/sg-vault-init.js" }
+      { "module": "sg-vault-init", "path": "/core/vault-init/v1/v1.0/v1.0.0/sg-vault-init.js" },
+      { "module": "sg-send-crypto", "path": "/core/send-crypto/v1/v1.0/v1.0.0/sg-send-crypto.js" }
     ],
     "components": [
       { "module": "sg-vault-connect", "path": "/components/vault/sg-vault-connect/v0/v0.1/v0.1.3/sg-vault-connect.js" },
