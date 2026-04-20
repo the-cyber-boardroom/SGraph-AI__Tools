@@ -188,7 +188,7 @@ export async function init(state, config, api, emit) {
 
     // ── Footer bar ─────────────────────────────────────────────────────────────
     const footerBar = document.createElement('div');
-    footerBar.style.cssText = 'flex-shrink:0;padding:0 12px 8px;background:#0a0a18;';
+    footerBar.style.cssText = 'flex-shrink:0;padding:0 14px 10px;background:#0a0a18;';
 
     const footerInner = document.createElement('div');
     footerInner.style.cssText = [

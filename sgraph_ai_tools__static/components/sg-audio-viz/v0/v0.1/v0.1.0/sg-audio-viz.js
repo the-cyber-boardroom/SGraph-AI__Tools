@@ -56,9 +56,10 @@ export class SgAudioViz extends SgComponent {
     #rafIsTimer = false;   // true when #rafId is a setTimeout handle (background tab)
     #visHandler = null;    // visibilitychange listener (registered while running)
 
-    #audioCtx   = null;   // AudioContext
-    #analyser   = null;   // AnalyserNode
-    #sourceNode = null;   // MediaStreamSourceNode | MediaElementSourceNode
+    #audioCtx       = null;   // AudioContext
+    #analyser       = null;   // AnalyserNode
+    #keepAliveDest  = null;   // MediaStreamDestination — keeps AudioContext active in background
+    #sourceNode     = null;   // MediaStreamSourceNode | MediaElementSourceNode
     #sourceEl   = null;   // Audio element created for Blob/URL sources
 
     #canvas     = null;   // HTMLCanvasElement (shadow DOM)
@@ -231,15 +232,13 @@ export class SgAudioViz extends SgComponent {
         this.#freqData = new Uint8Array(bins);
         this.#timeData = new Uint8Array(this.#analyser.fftSize);
 
-        // Connect analyser → near-zero gain → destination.
-        // This keeps the AudioContext in "running" state when the tab is in the
-        // background: Chrome suspends idle AudioContexts and throttles timers in
-        // tabs with no audio output, freezing the canvas animation.
-        // −80 dB (1e-4) is below the noise floor and completely inaudible.
-        const keepAlive = this.#audioCtx.createGain();
-        keepAlive.gain.value = 1e-4;
-        this.#analyser.connect(keepAlive);
-        keepAlive.connect(this.#audioCtx.destination);
+        // Connect analyser → MediaStreamDestination to keep the AudioContext active
+        // when the tab is in the background. Audio goes to a local stream buffer,
+        // NOT to the speakers, so there is no feedback path into Chrome's echo
+        // canceller (routing mic → speakers was causing AEC to suppress the mic
+        // after ~2 s and break audio recording).
+        this.#keepAliveDest = this.#audioCtx.createMediaStreamDestination();
+        this.#analyser.connect(this.#keepAliveDest);
     }
 
     async #loadUrl(url, revokeOnEnd) {
