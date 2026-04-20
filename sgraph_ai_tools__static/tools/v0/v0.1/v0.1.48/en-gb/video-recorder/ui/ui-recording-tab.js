@@ -12,6 +12,18 @@ import { saveSendFile } from '../api/save-sg-send.js';
 
 const SEND_URL = 'https://send.sgraph.ai';
 
+const VIZ_MODES = [
+    ['smooth-eq',     'Smooth EQ'],
+    ['mirror-eq',     'Mirror EQ'],
+    ['mirror-wave',   'Mirror Wave'],
+    ['bars',          'Bars'],
+    ['mirror-bars',   'Mirror Bars'],
+    ['waveform',      'Waveform'],
+    ['circular-wave', 'Circular Wave'],
+    ['circular-bars', 'Circular Bars'],
+    ['blob',          'Blob'],
+];
+
 /**
  * @param {HTMLElement} container   sg-layout panel element (already in DOM)
  * @param {Blob|null}   primaryBlob primary blob (combined/best track) for player + upload
@@ -19,8 +31,10 @@ const SEND_URL = 'https://send.sgraph.ai';
  * @param {number}      durationMs
  * @param {number}      sizeBytes
  * @param {string}      name        recording name (from config.recordingName or auto)
+ * @param {{ vizWasHidden?: boolean, vizMode?: string, onRegenerate?: (mode: string) => Promise<Blob> }} [opts]
  */
-export function initRecordingTab(container, primaryBlob, blobs, durationMs, sizeBytes, name) {
+export function initRecordingTab(container, primaryBlob, blobs, durationMs, sizeBytes, name, opts = {}) {
+    const { vizWasHidden = false, vizMode = 'smooth-eq', onRegenerate = null } = opts;
     const safeName = _sanitize(name);
     const savedToken = localStorage.getItem('sgraph-send-token') ?? '';
 
@@ -40,6 +54,22 @@ export function initRecordingTab(container, primaryBlob, blobs, durationMs, size
                     <div class="rec-tab__section-title">Download</div>
                     <div class="rec-dl-btns" id="dl-btns"></div>
                 </div>
+
+                ${vizWasHidden ? `
+                <div class="rec-tab__section" id="regen-section">
+                    <div class="rec-tab__section-title" style="color:#fbbf24;">⚠ Visualisation</div>
+                    <p style="font-size:11px;color:var(--rec-muted);margin-bottom:8px;line-height:1.5;">
+                        You switched tabs during recording — the visualisation may be frozen in places.
+                        Regenerate it from the audio (plays back in real-time, no upload needed).
+                    </p>
+                    <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
+                        <select id="regen-mode" style="flex:1;min-width:120px;background:rgba(0,0,0,0.4);border:1px solid var(--rec-border);border-radius:6px;color:var(--rec-text);font-size:12px;padding:6px 8px;outline:none;cursor:pointer;">
+                            ${VIZ_MODES.map(([v, l]) => `<option value="${v}"${v === vizMode ? ' selected' : ''}>${l}</option>`).join('')}
+                        </select>
+                        <button id="regen-btn" class="rec-btn rec-btn--dl">↺ Regenerate Viz</button>
+                    </div>
+                    <div id="regen-status" style="display:none;margin-top:8px;font-size:11px;color:var(--rec-muted);"></div>
+                </div>` : ''}
 
                 <div class="rec-tab__section">
                     <div class="rec-tab__section-title">Share — SG/Send (encrypted link)</div>
@@ -112,6 +142,56 @@ export function initRecordingTab(container, primaryBlob, blobs, durationMs, size
     if (!dlBtns.children.length) {
         dlBtns.textContent = 'No files available.';
         dlBtns.style.cssText = 'color:var(--rec-muted);font-size:12px;';
+    }
+
+    // ── Regenerate visualisation ──────────────────────────────────────────────
+
+    function _rebuildDlBtns(newBlob) {
+        dlBtns.innerHTML = '';
+        const ext = newBlob.type.includes('mp4') ? 'mp4' : 'webm';
+        const btn = document.createElement('button');
+        btn.className   = 'rec-btn rec-btn--dl rec-btn--dl-primary';
+        btn.textContent = `⬇ Regenerated  ${_formatBytes(newBlob.size)}`;
+        btn.addEventListener('click', () => {
+            const a = document.createElement('a');
+            a.href     = URL.createObjectURL(newBlob);
+            a.download = `${safeName}-viz.${ext}`;
+            a.click();
+            setTimeout(() => URL.revokeObjectURL(a.href), 10_000);
+        });
+        dlBtns.appendChild(btn);
+    }
+
+    if (vizWasHidden && onRegenerate) {
+        const regenBtn    = container.querySelector('#regen-btn');
+        const modeSelect  = container.querySelector('#regen-mode');
+        const regenStatus = container.querySelector('#regen-status');
+
+        regenBtn?.addEventListener('click', async () => {
+            const mode = modeSelect.value;
+            regenBtn.disabled       = true;
+            regenStatus.textContent = 'Generating… (plays back the audio in real-time)';
+            regenStatus.style.color = 'var(--rec-muted)';
+            regenStatus.style.display = '';
+
+            try {
+                const newBlob = await onRegenerate(mode);
+
+                // Update player
+                player?.whenReady().then(() => player.setBlob(newBlob)).catch(() => {});
+                // Update download buttons
+                _rebuildDlBtns(newBlob);
+
+                regenStatus.textContent = '✓ Done — player and download updated.';
+                regenStatus.style.color = '#34d399';
+            } catch (err) {
+                regenStatus.textContent = `Error: ${err.message}`;
+                regenStatus.style.color = '#ef4444';
+            } finally {
+                regenBtn.disabled    = false;
+                regenBtn.textContent = '↺ Regenerate Again';
+            }
+        });
     }
 
     // ── SG/Send share ─────────────────────────────────────────────────────────

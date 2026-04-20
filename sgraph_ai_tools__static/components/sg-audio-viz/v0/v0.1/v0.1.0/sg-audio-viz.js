@@ -51,10 +51,11 @@ export class SgAudioViz extends SgComponent {
     #colorSec     = DEFAULT_SECOND;
     #fftSize      = DEFAULT_FFT;
 
-    #running    = false;
-    #rafId      = null;
-    #rafIsTimer = false;   // true when #rafId is a setTimeout handle (background tab)
-    #visHandler = null;    // visibilitychange listener (registered while running)
+    #running              = false;
+    #rafId                = null;
+    #rafIsTimer           = false;   // true when #rafId is a setTimeout handle (background tab)
+    #visHandler           = null;    // visibilitychange listener (registered while running)
+    #wasHiddenWhileRunning = false;  // set true if document.hidden fires during a recording
 
     #audioCtx       = null;   // AudioContext
     #analyser       = null;   // AnalyserNode
@@ -159,10 +160,26 @@ export class SgAudioViz extends SgComponent {
         if (secondary) this.#colorSec     = secondary;
     }
 
+    /**
+     * True if document.hidden was ever true while this viz was running.
+     * Use after stop() to decide whether to offer post-processing.
+     * @returns {boolean}
+     */
+    get wasHidden() { return this.#wasHiddenWhileRunning; }
+
+    /**
+     * Returns the MediaStream that carries the source audio through the analyser.
+     * Useful for capturing audio during post-processing / re-render.
+     * The AnalyserNode is a passthrough — audio is bit-for-bit identical to the source.
+     * @returns {MediaStream|null}
+     */
+    getAudioCaptureStream() { return this.#keepAliveDest?.stream ?? null; }
+
     /** Start (or resume) the render loop. */
     start() {
         if (this.#running) return;
         this.#running = true;
+        this.#wasHiddenWhileRunning = false;  // reset each time we start a new capture
         this.#audioCtx?.resume().catch(() => {});
         // Resume AudioContext if the browser suspended it while the tab was hidden.
         this.#visHandler = () => {
@@ -308,6 +325,7 @@ export class SgAudioViz extends SgComponent {
         // from aggressive timer throttling, so this fires at near-normal rates.
         // Same pattern used by mergeAsPiP in sg-capture.js for screen recording.
         if (document.hidden) {
+            this.#wasHiddenWhileRunning = true;
             this.#rafIsTimer = true;
             this.#rafId = setTimeout(() => this.#loop(), 1000 / 30);
         } else {
