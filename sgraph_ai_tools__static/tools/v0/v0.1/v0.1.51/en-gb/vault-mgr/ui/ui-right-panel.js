@@ -142,22 +142,31 @@ function _connectSection(vault) {
             <sg-vault-tree style="display:none;"></sg-vault-tree>
         </div>`;
 
-    // Pre-fill sg-vault-connect localStorage hints so it auto-populates
+    // Pre-fill sg-vault-connect via localStorage only for the API URL (not the key).
+    // The key is set just before the component mounts so Chrome's password manager
+    // doesn't see a password field being pre-filled after a save action.
     localStorage.setItem('sg-vault:last-api', vault.apiBaseUrl);
-    localStorage.setItem('sg-vault:last-key', vault.vaultKey);
 
-    // Show tree when connected, hide when disconnected
     requestAnimationFrame(() => {
-        const bus  = div.querySelector('[data-vault-bus]');
-        const tree = div.querySelector('sg-vault-tree');
+        // Set the key now — component has already rendered its shadow DOM.
+        // Doing it here (not before innerHTML) means Chrome doesn't associate
+        // the localStorage write with a form submission event.
+        localStorage.setItem('sg-vault:last-key', vault.vaultKey);
+
+        const bus     = div.querySelector('[data-vault-bus]');
+        const connect = div.querySelector('sg-vault-connect');
+        const tree    = div.querySelector('sg-vault-tree');
         if (!bus || !tree) return;
 
-        bus.addEventListener('vault:connected', () => {
-            tree.style.display = 'block';
-        });
-        bus.addEventListener('vault:disconnected', () => {
-            tree.style.display = 'none';
-        });
+        // Push the key directly into the shadow input so the component reflects it
+        // without needing another connectedCallback cycle.
+        if (connect?.shadowRoot) {
+            const keyInput = connect.shadowRoot.getElementById('vault-key');
+            if (keyInput && !keyInput.value) keyInput.value = vault.vaultKey;
+        }
+
+        bus.addEventListener('vault:connected', () => { tree.style.display = 'block'; });
+        bus.addEventListener('vault:disconnected', () => { tree.style.display = 'none'; });
     });
 
     return div;
@@ -208,8 +217,10 @@ function _bindEvents(el, vault, state, cb) {
         el.querySelector('#key-edit-row').style.display = 'none';
     });
     el.querySelector('#key-save-btn')?.addEventListener('click', async () => {
-        const newKey = el.querySelector('#key-edit-input')?.value.trim();
+        const input  = el.querySelector('#key-edit-input');
+        const newKey = input?.value.trim();
         if (!newKey) return;
+        if (input) input.value = ''; // clear before re-render so Chrome doesn't prompt to save
         await cb.updateVault(vault.vaultId, { vaultKey: newKey });
     });
 
