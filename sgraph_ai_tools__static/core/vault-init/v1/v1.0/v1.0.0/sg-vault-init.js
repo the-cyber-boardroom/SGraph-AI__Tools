@@ -55,19 +55,22 @@ export function generateVaultId(length = DEFAULT_VAULT_ID_LENGTH) {
 }
 
 /**
- * Generate a memorable passphrase: word-word-word-word-NNNN
+ * Generate a memorable passphrase: word-word-word-word-word-word
  *
- * @param {number} [wordCount=4] - Number of words
+ * Uses 6 words from a 32-word list (~30 bits entropy) combined with a
+ * separate vaultId for key derivation salt. No number suffix — the
+ * vaultId provides uniqueness; the passphrase provides memorability.
+ *
+ * @param {number} [wordCount=6] - Number of words
  * @returns {string}
  */
-export function generateMemorablePassphrase(wordCount = 4) {
+export function generateMemorablePassphrase(wordCount = 6) {
     const words = []
     const buf = crypto.getRandomValues(new Uint32Array(wordCount))
     for (let i = 0; i < wordCount; i++) {
         words.push(PASSPHRASE_WORDS[buf[i] % PASSPHRASE_WORDS.length])
     }
-    const suffix = String(crypto.getRandomValues(new Uint16Array(1))[0] % 10000).padStart(4, '0')
-    return `${words.join('-')}-${suffix}`
+    return words.join('-')
 }
 
 /**

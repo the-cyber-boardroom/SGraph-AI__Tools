@@ -206,6 +206,12 @@ export class SgVaultCreate extends HTMLElement {
       <input id="api-url" class="vc-input" type="text" spellcheck="false">
     </div>
 
+    <div class="vc-field">
+      <label class="vc-label" for="access-token">Access Token (required for write access)</label>
+      <input id="access-token" class="vc-input" type="password" autocomplete="off" spellcheck="false"
+             placeholder="Server access token">
+    </div>
+
     <button id="btn-create" class="vc-btn">Create Vault</button>
   </div>
 
@@ -241,10 +247,11 @@ export class SgVaultCreate extends HTMLElement {
     // ── Create flow ────────────────────────────────────────────────────────
 
     async _create() {
-        const passphrase = this.shadowRoot.getElementById('passphrase').value.trim();
-        const vaultId    = this.shadowRoot.getElementById('vault-id').value.trim().toLowerCase();
-        const apiBase    = (this.shadowRoot.getElementById('api-url').value.trim() || this.apiUrl).replace(/\/$/, '');
-        const btn        = this.shadowRoot.getElementById('btn-create');
+        const passphrase  = this.shadowRoot.getElementById('passphrase').value.trim();
+        const vaultId     = this.shadowRoot.getElementById('vault-id').value.trim().toLowerCase();
+        const apiBase     = (this.shadowRoot.getElementById('api-url').value.trim() || this.apiUrl).replace(/\/$/, '');
+        const accessToken = this.shadowRoot.getElementById('access-token').value.trim() || null;
+        const btn         = this.shadowRoot.getElementById('btn-create');
 
         if (!passphrase) {
             this._showStatus('Passphrase required.', 'error');
@@ -252,6 +259,10 @@ export class SgVaultCreate extends HTMLElement {
         }
         if (!/^[0-9a-z]{4,24}$/.test(vaultId)) {
             this._showStatus('Vault ID must be 4-24 lowercase hex characters.', 'error');
+            return;
+        }
+        if (!accessToken) {
+            this._showStatus('Access token required to create a vault on the server.', 'error');
             return;
         }
 
@@ -263,6 +274,7 @@ export class SgVaultCreate extends HTMLElement {
                 apiBaseUrl: apiBase,
                 passphrase,
                 vaultId,
+                accessToken,
             });
 
             this._created = result;
@@ -271,9 +283,10 @@ export class SgVaultCreate extends HTMLElement {
 
             // Auto-open a session for the newly created vault and emit vault:connected
             const session = createSession({
-                apiBaseUrl: apiBase,
-                vaultId:    result.vaultId,
-                keys:       result.keys,
+                apiBaseUrl:  apiBase,
+                vaultId:     result.vaultId,
+                keys:        result.keys,
+                accessToken,
             });
             await session.open();
 
