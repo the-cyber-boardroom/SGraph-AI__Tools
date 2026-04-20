@@ -1,6 +1,6 @@
 /**
  * ui-export.js
- * Save targets: SG/Send (encrypted link) and local folder.
+ * Save target: SG/Send (encrypted shareable link).
  * @module ui-export
  */
 
@@ -50,32 +50,12 @@ export function initExport(container, state, config, api, emit) {
                 </div>
             </div>
 
-            <!-- Local Folder -->
-            <div class="export-target" id="target-folder">
-                <div class="export-target__header">
-                    <div class="export-target__info">
-                        <span class="export-target__name">Local Folder</span>
-                        <span class="export-target__desc">Video + metadata saved to disk</span>
-                    </div>
-                    <button id="btn-save-folder" class="export-btn export-btn--secondary" disabled>
-                        Save Folder
-                    </button>
-                </div>
-                <div class="export-progress" id="progress-folder" style="display:none">
-                    <div class="export-progress__bar"><div class="export-progress__fill" id="fill-folder"></div></div>
-                    <span class="export-progress__label" id="label-folder">0%</span>
-                </div>
-                <div class="export-result" id="result-folder" style="display:none">
-                    <span class="export-result__label" id="result-folder-label"></span>
-                </div>
-            </div>
         </section>
     `;
 
-    const btnSaveSend    = container.querySelector('#btn-save-send');
-    const btnSaveFolder  = container.querySelector('#btn-save-folder');
-    const tokenInput     = container.querySelector('#send-token-input');
-    const btnSaveToken   = container.querySelector('#btn-save-token');
+    const btnSaveSend  = container.querySelector('#btn-save-send');
+    const tokenInput   = container.querySelector('#send-token-input');
+    const btnSaveToken = container.querySelector('#btn-save-token');
 
     // ── Token persistence ─────────────────────────────────────────────────────
 
@@ -91,17 +71,13 @@ export function initExport(container, state, config, api, emit) {
     // ── Enable buttons once recording is stopped ──────────────────────────────
 
     window.addEventListener(SGA_RECORDER.RECORD_STOP, () => {
-        btnSaveSend.disabled   = false;
-        btnSaveFolder.disabled = false;
+        btnSaveSend.disabled = false;
     });
 
     window.addEventListener(SGA_RECORDER.RESET, () => {
-        btnSaveSend.disabled   = true;
-        btnSaveFolder.disabled = true;
-        container.querySelector('#result-send').style.display   = 'none';
-        container.querySelector('#result-folder').style.display = 'none';
+        btnSaveSend.disabled = true;
+        container.querySelector('#result-send').style.display = 'none';
         _showProgress('send', false);
-        _showProgress('folder', false);
     });
 
     // ── SG/Send ───────────────────────────────────────────────────────────────
@@ -134,33 +110,13 @@ export function initExport(container, state, config, api, emit) {
         }
     });
 
-    // ── Local Folder ──────────────────────────────────────────────────────────
-
-    btnSaveFolder.addEventListener('click', async () => {
-        if (!state.blob) return;
-        btnSaveFolder.disabled = true;
-        _showProgress('folder', true);
-
-        try {
-            const result = await api.saveFolder({ screenshots: true });
-            _showProgress('folder', false);
-            const resultEl = container.querySelector('#result-folder');
-            resultEl.style.display = '';
-            container.querySelector('#result-folder-label').textContent = `Saved: ${result.folderId}`;
-        } catch (err) {
-            _showProgress('folder', false);
-            btnSaveFolder.disabled    = false;
-            btnSaveFolder.textContent = `Error: ${err.message}`;
-        }
-    });
-
     // ── Progress events ───────────────────────────────────────────────────────
 
     window.addEventListener(SGA_RECORDER.SAVE_PROGRESS, (e) => {
         const { target, percent, message } = e.detail;
-        const key   = target === 'sg-send' ? 'send' : target;
-        const fill  = container.querySelector(`#fill-${key}`);
-        const label = container.querySelector(`#label-${key}`);
+        if (target !== 'sg-send') return;
+        const fill  = container.querySelector('#fill-send');
+        const label = container.querySelector('#label-send');
         if (fill)  fill.style.width  = `${percent}%`;
         if (label) label.textContent = message ?? `${percent}%`;
     });
