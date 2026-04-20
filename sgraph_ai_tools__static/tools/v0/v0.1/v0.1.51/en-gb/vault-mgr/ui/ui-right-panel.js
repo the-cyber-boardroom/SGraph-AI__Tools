@@ -36,6 +36,7 @@ const _CSS = `
 .key-val.masked { letter-spacing: 3px; color: #4a5568; font-size: 16px; }
 .key-btns { display: flex; gap: 4px; flex-shrink: 0; }
 .key-note { font-size: 10px; color: #4ecdc4; margin-top: 6px; }
+.key-edit-input { flex: 1; font-family: "SF Mono", Monaco, monospace; font-size: 11px; background: #111122; border: 1px solid #4ecdc4; border-radius: 4px; padding: 5px 8px; color: #e2e8f0; min-width: 0; }
 
 /* Vault connect */
 .connect-wrap { background: #0a0a18; border: 1px solid #1a1a3a; border-radius: 5px; overflow: hidden; }
@@ -105,11 +106,19 @@ function _masterKeySection(vault) {
     div.innerHTML = `
         <div class="section-title">Master Key</div>
         <div class="key-box">
-            <div class="key-row">
+            <div class="key-row" id="key-view-row">
                 <div class="key-val masked" id="key-display">••••••••••••••••••••••••••••</div>
                 <div class="key-btns">
                     <button class="btn btn-sm" id="key-toggle">Show</button>
                     <button class="btn btn-sm" id="key-copy">Copy</button>
+                    <button class="btn btn-sm" id="key-edit-btn">Edit</button>
+                </div>
+            </div>
+            <div class="key-row" id="key-edit-row" style="display:none;">
+                <input class="key-edit-input" id="key-edit-input" type="text" spellcheck="false" autocomplete="off" placeholder="Paste vault key…">
+                <div class="key-btns">
+                    <button class="btn btn-sm btn-primary" id="key-save-btn">Save</button>
+                    <button class="btn btn-sm" id="key-cancel-btn">Cancel</button>
                 </div>
             </div>
             <div class="key-note">✓ Stored in Google Drive App Data — private to your account</div>
@@ -183,6 +192,25 @@ function _bindEvents(el, vault, state, cb) {
             btn.textContent = '✓ Copied';
             setTimeout(() => { btn.textContent = 'Copy'; }, 1500);
         });
+    });
+
+    // Edit key
+    el.querySelector('#key-edit-btn')?.addEventListener('click', () => {
+        el.querySelector('#key-view-row').style.display = 'none';
+        el.querySelector('#key-edit-row').style.display = '';
+        const input = el.querySelector('#key-edit-input');
+        input.value = vault.vaultKey;
+        input.focus();
+        input.select();
+    });
+    el.querySelector('#key-cancel-btn')?.addEventListener('click', () => {
+        el.querySelector('#key-view-row').style.display = '';
+        el.querySelector('#key-edit-row').style.display = 'none';
+    });
+    el.querySelector('#key-save-btn')?.addEventListener('click', async () => {
+        const newKey = el.querySelector('#key-edit-input')?.value.trim();
+        if (!newKey) return;
+        await cb.updateVault(vault.vaultId, { vaultKey: newKey });
     });
 
     // Delete flow

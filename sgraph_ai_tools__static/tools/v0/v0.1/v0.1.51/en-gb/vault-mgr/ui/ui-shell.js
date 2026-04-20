@@ -80,6 +80,13 @@ export async function init(config = {}) {
             renderRight();
         },
 
+        updateVault: async (vaultId, changes) => {
+            await state.store.update(vaultId, changes);
+            state.vaults = state.store.list();
+            renderLeft();
+            renderRight();
+        },
+
         deleteVault: async (vaultId) => {
             await state.store.remove(vaultId);
             state.vaults = state.store.list();
@@ -109,13 +116,21 @@ export async function init(config = {}) {
             renderLeft();
             renderRight();
             if (!state.drive) {
-                // Attempt silent Drive connect — skips account chooser for returning users
+                // Wait for GIS to load, then attempt silent Drive connect
                 const user = getUser();
-                cb.connectDrive({ hint: user?.email || '', prompt: '' }).catch(() => {
-                    // Silent failed (first-time consent needed) — show Connect Drive button
-                    renderLeft();
-                    renderRight();
-                });
+                const hint = user?.email || '';
+                let retries = 0;
+                const tryConnect = () => {
+                    if (!window.google?.accounts?.oauth2) {
+                        if (++retries < 15) setTimeout(tryConnect, 200);
+                        return;
+                    }
+                    cb.connectDrive({ hint, prompt: '' }).catch(() => {
+                        renderLeft();
+                        renderRight();
+                    });
+                };
+                tryConnect();
             }
         }
     });

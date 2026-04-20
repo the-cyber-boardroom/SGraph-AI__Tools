@@ -89,6 +89,20 @@ export class VaultStore {
     }
 
     /**
+     * Update fields on an existing vault entry and persist to Drive.
+     * @param {string} vaultId
+     * @param {Partial<VaultEntry>} changes
+     * @returns {Promise<VaultEntry|null>}
+     */
+    async update(vaultId, changes) {
+        const v = this._vaults.find(v => v.vaultId === vaultId);
+        if (!v) return null;
+        Object.assign(v, changes);
+        await this._save();
+        return v;
+    }
+
+    /**
      * Remove a vault from the registry.
      * @param {string} vaultId
      */
