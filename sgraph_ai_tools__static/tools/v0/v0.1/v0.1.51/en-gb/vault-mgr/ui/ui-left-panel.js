@@ -169,7 +169,7 @@ function _vaultListSection(state) {
             <div id="vault-list">${vaultItems}</div>
             <div id="new-vault-form" style="display:none;">
                 <div class="new-form">
-                    <div class="new-form-title">New Vault</div>
+                    <div class="new-form-title">Add / Import Vault</div>
                     <div class="field">
                         <label>Display name</label>
                         <input type="text" id="nv-name" placeholder="e.g. Personal Vault">
@@ -181,12 +181,12 @@ function _vaultListSection(state) {
                     <div class="field">
                         <label>Master key</label>
                         <div class="key-row">
-                            <input type="text" id="nv-key" placeholder="Auto-generated" readonly>
-                            <button class="btn btn-sm" id="nv-gen-key">↺ New</button>
+                            <input type="text" id="nv-key" placeholder="Auto-generated or paste existing key" spellcheck="false" autocomplete="off">
+                            <button class="btn btn-sm" id="nv-gen-key">↺ Gen</button>
                         </div>
                     </div>
                     <div class="form-btns">
-                        <button class="btn btn-primary" id="nv-create">Create Vault</button>
+                        <button class="btn btn-primary" id="nv-create">Add Vault</button>
                         <button class="btn" id="nv-cancel">Cancel</button>
                     </div>
                 </div>

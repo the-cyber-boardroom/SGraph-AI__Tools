@@ -80,6 +80,13 @@ export async function init(config = {}) {
             renderRight();
         },
 
+        updateVault: async (vaultId, changes) => {
+            await state.store.update(vaultId, changes);
+            state.vaults = state.store.list();
+            renderLeft();
+            renderRight();
+        },
+
         deleteVault: async (vaultId) => {
             await state.store.remove(vaultId);
             state.vaults = state.store.list();
