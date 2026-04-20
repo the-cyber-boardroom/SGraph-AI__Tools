@@ -184,7 +184,7 @@ export function initRecordingTab(container, primaryBlob, blobs, durationMs, size
             const speed = parseFloat(speedSelect.value) || 1;
             regenBtn.disabled       = true;
             regenStatus.textContent = speed > 1
-                ? `Generating at ${speed}× speed…`
+                ? `Generating at ${speed}× speed (viz only — use Audio download for clean audio)…`
                 : 'Generating… (plays back the audio in real-time)';
             regenStatus.style.color = 'var(--rec-muted)';
             regenStatus.style.display = '';
