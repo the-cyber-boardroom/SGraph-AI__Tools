@@ -21,13 +21,16 @@ export async function init() {
     // Dev panel appended to layoutWrap (below toolArea)
     buildDevPanel(layoutWrap);
 
-    // sg-layout
+    // sg-layout — pattern from infographic-gen v0.1.37:
+    //   1. append to DOM (connectedCallback fires, emits LAYOUT_READY with no tree — ignored)
+    //   2. register listener immediately (synchronously)
+    //   3. call setLayout() synchronously — fires LAYOUT_READY again, listener resolves
+    //   4. await the promise
     const layout = document.createElement('sg-layout');
     layout.style.cssText = 'display:block;width:100%;height:100%;';
     toolArea.appendChild(layout);
 
-    await new Promise(resolve => layout.events.on(SGL_EVENTS.LAYOUT_READY, resolve));
-
+    const layoutReady = new Promise(resolve => layout.events.on(SGL_EVENTS.LAYOUT_READY, resolve));
     layout.setLayout({
         type: 'row', id: 'main', sizes: [0.38, 0.62],
         children: [
@@ -47,8 +50,7 @@ export async function init() {
             },
         ],
     });
-
-    await new Promise(resolve => layout.events.on(SGL_EVENTS.LAYOUT_READY, resolve));
+    await layoutReady;
 
     const checksPanel = layout.getPanelElement('t-checks');
     const outputPanel = layout.getPanelElement('t-output');
