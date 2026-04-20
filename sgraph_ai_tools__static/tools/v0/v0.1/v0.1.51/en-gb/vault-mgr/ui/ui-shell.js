@@ -54,14 +54,15 @@ export async function init(config = {}) {
 
     // ── Callbacks ─────────────────────────────────────────────────────────────
     const cb = {
-        connectDrive: async () => {
+        connectDrive: async (opts = {}) => {
             const clientId = localStorage.getItem(CLIENT_ID_KEY) || '';
             if (!clientId) return;
-            const token = await requestAccess(clientId);
+            const token = await requestAccess(clientId, opts);
             state.drive = new DriveAppData(token);
             state.store = new VaultStore(state.drive);
             state.vaults = await state.store.load();
             renderLeft();
+            renderRight();
         },
 
         selectVault: async (vaultId) => {
@@ -102,8 +103,20 @@ export async function init(config = {}) {
             state.store      = null;
             state.vaults     = [];
             state.selectedId = null;
+            renderLeft();
+            renderRight();
+        } else {
+            renderLeft();
+            renderRight();
+            if (!state.drive) {
+                // Attempt silent Drive connect — skips account chooser for returning users
+                const user = getUser();
+                cb.connectDrive({ hint: user?.email || '', prompt: '' }).catch(() => {
+                    // Silent failed (first-time consent needed) — show Connect Drive button
+                    renderLeft();
+                    renderRight();
+                });
+            }
         }
-        renderLeft();
-        renderRight();
     });
 }

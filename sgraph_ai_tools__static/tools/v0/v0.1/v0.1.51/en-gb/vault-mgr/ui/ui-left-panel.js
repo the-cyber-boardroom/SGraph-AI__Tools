@@ -176,7 +176,7 @@ function _vaultListSection(state) {
                     </div>
                     <div class="field">
                         <label>Vault server URL</label>
-                        <input type="text" id="nv-url" placeholder="https://vault.sgraph.ai" value="https://vault.sgraph.ai">
+                        <input type="text" id="nv-url" placeholder="https://dev.vault.sgraph.ai" value="https://dev.vault.sgraph.ai">
                     </div>
                     <div class="field">
                         <label>Master key</label>
