@@ -96,7 +96,7 @@ export function drawBars(ctx, W, H, { freqData, primary, secondary, mirror }) {
 export function drawMirrorWave(ctx, W, H, { timeData, primary, secondary }) {
     const data = timeData;
     const cy   = H / 2;
-    const amp  = H * 0.44;
+    const amp  = H * 0.352;
     const dpr  = devicePixelRatio || 1;
     const len  = data.length;
 
@@ -258,7 +258,7 @@ export function drawEqBands(ctx, W, H, { freqData, primary, secondary, sampleRat
     const usableW = W - padX * 2;
     const barW    = usableW / COUNT;
     const gap     = Math.max(0.5 * dpr, barW * 0.12);
-    const maxBarH = mirror ? H * 0.42 : H * 0.78;
+    const maxBarH = mirror ? H * 0.336 : H * 0.78;
     const baseY   = mirror ? H / 2 : H - H * 0.08;
 
     for (let i = 0; i < COUNT; i++) {
