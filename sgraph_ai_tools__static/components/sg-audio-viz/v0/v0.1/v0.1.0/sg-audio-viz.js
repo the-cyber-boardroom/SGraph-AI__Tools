@@ -230,6 +230,16 @@ export class SgAudioViz extends SgComponent {
         const bins     = this.#analyser.frequencyBinCount;
         this.#freqData = new Uint8Array(bins);
         this.#timeData = new Uint8Array(this.#analyser.fftSize);
+
+        // Connect analyser → near-zero gain → destination.
+        // This keeps the AudioContext in "running" state when the tab is in the
+        // background: Chrome suspends idle AudioContexts and throttles timers in
+        // tabs with no audio output, freezing the canvas animation.
+        // −80 dB (1e-4) is below the noise floor and completely inaudible.
+        const keepAlive = this.#audioCtx.createGain();
+        keepAlive.gain.value = 1e-4;
+        this.#analyser.connect(keepAlive);
+        keepAlive.connect(this.#audioCtx.destination);
     }
 
     async #loadUrl(url, revokeOnEnd) {
