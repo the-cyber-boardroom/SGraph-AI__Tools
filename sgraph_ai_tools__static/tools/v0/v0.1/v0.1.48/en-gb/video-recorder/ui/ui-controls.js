@@ -100,8 +100,8 @@ export function initControls(container, state, config, api, emit) {
             <div class="ctrl-row" id="row-viz-style" style="display:none">
                 <label class="ctrl-label" for="viz-style-select">Viz style</label>
                 <select id="viz-style-select" class="ctrl-select">
-                    <option value="mirror-eq">Mirror EQ</option>
                     <option value="smooth-eq">Smooth EQ (filled spectrum)</option>
+                    <option value="mirror-eq">Mirror EQ</option>
                     <option value="mirror-wave">Mirror Wave (ribbon)</option>
                     <option value="mirror-bars">Mirror Bars</option>
                     <option value="circular-bars">Circular Bars</option>
