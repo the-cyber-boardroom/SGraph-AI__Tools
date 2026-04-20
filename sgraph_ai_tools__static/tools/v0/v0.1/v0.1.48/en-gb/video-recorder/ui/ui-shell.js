@@ -421,6 +421,14 @@ function _initPreviewTab(el, state, config, layout) {
             // Two rAFs: first lets the tab switch reflow, second ensures
             // ResizeObserver has fired and canvas dimensions are correct
             await new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r)));
+
+            // Guard: canvas stays 0×0 if the layout tab-switch animation hasn't
+            // settled yet. One extra tick is enough for ResizeObserver to fire.
+            const canvas = vizEl.shadowRoot?.querySelector('canvas') ?? vizEl.querySelector('canvas');
+            if (canvas && (canvas.width < 2 || canvas.height < 2)) {
+                await new Promise(r => setTimeout(r, 100));
+            }
+
             return vizEl.captureStream(fps);
         },
         stop() {
@@ -430,6 +438,17 @@ function _initPreviewTab(el, state, config, layout) {
     };
 
     return { vizProvider, vizEl };
+}
+
+// ── Utilities ─────────────────────────────────────────────────────────────────
+
+function _withTimeout(promise, ms, label) {
+    return Promise.race([
+        promise,
+        new Promise((_, reject) =>
+            setTimeout(() => reject(new Error(`${label} timed out after ${ms}ms`)), ms)
+        ),
+    ]);
 }
 
 // ── Viz post-processing: re-render visualisation from a recorded blob ─────────
@@ -492,21 +511,30 @@ async function _reRenderViz(recordedBlob, mode, fps = 30, speed = 1) {
         recorder.ondataavailable = e => e.data.size && chunks.push(e.data);
         recorder.start();
 
-        // 5. Play at requested speed, wait for end, collect blob
+        // 5. Play at requested speed, wait for end, collect blob.
+        // Timeout = 2× real-time duration capped at 30 min — covers the longest
+        // reasonable recording even at 1× speed.
+        const durationSecs  = videoEl.duration || 0;
+        const regenTimeoutMs = Math.min(Math.max(durationSecs * 2 * 1000, 30_000), 30 * 60_000);
+
         videoEl.playbackRate = speed;
         await videoEl.play();
 
-        return await new Promise((resolve, reject) => {
-            videoEl.addEventListener('ended', () => {
-                tempViz.stop();
-                recorder.stop();
-            }, { once: true });
-            videoEl.addEventListener('error', reject, { once: true });
-            recorder.addEventListener('stop', () => {
-                URL.revokeObjectURL(objUrl);
-                resolve(new Blob(chunks, { type: mimeType }));
-            }, { once: true });
-        });
+        return await _withTimeout(
+            new Promise((resolve, reject) => {
+                videoEl.addEventListener('ended', () => {
+                    tempViz.stop();
+                    recorder.stop();
+                }, { once: true });
+                videoEl.addEventListener('error', reject, { once: true });
+                recorder.addEventListener('stop', () => {
+                    URL.revokeObjectURL(objUrl);
+                    resolve(new Blob(chunks, { type: mimeType }));
+                }, { once: true });
+            }),
+            regenTimeoutMs,
+            'viz regen'
+        );
 
     } finally {
         document.body.removeChild(wrapEl);

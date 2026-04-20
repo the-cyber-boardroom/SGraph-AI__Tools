@@ -278,8 +278,30 @@ export function initControls(container, state, config, api, emit) {
     }
 
     // ── Preview ───────────────────────────────────────────────────────────────
+    //
+    // Single addEventListener; _previewActive boolean tracks state.
+    // The old pattern mixed onclick assignment with addEventListener which caused
+    // both handlers to fire on every click.
+
+    let _previewActive = false;
+
+    function _resetPreviewBtn() {
+        _previewActive         = false;
+        btnPreview.textContent = '👁 Preview';
+        btnPreview.disabled    = false;
+    }
 
     btnPreview.addEventListener('click', async () => {
+        if (_previewActive) {
+            api.stopPreview();
+            _resetPreviewBtn();
+            btnRecord.disabled   = false;
+            _lockModeBuilder(false);
+            statusEl.textContent = 'Ready';
+            return;
+        }
+
+        _previewActive       = true;
         btnPreview.disabled  = true;
         btnRecord.disabled   = true;
         _lockModeBuilder(true);
@@ -291,18 +313,8 @@ export function initControls(container, state, config, api, emit) {
             btnPreview.disabled    = false;
             btnRecord.disabled     = false;
             statusEl.textContent   = 'Preview active — click Start Recording';
-
-            btnPreview.onclick = () => {
-                api.stopPreview();
-                btnPreview.textContent = '👁 Preview';
-                btnPreview.onclick     = null;
-                btnPreview.disabled    = false;
-                btnRecord.disabled     = false;
-                _lockModeBuilder(false);
-                statusEl.textContent   = 'Ready';
-            };
         } catch (err) {
-            btnPreview.disabled  = false;
+            _resetPreviewBtn();
             btnRecord.disabled   = false;
             _lockModeBuilder(false);
             statusEl.textContent = `Error: ${err.message}`;
@@ -321,8 +333,7 @@ export function initControls(container, state, config, api, emit) {
         nameInput.disabled     = true;
         _enableOptions(false);
         statusEl.textContent   = 'Starting…';
-        btnPreview.textContent = '👁 Preview';
-        btnPreview.onclick     = null;
+        _resetPreviewBtn();
 
         config.recordingName = nameInput.value.trim();
 
@@ -389,10 +400,9 @@ export function initControls(container, state, config, api, emit) {
         nameInput.disabled   = false;
         _lockModeBuilder(false);
         _enableOptions(true);
-        timerEl.textContent    = '0s';
-        statusEl.textContent   = 'Ready';
-        btnPreview.textContent = '👁 Preview';
-        btnPreview.onclick     = null;
+        timerEl.textContent  = '0s';
+        statusEl.textContent = 'Ready';
+        _resetPreviewBtn();
         _applyModeState();
         if (recSize?.reset) recSize.reset();
     });
