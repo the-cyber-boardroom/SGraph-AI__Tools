@@ -76,9 +76,11 @@ export async function init(state, config, api, emit) {
     }
 
     // ── Preview tab: live camera/screen feed + viz animation ─────────────────
+    let _vizEl = null;
     if (previewEl) {
-        const { vizProvider } = _initPreviewTab(previewEl, state, config, layout);
+        const { vizProvider, vizEl } = _initPreviewTab(previewEl, state, config, layout);
         config.vizProvider = vizProvider;
+        _vizEl = vizEl;
     }
 
     // ── On RECORD_STOP: add a recording tab to s-preview ─────────────────────
@@ -88,6 +90,7 @@ export async function init(state, config, api, emit) {
         // Snapshot blobs before reset can clear them
         const capturedBlob  = state.blob;
         const capturedBlobs = { ...state.blobs };
+        const vizWasHidden  = _vizEl?.wasHidden ?? false;
 
         _recCount++;
         const name = config.recordingName.trim() || `Recording ${_recCount}`;
@@ -103,7 +106,14 @@ export async function init(state, config, api, emit) {
             const tabEl = layout.getPanelElement(tabId);
             if (tabEl) {
                 tabEl.style.cssText = 'height:100%;overflow:hidden;';
-                initRecordingTab(tabEl, capturedBlob, capturedBlobs, durationMs, sizeBytes, name);
+                const onRegenerate = (capturedBlob && vizWasHidden)
+                    ? (mode) => _reRenderViz(capturedBlob, mode, config.fps || 30)
+                    : null;
+                initRecordingTab(tabEl, capturedBlob, capturedBlobs, durationMs, sizeBytes, name, {
+                    vizWasHidden,
+                    vizMode: config.vizMode || 'smooth-eq',
+                    onRegenerate,
+                });
             }
         }
     });
@@ -419,7 +429,85 @@ function _initPreviewTab(el, state, config, layout) {
         },
     };
 
-    return { vizProvider };
+    return { vizProvider, vizEl };
+}
+
+// ── Viz post-processing: re-render visualisation from a recorded blob ─────────
+//
+// Creates a temporary off-screen sg-audio-viz, plays the recorded blob through
+// it silently, and captures the canvas + audio into a new combined blob.
+// Called after RECORD_STOP when vizEl.wasHidden was true.
+//
+// The AnalyserNode is a passthrough — audio in keepAliveDest.stream is
+// identical to the source, so no quality is lost beyond what the original
+// MediaRecorder encoding already introduced.
+
+async function _reRenderViz(recordedBlob, mode, fps = 30) {
+    const W = 1280, H = 720;
+
+    // 1. Create temporary off-screen viz element
+    const wrapEl = document.createElement('div');
+    wrapEl.style.cssText = `position:fixed;left:-${W + 10}px;top:0;width:${W}px;height:${H}px;pointer-events:none;overflow:hidden;`;
+    const tempViz = document.createElement('sg-audio-viz');
+    tempViz.style.cssText = 'display:block;width:100%;height:100%;';
+    wrapEl.appendChild(tempViz);
+    document.body.appendChild(wrapEl);
+
+    try {
+        await tempViz.whenReady();
+
+        // 2. Create video element to play the recorded blob
+        const videoEl = document.createElement('video');
+        videoEl.preload = 'auto';
+        videoEl.muted   = false;  // audio needed — AudioContext will route it
+        const objUrl = URL.createObjectURL(recordedBlob);
+        videoEl.src = objUrl;
+
+        await new Promise((res, rej) => {
+            videoEl.addEventListener('loadedmetadata', res, { once: true });
+            videoEl.addEventListener('error', rej, { once: true });
+            videoEl.load();
+        });
+
+        // 3. Connect audio through viz analyser; start render loop
+        tempViz.setMode(mode);
+        await tempViz.setSource(videoEl);
+        tempViz.start();
+
+        // Two rAFs so canvas dimensions sync before captureStream
+        await new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r)));
+
+        // 4. Build combined stream: new viz video + original audio (via analyser passthrough)
+        const vizVideoTrack = tempViz.captureStream(fps).getVideoTracks()[0];
+        const audioTrack    = tempViz.getAudioCaptureStream()?.getAudioTracks()[0];
+        const tracks        = [vizVideoTrack, audioTrack].filter(Boolean);
+        const combined      = new MediaStream(tracks);
+
+        const mimeType = MediaRecorder.isTypeSupported('video/webm;codecs=vp8,opus')
+            ? 'video/webm;codecs=vp8,opus' : 'video/webm';
+        const chunks   = [];
+        const recorder = new MediaRecorder(combined, { mimeType });
+        recorder.ondataavailable = e => e.data.size && chunks.push(e.data);
+        recorder.start();
+
+        // 5. Play, wait for end, collect blob
+        await videoEl.play();
+
+        return await new Promise((resolve, reject) => {
+            videoEl.addEventListener('ended', () => {
+                tempViz.stop();
+                recorder.stop();
+            }, { once: true });
+            videoEl.addEventListener('error', reject, { once: true });
+            recorder.addEventListener('stop', () => {
+                URL.revokeObjectURL(objUrl);
+                resolve(new Blob(chunks, { type: mimeType }));
+            }, { once: true });
+        });
+
+    } finally {
+        document.body.removeChild(wrapEl);
+    }
 }
 
 // ── Skills panel ──────────────────────────────────────────────────────────────

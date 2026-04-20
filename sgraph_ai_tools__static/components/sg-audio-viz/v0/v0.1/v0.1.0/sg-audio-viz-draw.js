@@ -295,7 +295,7 @@ export function drawSmoothEq(ctx, W, H, { freqData, primary, secondary, sampleRa
     const N      = 512;
     const data   = freqData;
     const cy     = H / 2;
-    const amp    = H * 0.44;
+    const amp    = H * 0.352;
     const dpr    = devicePixelRatio || 1;
     const MIN_HZ = 20;
     const MAX_HZ = Math.min(sampleRate / 2, 22050);
