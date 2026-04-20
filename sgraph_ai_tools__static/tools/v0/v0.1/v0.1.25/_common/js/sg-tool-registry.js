@@ -23,7 +23,7 @@ const TOOL_SLUGS = [
     // AI / LLM
     'chat', 'one-shot-chat', 'infographic-gen', 'multi-agent-chat', 'agentic', 'model-compatibility',
     // Media
-    'image-tools', 'video-tools', 'video-recorder',
+    'image-tools', 'video-tools',
     // Vault & Send
     'vault', 'vault-browser', 'openrouter', 'sg-send-cli',
     // Code & Runtime
