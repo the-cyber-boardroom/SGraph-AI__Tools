@@ -29,7 +29,7 @@ export class RecordingConfig {
         /** Name used for download filenames and the recording tab title. */
         this.recordingName      = '';
         /** Visualization mode used when recording mode is 'viz+audio'. */
-        this.vizMode            = 'mirror-wave';
+        this.vizMode            = 'mirror-eq';
         /** Provided by ui-shell — { start(micStream,fps):Promise<MediaStream>, stop():void }
          *  Called by the pipeline when mode is 'viz+audio'. Not serialised. */
         this.vizProvider        = null;

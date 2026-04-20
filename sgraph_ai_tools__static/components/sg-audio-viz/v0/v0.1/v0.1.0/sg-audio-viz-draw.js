@@ -247,7 +247,7 @@ export function drawBlob(ctx, W, H, { freqData, timeData, primary, secondary }) 
  * mirror=true reflects bars symmetrically above and below the centre line.
  */
 export function drawEqBands(ctx, W, H, { freqData, primary, secondary, sampleRate, fftSize, mirror }) {
-    const COUNT  = 64;
+    const COUNT  = 128;
     const data   = freqData;
     const dpr    = devicePixelRatio || 1;
     const MIN_HZ = 20;
