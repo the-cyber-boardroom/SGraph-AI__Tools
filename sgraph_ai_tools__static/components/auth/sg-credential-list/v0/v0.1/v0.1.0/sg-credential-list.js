@@ -57,6 +57,16 @@ input:focus { outline: none; border-color: #4ecdc4; }
 .msg-err { background: rgba(252,129,129,.1); color: #fc8181; display: block; }
 
 .note { padding: 8px 12px; font-size: 10px; color: #2d3748; background: #080812; border-top: 1px solid #0d0d1a; }
+
+.result-box { padding: 10px 12px; border-top: 1px solid #1a1a3a; background: rgba(78,205,196,.05); display: none; }
+.result-box.visible { display: block; }
+.result-label { font-size: 10px; color: #4a5568; text-transform: uppercase; letter-spacing: .05em; margin-bottom: 6px; }
+.result-name { font-size: 11px; color: #4ecdc4; margin-bottom: 6px; font-weight: 600; }
+.secret-row { display: flex; align-items: center; gap: 6px; }
+.secret-val { flex: 1; background: #111122; border: 1px solid #1a1a3a; border-radius: 4px; padding: 5px 8px; color: #e2e8f0; font-size: 11px; font-family: 'SF Mono', Monaco, monospace; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.copy-btn { font-size: 10px; padding: 4px 8px; border-radius: 4px; border: 1px solid #2d3748; background: none; color: #718096; cursor: pointer; font-family: inherit; white-space: nowrap; flex-shrink: 0; }
+.copy-btn:hover { border-color: #4ecdc4; color: #4ecdc4; }
+.result-note { font-size: 10px; color: #4a5568; margin-top: 5px; }
 `;
 
 /**
@@ -92,10 +102,37 @@ export class SgCredentialList extends HTMLElement {
             this.dispatchEvent(new CustomEvent('sg-credential-list:retrieved', {
                 detail: cred, bubbles: true, composed: true,
             }));
-            this._msg(`Retrieved: "${cred.name}"`, true);
+            this._showResult(cred);
         } else {
-            this._msg('No credential retrieved', false);
+            this._msg('No credential retrieved (cancelled or not found)', false);
         }
+    }
+
+    _showResult(cred) {
+        const box = this.shadowRoot.querySelector('.result-box');
+        if (!box) return;
+        box.innerHTML = `
+            <div class="result-label">Retrieved credential</div>
+            <div class="result-name">🔑 ${cred.name}</div>
+            <div class="secret-row">
+                <div class="secret-val" id="secret-display">${cred.secret}</div>
+                <button class="copy-btn" id="copy-secret">Copy</button>
+            </div>
+            <div class="result-note">Clears in 30 s</div>
+        `;
+        box.classList.add('visible');
+        box.querySelector('#copy-secret').addEventListener('click', () => {
+            navigator.clipboard.writeText(cred.secret).then(() => {
+                const btn = box.querySelector('#copy-secret');
+                btn.textContent = '✓ Copied';
+                setTimeout(() => { btn.textContent = 'Copy'; }, 1500);
+            });
+        });
+        clearTimeout(this._resultTimer);
+        this._resultTimer = setTimeout(() => {
+            box.classList.remove('visible');
+            box.innerHTML = '';
+        }, 30000);
     }
 
     _remove(name) {
@@ -153,9 +190,11 @@ export class SgCredentialList extends HTMLElement {
                     </div>
                     <div class="msg"></div>
                 </div>
+                <div class="result-box"></div>
                 <div class="note">
                     ⚠ Secrets are stored in your browser's password manager, not here.
                     "✕ Index" removes from this list only — delete the actual password in your browser settings.
+                    Retrieve opens Chrome's "Sign in as" picker — that's the native credential selector UI.
                 </div>
             </div>
         `;
