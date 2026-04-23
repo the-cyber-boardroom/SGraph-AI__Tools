@@ -1,0 +1,10 @@
+{
+    "name": "sg-wordlist",
+    "version": "1.0.0",
+    "layer": "core",
+    "description": "Word lists for friendly key generation — multilingual",
+    "exports": ["getWordList", "getRandomWords", "searchWords", "SUPPORTED_LOCALES"],
+    "dependencies": [],
+    "author": "SGraph Tools Team",
+    "license": "CC-BY-4.0"
+}

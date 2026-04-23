@@ -1,0 +1,78 @@
+{
+  "name": "Speed Test",
+  "slug": "speed-test",
+  "description": "Measure upload and download speed to SG/Send infrastructure. Use as a diagnostic tool before large file transfers or as a QA baseline.",
+  "icon": "⚡",
+  "version": "0.1.38",
+  "status": "beta",
+  "category": "tools",
+  "keywords": [
+    "speed",
+    "bandwidth",
+    "upload",
+    "download",
+    "network",
+    "diagnostic",
+    "mbps"
+  ],
+  "api": {
+    "window": "__speedTest",
+    "methods": [
+      {
+        "name": "runAll",
+        "description": "Run download then upload test against the configured target.",
+        "async": true,
+        "returns": "Promise<{ download: TestResult, upload: TestResult }>"
+      },
+      {
+        "name": "cancel",
+        "description": "Abort any running test.",
+        "async": false
+      },
+      {
+        "name": "setTargetUrl",
+        "description": "Change the target URL before running tests.",
+        "params": [{ "name": "url", "type": "string" }]
+      },
+      {
+        "name": "getLastResults",
+        "description": "Return the most recent test results, or null.",
+        "returns": "{ download: TestResult, upload: TestResult } | null"
+      },
+      {
+        "name": "measureDownloadSpeed",
+        "description": "Low-level: measure download speed from a URL.",
+        "async": true,
+        "params": [
+          { "name": "url", "type": "string" },
+          { "name": "opts", "type": "{ onProgress?, signal? }" }
+        ],
+        "returns": "Promise<TestResult>"
+      },
+      {
+        "name": "measureUploadSpeed",
+        "description": "Low-level: measure upload speed to a URL.",
+        "async": true,
+        "params": [
+          { "name": "url", "type": "string" },
+          { "name": "opts", "type": "{ sizeBytes?, onProgress?, signal? }" }
+        ],
+        "returns": "Promise<TestResult>"
+      }
+    ]
+  },
+  "dependencies": {
+    "components": [
+      {
+        "module": "sg-site-header",
+        "path": "/components/site-header/v1/v1.0/v1.0.2/sg-site-header.js"
+      }
+    ],
+    "shared": [
+      {
+        "module": "tools.css",
+        "path": "/_common/css/tools.css"
+      }
+    ]
+  }
+}

@@ -1,0 +1,36 @@
+{
+  "name": "sg-llm-attachment-manager",
+  "version": "0.1.0",
+  "tag": "sg-llm-attachment-manager",
+  "class": "SgLlmAttachmentManager",
+  "file": "sg-llm-attachment-manager.js",
+  "description": "Standalone attachment UI. File picker, drag-and-drop, clipboard paste. Image thumbnails and filename badges. Emits standard llm:attachment-* events. Composable alongside any LLM component.",
+  "attributes": {
+    "accept": "File picker accept string (default: images + common text types)",
+    "multiple": "Allow multiple files (default: true)",
+    "disable-on-send": "Disable during in-flight requests when present",
+    "placeholder": "Empty state hint text"
+  },
+  "events": {
+    "emits": [
+      "llm:attachment-added — { attachment }",
+      "llm:attachment-removed — { id }",
+      "llm:attachments-cleared — {}"
+    ],
+    "consumes": [
+      "llm:request-start — disable input (if disable-on-send attr set)",
+      "llm:request-complete — re-enable",
+      "llm:request-error — re-enable",
+      "llm:request-cancel — re-enable"
+    ]
+  },
+  "api": {
+    "getAttachments": "Returns copy of current attachment array",
+    "clear": "Remove all attachments, emit llm:attachments-cleared",
+    "addFile": "Programmatically add a File object",
+    "removeAttachment": "Remove attachment by id"
+  },
+  "dependencies": [
+    "/components/llm/sg-llm-events/v0/v0.1/v0.1.0/sg-llm-events.js"
+  ]
+}

@@ -1,0 +1,253 @@
+{
+  "name": "PlaybookLM",
+  "slug": "playbooklm",
+  "description": "Five-step AI slide deck generator: upload sources, generate strategy, create briefs, generate slide images, export PDF/ZIP.",
+  "icon": "\uD83D\uDCDA",
+  "version": "0.1.39",
+  "status": "live",
+  "category": "ai",
+  "keywords": ["slides", "presentation", "llm", "openrouter", "image", "ai", "deck", "playbook"],
+  "dependencies": {
+    "core": [
+      { "module": "sg-layout",      "path": "/core/sg-layout/v0.1.0/sg-layout.js" },
+      { "module": "sg-tool-api",    "path": "/core/sg-tool-api/v0/v0.1/v0.1.0/sg-tool-api.js" },
+      { "module": "manifest-loader","path": "/core/manifest-loader/v0/v0.1/v0.1.0/manifest-loader.js" }
+    ],
+    "components": [
+      { "module": "sg-llm-events",           "path": "/components/llm/sg-llm-events/v0/v0.1/v0.1.1/sg-llm-events.js" },
+      { "module": "sg-llm-request",          "path": "/components/llm/sg-llm-request/v0/v0.1/v0.1.4/sg-llm-request.js" },
+      { "module": "sg-llm-stats",            "path": "/components/llm/sg-llm-stats/v0/v0.1/v0.1.1/sg-llm-stats.js" },
+      { "module": "sg-tool-api-explorer",    "path": "/components/tool-api/sg-tool-api-explorer/v0/v0.1/v0.1.0/sg-tool-api-explorer.js" },
+      { "module": "sg-tool-api-console",     "path": "/components/tool-api/sg-tool-api-console/v0/v0.1/v0.1.0/sg-tool-api-console.js" },
+      { "module": "sg-tool-api-manifest",    "path": "/components/tool-api/sg-tool-api-manifest/v0/v0.1/v0.1.0/sg-tool-api-manifest.js" }
+    ],
+    "shared": [
+      { "module": "sg-site-header", "path": "/components/site-header/v1/v1.0/v1.0.2/sg-site-header.js" }
+    ],
+    "loader": [
+      {
+        "phase": 1,
+        "type": "css",
+        "path": "/core/sg-layout/v0.1.0/sg-layout.css",
+        "note": "sg-layout CSS custom properties and host defaults"
+      },
+      {
+        "phase": 1,
+        "type": "css",
+        "path": "./styles/playbooklm.css",
+        "note": "Root layout, custom properties, shared controls"
+      },
+      {
+        "phase": 1,
+        "type": "css",
+        "path": "./styles/pipeline.css",
+        "note": "Drop zone, source list, brief cards"
+      },
+      {
+        "phase": 1,
+        "type": "css",
+        "path": "./styles/slide-grid.css",
+        "note": "Slide grid and result thumbnails"
+      },
+      {
+        "phase": 1,
+        "type": "css",
+        "path": "./styles/export.css",
+        "note": "Export panel cards"
+      },
+      {
+        "phase": 1,
+        "type": "js",
+        "module": false,
+        "path": "https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js",
+        "note": "jsPDF for PDF export (UMD global: window.jspdf)"
+      },
+      {
+        "phase": 1,
+        "type": "js",
+        "module": false,
+        "path": "https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js",
+        "note": "JSZip for ZIP export (UMD global: window.JSZip)"
+      },
+      {
+        "phase": 2,
+        "type": "js",
+        "path": "/components/llm/sg-llm-request/v0/v0.1/v0.1.4/sg-llm-request.js",
+        "note": "Custom element: sg-llm-request — required for mini-bus image generation"
+      },
+      {
+        "phase": 2,
+        "type": "js",
+        "path": "/components/llm/sg-llm-stats/v0/v0.1/v0.1.1/sg-llm-stats.js",
+        "note": "Custom element: sg-llm-stats"
+      },
+      {
+        "phase": 2,
+        "type": "js",
+        "path": "/components/tool-api/sg-tool-api-explorer/v0/v0.1/v0.1.0/sg-tool-api-explorer.js",
+        "note": "Custom element: sg-tool-api-explorer (dev panel)"
+      },
+      {
+        "phase": 2,
+        "type": "js",
+        "path": "/components/tool-api/sg-tool-api-console/v0/v0.1/v0.1.0/sg-tool-api-console.js",
+        "note": "Custom element: sg-tool-api-console (dev panel)"
+      },
+      {
+        "phase": 2,
+        "type": "js",
+        "path": "/components/tool-api/sg-tool-api-manifest/v0/v0.1/v0.1.0/sg-tool-api-manifest.js",
+        "note": "Custom element: sg-tool-api-manifest (dev panel)"
+      },
+      {
+        "phase": 3,
+        "type": "js",
+        "entry": true,
+        "path": "./api/pipeline-api.js",
+        "note": "Tool entry point: registers JS API, calls api.activate(), then init()"
+      }
+    ]
+  },
+  "api": {
+    "version": "0.1.0",
+    "note": "window.__tool is live after tool:ready fires. 19 methods covering the full 5-step pipeline.",
+    "events": [
+      { "name": "tool:ready",            "when": "activate() called",          "detail": "{ instanceId, tool, version }" },
+      { "name": "tool:connected",        "when": "connect() succeeds",         "detail": "{ instanceId, provider, model }" },
+      { "name": "plm:state-changed",     "when": "any state mutation",         "detail": "{}" },
+      { "name": "plm:slide-complete",    "when": "slide image generated",      "detail": "{ index, imageSrc }" },
+      { "name": "plm:slide-error",       "when": "slide image fails",          "detail": "{ index, error }" },
+      { "name": "plm:all-slides-complete","when": "generateAllSlides done",    "detail": "{ count }" },
+      { "name": "plm:export-complete",   "when": "exportDeck succeeds",        "detail": "{ format }" }
+    ],
+    "actions": {
+      "connect": {
+        "params": {
+          "apiKey":     { "type": "string",  "secret": true,  "optional": true },
+          "textModel":  { "type": "string",  "optional": true, "default": "google/gemini-2.5-flash-preview" },
+          "imageModel": { "type": "string",  "optional": true, "default": "google/gemini-3.1-flash-image-preview" }
+        },
+        "returns": "Promise<{ provider: string, textModel: string, imageModel: string }>",
+        "async": true
+      },
+      "loadSources": {
+        "params": {
+          "0": { "type": "Array<{ name: string, type: string, textContent: string }>", "note": "Files to add to the pipeline" }
+        },
+        "returns": "Promise<Array<Source>>",
+        "async": true
+      },
+      "getSources": {
+        "params": {},
+        "returns": "Array<{ name: string, type: string, textContent: string }>",
+        "async": false
+      },
+      "removeSource": {
+        "params": { "0": { "type": "number", "note": "Zero-based index of source to remove" } },
+        "returns": "void",
+        "async": false
+      },
+      "generatePresentation": {
+        "params": {
+          "model": { "type": "string", "optional": true, "note": "Override text model for this call" }
+        },
+        "returns": "Promise<string>",
+        "async": true,
+        "note": "Requires at least one source loaded. Updates state.presentationDoc."
+      },
+      "getPresentation": {
+        "params": {},
+        "returns": "string",
+        "async": false
+      },
+      "setPresentation": {
+        "params": { "0": { "type": "string" } },
+        "returns": "void",
+        "async": false
+      },
+      "generateSlideBriefs": {
+        "params": {
+          "count": { "type": "number", "optional": true, "default": 8, "note": "Number of slides (1–24)" },
+          "model": { "type": "string", "optional": true }
+        },
+        "returns": "Promise<Array<{ title: string, prompt: string }>>",
+        "async": true,
+        "note": "Requires a presentation document from generatePresentation()."
+      },
+      "getSlideBriefs": {
+        "params": {},
+        "returns": "Array<{ title: string, prompt: string }>",
+        "async": false
+      },
+      "setSlideBrief": {
+        "params": {
+          "index": { "type": "number" },
+          "brief": { "type": "{ title?: string, prompt?: string }" }
+        },
+        "returns": "void",
+        "async": false
+      },
+      "addSlideBrief": {
+        "params": { "0": { "type": "{ title: string, prompt: string }" } },
+        "returns": "void",
+        "async": false
+      },
+      "removeSlideBrief": {
+        "params": { "0": { "type": "number", "note": "Zero-based index to remove" } },
+        "returns": "void",
+        "async": false
+      },
+      "generateSlide": {
+        "params": {
+          "index":    { "type": "number" },
+          "model":    { "type": "string",  "optional": true },
+          "template": { "type": "string",  "optional": true, "note": "Optional template style hint" }
+        },
+        "returns": "Promise<{ index: number, imageSrc: string }>",
+        "async": true
+      },
+      "generateAllSlides": {
+        "params": {
+          "model":    { "type": "string",  "optional": true },
+          "parallel": { "type": "boolean", "optional": true, "default": false, "note": "true = all at once; false = sequential" }
+        },
+        "returns": "Promise<Array<{ index: number, imageSrc: string }>>",
+        "async": true
+      },
+      "getSlideResults": {
+        "params": {},
+        "returns": "Array<{ index: number, imageSrc: string|null, status: 'pending'|'generating'|'complete'|'error', error: string|null }>",
+        "async": false
+      },
+      "exportDeck": {
+        "params": {
+          "format": { "type": "'pdf'|'zip'", "optional": true, "default": "pdf" }
+        },
+        "returns": "Promise<void>",
+        "async": true,
+        "note": "Triggers browser download. Requires jsPDF (PDF) or JSZip (ZIP) — both loaded by manifest."
+      },
+      "getState": {
+        "params": {},
+        "returns": "{ connected, textModel, imageModel, sources, presentationDoc, slideBriefs, slideResults, stopped }",
+        "async": false
+      },
+      "getPipelineStatus": {
+        "params": {},
+        "returns": "{ connected: boolean, sourceCount: number, briefCount: number, slideCount: number, stopped: boolean }",
+        "async": false
+      },
+      "stop": {
+        "params": {},
+        "returns": "void",
+        "async": false,
+        "note": "Aborts all in-progress LLM calls. Sets state.stopped = true."
+      }
+    },
+    "skills": {
+      "human":   "./skills/SKILL-human.md",
+      "browser": "./skills/SKILL-browser.md",
+      "api":     "./skills/SKILL-api.md"
+    }
+  }
+}

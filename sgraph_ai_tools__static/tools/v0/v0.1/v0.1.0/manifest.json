@@ -43,7 +43,8 @@
         "ssh-keygen"
     ],
     "ifd": {
-        "frozen": false,
+        "frozen": true,
+        "frozen_date": "2026-03-09",
         "next_version": "v0.1.1"
     }
 }

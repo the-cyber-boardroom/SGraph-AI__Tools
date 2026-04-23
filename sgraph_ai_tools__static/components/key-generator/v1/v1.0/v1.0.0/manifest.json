@@ -1,0 +1,13 @@
+{
+    "name": "sg-key-generator",
+    "version": "1.0.0",
+    "layer": "component",
+    "description": "Friendly encryption key creator with entropy visualisation",
+    "exports": ["SgKeyGenerator"],
+    "dependencies": ["sg-component", "sg-crypto", "sg-pbkdf2", "sg-wordlist"],
+    "tagName": "sg-key-generator",
+    "attributes": ["locale", "word-count", "suffix-length", "min-entropy", "show-geek-mode", "allow-custom-words"],
+    "events": ["key-generated", "key-changed", "key-copied", "key-used"],
+    "author": "SGraph Tools Team",
+    "license": "CC-BY-4.0"
+}

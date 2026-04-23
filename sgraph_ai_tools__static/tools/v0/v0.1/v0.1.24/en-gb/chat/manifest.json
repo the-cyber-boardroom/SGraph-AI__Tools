@@ -1,0 +1,89 @@
+{
+  "name": "Chat",
+  "slug": "chat",
+  "description": "Multi-turn chat with any LLM. Attach images, PDFs, audio and video files. Maintain conversation history and export transcripts.",
+  "icon": "💬",
+  "version": "0.1.24",
+  "status": "live",
+  "category": "llm",
+  "keywords": [
+    "conversation",
+    "history",
+    "attachments",
+    "images",
+    "files",
+    "multimodal"
+  ],
+  "dependencies": {
+    "core": [
+      {
+        "module": "sg-layout",
+        "path": "/core/sg-layout/v0.1.0/sg-layout.js"
+      }
+    ],
+    "components": [
+      {
+        "module": "sg-llm-attachment-manager",
+        "path": "/components/llm/sg-llm-attachment-manager/v0/v0.1/v0.1.3/sg-llm-attachment-manager.js"
+      },
+      {
+        "module": "sg-llm-bundle-list",
+        "path": "/components/llm/sg-llm-bundle-list/v0/v0.1/v0.1.3/sg-llm-bundle-list.js"
+      },
+      {
+        "module": "sg-llm-bundle-viewer",
+        "path": "/components/llm/sg-llm-bundle-viewer/v0/v0.1/v0.1.0/sg-llm-bundle-viewer.js"
+      },
+      {
+        "module": "sg-llm-bundle",
+        "path": "/components/llm/sg-llm-bundle/v0/v0.1/v0.1.7/sg-llm-bundle.js"
+      },
+      {
+        "module": "sg-llm-chat-history",
+        "path": "/components/llm/sg-llm-chat-history/v0/v0.1/v0.1.10/sg-llm-chat-history.js"
+      },
+      {
+        "module": "sg-llm-chat-input",
+        "path": "/components/llm/sg-llm-chat-input/v0/v0.1/v0.1.5/sg-llm-chat-input.js"
+      },
+      {
+        "module": "sg-llm-connection",
+        "path": "/components/llm/sg-llm-connection/v0/v0.1/v0.1.4/sg-llm-connection.js"
+      },
+      {
+        "module": "sg-llm-events",
+        "path": "/components/llm/sg-llm-events/v0/v0.1/v0.1.0/sg-llm-events.js"
+      },
+      {
+        "module": "sg-llm-request",
+        "path": "/components/llm/sg-llm-request/v0/v0.1/v0.1.6/sg-llm-request.js"
+      },
+      {
+        "module": "sg-llm-response-inspector",
+        "path": "/components/llm/sg-llm-response-inspector/v0/v0.1/v0.1.0/sg-llm-response-inspector.js"
+      },
+      {
+        "module": "sg-llm-stats",
+        "path": "/components/llm/sg-llm-stats/v0/v0.1/v0.1.1/sg-llm-stats.js"
+      },
+      {
+        "module": "sg-llm-token-viz",
+        "path": "/components/llm/sg-llm-token-viz/v0/v0.1/v0.1.1/sg-llm-token-viz.js"
+      },
+      {
+        "module": "sg-openrouter-generation",
+        "path": "/components/openrouter/sg-openrouter-generation/v0/v0.1/v0.1.0/sg-openrouter-generation.js"
+      }
+    ],
+    "shared": [
+      {
+        "module": "sg-site-header",
+        "path": "/components/site-header/v1/v1.0/v1.0.2/sg-site-header.js"
+      },
+      {
+        "module": "tools.css",
+        "path": "/_common/css/tools.css"
+      }
+    ]
+  }
+}

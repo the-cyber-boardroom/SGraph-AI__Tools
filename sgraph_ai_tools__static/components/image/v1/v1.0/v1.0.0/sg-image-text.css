@@ -1,0 +1,170 @@
+/**
+ * sg-image-text.css — Styles for the text placement overlay component
+ * @version 1.0.0
+ */
+
+:host {
+    display: block;
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    pointer-events: none;
+    z-index: 10;
+}
+
+.sg-text-overlay {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    cursor: text;
+    pointer-events: all;
+}
+
+.sg-text-anchor {
+    position: absolute;
+    width: 8px;
+    height: 8px;
+    background: var(--sg-accent, teal);
+    border: 2px solid #fff;
+    border-radius: 50%;
+    transform: translate(-50%, -50%);
+    pointer-events: none;
+    z-index: 2;
+}
+
+.sg-text-anchor::after {
+    content: '';
+    position: absolute;
+    top: 50%;
+    left: 100%;
+    width: 20px;
+    height: 1px;
+    background: var(--sg-accent, teal);
+    margin-left: 4px;
+}
+
+.sg-text-preview {
+    position: absolute;
+    pointer-events: none;
+    white-space: pre-wrap;
+    z-index: 1;
+}
+
+.sg-text-controls {
+    position: absolute;
+    bottom: 12px;
+    left: 50%;
+    transform: translateX(-50%);
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    align-items: center;
+    background: var(--sg-bg-card, #1e1e2e);
+    border: 1px solid var(--sg-border, #333);
+    border-radius: var(--sg-radius, 6px);
+    padding: 8px 12px;
+    pointer-events: all;
+    max-width: 600px;
+    z-index: 20;
+}
+
+.sg-text-controls label {
+    font-size: 11px;
+    color: var(--sg-text, #e0e0e0);
+    opacity: 0.7;
+}
+
+.sg-text-controls input[type="text"],
+.sg-text-controls textarea {
+    background: rgba(255, 255, 255, 0.06);
+    color: var(--sg-text, #e0e0e0);
+    border: 1px solid var(--sg-border, #333);
+    border-radius: var(--sg-radius, 6px);
+    padding: 4px 8px;
+    font-size: 13px;
+    font-family: inherit;
+    min-width: 180px;
+}
+
+.sg-text-controls input[type="range"] {
+    width: 80px;
+    accent-color: var(--sg-accent, teal);
+}
+
+.sg-text-controls input[type="color"] {
+    width: 28px;
+    height: 28px;
+    border: 1px solid var(--sg-border, #333);
+    border-radius: 4px;
+    padding: 1px;
+    background: transparent;
+    cursor: pointer;
+}
+
+.sg-text-controls button {
+    background: transparent;
+    color: var(--sg-text, #e0e0e0);
+    border: 1px solid var(--sg-border, #333);
+    border-radius: var(--sg-radius, 6px);
+    padding: 4px 10px;
+    font-size: 12px;
+    cursor: pointer;
+    font-family: inherit;
+    transition: background 0.15s, border-color 0.15s;
+}
+
+.sg-text-controls button:hover {
+    background: rgba(255, 255, 255, 0.08);
+}
+
+.sg-text-controls button.active {
+    background: var(--sg-accent, teal);
+    color: #fff;
+    border-color: var(--sg-accent, teal);
+}
+
+.sg-text-controls .sg-text-separator {
+    width: 1px;
+    height: 20px;
+    background: var(--sg-border, #333);
+    margin: 0 2px;
+}
+
+.sg-text-controls button.sg-text-apply {
+    background: var(--sg-accent, teal);
+    color: #fff;
+    border-color: var(--sg-accent, teal);
+    font-weight: 600;
+}
+
+.sg-text-controls button.sg-text-apply:hover {
+    filter: brightness(1.15);
+}
+
+.sg-text-controls button.sg-text-cancel {
+    color: #f87171;
+    border-color: #f87171;
+}
+
+.sg-text-controls button.sg-text-cancel:hover {
+    background: rgba(248, 113, 113, 0.12);
+}
+
+.sg-text-row {
+    display: flex;
+    gap: 6px;
+    align-items: center;
+    width: 100%;
+}
+
+.sg-text-size-value {
+    font-size: 11px;
+    color: var(--sg-text, #e0e0e0);
+    min-width: 28px;
+    text-align: right;
+    font-family: 'Courier New', Consolas, monospace;
+}

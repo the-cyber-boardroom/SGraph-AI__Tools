@@ -1,0 +1,310 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>sg-llm-stats — Tests</title>
+<style>
+    body { font-family: monospace; background: #0d0d1a; color: #e2e8f0; padding: 24px; margin: 0; }
+    h1 { color: #7c9ef8; margin: 0 0 8px; }
+    .subtitle { color: #64748b; font-size: 13px; margin: 0 0 24px; }
+    .test-summary { font-size: 14px; font-weight: bold; margin-bottom: 20px; padding: 10px 16px; border-radius: 6px; }
+    .test-summary.pass { background: #0d2a1a; color: #4ade80; border: 1px solid #166534; }
+    .test-summary.fail { background: #2a0d0d; color: #f87171; border: 1px solid #991b1b; }
+    .suite { margin-bottom: 20px; }
+    .suite-title { color: #a0aec0; font-size: 12px; text-transform: uppercase; letter-spacing: 0.08em; margin-bottom: 8px; }
+    .test { display: flex; align-items: flex-start; gap: 8px; font-size: 13px; padding: 4px 0; }
+    .test .icon { flex-shrink: 0; }
+    .pass .icon { color: #4ade80; }
+    .fail .icon { color: #f87171; }
+    .fail .msg { color: #f87171; }
+    .detail { color: #64748b; font-size: 12px; margin-top: 2px; }
+    h2 { color: #a0aec0; font-size: 14px; margin: 32px 0 8px; border-top: 1px solid #1e2a45; padding-top: 16px; }
+    .demo { width: 300px; height: 480px; border: 1px solid #222d4d; border-radius: 8px; overflow: hidden; }
+</style>
+</head>
+<body>
+<h1>sg-llm-stats</h1>
+<p class="subtitle">Token accounting, cost tracking, streaming toggle</p>
+<div class="test-summary" id="summary">Running…</div>
+<div id="results"></div>
+
+<h2>Interactive demo</h2>
+<p style="color:#64748b;font-size:12px;">Stats panel reacting to simulated events (dispatched automatically below).</p>
+<div id="demo-bus">
+    <div class="demo" id="demo-container"></div>
+</div>
+
+<script type="module">
+import { SgLlmStats } from '/components/llm/sg-llm-stats/v0/v0.1/v0.1.0/sg-llm-stats.js';
+import { SGL_LLM }    from '/components/llm/sg-llm-events/v0/v0.1/v0.1.0/sg-llm-events.js';
+
+// ── Harness ───────────────────────────────────────────────────────────────────
+
+let passed = 0, failed = 0;
+const suites = [];
+let currentSuite = null;
+
+function suite(name) { currentSuite = { name, tests: [] }; suites.push(currentSuite); }
+function test(name, fn) {
+    try { fn(); currentSuite.tests.push({ name, ok: true }); passed++; }
+    catch (err) { currentSuite.tests.push({ name, ok: false, msg: err.message }); failed++; }
+}
+function assert(cond, msg)  { if (!cond) throw new Error(msg || 'Assertion failed'); }
+function assertIncludes(str, sub, msg) {
+    if (!String(str).includes(sub)) throw new Error(msg || `Expected "${str}" to include "${sub}"`);
+}
+
+function makeComp() {
+    const bus  = document.createElement('div');
+    const comp = document.createElement('sg-llm-stats');
+    bus.appendChild(comp);
+    document.body.appendChild(bus);
+    return { bus, comp, cleanup: () => bus.remove() };
+}
+
+function dispatch(bus, eventName, detail = {}) {
+    bus.dispatchEvent(new CustomEvent(eventName, { detail, bubbles: true, composed: true }));
+}
+
+function nextEvent(bus, name) {
+    return new Promise(r => bus.addEventListener(name, e => r(e.detail), { once: true }));
+}
+
+// ── Tests ─────────────────────────────────────────────────────────────────────
+
+suite('Custom element');
+
+test('sg-llm-stats is registered', () => {
+    assert(customElements.get('sg-llm-stats') !== undefined);
+});
+
+test('renders estimate, last-request, session, and streaming sections', () => {
+    const { comp, cleanup } = makeComp();
+    assert(comp.shadowRoot.getElementById('est-tok')       !== null, 'no est-tok');
+    assert(comp.shadowRoot.getElementById('last-prompt')   !== null, 'no last-prompt');
+    assert(comp.shadowRoot.getElementById('sess-cost')     !== null, 'no sess-cost');
+    assert(comp.shadowRoot.getElementById('streaming-toggle') !== null, 'no streaming-toggle');
+    cleanup();
+});
+
+test('streaming toggle starts checked', () => {
+    const { comp, cleanup } = makeComp();
+    const toggle = comp.shadowRoot.getElementById('streaming-toggle');
+    assert(toggle.checked, 'streaming should default to on');
+    cleanup();
+});
+
+// ── Pre-send estimate ─────────────────────────────────────────────────────────
+
+suite('Pre-send estimate');
+
+test('REALITY_CHANGED updates token estimate display', async () => {
+    const { bus, comp, cleanup } = makeComp();
+    dispatch(bus, SGL_LLM.REALITY_CHANGED, { tokenCount: 1234, messages: [], estimatedCost: 0, imageCount: 0 });
+    await Promise.resolve();
+    const tok = comp.shadowRoot.getElementById('est-tok');
+    assertIncludes(tok.textContent, '1', 'should show token count');
+    cleanup();
+});
+
+test('estimate updates to 0 when tokenCount is 0', async () => {
+    const { bus, comp, cleanup } = makeComp();
+    dispatch(bus, SGL_LLM.REALITY_CHANGED, { tokenCount: 500, messages: [], estimatedCost: 0, imageCount: 0 });
+    await Promise.resolve();
+    dispatch(bus, SGL_LLM.REALITY_CHANGED, { tokenCount: 0,   messages: [], estimatedCost: 0, imageCount: 0 });
+    await Promise.resolve();
+    assertIncludes(comp.shadowRoot.getElementById('est-tok').textContent, '0');
+    cleanup();
+});
+
+// ── REQUEST_START ─────────────────────────────────────────────────────────────
+
+suite('REQUEST_START');
+
+test('shows sending indicator', async () => {
+    const { bus, comp, cleanup } = makeComp();
+    dispatch(bus, SGL_LLM.REQUEST_START, {});
+    await Promise.resolve();
+    const ind = comp.shadowRoot.getElementById('sending-ind');
+    assert(!ind.classList.contains('hidden'), 'sending indicator should be visible');
+    cleanup();
+});
+
+// ── REQUEST_COMPLETE ──────────────────────────────────────────────────────────
+
+suite('REQUEST_COMPLETE');
+
+test('updates last-request metrics', async () => {
+    const { bus, comp, cleanup } = makeComp();
+    dispatch(bus, SGL_LLM.REQUEST_START, {});
+    dispatch(bus, SGL_LLM.REQUEST_COMPLETE, {
+        promptTokens: 500, completionTokens: 120, cost: 0.0012, latencyMs: 800,
+    });
+    await Promise.resolve();
+    assertIncludes(comp.shadowRoot.getElementById('last-prompt').textContent,     '500');
+    assertIncludes(comp.shadowRoot.getElementById('last-completion').textContent, '120');
+    assertIncludes(comp.shadowRoot.getElementById('last-cost').textContent,       '0.0012');
+    assertIncludes(comp.shadowRoot.getElementById('last-latency').textContent,    '800');
+    cleanup();
+});
+
+test('calculates speed (tok/s)', async () => {
+    const { bus, comp, cleanup } = makeComp();
+    dispatch(bus, SGL_LLM.REQUEST_COMPLETE, {
+        promptTokens: 100, completionTokens: 100, cost: 0, latencyMs: 1000, // 100 tok/s
+    });
+    await Promise.resolve();
+    assertIncludes(comp.shadowRoot.getElementById('last-speed').textContent, '100');
+    cleanup();
+});
+
+test('hides sending indicator after complete', async () => {
+    const { bus, comp, cleanup } = makeComp();
+    dispatch(bus, SGL_LLM.REQUEST_START, {});
+    dispatch(bus, SGL_LLM.REQUEST_COMPLETE, { promptTokens: 10, completionTokens: 5, cost: 0, latencyMs: 100 });
+    await Promise.resolve();
+    assert(comp.shadowRoot.getElementById('sending-ind').classList.contains('hidden'), 'should hide after complete');
+    cleanup();
+});
+
+// ── Session totals ────────────────────────────────────────────────────────────
+
+suite('Session totals');
+
+test('accumulates across multiple requests', async () => {
+    const { bus, comp, cleanup } = makeComp();
+    dispatch(bus, SGL_LLM.REQUEST_COMPLETE, { promptTokens: 100, completionTokens: 50, cost: 0.001, latencyMs: 500 });
+    await Promise.resolve();
+    dispatch(bus, SGL_LLM.REQUEST_COMPLETE, { promptTokens: 200, completionTokens: 80, cost: 0.002, latencyMs: 600 });
+    await Promise.resolve();
+
+    assertIncludes(comp.shadowRoot.getElementById('sess-prompt').textContent,     '300');
+    assertIncludes(comp.shadowRoot.getElementById('sess-completion').textContent, '130');
+    // Cost: 0.001 + 0.002 = 0.003 → displayed as $0.0030
+    assertIncludes(comp.shadowRoot.getElementById('sess-cost').textContent,       '0.003');
+    cleanup();
+});
+
+test('request count badge increments', async () => {
+    const { bus, comp, cleanup } = makeComp();
+    dispatch(bus, SGL_LLM.REQUEST_COMPLETE, { promptTokens: 10, completionTokens: 5, cost: 0, latencyMs: 100 });
+    dispatch(bus, SGL_LLM.REQUEST_COMPLETE, { promptTokens: 10, completionTokens: 5, cost: 0, latencyMs: 100 });
+    await Promise.resolve();
+    assertIncludes(comp.shadowRoot.getElementById('req-badge').textContent, '2');
+    cleanup();
+});
+
+// ── Streaming toggle ──────────────────────────────────────────────────────────
+
+suite('Streaming toggle');
+
+test('toggle emits STREAMING_CHANGED with streaming:false when unchecked', async () => {
+    const { bus, comp, cleanup } = makeComp();
+    const p = nextEvent(bus, SGL_LLM.STREAMING_CHANGED);
+    comp.shadowRoot.getElementById('streaming-toggle').click();
+    const detail = await p;
+    assert(detail.streaming === false, 'should emit streaming:false on uncheck');
+    cleanup();
+});
+
+test('toggle emits STREAMING_CHANGED with streaming:true on re-check', async () => {
+    const { bus, comp, cleanup } = makeComp();
+    const toggle = comp.shadowRoot.getElementById('streaming-toggle');
+    toggle.click(); // off
+    await Promise.resolve();
+    const p = nextEvent(bus, SGL_LLM.STREAMING_CHANGED);
+    toggle.click(); // on
+    const detail = await p;
+    assert(detail.streaming === true, 'should emit streaming:true on re-check');
+    cleanup();
+});
+
+// ── REQUEST_ERROR / REQUEST_CANCEL ────────────────────────────────────────────
+
+suite('Error / cancel');
+
+test('REQUEST_ERROR hides sending indicator', async () => {
+    const { bus, comp, cleanup } = makeComp();
+    dispatch(bus, SGL_LLM.REQUEST_START, {});
+    dispatch(bus, SGL_LLM.REQUEST_ERROR, { error: 'fail' });
+    await Promise.resolve();
+    assert(comp.shadowRoot.getElementById('sending-ind').classList.contains('hidden'), 'should hide on error');
+    cleanup();
+});
+
+test('REQUEST_CANCEL hides sending indicator', async () => {
+    const { bus, comp, cleanup } = makeComp();
+    dispatch(bus, SGL_LLM.REQUEST_START, {});
+    dispatch(bus, SGL_LLM.REQUEST_CANCEL, {});
+    await Promise.resolve();
+    assert(comp.shadowRoot.getElementById('sending-ind').classList.contains('hidden'), 'should hide on cancel');
+    cleanup();
+});
+
+// ── getStats ──────────────────────────────────────────────────────────────────
+
+suite('getStats');
+
+test('returns snapshot of last + session + streaming', async () => {
+    const { bus, comp, cleanup } = makeComp();
+    dispatch(bus, SGL_LLM.REQUEST_COMPLETE, { promptTokens: 100, completionTokens: 50, cost: 0.001, latencyMs: 400 });
+    await Promise.resolve();
+    const stats = comp.getStats();
+    assert('last'      in stats, 'missing last');
+    assert('session'   in stats, 'missing session');
+    assert('streaming' in stats, 'missing streaming');
+    assert(stats.last.promptTokens === 100, 'last.promptTokens');
+    assert(stats.session.requests  === 1,   'session.requests');
+    cleanup();
+});
+
+// ── Render ────────────────────────────────────────────────────────────────────
+
+const resultsEl = document.getElementById('results');
+const summaryEl = document.getElementById('summary');
+
+for (const s of suites) {
+    const suiteDiv = document.createElement('div');
+    suiteDiv.className = 'suite';
+    suiteDiv.innerHTML = `<div class="suite-title">${s.name}</div>`;
+    for (const t of s.tests) {
+        const div = document.createElement('div');
+        div.className = `test ${t.ok ? 'pass' : 'fail'}`;
+        div.innerHTML = `
+            <span class="icon">${t.ok ? '✓' : '✗'}</span>
+            <div><div>${t.name}</div>${t.ok ? '' : `<div class="detail msg">${t.msg}</div>`}</div>`;
+        suiteDiv.appendChild(div);
+    }
+    resultsEl.appendChild(suiteDiv);
+}
+
+const total = passed + failed;
+summaryEl.textContent = failed === 0 ? `✓ All ${total} tests passed` : `✗ ${failed} of ${total} tests failed`;
+summaryEl.className   = `test-summary ${failed === 0 ? 'pass' : 'fail'}`;
+
+// ── Demo — simulate a sequence of events ──────────────────────────────────────
+
+const demoBus  = document.getElementById('demo-bus');
+const demoComp = document.createElement('sg-llm-stats');
+demoComp.style.cssText = 'display:flex;flex-direction:column;height:100%;';
+document.getElementById('demo-container').appendChild(demoComp);
+
+// Simulate a reality being built, then a request completing
+setTimeout(() => {
+    dispatch(demoBus, SGL_LLM.REALITY_CHANGED, { tokenCount: 842, messages: [], estimatedCost: 0, imageCount: 0 });
+}, 500);
+setTimeout(() => {
+    dispatch(demoBus, SGL_LLM.REQUEST_START, { tokenEstimate: 842 });
+}, 1500);
+setTimeout(() => {
+    dispatch(demoBus, SGL_LLM.REQUEST_COMPLETE, {
+        promptTokens: 842, completionTokens: 317, cost: 0.0014, latencyMs: 1230,
+    });
+}, 3000);
+setTimeout(() => {
+    dispatch(demoBus, SGL_LLM.REALITY_CHANGED, { tokenCount: 1050, messages: [], estimatedCost: 0, imageCount: 0 });
+}, 4000);
+demoBus.addEventListener(SGL_LLM.STREAMING_CHANGED, (e) => console.log('STREAMING_CHANGED', e.detail));
+</script>
+</body>
+</html>

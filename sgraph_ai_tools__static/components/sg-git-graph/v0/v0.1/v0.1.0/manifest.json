@@ -1,0 +1,32 @@
+{
+  "name": "sg-git-graph",
+  "version": "0.1.0",
+  "tag": "sg-git-graph",
+  "class": "SgGitGraph",
+  "file": "sg-git-graph.js",
+  "description": "Interactive branch and commit graph visualiser. Pure SVG rendering, no external dependencies. Phase 1: static JSON data source. Supports branches, merges, abandoned branches, click-to-inspect commits.",
+  "dataFormat": {
+    "branches": "Array of { id, label, color? }",
+    "commits":  "Array of { id, branch, message, author?, timestamp?, parents[], merge?, branchPoint?, abandoned? }"
+  },
+  "attributes": {
+    "graph": "JSON string of { branches, commits } — loaded on connectedCallback"
+  },
+  "events": {
+    "emits": [
+      "sg-git-graph:commit-selected — { commit } — user clicked a node",
+      "sg-git-graph:commit-deselected — {} — selection cleared"
+    ]
+  },
+  "api": {
+    "setGraph":       "Load graph from JS object { branches, commits }",
+    "loadUrl":        "Fetch JSON from URL and load (returns Promise)",
+    "getSelected":    "Returns currently selected commit or null",
+    "clearSelection": "Deselect current commit"
+  },
+  "phase": 1,
+  "futurePhases": {
+    "2": "Live SGit vault data source via structure key",
+    "3": "Programmatic API for real-time LLM thread visualisation"
+  }
+}

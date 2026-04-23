@@ -1,0 +1,404 @@
+<!DOCTYPE html>
+<html lang="en-GB">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Tests — sg-pyodide.js</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: 'SF Mono', 'Fira Code', 'Consolas', monospace;
+            background: #0a0e1a;
+            color: #e2e8f0;
+            padding: 2rem;
+            line-height: 1.6;
+        }
+        h1 { font-size: 1.25rem; margin-bottom: 0.5rem; color: #4ECDC4; }
+        .note { font-size: 0.75rem; color: #64748b; margin-bottom: 1rem; }
+        h2 { font-size: 1rem; margin: 1.5rem 0 0.75rem; color: #94a3b8; border-bottom: 1px solid #1e293b; padding-bottom: 0.25rem; }
+        .test       { padding: 0.25rem 0; font-size: 0.8125rem; }
+        .test.pass  { color: #4ECDC4; }
+        .test.fail  { color: #e94560; }
+        .test.skip  { color: #ffc107; }
+        .test.info  { color: #64748b; }
+        .summary {
+            margin-top: 1.5rem;
+            padding: 1rem;
+            border-radius: 6px;
+            font-size: 0.875rem;
+            font-weight: 600;
+        }
+        .summary.all-pass { background: rgba(78,205,196,0.15); color: #4ECDC4; border: 1px solid rgba(78,205,196,0.3); }
+        .summary.has-fail { background: rgba(233,69,96,0.15); color: #e94560; border: 1px solid rgba(233,69,96,0.3); }
+        .summary.running  { background: rgba(255,193,7,0.15); color: #ffc107; border: 1px solid rgba(255,193,7,0.3); }
+        .detail     { color: #64748b; font-size: 0.75rem; margin-left: 1.5rem; }
+        .spinner {
+            display: inline-block;
+            width: 12px; height: 12px;
+            border: 2px solid #1e293b;
+            border-top-color: #4ECDC4;
+            border-radius: 50%;
+            animation: spin 0.6s linear infinite;
+            vertical-align: middle;
+            margin-right: 0.5rem;
+        }
+        @keyframes spin { to { transform: rotate(360deg); } }
+    </style>
+</head>
+<body>
+    <h1>sg-pyodide.js — Test Suite</h1>
+    <p class="note">This test downloads Pyodide (~20 MB). First run may take 10-30 seconds. Results are cached.</p>
+    <div id="output"></div>
+    <div id="summary" class="summary running"><span class="spinner"></span>Loading Pyodide...</div>
+
+    <script type="module">
+        import {
+            loadPyodide   as loadPyodideRuntime,
+            getStatus,
+            runPython,
+            runPythonCapture,
+            installPackages,
+            isPackageAvailable,
+            checkVaultCompatibility,
+            deriveVaultKeysPython,
+            PYODIDE_CDN_URL
+        } from '/core/pyodide/v1/v1.0/v1.0.0/sg-pyodide.js'
+
+        import {
+            parseVaultKey,
+            deriveVaultKeys
+        } from '/core/vault-client/v1/v1.0/v1.0.0/sg-vault-client.js'
+
+        const output  = document.getElementById('output')
+        const summaryDiv = document.getElementById('summary')
+        let passed = 0, failed = 0, total = 0
+
+        function log(msg, cls) {
+            const div = document.createElement('div')
+            div.className = `test ${cls}`
+            div.textContent = msg
+            output.appendChild(div)
+        }
+
+        function detail(msg) {
+            const div = document.createElement('div')
+            div.className = 'detail'
+            div.textContent = msg
+            output.appendChild(div)
+        }
+
+        function heading(msg) {
+            const h = document.createElement('h2')
+            h.textContent = msg
+            output.appendChild(h)
+        }
+
+        function assert(condition, testName, extra) {
+            total++
+            if (condition) {
+                passed++
+                log(`PASS  ${testName}`, 'pass')
+            } else {
+                failed++
+                log(`FAIL  ${testName}`, 'fail')
+                if (extra) detail(extra)
+            }
+        }
+
+        function assertEqual(actual, expected, testName) {
+            total++
+            if (actual === expected) {
+                passed++
+                log(`PASS  ${testName}`, 'pass')
+            } else {
+                failed++
+                log(`FAIL  ${testName}`, 'fail')
+                detail(`Expected: ${expected}`)
+                detail(`Actual:   ${actual}`)
+            }
+        }
+
+        function bytesToHex(bytes) {
+            return Array.from(bytes).map(b => b.toString(16).padStart(2, '0')).join('')
+        }
+
+        const t0 = performance.now()
+
+        // =====================================================================
+        // Module exports
+        // =====================================================================
+        heading('Module exports')
+        assert(typeof loadPyodideRuntime === 'function', 'loadPyodide is exported')
+        assert(typeof getStatus === 'function', 'getStatus is exported')
+        assert(typeof runPython === 'function', 'runPython is exported')
+        assert(typeof runPythonCapture === 'function', 'runPythonCapture is exported')
+        assert(typeof installPackages === 'function', 'installPackages is exported')
+        assert(typeof isPackageAvailable === 'function', 'isPackageAvailable is exported')
+        assert(typeof checkVaultCompatibility === 'function', 'checkVaultCompatibility is exported')
+        assert(typeof deriveVaultKeysPython === 'function', 'deriveVaultKeysPython is exported')
+        assert(typeof PYODIDE_CDN_URL === 'string', 'PYODIDE_CDN_URL is exported')
+
+        // =====================================================================
+        // getStatus before load
+        // =====================================================================
+        heading('getStatus — before load')
+        {
+            const status = getStatus()
+            assert(status.loaded === false || status.loaded === true, 'status.loaded is boolean')
+            assert(typeof status.status === 'string', 'status.status is string')
+        }
+
+        // =====================================================================
+        // Load Pyodide
+        // =====================================================================
+        heading('loadPyodide')
+
+        let pyodide = null
+        const stages = []
+
+        try {
+            pyodide = await loadPyodideRuntime({
+                onProgress: ({ stage, detail: d }) => {
+                    stages.push(stage)
+                    log(`  [${stage}] ${d}`, 'info')
+                }
+            })
+
+            assert(pyodide !== null, 'Pyodide instance returned')
+            assert(typeof pyodide.runPythonAsync === 'function', 'pyodide.runPythonAsync is a function')
+            assert(stages.includes('ready'), 'Progress reported "ready" stage')
+
+            const status = getStatus()
+            assertEqual(status.status, 'ready', 'Status is "ready" after load')
+            assert(status.loaded === true, 'status.loaded is true after load')
+            assert(status.error === null, 'No error after successful load')
+
+        } catch (err) {
+            assert(false, `Pyodide failed to load: ${err.message}`)
+            summaryDiv.className = 'summary has-fail'
+            summaryDiv.innerHTML = `Pyodide failed to load. Cannot continue. Error: ${err.message}`
+            throw err
+        }
+
+        summaryDiv.innerHTML = '<span class="spinner"></span>Running tests...'
+
+        // =====================================================================
+        // Singleton behaviour
+        // =====================================================================
+        heading('loadPyodide — singleton')
+
+        {
+            const py2 = await loadPyodideRuntime()
+            assert(py2 === pyodide, 'Second call returns same instance (singleton)')
+        }
+
+        // =====================================================================
+        // runPython
+        // =====================================================================
+        heading('runPython')
+
+        {
+            const version = await runPython(pyodide, 'import sys; sys.version')
+            assert(typeof version === 'string', `Python version: ${version}`)
+            assert(version.includes('3.'), 'Python version starts with 3.')
+
+            const result = await runPython(pyodide, '2 + 3')
+            assertEqual(result, 5, 'runPython("2 + 3") returns 5')
+
+            const platform = await runPython(pyodide, 'import sys; sys.platform')
+            assertEqual(platform, 'emscripten', 'Platform is emscripten (WASM)')
+        }
+
+        // =====================================================================
+        // runPythonCapture
+        // =====================================================================
+        heading('runPythonCapture')
+
+        {
+            const { stdout, stderr } = await runPythonCapture(pyodide, 'print("hello from pyodide")')
+            assert(stdout.includes('hello from pyodide'), 'Captures stdout')
+            assertEqual(stderr, '', 'No stderr for clean code')
+        }
+
+        // =====================================================================
+        // isPackageAvailable
+        // =====================================================================
+        heading('isPackageAvailable')
+
+        {
+            const hasSys = await isPackageAvailable(pyodide, 'sys')
+            assert(hasSys === true, 'sys is available (stdlib)')
+
+            const hasJson = await isPackageAvailable(pyodide, 'json')
+            assert(hasJson === true, 'json is available (stdlib)')
+
+            const hasFake = await isPackageAvailable(pyodide, 'nonexistent_package_xyz_123')
+            assert(hasFake === false, 'Nonexistent package is not available')
+        }
+
+        // =====================================================================
+        // Built-in stdlib crypto modules
+        // =====================================================================
+        heading('Python stdlib crypto (hashlib, hmac)')
+
+        {
+            const hasHashlib = await isPackageAvailable(pyodide, 'hashlib')
+            assert(hasHashlib === true, 'hashlib is available')
+
+            const hasHmac = await isPackageAvailable(pyodide, 'hmac')
+            assert(hasHmac === true, 'hmac is available')
+
+            // Verify SHA-256 works
+            const sha256 = await runPython(pyodide, `
+import hashlib
+hashlib.sha256(b'test').hexdigest()
+`)
+            assertEqual(sha256, '9f86d081884c7d659a2feaa0c55ad015a3bf4f1b2b0b822cd15d6c15b0f00a08', 'SHA-256 produces correct hash')
+
+            // Verify HMAC-SHA256 works
+            const hmacResult = await runPython(pyodide, `
+import hmac, hashlib
+hmac.new(b'key', b'message', hashlib.sha256).hexdigest()
+`)
+            assertEqual(hmacResult, '6e9ef29b75fffc5b7abae527d58fdadb2fe42e7219011976917343065f58ed4a', 'HMAC-SHA256 produces correct result')
+        }
+
+        // =====================================================================
+        // PBKDF2 in Python (cryptography fallback)
+        // =====================================================================
+        heading('PBKDF2 in Python (cryptography fallback)')
+
+        {
+            // hashlib.pbkdf2_hmac is NOT available in Pyodide (Emscripten build).
+            // Use cryptography.hazmat which is loaded as a Pyodide built-in.
+            await pyodide.loadPackage('cryptography')
+            const pbkdf2Result = await runPython(pyodide, `
+from cryptography.hazmat.primitives.kdf.pbkdf2 import PBKDF2HMAC
+from cryptography.hazmat.primitives import hashes
+kdf = PBKDF2HMAC(algorithm=hashes.SHA256(), length=32, salt=b'salt', iterations=1000)
+kdf.derive(b'password').hex()
+`)
+            assert(typeof pbkdf2Result === 'string' && pbkdf2Result.length === 64, 'PBKDF2 produces 32-byte key')
+            assert(/^[0-9a-f]{64}$/.test(pbkdf2Result), 'PBKDF2 output is valid hex')
+        }
+
+        // =====================================================================
+        // deriveVaultKeysPython — Test Vector 1
+        // =====================================================================
+        heading('deriveVaultKeysPython — Test Vector 1')
+
+        {
+            const t1 = performance.now()
+            const pyKeys = await deriveVaultKeysPython(pyodide, 'my-secret-passphrase', 'a1b2c3d4')
+            const pyTime = performance.now() - t1
+
+            assertEqual(pyKeys.read_key_hex, 'a9cbcf15b4719384a732594405f138a2a42895fe56710dcfbd1324369f735124', 'Python read_key matches test vector')
+            assertEqual(pyKeys.write_key, '3181d6650958b51fd00f913f6290eca22e6b09da661c8e831fc89fe659df378e', 'Python write_key matches test vector')
+            assertEqual(pyKeys.tree_file_id, '4bc7e18f0779', 'Python tree_file_id matches test vector')
+            assertEqual(pyKeys.settings_file_id, '591414eaaa88', 'Python settings_file_id matches test vector')
+            assert(pyKeys.python_version.includes('3.'), `Python version: ${pyKeys.python_version}`)
+            log(`  Derivation time: ${Math.round(pyTime)}ms`, 'info')
+        }
+
+        // =====================================================================
+        // deriveVaultKeysPython — Test Vector 2
+        // =====================================================================
+        heading('deriveVaultKeysPython — Test Vector 2')
+
+        {
+            const pyKeys = await deriveVaultKeysPython(pyodide, 'pass:with:colons', 'deadbeef')
+
+            assertEqual(pyKeys.read_key_hex, 'a903fc429b2806e6c05ba0d21271d982f451bd3c78e4899a8ee6e0fbed3d9b3f', 'Python read_key matches test vector 2')
+            assertEqual(pyKeys.write_key, '3da59de516555d963eaf4c5d3179893acd9045bb0df69f3c89c0bed915a77f96', 'Python write_key matches test vector 2')
+            assertEqual(pyKeys.tree_file_id, '220ae644906a', 'Python tree_file_id matches test vector 2')
+            assertEqual(pyKeys.settings_file_id, '5398a4d71d8d', 'Python settings_file_id matches test vector 2')
+        }
+
+        // =====================================================================
+        // Cross-language: Python vs JavaScript
+        // =====================================================================
+        heading('Cross-language: Python vs JavaScript — Vector 1')
+
+        {
+            const pyKeys = await deriveVaultKeysPython(pyodide, 'my-secret-passphrase', 'a1b2c3d4')
+            const jsKeys = await deriveVaultKeys('my-secret-passphrase', 'a1b2c3d4')
+            const jsReadHex = bytesToHex(jsKeys.readKeyBytes)
+
+            assertEqual(pyKeys.read_key_hex, jsReadHex, 'Python read_key === JS read_key')
+            assertEqual(pyKeys.write_key, jsKeys.writeKey, 'Python write_key === JS write_key')
+            assertEqual(pyKeys.tree_file_id, jsKeys.treeFileId, 'Python tree_file_id === JS tree_file_id')
+            assertEqual(pyKeys.settings_file_id, jsKeys.settingsFileId, 'Python settings_file_id === JS settings_file_id')
+        }
+
+        heading('Cross-language: Python vs JavaScript — Vector 2')
+
+        {
+            const pyKeys = await deriveVaultKeysPython(pyodide, 'pass:with:colons', 'deadbeef')
+            const jsKeys = await deriveVaultKeys('pass:with:colons', 'deadbeef')
+            const jsReadHex = bytesToHex(jsKeys.readKeyBytes)
+
+            assertEqual(pyKeys.read_key_hex, jsReadHex, 'Python read_key === JS read_key')
+            assertEqual(pyKeys.write_key, jsKeys.writeKey, 'Python write_key === JS write_key')
+            assertEqual(pyKeys.tree_file_id, jsKeys.treeFileId, 'Python tree_file_id === JS tree_file_id')
+            assertEqual(pyKeys.settings_file_id, jsKeys.settingsFileId, 'Python settings_file_id === JS settings_file_id')
+        }
+
+        // =====================================================================
+        // Cross-language: Random passphrase
+        // =====================================================================
+        heading('Cross-language: Python vs JavaScript — Random passphrase')
+
+        {
+            const randomPassphrase = 'rand-' + crypto.getRandomValues(new Uint8Array(8)).join('')
+            const randomVaultId = Array.from(crypto.getRandomValues(new Uint8Array(4)))
+                .map(b => b.toString(16).padStart(2, '0')).join('')
+
+            const pyKeys = await deriveVaultKeysPython(pyodide, randomPassphrase, randomVaultId)
+            const jsKeys = await deriveVaultKeys(randomPassphrase, randomVaultId)
+            const jsReadHex = bytesToHex(jsKeys.readKeyBytes)
+
+            assertEqual(pyKeys.read_key_hex, jsReadHex, `Random read_key match (${randomPassphrase}:${randomVaultId})`)
+            assertEqual(pyKeys.write_key, jsKeys.writeKey, 'Random write_key match')
+            assertEqual(pyKeys.tree_file_id, jsKeys.treeFileId, 'Random tree_file_id match')
+            assertEqual(pyKeys.settings_file_id, jsKeys.settingsFileId, 'Random settings_file_id match')
+        }
+
+        // =====================================================================
+        // Compatibility check
+        // =====================================================================
+        heading('checkVaultCompatibility')
+
+        {
+            const results = await checkVaultCompatibility(pyodide, ({ stage, detail: d }) => {
+                log(`  [${stage}] ${d}`, 'info')
+            })
+
+            assert(Array.isArray(results.compatible), 'Results has compatible array')
+            assert(Array.isArray(results.incompatible), 'Results has incompatible array')
+            assert(typeof results.overall === 'boolean', 'Results has overall boolean')
+
+            // At minimum, hashlib and hmac should be compatible
+            const compatNames = results.compatible.map(c => c.name)
+            assert(compatNames.includes('hashlib'), 'hashlib is compatible')
+            assert(compatNames.includes('hmac'), 'hmac is compatible')
+            assert(compatNames.includes('json'), 'json is compatible')
+
+            log(`  Compatible: ${results.compatible.map(c => c.name).join(', ')}`, 'info')
+            if (results.incompatible.length > 0) {
+                log(`  Incompatible: ${results.incompatible.map(c => `${c.name} (${c.error})`).join(', ')}`, 'skip')
+            }
+        }
+
+        // =====================================================================
+        // Summary
+        // =====================================================================
+        const elapsed = performance.now() - t0
+
+        summaryDiv.className = `summary ${failed === 0 ? 'all-pass' : 'has-fail'}`
+        summaryDiv.innerHTML = `${passed}/${total} tests passed, ${failed} failed — ${Math.round(elapsed)}ms (includes Pyodide download)`
+
+        document.title = `${failed === 0 ? 'PASS' : 'FAIL'} — sg-pyodide.js (${passed}/${total})`
+        console.log(`sg-pyodide tests: ${passed}/${total} passed, ${failed} failed (${Math.round(elapsed)}ms)`)
+    </script>
+</body>
+</html>

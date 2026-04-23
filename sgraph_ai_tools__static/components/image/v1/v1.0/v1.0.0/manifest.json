@@ -1,0 +1,24 @@
+{
+  "name": "sg-image-components",
+  "version": "1.0.0",
+  "description": "Image editor Web Components — crop, redact, text overlay, format conversion",
+  "files": [
+    "sg-image-editor.js",
+    "sg-image-editor.css",
+    "sg-image-crop.js",
+    "sg-image-crop.css",
+    "sg-image-redact.js",
+    "sg-image-redact.css",
+    "sg-image-text.js",
+    "sg-image-text.css"
+  ],
+  "exports": {
+    "sg-image-editor.js": ["SgImageEditor"],
+    "sg-image-crop.js": ["SgImageCrop"],
+    "sg-image-redact.js": ["SgImageRedact"],
+    "sg-image-text.js": ["SgImageText"]
+  },
+  "dependencies": {
+    "sg-image.js": "/core/image/v1/v1.0/v1.0.0/sg-image.js"
+  }
+}

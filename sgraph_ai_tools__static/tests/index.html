@@ -1,0 +1,267 @@
+<!DOCTYPE html>
+<html lang="en-GB">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Test Suite — tools.sgraph.ai</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: 'SF Mono', 'Fira Code', 'Consolas', monospace;
+            background: #0a0e1a;
+            color: #e2e8f0;
+            padding: 2rem;
+            line-height: 1.6;
+            max-width: 900px;
+        }
+        h1 { font-size: 1.25rem; margin-bottom: 0.25rem; color: #4ECDC4; }
+        .subtitle { font-size: 0.8125rem; color: #64748b; margin-bottom: 2rem; }
+        h2 {
+            font-size: 0.7rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.1em;
+            color: #475569;
+            margin: 2rem 0 0.75rem;
+            padding-bottom: 0.4rem;
+            border-bottom: 1px solid #1e293b;
+        }
+        ul { list-style: none; }
+        li {
+            padding: 0.6rem 1rem;
+            margin-bottom: 4px;
+            background: #111827;
+            border: 1px solid #1e293b;
+            border-radius: 6px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            gap: 1rem;
+        }
+        li:hover { border-color: #2d4060; }
+        a {
+            color: #e2e8f0;
+            text-decoration: none;
+            font-size: 0.875rem;
+            flex: 1;
+        }
+        a:hover { color: #4ECDC4; }
+        .desc {
+            font-size: 0.75rem;
+            color: #475569;
+            margin-left: 0.5rem;
+        }
+        .badge {
+            font-size: 0.6875rem;
+            padding: 0.125rem 0.5rem;
+            border-radius: 999px;
+            font-weight: 600;
+            white-space: nowrap;
+            flex-shrink: 0;
+        }
+        .fast    { background: rgba(74,222,128,0.12); color: #4ade80; }
+        .slow    { background: rgba(255,193,7,0.12);  color: #ffc107; }
+        .unit    { background: rgba(124,158,248,0.12); color: #7c9ef8; }
+        .smoke   { background: rgba(168,85,247,0.12);  color: #c084fc; }
+        .demo    { background: rgba(148,163,184,0.12); color: #94a3b8; }
+        .note {
+            margin-top: 2rem;
+            padding: 1rem;
+            background: rgba(78,205,196,0.04);
+            border: 1px solid #1e293b;
+            border-radius: 6px;
+            font-size: 0.8125rem;
+            color: #94a3b8;
+            line-height: 1.6;
+        }
+        .note strong { color: #4ECDC4; }
+    </style>
+</head>
+<body>
+    <h1>tests.sgraph.ai</h1>
+    <p class="subtitle">Browser-based test suite for tools.sgraph.ai — components, core modules, and tools</p>
+
+    <!-- ── LLM Tools ──────────────────────────────────────────────────── -->
+    <h2>LLM Tools — Integration Smoke Tests</h2>
+    <ul>
+        <li>
+            <a href="sg-llm/tools/chat.test.html">Chat</a>
+            <span class="desc">Multi-turn chat with history + attachments</span>
+            <span class="badge smoke">smoke</span>
+        </li>
+        <li>
+            <a href="sg-llm/tools/one-shot-chat.test.html">One-Shot Chat</a>
+            <span class="desc">One-shot reality constructor + response</span>
+            <span class="badge smoke">smoke</span>
+        </li>
+        <li>
+            <a href="sg-llm/tools/infographic-gen.test.html">Infographic Generator</a>
+            <span class="desc">Text → SVG infographic via LLM</span>
+            <span class="badge smoke">smoke</span>
+        </li>
+        <li>
+            <a href="sg-llm/tools/llm-dev.test.html">LLM Dev Environment</a>
+            <span class="desc">Full dev environment with bundle history</span>
+            <span class="badge smoke">smoke</span>
+        </li>
+    </ul>
+
+    <!-- ── sg-llm Chat components ─────────────────────────────────────── -->
+    <h2>sg-llm — Chat Components</h2>
+    <ul>
+        <li>
+            <a href="sg-llm/chat-history.test.html">sg-llm-chat-history</a>
+            <span class="desc">Conversation display, streaming, message assembly, export</span>
+            <span class="badge unit">unit</span>
+        </li>
+        <li>
+            <a href="sg-llm/chat-input.test.html">sg-llm-chat-input</a>
+            <span class="desc">Message input bar, attachments, send/cancel, disable</span>
+            <span class="badge unit">unit</span>
+        </li>
+    </ul>
+
+    <!-- ── sg-llm Core components ─────────────────────────────────────── -->
+    <h2>sg-llm — Core Components</h2>
+    <ul>
+        <li>
+            <a href="sg-llm/connection.test.html">sg-llm-connection</a>
+            <span class="desc">Provider/model/key management, localStorage, CONNECTED event</span>
+            <span class="badge unit">unit</span>
+        </li>
+        <li>
+            <a href="sg-llm/request.test.html">sg-llm-request</a>
+            <span class="desc">Headless fetch engine, streaming, SEND/REQUEST_* events</span>
+            <span class="badge unit">unit</span>
+        </li>
+        <li>
+            <a href="sg-llm/model-picker.test.html">sg-llm-model-picker</a>
+            <span class="desc">Compact model dropdown, provider switching, live refresh</span>
+            <span class="badge unit">unit</span>
+        </li>
+        <li>
+            <a href="sg-llm/output.test.html">sg-llm-output</a>
+            <span class="desc">Streaming response display, markdown, copy/download</span>
+            <span class="badge unit">unit</span>
+        </li>
+        <li>
+            <a href="sg-llm/reality-core.test.html">sg-llm-reality-core</a>
+            <span class="desc">Block factory, token estimation, message assembly (pure JS)</span>
+            <span class="badge unit">unit</span>
+        </li>
+        <li>
+            <a href="sg-llm/reality-block.test.html">sg-llm-reality-block</a>
+            <span class="desc">Single block editor — all 5 types, setData/getData, events</span>
+            <span class="badge unit">unit</span>
+        </li>
+        <li>
+            <a href="sg-llm/reality.test.html">sg-llm-reality</a>
+            <span class="desc">Reality orchestrator, block management, send modes, bundle restore</span>
+            <span class="badge unit">unit</span>
+        </li>
+        <li>
+            <a href="sg-llm/attachments.test.html">sg-llm-attachments</a>
+            <span class="desc">File drop, clipboard paste, attachment cache, model warning</span>
+            <span class="badge unit">unit</span>
+        </li>
+        <li>
+            <a href="sg-llm/stats.test.html">sg-llm-stats</a>
+            <span class="desc">Token accounting, cost tracking, streaming toggle</span>
+            <span class="badge unit">unit</span>
+        </li>
+        <li>
+            <a href="sg-llm/debug.test.html">sg-llm-debug</a>
+            <span class="desc">Request inspector, SEND capture, colour-coded badges</span>
+            <span class="badge unit">unit</span>
+        </li>
+        <li>
+            <a href="sg-llm/infographic.test.html">sg-llm-infographic</a>
+            <span class="desc">SVG extraction, live streaming preview, style presets, export</span>
+            <span class="badge unit">unit</span>
+        </li>
+        <li>
+            <a href="sg-llm/bundle.test.html">sg-llm-bundle</a>
+            <span class="desc">Save/load/delete, parent_id chain, auto-save, index management</span>
+            <span class="badge unit">unit</span>
+        </li>
+        <li>
+            <a href="sg-llm/bundle-list.test.html">sg-llm-bundle-list</a>
+            <span class="desc">Bundle browser, active highlight, click-to-load, delete</span>
+            <span class="badge unit">unit</span>
+        </li>
+    </ul>
+
+    <!-- ── sg-audio-viz ──────────────────────────────────────────────── -->
+    <h2>sg-audio-viz — Audio-reactive Animation</h2>
+    <ul>
+        <li>
+            <a href="sg-audio-viz/v0.1.0.test.html">sg-audio-viz v0.1.0</a>
+            <span class="desc">Unit tests + interactive demo: mic, oscillator, 6 modes, captureStream()</span>
+            <span class="badge unit">unit + demo</span>
+        </li>
+    </ul>
+
+    <!-- ── sg-layout ──────────────────────────────────────────────────── -->
+    <h2>sg-layout — Window Management</h2>
+    <ul>
+        <li>
+            <a href="sg-layout/v0.1.0.test.html">sg-layout v0.1.0</a>
+            <span class="desc">23 tests: layout tree, panels, tab stacks, serialisation, fractal nesting</span>
+            <span class="badge unit">unit</span>
+        </li>
+        <li>
+            <a href="sg-layout/v0.1.2-fractal-demo.html">sg-layout fractal demo</a>
+            <span class="desc">Interactive nested layout demo</span>
+            <span class="badge demo">demo</span>
+        </li>
+        <li>
+            <a href="sg-layout/v0.1.3-drag-demo.html">sg-layout drag-to-dock demo</a>
+            <span class="desc">Drag tabs between panels, split on drop</span>
+            <span class="badge demo">demo</span>
+        </li>
+    </ul>
+
+    <!-- ── Core modules ───────────────────────────────────────────────── -->
+    <h2>Core Modules</h2>
+    <ul>
+        <li>
+            <a href="test-vault-client.html">sg-vault-client</a>
+            <span class="desc">PBKDF2 key derivation, AES-256-GCM, vault file decryption</span>
+            <span class="badge fast">~3s</span>
+        </li>
+        <li>
+            <a href="test-vault-tree-model.html">sg-vault-tree-model</a>
+            <span class="desc">In-memory tree: STUB/LOADED states, mutations, serialisation, stats</span>
+            <span class="badge unit">unit</span>
+        </li>
+        <li>
+            <a href="test-vault-mutations.html">sg-vault-mutations</a>
+            <span class="desc">9 mutation ops with mock session: add/update/remove/rename/move files+folders</span>
+            <span class="badge unit">unit</span>
+        </li>
+        <li>
+            <a href="test-pyodide.html">sg-pyodide</a>
+            <span class="desc">Python WASM, stdlib crypto, cross-language key derivation comparison</span>
+            <span class="badge slow">~30s (20 MB WASM)</span>
+        </li>
+        <li>
+            <a href="test-sg-send-cli-install.html">sg-send-cli install</a>
+            <span class="desc">Pyodide package install, sg-send-cli from PyPI</span>
+            <span class="badge slow">slow</span>
+        </li>
+    </ul>
+
+    <div class="note">
+        <p>
+            <strong>How to run:</strong> Click any test to open it. Pages run automatically
+            and show PASS/FAIL results. Requires a <strong>secure context</strong> (HTTPS or localhost).
+        </p>
+        <p style="margin-top:0.5rem;">
+            <strong>Unit</strong> — isolated component tests, fast (&lt;1s).
+            <strong>Smoke</strong> — integration tests verifying tool pages mount correctly.
+            <strong>Demo</strong> — interactive pages, not automated.
+            <strong>Slow</strong> — downloads WASM (~20 MB), use browser cache on repeat runs.
+        </p>
+    </div>
+</body>
+</html>

@@ -1,0 +1,24 @@
+{
+  "name": "sg-llm-response-inspector",
+  "version": "0.1.0",
+  "tag": "sg-llm-response-inspector",
+  "class": "SgLlmResponseInspector",
+  "file": "sg-llm-response-inspector.js",
+  "description": "Collapsible JSON browser for LLM response data. Listens for llm:request-complete events and displays: Summary (key fields), Images (inline preview), Chunks (raw SSE chunk-by-chunk navigation), Full Data (collapsible JSON tree). Compatible with OpenRouter, Anthropic, Ollama, OpenAI. Requires sg-llm-request v0.1.1+ for rawChunks/images/rawResponse fields.",
+  "events": {
+    "listens": [
+      "llm:request-complete — from sg-llm-request; uses detail.rawChunks, detail.images, detail.rawResponse, detail.model, detail.finishReason, detail.latencyMs, detail.promptTokens, detail.completionTokens"
+    ]
+  },
+  "api": {
+    "clear":   "Clear the current response data and reset to empty state",
+    "getData": "Returns the last captured REQUEST_COMPLETE event detail, or null"
+  },
+  "tabs": {
+    "summary":  "Key fields: model, finish_reason, latency, token counts, image count, chunk count",
+    "images":   "Inline image previews from detail.images[] — supports OpenAI image_url and Anthropic base64 formats",
+    "chunks":   "Raw SSE chunks with Prev/Next navigation — shows full parsed JSON per chunk",
+    "fulldata": "Collapsible JSON tree of all response data with Expand All / Collapse All controls"
+  },
+  "requires": "sg-llm-request v0.1.1+"
+}

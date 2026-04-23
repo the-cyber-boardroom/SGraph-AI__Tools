@@ -1,0 +1,138 @@
+/* =============================================================================
+   SGraph — Locale Picker Component Styles
+   v1.0.1 — Dropdown language selector with flag emojis
+
+   Matches the sgraph.ai website locale picker.
+
+   Changes from v1.0.0:
+     - Fix: [hidden] attribute now respected on .locale-picker__english-switch
+       (Shadow DOM component CSS was overriding the user-agent hidden rule)
+   ============================================================================= */
+
+:host {
+    display: inline-flex;
+    align-items: center;
+}
+
+.locale-picker {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+}
+
+/* ── English Quick-Switch ──────────────────────────────────────────────── */
+
+.locale-picker__english-switch {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    font-size: var(--sg-fs-xs, 0.75rem);
+    padding: 0.25rem 0.5rem;
+    border: none;
+    background: transparent;
+    color: var(--sg-text-muted, #8892A0);
+    text-decoration: none;
+    font-family: var(--sg-font-body, system-ui, sans-serif);
+    white-space: nowrap;
+    margin-right: 0.25rem;
+    transition: color var(--sg-transition-fast, 150ms ease);
+}
+
+.locale-picker__english-switch[hidden] {
+    display: none;
+}
+
+.locale-picker__english-switch:hover {
+    color: var(--sg-accent, #4ECDC4);
+}
+
+/* ── Dropdown ──────────────────────────────────────────────────────────── */
+
+.locale-picker__dropdown {
+    position: relative;
+    display: inline-block;
+}
+
+.locale-picker__trigger {
+    -webkit-appearance: none;
+    appearance: none;
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    font-size: var(--sg-fs-xs, 0.75rem);
+    padding: 0.25rem 0.6rem;
+    border-radius: var(--sg-radius, 6px);
+    color: var(--sg-accent, #4ECDC4);
+    background: transparent;
+    border: 1px solid var(--sg-accent, #4ECDC4);
+    cursor: pointer;
+    font-family: var(--sg-font-body, system-ui, sans-serif);
+    transition: color var(--sg-transition-fast, 150ms ease), background var(--sg-transition-fast, 150ms ease);
+    white-space: nowrap;
+}
+
+.locale-picker__trigger:hover {
+    color: var(--sg-text-heading, #FFFFFF);
+    background: var(--sg-accent-subtle, rgba(78, 205, 196, 0.12));
+}
+
+.locale-picker__trigger svg {
+    width: 14px;
+    height: 14px;
+    flex-shrink: 0;
+}
+
+/* ── Menu ──────────────────────────────────────────────────────────────── */
+
+.locale-picker__menu {
+    display: none;
+    position: absolute;
+    top: calc(100% + 4px);
+    right: 0;
+    min-width: 400px;
+    background: var(--sg-bg-secondary, #16213E);
+    border: 1px solid var(--sg-border, #2C3E6B);
+    border-radius: var(--sg-radius, 6px);
+    box-shadow: 0 2px 12px rgba(0, 0, 0, 0.25);
+    z-index: 100;
+    padding: var(--sg-sp-2, 8px) var(--sg-sp-1, 4px);
+    grid-template-columns: 1fr 1fr;
+}
+
+@media (max-width: 480px) {
+    .locale-picker__menu {
+        min-width: 260px;
+        grid-template-columns: 1fr;
+    }
+}
+
+.locale-picker__dropdown.open .locale-picker__menu {
+    display: grid;
+}
+
+.locale-picker__item {
+    -webkit-appearance: none;
+    appearance: none;
+    display: block;
+    width: 100%;
+    padding: 0.5rem 0.75rem;
+    font-size: 0.8rem;
+    font-family: var(--sg-font-body, system-ui, sans-serif);
+    color: var(--sg-text-muted, #8892A0);
+    background: none;
+    border: none;
+    text-align: left;
+    cursor: pointer;
+    white-space: nowrap;
+    transition: color var(--sg-transition-fast, 150ms ease), background var(--sg-transition-fast, 150ms ease);
+}
+
+.locale-picker__item:hover {
+    color: var(--sg-text-heading, #FFFFFF);
+    background: var(--sg-accent-subtle, rgba(78, 205, 196, 0.12));
+}
+
+.locale-picker__item--active {
+    color: var(--sg-accent, #4ECDC4);
+    font-weight: var(--sg-fw-medium, 500);
+}

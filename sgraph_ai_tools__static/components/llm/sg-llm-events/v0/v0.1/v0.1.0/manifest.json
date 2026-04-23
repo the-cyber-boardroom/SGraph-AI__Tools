@@ -1,0 +1,12 @@
+{
+    "name": "sg-llm-events",
+    "version": "0.1.0",
+    "description": "Shared event name constants for the sg-llm component family. Frozen at v0.1.0 — additions only.",
+    "files": [
+        "sg-llm-events.js"
+    ],
+    "exports": {
+        "sg-llm-events.js": ["SGL_LLM"]
+    },
+    "dependencies": {}
+}

@@ -1,0 +1,200 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>sg-tree v0.1.3 — Multi-Select Tests</title>
+<style>
+  body { font-family: monospace; background: #0d0d1a; color: #e2e8f0; padding: 20px; margin: 0; }
+  h1   { color: #4ECDC4; font-size: 16px; margin-bottom: 16px; }
+  #results { list-style: none; padding: 0; margin: 0 0 20px; }
+  #results li { padding: 4px 8px; margin: 2px 0; border-radius: 3px; font-size: 13px; }
+  .pass { background: rgba(78,205,196,0.1); color: #4ECDC4; }
+  .fail { background: rgba(255,100,100,0.1); color: #ff6b6b; }
+  #summary { font-size: 13px; color: #a0aec0; margin-bottom: 24px; }
+  .trees { display: flex; gap: 20px; flex-wrap: wrap; }
+  .tree-wrap { width: 280px; }
+  .tree-wrap h3 { font-size: 12px; color: #5a6478; margin: 0 0 4px; }
+  sg-tree { width: 280px; height: 280px; display: block; border: 1px solid #2a2a4a; }
+  .tree-wrap button { background: #1a1a3a; border: 1px solid #2a2a4a; color: #e2e8f0; padding: 4px 10px;
+    border-radius: 3px; cursor: pointer; font-size: 11px; margin: 2px 2px 0 0; }
+  .tree-wrap button:hover { border-color: #4ECDC4; }
+  #sel-log { font-size: 11px; color: #a0aec0; margin-top: 8px; }
+</style>
+</head>
+<body>
+<h1>sg-tree v0.1.3 — Multi-Select Tests</h1>
+<ul id="results"></ul>
+<div id="summary"></div>
+
+<div class="trees">
+  <div class="tree-wrap">
+    <h3>Multi-select (Shift/Ctrl click to test)</h3>
+    <sg-tree id="multi" selectable="multi"></sg-tree>
+    <button onclick="_multi.selectAll()">selectAll()</button>
+    <button onclick="_multi.deselectAll()">deselectAll()</button>
+    <div id="sel-log">—</div>
+  </div>
+  <div class="tree-wrap">
+    <h3>Single-select (backwards compat)</h3>
+    <sg-tree id="single" selectable="single"></sg-tree>
+    <div id="single-log">—</div>
+  </div>
+</div>
+
+<script type="module">
+import '../../core/sg-tree/v0/v0.1/v0.1.3/sg-tree--v0.1.3.js';
+
+const results = [];
+let pass = 0, fail = 0;
+
+function assert(label, cond, detail = '') {
+    const ok = Boolean(cond);
+    results.push({ label, ok, detail });
+    if (ok) pass++; else fail++;
+}
+
+async function sleep(ms) { return new Promise(r => setTimeout(r, ms)); }
+
+const multi  = document.getElementById('multi');
+const single = document.getElementById('single');
+window._multi  = multi;
+window._single = single;
+
+const DATA = {
+    id: 'root', label: 'Root', type: 'folder', children: [
+        { id: 'a', label: 'Alpha',   type: 'file' },
+        { id: 'b', label: 'Beta',    type: 'file' },
+        { id: 'c', label: 'Gamma',   type: 'file' },
+        { id: 'd', label: 'Delta',   type: 'file' },
+        { id: 'e', label: 'Epsilon', type: 'file' },
+        { id: 'f', label: 'Zeta', type: 'folder', children: [
+            { id: 'f1', label: 'Eta', type: 'file' },
+            { id: 'f2', label: 'Theta', type: 'file' },
+        ]},
+    ]
+};
+
+multi.setData(structuredClone(DATA));
+single.setData(structuredClone(DATA));
+await sleep(50);
+
+// --- New methods exist ---
+assert('getSelectedIds() exists', typeof multi.getSelectedIds === 'function');
+assert('selectAll() exists',      typeof multi.selectAll === 'function');
+assert('deselectAll() exists',    typeof multi.deselectAll === 'function');
+
+// --- Initial state ---
+assert('getSelectedIds() returns [] initially', multi.getSelectedIds().length === 0);
+assert('getSelectedId() returns null initially', multi.getSelectedId() === null);
+
+// --- selectAll ---
+multi.selectAll();
+const allIds = multi.getSelectedIds();
+// Visible nodes at start: root + 5 files + f folder + 2 children (f collapsed) = root + 6
+// show-root default=true, f not expanded: root, a, b, c, d, e, f => 7 visible
+assert('selectAll(): all visible selected', allIds.length === 7, `got ${allIds.length}`);
+assert('selectAll(): "a" included', allIds.includes('a'));
+assert('selectAll(): "root" included', allIds.includes('root'));
+
+// --- deselectAll ---
+multi.deselectAll();
+assert('deselectAll() clears selection', multi.getSelectedIds().length === 0);
+assert('getSelectedId() null after deselectAll', multi.getSelectedId() === null);
+
+// --- Programmatic select (single in multi mode) ---
+multi.select('b');
+await sleep(20);
+const afterSelect = multi.getSelectedIds();
+assert('select(id) works in multi mode', multi.getSelectedId() === 'b');
+
+// --- _rangeSelect ---
+multi.select('a');
+await sleep(20);
+multi._anchorId = 'a';
+multi._rangeSelect('a', 'c');
+await sleep(20);
+const rangeIds = multi.getSelectedIds();
+assert('_rangeSelect selects a,b,c', rangeIds.length === 3, `got ${JSON.stringify(rangeIds)}`);
+assert('_rangeSelect includes a', rangeIds.includes('a'));
+assert('_rangeSelect includes b', rangeIds.includes('b'));
+assert('_rangeSelect includes c', rangeIds.includes('c'));
+assert('_rangeSelect excludes d', !rangeIds.includes('d'));
+
+// --- reverse range ---
+multi._rangeSelect('c', 'a');
+await sleep(20);
+const reverseIds = multi.getSelectedIds();
+assert('_rangeSelect works in reverse (c→a)', reverseIds.length === 3);
+
+// --- getSelectedId() backwards compat ---
+multi.deselectAll();
+multi.select('d');
+await sleep(20);
+assert('getSelectedId() returns primary selected', multi.getSelectedId() === 'd');
+
+// --- SELECTION_CHANGED event ---
+let lastSelChange = null;
+multi.addEventListener('sg-tree:selection-changed', e => { lastSelChange = e.detail; }, { once: false });
+
+multi.deselectAll();
+await sleep(20);
+assert('deselectAll dispatches SELECTION_CHANGED', lastSelChange !== null);
+assert('deselectAll SELECTION_CHANGED has selectedIds=[]', lastSelChange && lastSelChange.selectedIds.length === 0);
+
+multi.selectAll();
+await sleep(20);
+assert('selectAll dispatches SELECTION_CHANGED with all ids', lastSelChange && lastSelChange.selectedIds.length > 0);
+
+// --- single mode: backwards compat ---
+single.select('c');
+await sleep(20);
+assert('Single mode: getSelectedId() works', single.getSelectedId() === 'c');
+// getSelectedIds should return ['c']
+const singleIds = single.getSelectedIds ? single.getSelectedIds() : null;
+assert('Single mode: getSelectedIds() returns [c]', singleIds && singleIds.length === 1 && singleIds[0] === 'c');
+
+single.select('e');
+await sleep(20);
+assert('Single mode: selecting new deselects old', single.getSelectedId() === 'e');
+
+// --- getLayoutState includes selectedIds ---
+multi.deselectAll();
+multi._rangeSelect('a', 'c');
+await sleep(20);
+const layout = multi.getLayoutState();
+assert('getLayoutState includes selectedIds', Array.isArray(layout.selectedIds));
+assert('getLayoutState.selectedIds has 3 entries', layout.selectedIds.length === 3);
+
+// --- setLayoutState restores multi selection ---
+multi.deselectAll();
+await sleep(20);
+multi.setLayoutState({ selectedIds: ['a', 'd'], selectedId: 'a', expandedIds: [] });
+await sleep(20);
+const restored = multi.getSelectedIds();
+assert('setLayoutState restores multi selection', restored.length === 2);
+assert('setLayoutState restores correct ids', restored.includes('a') && restored.includes('d'));
+
+// --- Render results ---
+const ul  = document.getElementById('results');
+const sum = document.getElementById('summary');
+for (const r of results) {
+    const li = document.createElement('li');
+    li.className = r.ok ? 'pass' : 'fail';
+    li.textContent = `${r.ok ? '✓' : '✗'}  ${r.label}${r.detail ? ' — ' + r.detail : ''}`;
+    ul.appendChild(li);
+}
+sum.textContent = `${pass} passed, ${fail} failed out of ${pass + fail} assertions`;
+
+// --- Live selection log ---
+multi.addEventListener('sg-tree:selection-changed', e => {
+    document.getElementById('sel-log').textContent =
+        'Selected: ' + JSON.stringify(e.detail.selectedIds);
+});
+single.addEventListener('sg-tree:selection-changed', e => {
+    document.getElementById('single-log').textContent =
+        'Selected: ' + JSON.stringify(e.detail.selectedIds);
+});
+</script>
+</body>
+</html>

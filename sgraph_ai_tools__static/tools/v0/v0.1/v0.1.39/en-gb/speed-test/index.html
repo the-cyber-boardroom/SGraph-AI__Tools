@@ -1,0 +1,35 @@
+<!DOCTYPE html>
+<html lang="en-GB">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Speed Test — tools.sgraph.ai</title>
+    <meta name="description" content="Measure upload and download speed to SG/Send infrastructure. Sim mode: AES-256-GCM crypto benchmark (offline). Live mode: real network throughput via ChunkedUploader/Downloader.">
+    <link rel="icon" type="image/svg+xml" href="../../../_common/favicon.svg">
+    <link rel="stylesheet" href="../../../_common/css/tools.css">
+    <link rel="stylesheet" href="/core/sg-layout/v0.1.0/sg-layout.css">
+    <style>
+        html, body {
+            height: 100%;
+            margin: 0;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+            background: #070b14;
+            color: #c8d0e0;
+        }
+        sg-site-header { flex-shrink: 0; }
+        #layout-wrap   { flex: 1; min-height: 0; display: flex; flex-direction: column; }
+    </style>
+</head>
+<body>
+
+<script type="module" src="/components/site-header/v1/v1.0/v1.0.2/sg-site-header.js"></script>
+<sg-site-header site="Tools" home-url="../../../"></sg-site-header>
+
+<div id="layout-wrap"></div>
+
+<script type="module" src="./speed-test.js"></script>
+
+</body>
+</html>

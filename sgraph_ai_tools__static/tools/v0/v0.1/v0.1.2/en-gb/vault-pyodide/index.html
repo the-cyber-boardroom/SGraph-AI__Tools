@@ -1,0 +1,712 @@
+<!DOCTYPE html>
+<html lang="en-GB">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Vault (Pyodide) — tools.sgraph.ai</title>
+    <meta name="description" content="Run Python vault operations in the browser via Pyodide (CPython in WebAssembly). Compatibility test for sg-send-cli running without any installation.">
+    <link rel="stylesheet" href="../../_common/css/tools.css">
+    <style>
+        .main {
+            flex: 1;
+            max-width: 900px;
+            margin: 0 auto;
+            padding: 2rem 1.5rem;
+            width: 100%;
+        }
+
+        h1 { font-size: 1.5rem; margin-bottom: 0.5rem; }
+
+        .subtitle {
+            color: var(--sg-text-muted);
+            font-size: 0.9375rem;
+            margin-bottom: 2rem;
+            line-height: 1.5;
+        }
+
+        .badge--experimental {
+            background: rgba(255,193,7,0.15);
+            color: #ffc107;
+            font-size: 0.6875rem;
+            font-weight: 600;
+            padding: 0.125rem 0.5rem;
+            border-radius: var(--sg-radius-pill);
+            margin-left: 0.5rem;
+            vertical-align: middle;
+        }
+
+        .section {
+            background: var(--sg-bg-card);
+            border: 1px solid var(--sg-border);
+            border-radius: var(--sg-radius);
+            padding: 1.5rem;
+            margin-bottom: 1.5rem;
+        }
+
+        .section h2 {
+            font-size: 1rem;
+            margin-bottom: 0.75rem;
+        }
+
+        .progress-log {
+            font-family: var(--sg-font-mono);
+            font-size: 0.75rem;
+            line-height: 1.8;
+            max-height: 300px;
+            overflow-y: auto;
+            background: var(--sg-bg-secondary, #16213E);
+            border: 1px solid var(--sg-border);
+            border-radius: var(--sg-radius);
+            padding: 0.75rem;
+            margin-top: 0.75rem;
+        }
+
+        .log-entry         { color: var(--sg-text-muted); }
+        .log-entry.ok      { color: var(--sg-accent); }
+        .log-entry.fail    { color: var(--sg-error); }
+        .log-entry.warn    { color: #ffc107; }
+        .log-entry.heading { color: var(--sg-text); font-weight: 600; margin-top: 0.5rem; }
+
+        .compat-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr 120px;
+            gap: 0.25rem 1rem;
+            font-size: 0.8125rem;
+            margin-top: 0.75rem;
+        }
+
+        .compat-grid .header {
+            font-weight: 600;
+            color: var(--sg-text-dim);
+            border-bottom: 1px solid var(--sg-border);
+            padding-bottom: 0.25rem;
+            margin-bottom: 0.25rem;
+        }
+
+        .compat-grid .status-ok   { color: var(--sg-accent); font-weight: 600; }
+        .compat-grid .status-fail { color: var(--sg-error); font-weight: 600; }
+
+        .key-section label {
+            display: block;
+            font-size: 0.875rem;
+            font-weight: 600;
+            margin-bottom: 0.5rem;
+        }
+
+        .key-section .hint {
+            color: var(--sg-text-dim);
+            font-size: 0.75rem;
+            margin-bottom: 0.75rem;
+        }
+
+        .key-input-wrap {
+            display: flex;
+            gap: 0.5rem;
+        }
+
+        .key-input-wrap input {
+            flex: 1;
+            padding: 0.625rem 0.75rem;
+            background: var(--sg-bg-secondary, #16213E);
+            color: var(--sg-text);
+            border: 1px solid var(--sg-border);
+            border-radius: var(--sg-radius);
+            font-family: var(--sg-font-mono);
+            font-size: 0.8125rem;
+            outline: none;
+        }
+
+        .key-input-wrap input:focus { border-color: var(--sg-accent); }
+        .key-input-wrap input::placeholder { color: var(--sg-text-dim); }
+
+        .results-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 1rem;
+            font-size: 0.8125rem;
+        }
+
+        .results-table th {
+            text-align: left;
+            font-weight: 600;
+            color: var(--sg-text-dim);
+            padding: 0.5rem;
+            border-bottom: 1px solid var(--sg-border);
+        }
+
+        .results-table td {
+            padding: 0.5rem;
+            font-family: var(--sg-font-mono);
+            font-size: 0.75rem;
+            word-break: break-all;
+            border-bottom: 1px solid rgba(100,100,100,0.1);
+        }
+
+        .results-table .label-col { font-weight: 600; color: var(--sg-text-dim); white-space: nowrap; }
+
+        .match-ok   { color: var(--sg-accent); font-weight: 600; }
+        .match-fail { color: var(--sg-error); font-weight: 600; }
+
+        .comparison-section {
+            display: none;
+            margin-top: 1.5rem;
+        }
+
+        .comparison-section.visible { display: block; }
+
+        .comparison-section h2 {
+            font-size: 1rem;
+            margin-bottom: 0.5rem;
+        }
+
+        .status-bar {
+            margin-top: 1rem;
+            font-size: 0.8125rem;
+            padding: 0.5rem 0.75rem;
+            border-radius: var(--sg-radius);
+            display: none;
+        }
+
+        .status-bar.visible { display: block; }
+        .status-bar.info    { color: var(--sg-accent); background: rgba(78,205,196,0.1); border: 1px solid rgba(78,205,196,0.2); }
+        .status-bar.error   { color: var(--sg-error); background: rgba(233,69,96,0.1); border: 1px solid rgba(233,69,96,0.2); }
+        .status-bar.success { color: var(--sg-accent); background: rgba(78,205,196,0.1); border: 1px solid rgba(78,205,196,0.2); }
+
+        .info-box {
+            margin-top: 2rem;
+            padding: 1rem;
+            background: rgba(78,205,196,0.05);
+            border: 1px solid var(--sg-border);
+            border-radius: var(--sg-radius);
+        }
+
+        .info-box h3 { font-size: 0.875rem; margin-bottom: 0.5rem; color: var(--sg-accent); }
+        .info-box p  { color: var(--sg-text-muted); font-size: 0.8125rem; line-height: 1.6; }
+        .info-box ul { color: var(--sg-text-muted); font-size: 0.8125rem; line-height: 1.8; padding-left: 1.25rem; margin-top: 0.5rem; }
+
+        .spinner {
+            display: inline-block;
+            width: 14px; height: 14px;
+            border: 2px solid var(--sg-border);
+            border-top-color: var(--sg-accent);
+            border-radius: 50%;
+            animation: spin 0.6s linear infinite;
+            vertical-align: middle;
+            margin-right: 0.5rem;
+        }
+
+        @keyframes spin { to { transform: rotate(360deg); } }
+
+        .btn-group { display: flex; gap: 0.75rem; flex-wrap: wrap; margin-top: 1rem; }
+    </style>
+</head>
+<body>
+    <script type="module" src="/components/site-header/v1/v1.0/v1.0.1/sg-site-header.js"></script>
+    <script type="module" src="/components/locale-picker/v1/v1.0/v1.0.1/sg-locale-picker.js"></script>
+    <sg-site-header
+        site="Tools"
+        home-url="/en-gb/">
+        <sg-locale-picker slot="locale" locale="en-gb" base-path="/"></sg-locale-picker>
+    </sg-site-header>
+
+    <script type="module">
+        import { buildToolsNav } from '../../_common/js/sg-nav.js'
+        document.querySelector('sg-site-header').whenReady().then(() => {
+            buildToolsNav(document.querySelector('sg-site-header'))
+        }).catch(() => {
+            buildToolsNav(document.querySelector('sg-site-header'))
+        })
+    </script>
+
+    <div class="main">
+        <h1>Vault (Pyodide) <span class="badge--experimental">Experimental</span></h1>
+        <p class="subtitle">
+            Run Python vault operations entirely in the browser via Pyodide (CPython compiled to WebAssembly).
+            This tool tests whether sg-send-cli's vault crypto can work without any Python installation.
+        </p>
+
+        <!-- Step 1: Load Pyodide -->
+        <div class="section" id="section-load">
+            <h2>Step 1 — Load Python Runtime</h2>
+            <p style="color:var(--sg-text-muted);font-size:0.8125rem;margin-bottom:0.75rem;">
+                Downloads Pyodide (~20 MB) from CDN. First load may take 10-30 seconds depending on connection.
+                Subsequent visits use browser cache.
+            </p>
+            <button class="btn" id="load-btn">Load Pyodide</button>
+            <div id="load-log" class="progress-log" style="display:none;"></div>
+        </div>
+
+        <!-- Step 2: Compatibility Check -->
+        <div class="section" id="section-compat" style="opacity:0.5;pointer-events:none;">
+            <h2>Step 2 — Dependency Compatibility Check</h2>
+            <p style="color:var(--sg-text-muted);font-size:0.8125rem;margin-bottom:0.75rem;">
+                Tests whether sg-send-cli's key dependencies are available in the Pyodide WASM environment.
+            </p>
+            <button class="btn" id="compat-btn">Run Compatibility Check</button>
+            <div id="compat-log" class="progress-log" style="display:none;"></div>
+            <div id="compat-grid" class="compat-grid" style="display:none;"></div>
+        </div>
+
+        <!-- Step 3: Vault Key Derivation (Pyodide vs JS) -->
+        <div class="section" id="section-derive" style="opacity:0.5;pointer-events:none;">
+            <h2>Step 3 — Vault Key Derivation: Python vs JavaScript</h2>
+            <p style="color:var(--sg-text-muted);font-size:0.8125rem;margin-bottom:0.75rem;">
+                Derives vault keys using both Python (via Pyodide) and JavaScript (via Web Crypto API),
+                then compares the results. Both should produce identical output — proving wire compatibility.
+            </p>
+            <div class="key-section">
+                <label for="test-key">Test Vault Key</label>
+                <p class="hint">Use a known test vector or enter any key in passphrase:vault_id format</p>
+                <div class="key-input-wrap">
+                    <input type="text" id="test-key" value="my-secret-passphrase:a1b2c3d4" placeholder="passphrase:vault_id">
+                    <button class="btn" id="derive-btn">Derive Keys</button>
+                </div>
+            </div>
+            <div id="derive-status" class="status-bar"></div>
+        </div>
+
+        <!-- Comparison Results -->
+        <div id="comparison" class="comparison-section">
+            <div class="section">
+                <h2>Results: Python vs JavaScript Key Derivation</h2>
+                <table class="results-table" id="results-table">
+                    <thead>
+                        <tr>
+                            <th>Field</th>
+                            <th>Python (Pyodide)</th>
+                            <th>JavaScript (Web Crypto)</th>
+                            <th>Match</th>
+                        </tr>
+                    </thead>
+                    <tbody id="results-body"></tbody>
+                </table>
+                <div id="derive-timing" style="margin-top:0.75rem;font-size:0.75rem;color:var(--sg-text-dim);"></div>
+            </div>
+
+            <div class="section" id="section-known-vectors" style="display:none;">
+                <h2>Known Test Vectors</h2>
+                <p style="color:var(--sg-text-muted);font-size:0.8125rem;margin-bottom:0.5rem;">
+                    Cross-validated against sg-send-cli's test suite:
+                </p>
+                <div id="vectors-results"></div>
+            </div>
+        </div>
+
+        <div class="btn-group" id="extra-actions" style="display:none;">
+            <button class="btn btn--secondary" id="run-vectors-btn">Run Known Test Vectors</button>
+            <button class="btn btn--secondary" id="run-python-btn">Run Custom Python</button>
+        </div>
+
+        <!-- Step 4: Python REPL -->
+        <div class="section" id="section-repl" style="opacity:0.5;pointer-events:none;">
+            <h2>Step 4 — Python REPL</h2>
+            <p style="color:var(--sg-text-muted);font-size:0.8125rem;margin-bottom:0.75rem;">
+                Interactive Python console running in your browser via Pyodide.
+                All stdlib modules and installed packages (cryptography, httpx, pydantic) are available.
+            </p>
+            <div id="repl-history" class="progress-log" style="min-height:120px;max-height:400px;"></div>
+            <div style="display:flex;gap:0.5rem;margin-top:0.5rem;align-items:flex-end;">
+                <textarea id="python-input" rows="3" style="flex:1;background:var(--sg-bg-secondary,#16213E);color:var(--sg-text);border:1px solid var(--sg-border);border-radius:var(--sg-radius);padding:0.75rem;font-family:var(--sg-font-mono);font-size:0.8125rem;resize:vertical;outline:none;" placeholder=">>> Type Python code here (Shift+Enter to run)"></textarea>
+                <button class="btn" id="run-code-btn" style="height:fit-content;">Run</button>
+            </div>
+            <p style="color:var(--sg-text-dim);font-size:0.6875rem;margin-top:0.375rem;">
+                Shift+Enter to run &nbsp;|&nbsp; Enter for newline &nbsp;|&nbsp;
+                Up arrow to recall last command
+            </p>
+        </div>
+
+        <div class="info-box">
+            <h3>What This Proves</h3>
+            <p>If Python and JavaScript produce identical vault keys, it confirms:</p>
+            <ul>
+                <li>Pyodide can run vault crypto in the browser (no Python install needed)</li>
+                <li>PBKDF2-SHA256 with 600K iterations works in WASM</li>
+                <li>HMAC-SHA256 file ID derivation is cross-language compatible</li>
+                <li>sg-send-cli could eventually run entirely client-side</li>
+            </ul>
+            <p style="margin-top:0.75rem;">
+                The pure JS <a href="../vault-browser/" style="color:var(--sg-accent);">Vault Browser</a>
+                uses only Web Crypto and is faster (no WASM download). This tool validates that
+                Pyodide is a viable path for more complex Python vault operations (branching, merging)
+                that don't have JS equivalents yet.
+            </p>
+        </div>
+    </div>
+
+    <script type="module" src="/components/site-footer/v1/v1.0/v1.0.0/sg-site-footer.js"></script>
+    <sg-site-footer
+        brand-desc="Free browser-based tools that run entirely on your device. No uploads, no servers, no tracking."
+        columns='[{"title":"Tools","links":[{"label":"Vault Browser (JS)","href":"../vault-browser/"},{"label":"Vault (Pyodide)","href":"./"},{"label":"All Tools","href":"/en-gb/"}]},{"title":"SGraph","links":[{"label":"sgraph.ai","href":"https://sgraph.ai/en-gb/"},{"label":"send.sgraph.ai","href":"https://send.sgraph.ai"},{"label":"GitHub","href":"https://github.com/the-cyber-boardroom/SGraph-AI__Tools"}]}]'>
+    </sg-site-footer>
+
+    <script src="../../_common/js/build-info.js"></script>
+    <div id="build-version" style="text-align:center;color:var(--sg-text-dim, #4a5568);font-size:0.7rem;padding:8px 0;opacity:0.6;background:var(--sg-bg-secondary, #16213E);"></div>
+    <script>
+        (function() {
+            var b = window.SGRAPH_BUILD || { appVersion: 'v0.1.0', uiVersion: 'v0.1.2' };
+            var el = document.getElementById('build-version');
+            if (el) el.textContent = b.appVersion + '  \u00b7  UI ' + b.uiVersion + (b.buildTime ? '  \u00b7  ' + b.buildTime : '');
+        })();
+    </script>
+
+    <script type="module">
+        import {
+            loadPyodide          as loadPyodideRuntime,
+            checkVaultCompatibility,
+            deriveVaultKeysPython,
+            runPythonCapture
+        } from '/core/pyodide/v1/v1.0/v1.0.0/sg-pyodide.js'
+
+        import {
+            parseVaultKey,
+            deriveVaultKeys
+        } from '/core/vault-client/v1/v1.0/v1.0.0/sg-vault-client.js'
+
+        // --- Elements ---
+        const loadBtn     = document.getElementById('load-btn')
+        const loadLog     = document.getElementById('load-log')
+        const compatBtn   = document.getElementById('compat-btn')
+        const compatLog   = document.getElementById('compat-log')
+        const compatGrid  = document.getElementById('compat-grid')
+        const sectionCompat = document.getElementById('section-compat')
+        const sectionDerive = document.getElementById('section-derive')
+        const deriveBtn   = document.getElementById('derive-btn')
+        const testKeyInput = document.getElementById('test-key')
+        const deriveStatus = document.getElementById('derive-status')
+        const comparisonDiv = document.getElementById('comparison')
+        const resultsBody = document.getElementById('results-body')
+        const deriveTiming = document.getElementById('derive-timing')
+        const extraActions = document.getElementById('extra-actions')
+        const runVectorsBtn = document.getElementById('run-vectors-btn')
+        const runPythonBtn  = document.getElementById('run-python-btn')
+        const sectionRepl   = document.getElementById('section-repl')
+        const runCodeBtn    = document.getElementById('run-code-btn')
+        const pythonInput   = document.getElementById('python-input')
+        const replHistory   = document.getElementById('repl-history')
+
+        let pyodide = null
+
+        // --- Step 1: Load Pyodide ---
+        loadBtn.addEventListener('click', async () => {
+            loadBtn.disabled    = true
+            loadBtn.textContent = 'Loading...'
+            loadLog.style.display = 'block'
+            loadLog.innerHTML   = ''
+
+            try {
+                pyodide = await loadPyodideRuntime({
+                    onProgress: ({ stage, detail }) => {
+                        appendLog(loadLog, detail, stage === 'error' ? 'fail' : 'ok')
+                    }
+                })
+
+                const version = await pyodide.runPythonAsync('import sys; sys.version')
+                appendLog(loadLog, `Python ${version}`, 'ok')
+                appendLog(loadLog, `Platform: ${await pyodide.runPythonAsync('import sys; sys.platform')}`, 'ok')
+
+                loadBtn.textContent = 'Loaded'
+                sectionCompat.style.opacity = '1'
+                sectionCompat.style.pointerEvents = 'auto'
+                sectionRepl.style.opacity = '1'
+                sectionRepl.style.pointerEvents = 'auto'
+
+            } catch (err) {
+                appendLog(loadLog, `Error: ${err.message}`, 'fail')
+                loadBtn.textContent = 'Retry'
+                loadBtn.disabled = false
+            }
+        })
+
+        // --- Step 2: Compatibility Check ---
+        compatBtn.addEventListener('click', async () => {
+            if (!pyodide) return
+            compatBtn.disabled    = true
+            compatBtn.textContent = 'Checking...'
+            compatLog.style.display = 'block'
+            compatLog.innerHTML   = ''
+
+            const results = await checkVaultCompatibility(pyodide, ({ stage, detail }) => {
+                const cls = stage === 'check-ok' ? 'ok' : stage === 'check-fail' ? 'fail' : ''
+                appendLog(compatLog, detail, cls)
+            })
+
+            compatGrid.style.display = 'grid'
+            compatGrid.innerHTML = `
+                <span class="header">Package</span>
+                <span class="header">Purpose</span>
+                <span class="header">Status</span>
+            `
+
+            for (const item of [...results.compatible, ...results.incompatible]) {
+                const statusCls = item.status === 'ok' ? 'status-ok' : 'status-fail'
+                const statusTxt = item.status === 'ok' ? 'OK' : 'FAILED'
+                compatGrid.innerHTML += `
+                    <span>${item.name}</span>
+                    <span style="color:var(--sg-text-muted)">${item.desc}</span>
+                    <span class="${statusCls}">${statusTxt}${item.critical ? ' (critical)' : ''}</span>
+                `
+            }
+
+            if (results.overall) {
+                appendLog(compatLog, 'All critical dependencies available. Vault crypto can run in Pyodide.', 'ok')
+            } else {
+                appendLog(compatLog, 'Some critical dependencies failed. See details above.', 'fail')
+            }
+
+            compatBtn.textContent = 'Done'
+            sectionDerive.style.opacity = '1'
+            sectionDerive.style.pointerEvents = 'auto'
+        })
+
+        // --- Step 3: Key Derivation Comparison ---
+        deriveBtn.addEventListener('click', async () => {
+            if (!pyodide) return
+            const rawKey = testKeyInput.value.trim()
+            if (!rawKey) return
+
+            deriveBtn.disabled    = true
+            deriveBtn.textContent = 'Deriving...'
+            showDeriveStatus('<span class="spinner"></span>Running PBKDF2 in Python (600K iterations)...', 'info')
+
+            try {
+                const { passphrase, vaultId } = parseVaultKey(rawKey)
+
+                // Python derivation
+                const pyStart  = performance.now()
+                const pyResult = await deriveVaultKeysPython(pyodide, passphrase, vaultId)
+                const pyTime   = performance.now() - pyStart
+
+                showDeriveStatus('<span class="spinner"></span>Running PBKDF2 in JavaScript (600K iterations)...', 'info')
+
+                // JS derivation
+                const jsStart  = performance.now()
+                const jsResult = await deriveVaultKeys(passphrase, vaultId)
+                const jsTime   = performance.now() - jsStart
+
+                // Convert JS readKeyBytes to hex for comparison
+                const jsReadKeyHex = Array.from(jsResult.readKeyBytes)
+                    .map(b => b.toString(16).padStart(2, '0')).join('')
+
+                // Build comparison
+                const fields = [
+                    { label: 'Read Key (hex)',     py: pyResult.read_key_hex,     js: jsReadKeyHex        },
+                    { label: 'Write Key (hex)',    py: pyResult.write_key,        js: jsResult.writeKey    },
+                    { label: 'Tree File ID',       py: pyResult.tree_file_id,     js: jsResult.treeFileId  },
+                    { label: 'Settings File ID',   py: pyResult.settings_file_id, js: jsResult.settingsFileId },
+                ]
+
+                resultsBody.innerHTML = ''
+                let allMatch = true
+
+                for (const f of fields) {
+                    const match = f.py === f.js
+                    if (!match) allMatch = false
+                    resultsBody.innerHTML += `
+                        <tr>
+                            <td class="label-col">${f.label}</td>
+                            <td>${f.py}</td>
+                            <td>${f.js}</td>
+                            <td class="${match ? 'match-ok' : 'match-fail'}">${match ? 'MATCH' : 'MISMATCH'}</td>
+                        </tr>
+                    `
+                }
+
+                deriveTiming.innerHTML = `
+                    Python (Pyodide): <strong>${Math.round(pyTime)} ms</strong> &nbsp;|&nbsp;
+                    JavaScript (Web Crypto): <strong>${Math.round(jsTime)} ms</strong> &nbsp;|&nbsp;
+                    Python version: ${pyResult.python_version}
+                `
+
+                comparisonDiv.classList.add('visible')
+                extraActions.style.display = 'flex'
+
+                if (allMatch) {
+                    showDeriveStatus('All keys match. Python and JavaScript produce identical vault keys.', 'success')
+                } else {
+                    showDeriveStatus('MISMATCH detected! See table above.', 'error')
+                }
+
+            } catch (err) {
+                showDeriveStatus(err.message, 'error')
+            }
+
+            deriveBtn.disabled    = false
+            deriveBtn.textContent = 'Derive Keys'
+        })
+
+        // --- Run Known Test Vectors ---
+        runVectorsBtn.addEventListener('click', async () => {
+            if (!pyodide) return
+
+            const vectors = [
+                {
+                    key: 'my-secret-passphrase:a1b2c3d4',
+                    expected: {
+                        read_key_hex:     'a9cbcf15b4719384a732594405f138a2a42895fe56710dcfbd1324369f735124',
+                        write_key:        '3181d6650958b51fd00f913f6290eca22e6b09da661c8e831fc89fe659df378e',
+                        tree_file_id:     '4bc7e18f0779',
+                        settings_file_id: '591414eaaa88'
+                    }
+                },
+                {
+                    key: 'pass:with:colons:deadbeef',
+                    expected: {
+                        read_key_hex:     'a903fc429b2806e6c05ba0d21271d982f451bd3c78e4899a8ee6e0fbed3d9b3f',
+                        write_key:        '3da59de516555d963eaf4c5d3179893acd9045bb0df69f3c89c0bed915a77f96',
+                        tree_file_id:     '220ae644906a',
+                        settings_file_id: '5398a4d71d8d'
+                    }
+                }
+            ]
+
+            const vectorsDiv = document.getElementById('vectors-results')
+            const sectionVec = document.getElementById('section-known-vectors')
+            sectionVec.style.display = 'block'
+            vectorsDiv.innerHTML = ''
+
+            for (const vec of vectors) {
+                const { passphrase, vaultId } = parseVaultKey(vec.key)
+
+                const pyResult = await deriveVaultKeysPython(pyodide, passphrase, vaultId)
+                const jsResult = await deriveVaultKeys(passphrase, vaultId)
+                const jsReadKeyHex = Array.from(jsResult.readKeyBytes)
+                    .map(b => b.toString(16).padStart(2, '0')).join('')
+
+                const checks = [
+                    { label: 'Read Key',      py: pyResult.read_key_hex,     js: jsReadKeyHex,            expected: vec.expected.read_key_hex     },
+                    { label: 'Write Key',     py: pyResult.write_key,        js: jsResult.writeKey,       expected: vec.expected.write_key        },
+                    { label: 'Tree File ID',  py: pyResult.tree_file_id,     js: jsResult.treeFileId,     expected: vec.expected.tree_file_id     },
+                    { label: 'Settings ID',   py: pyResult.settings_file_id, js: jsResult.settingsFileId, expected: vec.expected.settings_file_id },
+                ]
+
+                let html = `<h3 style="font-size:0.875rem;margin:1rem 0 0.5rem;">Vector: <code>${vec.key}</code></h3>`
+                html += '<table class="results-table"><thead><tr><th>Field</th><th>Expected</th><th>Python</th><th>JS</th><th>Status</th></tr></thead><tbody>'
+
+                for (const c of checks) {
+                    const pyOk = c.py === c.expected
+                    const jsOk = c.js === c.expected
+                    const both = pyOk && jsOk
+                    html += `<tr>
+                        <td class="label-col">${c.label}</td>
+                        <td>${c.expected}</td>
+                        <td class="${pyOk ? 'match-ok' : 'match-fail'}">${c.py}</td>
+                        <td class="${jsOk ? 'match-ok' : 'match-fail'}">${c.js}</td>
+                        <td class="${both ? 'match-ok' : 'match-fail'}">${both ? 'PASS' : 'FAIL'}</td>
+                    </tr>`
+                }
+
+                html += '</tbody></table>'
+                vectorsDiv.innerHTML += html
+            }
+        })
+
+        // --- Python REPL ---
+        let replCommandHistory = []
+        let replHistoryIndex   = -1
+
+        async function runReplCode() {
+            if (!pyodide) return
+            const code = pythonInput.value
+            if (!code.trim()) return
+
+            // Show input in history (>>> for first line, ... for continuation)
+            const codeLines = code.split('\n')
+            for (let i = 0; i < codeLines.length; i++) {
+                const prompt = i === 0 ? '>>>' : '...'
+                appendLog(replHistory, `${prompt} ${codeLines[i]}`, '')
+            }
+
+            // Store in command history
+            replCommandHistory.push(code)
+            replHistoryIndex = replCommandHistory.length
+
+            pythonInput.value = ''
+
+            try {
+                const { result, stdout, stderr, error } = await runPythonCapture(pyodide, code)
+
+                // Show stdout (print output)
+                if (stdout) {
+                    for (const line of stdout.trimEnd().split('\n')) {
+                        appendLog(replHistory, line, 'ok')
+                    }
+                }
+
+                // Show return value for expressions (like 2+2 → 4)
+                if (result !== undefined && result !== null) {
+                    appendLog(replHistory, String(result), 'ok')
+                }
+
+                // Show stderr warnings
+                if (stderr) {
+                    for (const line of stderr.trimEnd().split('\n')) {
+                        appendLog(replHistory, line, 'warn')
+                    }
+                }
+
+                // Show clean error (traceback without Pyodide internals)
+                if (error) {
+                    for (const line of error.split('\n')) {
+                        appendLog(replHistory, line, 'fail')
+                    }
+                }
+            } catch (err) {
+                // Fallback: extract just the last meaningful line from Pyodide errors
+                const msg = err.message || String(err)
+                const lines = msg.split('\n').filter(l => l.trim())
+                const lastLine = lines[lines.length - 1] || msg
+                appendLog(replHistory, lastLine, 'fail')
+            }
+
+            pythonInput.focus()
+        }
+
+        runCodeBtn.addEventListener('click', runReplCode)
+
+        pythonInput.addEventListener('keydown', (e) => {
+            // Shift+Enter to run
+            if (e.key === 'Enter' && e.shiftKey) {
+                e.preventDefault()
+                runReplCode()
+                return
+            }
+            // Up arrow to recall previous command (when on first line)
+            if (e.key === 'ArrowUp' && pythonInput.selectionStart === 0) {
+                e.preventDefault()
+                if (replHistoryIndex > 0) {
+                    replHistoryIndex--
+                    pythonInput.value = replCommandHistory[replHistoryIndex]
+                }
+            }
+            // Down arrow to go forward in history
+            if (e.key === 'ArrowDown' && pythonInput.selectionEnd === pythonInput.value.length) {
+                e.preventDefault()
+                if (replHistoryIndex < replCommandHistory.length - 1) {
+                    replHistoryIndex++
+                    pythonInput.value = replCommandHistory[replHistoryIndex]
+                } else {
+                    replHistoryIndex = replCommandHistory.length
+                    pythonInput.value = ''
+                }
+            }
+        })
+
+        // Hide the old toggle button since REPL is now always visible
+        runPythonBtn.style.display = 'none'
+
+        // --- Helpers ---
+        function appendLog(container, text, cls) {
+            const div = document.createElement('div')
+            div.className = `log-entry ${cls || ''}`
+            div.textContent = text
+            container.appendChild(div)
+            container.scrollTop = container.scrollHeight
+        }
+
+        function showDeriveStatus(msg, type) {
+            deriveStatus.innerHTML = msg
+            deriveStatus.className = `status-bar visible ${type}`
+        }
+    </script>
+</body>
+</html>

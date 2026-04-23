@@ -1,0 +1,272 @@
+<!DOCTYPE html>
+<html lang="en-GB">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Tests — sg-vault-mutations.js</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: 'SF Mono', 'Fira Code', 'Consolas', monospace;
+            background: #0a0e1a;
+            color: #e2e8f0;
+            padding: 2rem;
+            line-height: 1.6;
+        }
+        h1 { font-size: 1.25rem; margin-bottom: 1rem; color: #4ECDC4; }
+        h2 { font-size: 1rem; margin: 1.5rem 0 0.75rem; color: #94a3b8; border-bottom: 1px solid #1e293b; padding-bottom: 0.25rem; }
+        .test       { padding: 0.25rem 0; font-size: 0.8125rem; }
+        .test.pass  { color: #4ECDC4; }
+        .test.fail  { color: #e94560; }
+        .summary {
+            margin-top: 1.5rem;
+            padding: 1rem;
+            border-radius: 6px;
+            font-size: 0.875rem;
+            font-weight: 600;
+        }
+        .summary.all-pass { background: rgba(78,205,196,0.15); color: #4ECDC4; border: 1px solid rgba(78,205,196,0.3); }
+        .summary.has-fail { background: rgba(233,69,96,0.15); color: #e94560; border: 1px solid rgba(233,69,96,0.3); }
+        .detail     { color: #64748b; font-size: 0.75rem; margin-left: 1.5rem; }
+        .timing     { color: #64748b; font-size: 0.75rem; }
+    </style>
+</head>
+<body>
+    <h1>sg-vault-mutations.js — Test Suite (mock session)</h1>
+    <div id="output"></div>
+    <div id="summary"></div>
+
+    <script type="module">
+        import {
+            addFile, updateFile, removeFile, renameFile, moveFile,
+            createFolder, removeFolder, renameFolder, moveFolder,
+        } from '/core/vault-mutations/v1/v1.0/v1.0.0/sg-vault-mutations.js';
+
+        import { createTreeModel } from '/core/vault-tree-model/v1/v1.0/v1.0.0/sg-vault-tree-model.js';
+
+        const output  = document.getElementById('output');
+        const summary = document.getElementById('summary');
+        let passed = 0, failed = 0, total = 0;
+        const t0 = performance.now();
+
+        function log(msg, cls) {
+            const div = document.createElement('div');
+            div.className = `test ${cls}`;
+            div.textContent = msg;
+            output.appendChild(div);
+        }
+        function detail(msg) {
+            const div = document.createElement('div');
+            div.className = 'detail';
+            div.textContent = msg;
+            output.appendChild(div);
+        }
+        function heading(msg) {
+            const h = document.createElement('h2');
+            h.textContent = msg;
+            output.appendChild(h);
+        }
+        function assert(condition, testName, extra) {
+            total++;
+            if (condition) { passed++; log(`PASS  ${testName}`, 'pass'); }
+            else { failed++; log(`FAIL  ${testName}`, 'fail'); if (extra) detail(extra); }
+        }
+        function assertEqual(actual, expected, testName) {
+            const ok = JSON.stringify(actual) === JSON.stringify(expected);
+            assert(ok, testName, `expected ${JSON.stringify(expected)}, got ${JSON.stringify(actual)}`);
+        }
+        async function assertRejects(fn, testName) {
+            total++;
+            try { await fn(); failed++; log(`FAIL  ${testName}`, 'fail'); detail('Expected rejection'); }
+            catch { passed++; log(`PASS  ${testName}`, 'pass'); }
+        }
+
+        // ── Mock session ───────────────────────────────────────────────────
+
+        let commitCount = 0;
+        let lastCommitMessage = '';
+
+        function createMockSession(entries) {
+            commitCount = 0;
+            lastCommitMessage = '';
+            const model = createTreeModel();
+            model.loadRoot(entries);
+
+            return {
+                treeModel: model,
+                async uploadBlob(content) {
+                    const bytes = typeof content === 'string'
+                        ? new TextEncoder().encode(content) : content;
+                    return {
+                        blob_id: `obj-cas-imm-mock${String(++commitCount).padStart(4,'0')}`,
+                        size: bytes.byteLength,
+                        content_hash: 'mockhash',
+                    };
+                },
+                async commit(message) {
+                    lastCommitMessage = message;
+                    return { commitId: `commit-${commitCount}`, treeId: `tree-${commitCount}` };
+                },
+                async loadSubTree(folderPath) {
+                    // Simulate loading an empty folder
+                    model.loadSubTree(folderPath, []);
+                },
+            };
+        }
+
+        // ── Test data ──────────────────────────────────────────────────────
+
+        const BASE_ENTRIES = [
+            { name: 'README.md', blob_id: 'obj-cas-imm-readme01', size: 100, content_hash: 'rh1' },
+            { name: 'app.js',   blob_id: 'obj-cas-imm-appjs01',  size: 200, content_hash: 'ah1' },
+        ];
+
+        // ── Tests ──────────────────────────────────────────────────────────
+
+        heading('1. addFile()');
+        {
+            const session = createMockSession(BASE_ENTRIES);
+            const result = await addFile(session, '/', 'new.txt', 'Hello world');
+            assert(result.commitId !== undefined, 'addFile returns commitId');
+            assert(result.blob_id !== undefined, 'addFile returns blob_id');
+
+            const node = session.treeModel.getNode('/new.txt');
+            assert(node !== null, 'file exists in tree after add');
+            assert(node.type === 'file', 'added entry is a file');
+            assertEqual(lastCommitMessage, 'Add new.txt', 'default commit message');
+        }
+
+        heading('2. addFile() — duplicate');
+        {
+            const session = createMockSession(BASE_ENTRIES);
+            await assertRejects(
+                () => addFile(session, '/', 'README.md', 'duplicate'),
+                'addFile throws on duplicate file name'
+            );
+        }
+
+        heading('3. addFile() — custom message');
+        {
+            const session = createMockSession(BASE_ENTRIES);
+            await addFile(session, '/', 'x.txt', 'data', { message: 'Custom msg' });
+            assertEqual(lastCommitMessage, 'Custom msg', 'custom commit message used');
+        }
+
+        heading('4. updateFile()');
+        {
+            const session = createMockSession(BASE_ENTRIES);
+            const result = await updateFile(session, '/', 'README.md', 'Updated content');
+            assert(result.commitId !== undefined, 'updateFile returns commitId');
+
+            const node = session.treeModel.getNode('/README.md');
+            assert(node.blob_id !== 'obj-cas-imm-readme01', 'blob_id changed after update');
+            assertEqual(lastCommitMessage, 'Update README.md', 'default update message');
+        }
+
+        heading('5. removeFile()');
+        {
+            const session = createMockSession(BASE_ENTRIES);
+            await removeFile(session, '/', 'app.js');
+            assert(session.treeModel.getNode('/app.js') === null, 'file removed from tree');
+            assertEqual(session.treeModel.listFolder('/').length, 1, 'only 1 file remains');
+            assertEqual(lastCommitMessage, 'Remove app.js', 'default remove message');
+        }
+
+        heading('6. removeFile() — missing');
+        {
+            const session = createMockSession(BASE_ENTRIES);
+            await assertRejects(
+                () => removeFile(session, '/', 'nonexistent.txt'),
+                'removeFile throws for missing file'
+            );
+        }
+
+        heading('7. renameFile()');
+        {
+            const session = createMockSession(BASE_ENTRIES);
+            await renameFile(session, '/', 'README.md', 'CHANGELOG.md');
+            assert(session.treeModel.getNode('/README.md') === null, 'old name gone');
+            assert(session.treeModel.getNode('/CHANGELOG.md') !== null, 'new name exists');
+            assert(lastCommitMessage.includes('README.md'), 'message mentions old name');
+            assert(lastCommitMessage.includes('CHANGELOG.md'), 'message mentions new name');
+        }
+
+        heading('8. moveFile()');
+        {
+            const entries = [
+                ...BASE_ENTRIES,
+                { name: 'docs', tree_id: 'obj-cas-imm-docs01' },
+            ];
+            const session = createMockSession(entries);
+            // loadSubTree is mocked to load empty, so first load docs
+            session.treeModel.loadSubTree('/docs', []);
+
+            await moveFile(session, '/', 'app.js', '/docs');
+            assert(session.treeModel.getNode('/app.js') === null, 'file removed from root');
+            assert(session.treeModel.getNode('/docs/app.js') !== null, 'file in docs');
+        }
+
+        heading('9. createFolder()');
+        {
+            const session = createMockSession(BASE_ENTRIES);
+            await createFolder(session, '/', 'archive');
+            const folder = session.treeModel.getNode('/archive');
+            assert(folder !== null, 'folder created');
+            assert(folder.type === 'folder', 'is a folder');
+            assertEqual(lastCommitMessage, 'Create folder archive', 'default create folder message');
+        }
+
+        heading('10. removeFolder()');
+        {
+            const session = createMockSession(BASE_ENTRIES);
+            session.treeModel.createFolder('/', 'temp');
+            await removeFolder(session, '/', 'temp');
+            assert(session.treeModel.getNode('/temp') === null, 'folder removed');
+        }
+
+        heading('11. removeFolder() — missing');
+        {
+            const session = createMockSession(BASE_ENTRIES);
+            await assertRejects(
+                () => removeFolder(session, '/', 'nonexistent'),
+                'removeFolder throws for missing folder'
+            );
+        }
+
+        heading('12. renameFolder()');
+        {
+            const session = createMockSession(BASE_ENTRIES);
+            session.treeModel.createFolder('/', 'old-name');
+            await renameFolder(session, '/', 'old-name', 'new-name');
+            assert(session.treeModel.getNode('/old-name') === null, 'old folder name gone');
+            assert(session.treeModel.getNode('/new-name') !== null, 'new folder name exists');
+        }
+
+        heading('13. moveFolder()');
+        {
+            const session = createMockSession(BASE_ENTRIES);
+            session.treeModel.createFolder('/', 'src');
+            session.treeModel.createFolder('/', 'archive');
+            await moveFolder(session, '/', 'src', '/archive');
+            assert(session.treeModel.getNode('/src') === null, 'folder removed from root');
+            assert(session.treeModel.getNode('/archive/src') !== null, 'folder in archive');
+        }
+
+        heading('14. Uint8Array content');
+        {
+            const session = createMockSession(BASE_ENTRIES);
+            const bytes = new Uint8Array([0x48, 0x65, 0x6c, 0x6c, 0x6f]);
+            const result = await addFile(session, '/', 'binary.bin', bytes);
+            assert(result.blob_id !== undefined, 'binary content accepted');
+            assertEqual(session.treeModel.getNode('/binary.bin').size, 5, 'size matches byte length');
+        }
+
+        // ── Summary ────────────────────────────────────────────────────────
+
+        const elapsed = (performance.now() - t0).toFixed(1);
+        const allPassed = failed === 0;
+        summary.className = `summary ${allPassed ? 'all-pass' : 'has-fail'}`;
+        summary.innerHTML = `${allPassed ? 'ALL PASSED' : 'FAILURES DETECTED'} — ${passed}/${total} passed, ${failed} failed <span class="timing">(${elapsed} ms)</span>`;
+    </script>
+</body>
+</html>

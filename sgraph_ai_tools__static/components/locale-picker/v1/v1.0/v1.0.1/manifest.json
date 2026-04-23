@@ -1,0 +1,21 @@
+{
+    "version": "1.0.1",
+    "name": "sg-locale-picker",
+    "description": "Language selector dropdown with flag emojis and 17 locales. Writes selected locale to sessionStorage.",
+    "type": "component",
+    "exports": [
+        "SgLocalePicker",
+        "SG_LOCALES"
+    ],
+    "custom_element": "sg-locale-picker",
+    "attributes": ["locale", "base-path"],
+    "dependencies": [
+        "sg-component",
+        "sg-tokens"
+    ],
+    "changes_from": "1.0.0",
+    "changes": [
+        "Fix: [hidden] attribute now respected on English quick-switch link (Shadow DOM CSS specificity)",
+        "Write selected locale to sessionStorage for root redirect persistence"
+    ]
+}

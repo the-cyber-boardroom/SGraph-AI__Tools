@@ -1,0 +1,249 @@
+<!DOCTYPE html>
+<html lang="en-GB">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title data-i18n="landing.title">tools.sgraph.ai — Browser-Based Privacy Tools</title>
+    <meta name="description" data-i18n="landing.meta_description" content="Free browser-based tools that run entirely client-side. No uploads, no servers, no tracking. SSH key generation, video splitting, file encryption, and more.">
+    <link rel="icon" type="image/svg+xml" href="../_common/favicon.svg">
+    <link rel="stylesheet" href="../_common/css/tools.css">
+    <style>
+        .hero {
+            text-align: center;
+            padding: 3rem 1.5rem 2rem;
+        }
+
+        .hero__title {
+            font-size: 2rem;
+            font-weight: 700;
+            margin-bottom: 0.75rem;
+        }
+
+        .hero__title span {
+            color: var(--sg-accent);
+        }
+
+        .hero__subtitle {
+            color: var(--sg-text-muted);
+            font-size: 1.0625rem;
+            max-width: 600px;
+            margin: 0 auto 1rem;
+            line-height: 1.6;
+        }
+
+        .tools-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+            gap: 1.25rem;
+            max-width: 960px;
+            margin: 0 auto;
+            padding: 1.5rem;
+            flex: 1;
+        }
+
+        .tool-card {
+            background: var(--sg-bg-card);
+            border: 1px solid var(--sg-border);
+            border-radius: 8px;
+            padding: 1.5rem;
+            text-decoration: none;
+            color: inherit;
+            transition: border-color 150ms, transform 150ms;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .tool-card:hover {
+            border-color: var(--sg-accent);
+            transform: translateY(-2px);
+        }
+
+        .tool-card__icon {
+            font-size: 1.5rem;
+            margin-bottom: 0.75rem;
+        }
+
+        .tool-card__title {
+            font-size: 1.125rem;
+            font-weight: 600;
+            margin-bottom: 0.5rem;
+        }
+
+        .tool-card__desc {
+            color: var(--sg-text-muted);
+            font-size: 0.875rem;
+            line-height: 1.5;
+            flex: 1;
+        }
+
+        .tool-card__status {
+            display: inline-block;
+            margin-top: 0.75rem;
+            padding: 0.125rem 0.5rem;
+            border-radius: var(--sg-radius-pill);
+            font-size: 0.6875rem;
+            font-weight: 600;
+        }
+
+        .tool-card__status--live {
+            background: var(--sg-accent-bg);
+            color: var(--sg-accent);
+        }
+
+        .tool-card__status--coming {
+            background: rgba(148, 163, 184, 0.1);
+            color: var(--sg-text-dim);
+        }
+
+        .coming-soon {
+            opacity: 0.5;
+            pointer-events: none;
+        }
+    </style>
+</head>
+<body>
+    <script type="module" src="/components/site-header/v1/v1.0/v1.0.2/sg-site-header.js"></script>
+    <script type="module" src="/components/locale-picker/v1/v1.0/v1.0.1/sg-locale-picker.js"></script>
+    <sg-site-header
+        site="Send"
+        home-url="/en-gb/">
+        <sg-locale-picker slot="locale" locale="en-gb" base-path="/"></sg-locale-picker>
+    </sg-site-header>
+
+    <script type="module">
+        import { buildToolsNav } from '../_common/js/sg-nav.js'
+        document.querySelector('sg-site-header').whenReady().then(() => {
+            buildToolsNav(document.querySelector('sg-site-header'))
+        }).catch(() => {
+            buildToolsNav(document.querySelector('sg-site-header'))
+        })
+    </script>
+
+    <div class="hero">
+        <h1 class="hero__title"><span>tools</span>.sgraph.ai</h1>
+        <p class="hero__subtitle" data-i18n="landing.subtitle">
+            Free browser-based tools that run entirely on your device.
+            No uploads. No servers. No tracking. Your data never leaves your browser.
+        </p>
+        <span class="badge" data-i18n="landing.badge">100% Client-Side</span>
+    </div>
+
+    <div class="tools-grid">
+        <a href="ssh-keygen/" class="tool-card">
+            <div class="tool-card__icon">&#128273;</div>
+            <h2 class="tool-card__title" data-i18n="tools.ssh_keygen.title">SSH Key Generator</h2>
+            <p class="tool-card__desc" data-i18n="tools.ssh_keygen.desc">
+                Generate Ed25519 SSH key pairs entirely in your browser.
+                No server involved. Copy or download your keys instantly.
+            </p>
+            <span class="tool-card__status tool-card__status--live" data-i18n="status.live">Live</span>
+        </a>
+
+        <a href="file-hasher/" class="tool-card">
+            <div class="tool-card__icon">&#128200;</div>
+            <h2 class="tool-card__title" data-i18n="tools.file_hasher.title">File Hasher</h2>
+            <p class="tool-card__desc" data-i18n="tools.file_hasher.desc">
+                Calculate SHA-256, SHA-1, or SHA-512 hash of any file.
+                Verify file integrity without uploading.
+            </p>
+            <span class="tool-card__status tool-card__status--live" data-i18n="status.live">Live</span>
+        </a>
+
+        <a href="file-encryptor/" class="tool-card">
+            <div class="tool-card__icon">&#128274;</div>
+            <h2 class="tool-card__title" data-i18n="tools.file_encryptor.title">File Encryptor</h2>
+            <p class="tool-card__desc" data-i18n="tools.file_encryptor.desc">
+                Encrypt or decrypt any file with AES-256-GCM. Everything stays in your browser.
+                Same encryption used by SG/Send.
+            </p>
+            <span class="tool-card__status tool-card__status--live" data-i18n="status.live">Live</span>
+        </a>
+
+        <a href="key-generator/" class="tool-card">
+            <div class="tool-card__icon">&#128272;</div>
+            <h2 class="tool-card__title" data-i18n="tools.key_generator.title">Key Generator</h2>
+            <p class="tool-card__desc" data-i18n="tools.key_generator.desc">
+                Create friendly encryption keys like "apple-mango-56" instead of random strings.
+                See how secure your key is with entropy visualisation.
+            </p>
+            <span class="tool-card__status tool-card__status--live" data-i18n="status.live">Live</span>
+        </a>
+
+        <a href="vault-browser/" class="tool-card">
+            <div class="tool-card__icon">&#128451;</div>
+            <h2 class="tool-card__title">Vault Browser</h2>
+            <p class="tool-card__desc">
+                Open and browse SG/Send vaults in your browser.
+                Derive keys, decrypt files, view contents — no Python or CLI required.
+            </p>
+            <span class="tool-card__status tool-card__status--live">Live</span>
+        </a>
+
+        <a href="vault-pyodide/" class="tool-card">
+            <div class="tool-card__icon">&#128013;</div>
+            <h2 class="tool-card__title">Vault (Pyodide)</h2>
+            <p class="tool-card__desc">
+                Run Python vault crypto in the browser via Pyodide (CPython in WebAssembly).
+                Compare Python vs JavaScript key derivation side by side.
+            </p>
+            <span class="tool-card__status tool-card__status--live">Experimental</span>
+        </a>
+
+        <a href="pyodide-repl/" class="tool-card">
+            <div class="tool-card__icon">&#128187;</div>
+            <h2 class="tool-card__title">Python REPL</h2>
+            <p class="tool-card__desc">
+                Interactive Python console in your browser via Pyodide.
+                Install PyPI packages (pydantic, cryptography, httpx) and run code instantly.
+            </p>
+            <span class="tool-card__status tool-card__status--live">Experimental</span>
+        </a>
+
+        <a href="sg-send-cli/" class="tool-card">
+            <div class="tool-card__icon">&#128230;</div>
+            <h2 class="tool-card__title">SG/Send CLI</h2>
+            <p class="tool-card__desc">
+                Run sg-send-cli vault operations in your browser. Init, commit, push, inspect
+                — the real Python package from PyPI running in WebAssembly.
+            </p>
+            <span class="tool-card__status tool-card__status--live">Experimental</span>
+        </a>
+
+        <div class="tool-card coming-soon">
+            <div class="tool-card__icon">&#127916;</div>
+            <h2 class="tool-card__title" data-i18n="tools.video_splitter.title">Video Splitter</h2>
+            <p class="tool-card__desc" data-i18n="tools.video_splitter.desc">
+                Split MP4 videos into clips using FFmpeg WASM.
+                No upload required. Process files up to 500 MB locally.
+            </p>
+            <span class="tool-card__status tool-card__status--coming" data-i18n="status.coming_soon">Coming Soon</span>
+        </div>
+
+        <div class="tool-card coming-soon">
+            <div class="tool-card__icon">&#129302;</div>
+            <h2 class="tool-card__title" data-i18n="tools.llm_client.title">LLM Client</h2>
+            <p class="tool-card__desc" data-i18n="tools.llm_client.desc">
+                Connect to OpenRouter or local Ollama. Chat with any LLM
+                directly from your browser. API key stays local.
+            </p>
+            <span class="tool-card__status tool-card__status--coming" data-i18n="status.coming_soon">Coming Soon</span>
+        </div>
+    </div>
+
+    <script type="module" src="/components/site-footer/v1/v1.0/v1.0.0/sg-site-footer.js"></script>
+    <sg-site-footer
+        brand-desc="Free browser-based tools that run entirely on your device. No uploads, no servers, no tracking."
+        columns='[{"title":"Tools","links":[{"label":"SSH Key Generator","href":"ssh-keygen/"},{"label":"All Tools","href":"./"}]},{"title":"SGraph","links":[{"label":"sgraph.ai","href":"https://sgraph.ai/en-gb/"},{"label":"send.sgraph.ai","href":"https://send.sgraph.ai"},{"label":"GitHub","href":"https://github.com/the-cyber-boardroom/SGraph-AI__Tools"}]}]'>
+    </sg-site-footer>
+
+    <script src="../_common/js/build-info.js"></script>
+    <div id="build-version" style="text-align:center;color:var(--sg-text-dim, #4a5568);font-size:0.7rem;padding:8px 0;opacity:0.6;background:var(--sg-bg-secondary, #16213E);"></div>
+    <script>
+        (function() {
+            var b = window.SGRAPH_BUILD || { appVersion: 'v0.1.0', uiVersion: 'v0.1.2' };
+            var el = document.getElementById('build-version');
+            if (el) el.textContent = b.appVersion + '  \u00b7  UI ' + b.uiVersion + (b.buildTime ? '  \u00b7  ' + b.buildTime : '');
+        })();
+    </script>
+</body>
+</html>

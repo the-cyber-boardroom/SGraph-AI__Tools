@@ -1,0 +1,312 @@
+:host {
+    display: block;
+    width: 100%;
+}
+
+.keygen {
+    background: var(--sg-bg-card, #1a1a2e);
+    border: 1px solid var(--sg-border, #1e293b);
+    border-radius: var(--sg-radius, 8px);
+    padding: 1.5rem;
+}
+
+.keygen__title {
+    font-size: 1.125rem;
+    font-weight: 600;
+    margin-bottom: 1.25rem;
+    color: var(--sg-text, #f0f0f5);
+}
+
+/* --- Word Slots --- */
+
+.keygen__word-slots {
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+    margin-bottom: 0.75rem;
+}
+
+.keygen__word-slot {
+    display: flex;
+    flex-direction: column;
+    gap: 0.25rem;
+}
+
+.keygen__word-label {
+    font-size: 0.8125rem;
+    font-weight: 600;
+    color: var(--sg-text-muted, #94a3b8);
+}
+
+.keygen__word-row {
+    display: flex;
+    gap: 0.5rem;
+    align-items: center;
+}
+
+.keygen__word-select {
+    flex: 1;
+    padding: 0.5rem 0.625rem;
+    background: var(--sg-bg, #0f0f23);
+    color: var(--sg-text, #f0f0f5);
+    border: 1px solid var(--sg-border, #1e293b);
+    border-radius: var(--sg-radius, 8px);
+    font-size: 0.875rem;
+    outline: none;
+    cursor: pointer;
+}
+
+.keygen__word-select:focus {
+    border-color: var(--sg-accent, #4ecdc4);
+}
+
+.keygen__word-input {
+    flex: 1;
+    padding: 0.5rem 0.625rem;
+    background: var(--sg-bg, #0f0f23);
+    color: var(--sg-text, #f0f0f5);
+    border: 1px solid var(--sg-border, #1e293b);
+    border-radius: var(--sg-radius, 8px);
+    font-size: 0.875rem;
+    outline: none;
+}
+
+.keygen__word-input::placeholder {
+    color: var(--sg-text-dim, #475569);
+    font-size: 0.8125rem;
+}
+
+.keygen__word-input:focus {
+    border-color: var(--sg-accent, #4ecdc4);
+}
+
+.keygen__shuffle-btn {
+    width: 36px;
+    height: 36px;
+    padding: 0;
+    background: transparent;
+    color: var(--sg-text-muted, #94a3b8);
+    border: 1px solid var(--sg-border, #1e293b);
+    border-radius: var(--sg-radius, 8px);
+    font-size: 1.125rem;
+    cursor: pointer;
+    transition: border-color 150ms, color 150ms;
+    flex-shrink: 0;
+}
+
+.keygen__shuffle-btn:hover {
+    border-color: var(--sg-accent, #4ecdc4);
+    color: var(--sg-accent, #4ecdc4);
+}
+
+/* --- Suffix --- */
+
+.keygen__suffix-row {
+    margin-bottom: 1.25rem;
+}
+
+.keygen__suffix-input {
+    width: 80px;
+    padding: 0.5rem 0.625rem;
+    background: var(--sg-bg, #0f0f23);
+    color: var(--sg-text, #f0f0f5);
+    border: 1px solid var(--sg-border, #1e293b);
+    border-radius: var(--sg-radius, 8px);
+    font-size: 0.875rem;
+    font-family: var(--sg-font-mono, monospace);
+    outline: none;
+}
+
+.keygen__suffix-input:focus {
+    border-color: var(--sg-accent, #4ecdc4);
+}
+
+.keygen__suffix-hint {
+    font-size: 0.75rem;
+    color: var(--sg-text-dim, #475569);
+}
+
+/* --- Key Preview --- */
+
+.keygen__preview {
+    padding: 0.75rem;
+    background: var(--sg-bg, #0f0f23);
+    border: 1px solid var(--sg-accent, #4ecdc4);
+    border-radius: var(--sg-radius, 8px);
+    margin-bottom: 1rem;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.keygen__preview-label {
+    font-size: 0.8125rem;
+    color: var(--sg-text-muted, #94a3b8);
+    white-space: nowrap;
+}
+
+.keygen__preview-key {
+    font-size: 1.125rem;
+    font-weight: 700;
+    font-family: var(--sg-font-mono, monospace);
+    color: var(--sg-accent, #4ecdc4);
+    word-break: break-all;
+}
+
+/* --- Entropy Bar --- */
+
+.keygen__entropy {
+    margin-bottom: 1rem;
+}
+
+.keygen__entropy-title {
+    font-size: 0.8125rem;
+    font-weight: 600;
+    color: var(--sg-text-muted, #94a3b8);
+    display: block;
+    margin-bottom: 0.375rem;
+}
+
+.keygen__entropy-bar {
+    height: 8px;
+    background: var(--sg-bg, #0f0f23);
+    border-radius: 4px;
+    overflow: hidden;
+    margin-bottom: 0.375rem;
+}
+
+.keygen__entropy-fill {
+    height: 100%;
+    border-radius: 4px;
+    transition: width 300ms, background 300ms;
+    width: 0%;
+}
+
+.keygen__entropy-rating {
+    font-size: 0.8125rem;
+    font-weight: 600;
+    margin-right: 0.5rem;
+}
+
+.keygen__entropy-count {
+    font-size: 0.75rem;
+    color: var(--sg-text-dim, #475569);
+}
+
+/* --- Geek Mode --- */
+
+.keygen__geek {
+    margin-bottom: 1rem;
+}
+
+.keygen__geek-toggle {
+    background: transparent;
+    border: none;
+    color: var(--sg-text-muted, #94a3b8);
+    font-size: 0.8125rem;
+    cursor: pointer;
+    padding: 0.375rem 0;
+    transition: color 150ms;
+}
+
+.keygen__geek-toggle:hover {
+    color: var(--sg-accent, #4ecdc4);
+}
+
+.keygen__geek-section {
+    display: none;
+    margin-top: 0.5rem;
+    padding: 0.75rem;
+    background: var(--sg-bg, #0f0f23);
+    border: 1px solid var(--sg-border, #1e293b);
+    border-radius: var(--sg-radius, 8px);
+}
+
+.keygen__geek-section.expanded {
+    display: block;
+}
+
+.keygen__geek-row {
+    display: flex;
+    gap: 0.5rem;
+    margin-bottom: 0.375rem;
+    align-items: baseline;
+    flex-wrap: wrap;
+}
+
+.keygen__geek-row:last-child {
+    margin-bottom: 0;
+}
+
+.keygen__geek-label {
+    font-size: 0.75rem;
+    color: var(--sg-text-dim, #475569);
+    white-space: nowrap;
+}
+
+.keygen__geek-value {
+    font-size: 0.75rem;
+    font-family: var(--sg-font-mono, monospace);
+    color: var(--sg-text-muted, #94a3b8);
+    word-break: break-all;
+}
+
+/* --- Action Buttons --- */
+
+.keygen__actions {
+    display: flex;
+    gap: 0.5rem;
+    flex-wrap: wrap;
+}
+
+.keygen__btn {
+    padding: 0.5rem 1rem;
+    font-size: 0.875rem;
+    font-weight: 600;
+    border-radius: var(--sg-radius, 8px);
+    cursor: pointer;
+    transition: background-color 150ms, border-color 150ms;
+    border: 1px solid transparent;
+}
+
+.keygen__btn--primary {
+    background: var(--sg-accent, #4ecdc4);
+    color: var(--sg-bg, #0f0f23);
+    border-color: var(--sg-accent, #4ecdc4);
+}
+
+.keygen__btn--primary:hover {
+    opacity: 0.9;
+}
+
+.keygen__btn--secondary {
+    background: transparent;
+    color: var(--sg-accent, #4ecdc4);
+    border-color: var(--sg-accent, #4ecdc4);
+}
+
+.keygen__btn--secondary:hover {
+    background: rgba(78, 205, 196, 0.1);
+}
+
+/* --- Responsive --- */
+
+@media (max-width: 480px) {
+    .keygen__word-row {
+        flex-wrap: wrap;
+    }
+
+    .keygen__word-select,
+    .keygen__word-input {
+        min-width: 0;
+    }
+
+    .keygen__actions {
+        flex-direction: column;
+    }
+
+    .keygen__btn {
+        width: 100%;
+        text-align: center;
+    }
+}

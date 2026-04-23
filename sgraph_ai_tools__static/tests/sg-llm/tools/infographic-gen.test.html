@@ -1,0 +1,137 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Infographic Generator Tool — Smoke Test</title>
+<style>
+    body { font-family: monospace; background: #0d0d1a; color: #e2e8f0; padding: 24px; margin: 0; }
+    h1 { color: #7c9ef8; margin: 0 0 4px; }
+    .subtitle { color: #64748b; font-size: 13px; margin: 0 0 24px; }
+    .test-summary { font-size: 14px; font-weight: bold; margin-bottom: 20px; padding: 10px 16px; border-radius: 6px; }
+    .test-summary.pass { background: #0d2a1a; color: #4ade80; border: 1px solid #166534; }
+    .test-summary.fail { background: #2a0d0d; color: #f87171; border: 1px solid #991b1b; }
+    .suite { margin-bottom: 20px; }
+    .suite-title { color: #a0aec0; font-size: 12px; text-transform: uppercase; letter-spacing: 0.08em; margin-bottom: 8px; }
+    .test { display: flex; gap: 8px; font-size: 13px; padding: 4px 0; }
+    .pass .icon { color: #4ade80; }
+    .fail .icon { color: #f87171; }
+    .detail { color: #f87171; font-size: 12px; }
+    .open-link { margin-bottom: 16px; font-size: 12px; }
+    .open-link a { color: #7c9ef8; }
+</style>
+</head>
+<body>
+<h1>Infographic Generator — Smoke Test</h1>
+<p class="subtitle">Integration test: all components mount, infographic preset system, system prompt injection</p>
+<p class="open-link"><a href="../../../tools/v0/v0.1/v0.1.6/en-gb/infographic-gen/" target="_blank">Open live tool ↗</a></p>
+<div class="test-summary" id="summary">Running…</div>
+<div id="results"></div>
+
+<script type="module">
+import '/components/llm/sg-llm-events/v0/v0.1/v0.1.0/sg-llm-events.js';
+import '/components/llm/sg-llm-request/v0/v0.1/v0.1.0/sg-llm-request.js';
+import '/components/llm/sg-llm-bundle/v0/v0.1/v0.1.0/sg-llm-bundle.js';
+import '/components/llm/sg-llm-connection/v0/v0.1/v0.1.0/sg-llm-connection.js';
+import '/components/llm/sg-llm-reality/v0/v0.1/v0.1.0/sg-llm-reality.js';
+import '/components/llm/sg-llm-stats/v0/v0.1/v0.1.0/sg-llm-stats.js';
+import '/components/llm/sg-llm-infographic/v0/v0.1/v0.1.0/sg-llm-infographic.js';
+
+let passed = 0, failed = 0;
+const suites = [];
+let currentSuite = null;
+function suite(name) { currentSuite = { name, tests: [] }; suites.push(currentSuite); }
+function test(name, fn) {
+    try { fn(); currentSuite.tests.push({ name, ok: true }); passed++; }
+    catch (err) { currentSuite.tests.push({ name, ok: false, msg: err.message }); failed++; }
+}
+function assert(cond, msg) { if (!cond) throw new Error(msg || 'Assertion failed'); }
+
+const bus = document.createElement('div');
+bus.style.cssText = 'display:none';
+bus.innerHTML = `
+    <sg-llm-request></sg-llm-request>
+    <sg-llm-bundle auto-save></sg-llm-bundle>
+    <sg-llm-connection></sg-llm-connection>
+    <sg-llm-reality></sg-llm-reality>
+    <sg-llm-stats></sg-llm-stats>
+    <sg-llm-infographic style-preset="executive" orientation="landscape"></sg-llm-infographic>`;
+document.body.appendChild(bus);
+await Promise.resolve();
+
+suite('Custom element registration');
+const TAGS = ['sg-llm-request','sg-llm-bundle','sg-llm-connection',
+    'sg-llm-reality','sg-llm-stats','sg-llm-infographic'];
+for (const tag of TAGS) {
+    test(`${tag} defined`, () => assert(customElements.get(tag) !== undefined));
+}
+
+suite('Bus DOM');
+test('all components present', () => {
+    for (const tag of TAGS) assert(bus.querySelector(tag) !== null, `${tag} missing`);
+});
+
+suite('sg-llm-infographic');
+test('renders with shadow DOM', () => {
+    assert(bus.querySelector('sg-llm-infographic')?.shadowRoot !== null);
+});
+test('style-preset attribute → executive style', () => {
+    assert(bus.querySelector('sg-llm-infographic').getCurrentStyle() === 'executive');
+});
+test('orientation attribute → landscape', () => {
+    assert(bus.querySelector('sg-llm-infographic')._orientation === 'landscape');
+});
+test('getSystemPrompt() returns non-empty string', () => {
+    const p = bus.querySelector('sg-llm-infographic').getSystemPrompt();
+    assert(typeof p === 'string' && p.length > 20, 'system prompt should be substantial');
+});
+test('getSystemPrompt() contains "SVG"', () => {
+    assert(bus.querySelector('sg-llm-infographic').getSystemPrompt().includes('SVG'));
+});
+test('style selector has 6 options', () => {
+    const opts = bus.querySelector('sg-llm-infographic').shadowRoot.querySelectorAll('.inf-style-select option');
+    assert(opts.length === 6, `expected 6 style options, got ${opts.length}`);
+});
+test('setStyle(playful) changes style', () => {
+    const inf = bus.querySelector('sg-llm-infographic');
+    inf.setStyle('playful');
+    assert(inf.getCurrentStyle() === 'playful');
+});
+test('getSystemPrompt() differs across styles', () => {
+    const inf = bus.querySelector('sg-llm-infographic');
+    inf.setStyle('executive');
+    const p1 = inf.getSystemPrompt();
+    inf.setStyle('data');
+    const p2 = inf.getSystemPrompt();
+    assert(p1 !== p2, 'different styles should produce different prompts');
+});
+test('getCurrentSvg() is null initially', () => {
+    assert(bus.querySelector('sg-llm-infographic').getCurrentSvg() === null);
+});
+test('export buttons disabled initially', () => {
+    const inf = bus.querySelector('sg-llm-infographic');
+    assert(inf.shadowRoot.querySelector('#export-svg').disabled, 'SVG export should be disabled');
+    assert(inf.shadowRoot.querySelector('#export-png').disabled, 'PNG export should be disabled');
+});
+
+bus.remove();
+const resultsEl = document.getElementById('results');
+const summaryEl = document.getElementById('summary');
+for (const s of suites) {
+    const div = document.createElement('div');
+    div.className = 'suite';
+    div.innerHTML = `<div class="suite-title">${s.name}</div>`;
+    for (const t of s.tests) {
+        const row = document.createElement('div');
+        row.className = `test ${t.ok ? 'pass' : 'fail'}`;
+        row.innerHTML = `<span class="icon">${t.ok ? '✓' : '✗'}</span>
+            <div>${t.name}${t.ok ? '' : `<div class="detail">${t.msg}</div>`}</div>`;
+        div.appendChild(row);
+    }
+    resultsEl.appendChild(div);
+}
+const total = passed + failed;
+summaryEl.textContent = failed === 0 ? `✓ All ${total} tests passed` : `✗ ${failed} of ${total} tests failed`;
+summaryEl.className   = `test-summary ${failed === 0 ? 'pass' : 'fail'}`;
+</script>
+</body>
+</html>

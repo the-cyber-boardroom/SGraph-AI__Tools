@@ -1,0 +1,29 @@
+{
+    "name": "sg-llm-reality",
+    "version": "0.1.0",
+    "description": "One-shot LLM reality constructor — build the model's complete universe visually (system, context, history, memory, question blocks)",
+    "files": [
+        "sg-llm-reality-core.js",
+        "sg-llm-block.js",
+        "sg-llm-reality.js"
+    ],
+    "exports": {
+        "sg-llm-reality-core.js": ["BLOCK_TYPES", "createBlock", "estimateTokens", "totalTokens", "blockTokens", "assembleMessages", "assembleMemoryUpdateMessages"],
+        "sg-llm-block.js":        ["SgLlmBlock"],
+        "sg-llm-reality.js":      ["SgLlmReality"]
+    },
+    "customElements": {
+        "sg-llm-block":   "sg-llm-block.js",
+        "sg-llm-reality": "sg-llm-reality.js"
+    },
+    "dependencies": {
+        "sg-llm-events": "/components/llm/sg-llm-events/v0/v0.1/v0.1.0/sg-llm-events.js"
+    },
+    "compatibleWith": {
+        "sg-llm-events":     ">=0.1.0",
+        "sg-llm-request":    ">=0.1.0",
+        "sg-llm-connection": ">=0.1.0",
+        "sg-layout":         ">=0.1.0"
+    },
+    "notes": "v0.1.0: core blocks (system/context/history/memory/question), two send modes, attachment awareness, bundle restore. Drag-to-reorder and template presets deferred to v0.1.1 surgical override."
+}

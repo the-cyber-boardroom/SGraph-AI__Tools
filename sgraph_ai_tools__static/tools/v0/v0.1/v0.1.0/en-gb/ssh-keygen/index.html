@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title data-i18n="ssh_keygen.title">SSH Key Generator — tools.sgraph.ai</title>
     <meta name="description" data-i18n="ssh_keygen.meta_description" content="Generate Ed25519 SSH key pairs entirely in your browser. No server, no upload, no tracking. Free and private.">
-    <link rel="stylesheet" href="../../_common/css/tools.css">
+    <link rel="stylesheet" href="/tools/v0/v0.1/v0.1.0/_common/css/tools.css">
     <style>
         .main {
             flex: 1;
@@ -110,8 +110,12 @@
     </style>
 </head>
 <body>
-    <script type="module" src="/components/header/v1/v1.0/v1.0.0/sg-header.js"></script>
-    <sg-header tool-name="SSH Key Generator"></sg-header>
+    <script type="module" src="/components/site-header/v1/v1.0/v1.0.0/sg-site-header.js"></script>
+    <sg-site-header
+        site="Tools"
+        home-url="/tools/v0/v0.1/v0.1.0/en-gb/"
+        nav-items='[{"label":"SSH Keygen","href":"./"},{"label":"All Tools","href":"/tools/v0/v0.1/v0.1.0/en-gb/"},{"label":"SG/Send","href":"https://send.sgraph.ai"}]'>
+    </sg-site-header>
 
     <div class="main">
         <h1 data-i18n="ssh_keygen.heading">SSH Key Generator</h1>
@@ -168,8 +172,11 @@
         </div>
     </div>
 
-    <script type="module" src="/components/footer/v1/v1.0/v1.0.0/sg-footer.js"></script>
-    <sg-footer></sg-footer>
+    <script type="module" src="/components/site-footer/v1/v1.0/v1.0.0/sg-site-footer.js"></script>
+    <sg-site-footer
+        brand-desc="Free browser-based tools that run entirely on your device. No uploads, no servers, no tracking."
+        columns='[{"title":"Tools","links":[{"label":"SSH Key Generator","href":"./"},{"label":"All Tools","href":"/tools/v0/v0.1/v0.1.0/en-gb/"}]},{"title":"SGraph","links":[{"label":"send.sgraph.ai","href":"https://send.sgraph.ai"},{"label":"GitHub","href":"https://github.com/the-cyber-boardroom/SGraph-AI__Tools"}]}]'>
+    </sg-site-footer>
 
     <script type="module">
         import { generateSSHKeyPair } from '/core/ssh/v1/v1.0/v1.0.0/sg-ssh.js';

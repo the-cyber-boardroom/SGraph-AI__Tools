@@ -1,0 +1,154 @@
+name: Deploy Tools - tools.sgraph.ai
+
+# v1.0.0 — Unified deploy workflow replacing deploy-tools__dev.yml + deploy-tools__main.yml
+#
+# S3 path isolation by branch/environment:
+#   websites/sgraph-tools/dev/    — dev branch (automatic) or manual dispatch
+#   websites/sgraph-tools/main/   — main branch (automatic) or manual dispatch
+#   websites/sgraph-tools/prod/   — production (manual dispatch only)
+#
+# On push to dev:  auto-deploys to dev, runs increment-tag first
+# On push to main: auto-deploys to main
+# workflow_dispatch: choose dev / main / production
+
+on:
+  push:
+    branches:
+      - dev
+      - main
+    paths:
+      - 'sgraph_ai_tools__static/**'
+      - 'scripts/**'
+      - '.github/workflows/deploy-tools.yml'
+      - 'sgraph_ai_tools/version'
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: 'Deployment environment'
+        required: false
+        default: 'dev'
+        type: choice
+        options:
+          - dev
+          - main
+          - production
+
+concurrency:
+  group: "tools-deploy-${{ inputs.environment || github.ref_name || 'dev' }}"
+  cancel-in-progress: false
+
+env:
+  AWS_REGION : eu-west-2
+  SOURCE_DIR : sgraph_ai_tools__static
+
+jobs:
+  increment-tag:
+    name: Increment Tag
+    runs-on: ubuntu-latest
+    # Only run on automatic push to dev (not on main or manual dispatch)
+    if: github.event_name == 'push' && github.ref_name == 'dev'
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Increment Tag
+        uses: owasp-sbot/OSBot-GitHub-Actions/.github/actions/git__increment-tag@dev
+        with:
+          release_type: minor
+
+  deploy:
+    name: "Deploy Tools to S3 (${{ inputs.environment || github.ref_name || 'dev' }})"
+    runs-on: ubuntu-latest
+    needs: [increment-tag]
+    if: always() && (needs.increment-tag.result == 'success' || needs.increment-tag.result == 'skipped')
+    timeout-minutes: 10
+    environment: ${{ inputs.environment || (github.ref_name == 'main' && 'main') || 'dev' }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Resolve latest UI version
+        id: ifd
+        run: |
+          LATEST=$(ls -d ${{ env.SOURCE_DIR }}/tools/v0/v0.1/v0.1.* 2>/dev/null \
+            | sort -V | tail -1 | xargs basename)
+          echo "ui_version=$LATEST" >> $GITHUB_OUTPUT
+          APP_VERSION=$(cat sgraph_ai_tools/version)
+          echo "app_version=$APP_VERSION" >> $GITHUB_OUTPUT
+          echo "Repo version: $APP_VERSION"
+          echo "Auto-detected UI version: $LATEST"
+
+      - name: Resolve deployment environment
+        id: env
+        run: |
+          DEPLOY_ENV="${{ inputs.environment || github.ref_name }}"
+          if [ "$DEPLOY_ENV" == "production" ]; then
+            echo "deploy_env=prod" >> $GITHUB_OUTPUT
+            echo "dist_id=${{ secrets.SGRAPH_TOOLS__PROD__CLOUDFRONT_DISTRIBUTION_ID }}" >> $GITHUB_OUTPUT
+            echo "Deploying to PRODUCTION (tools.sgraph.ai) → S3: websites/sgraph-tools/prod/"
+          elif [ "$DEPLOY_ENV" == "main" ]; then
+            echo "deploy_env=main" >> $GITHUB_OUTPUT
+            echo "dist_id=${{ secrets.SGRAPH_TOOLS__CLOUDFRONT_DISTRIBUTION_ID }}" >> $GITHUB_OUTPUT
+            echo "Deploying to MAIN → S3: websites/sgraph-tools/main/"
+          else
+            echo "deploy_env=dev" >> $GITHUB_OUTPUT
+            echo "dist_id=${{ secrets.SGRAPH_TOOLS__CLOUDFRONT_DISTRIBUTION_ID }}" >> $GITHUB_OUTPUT
+            echo "Deploying to DEV → S3: websites/sgraph-tools/dev/"
+          fi
+
+      - name: Build layered IFD content
+        run: |
+          echo "Building layered IFD content (all versions merged into _latest/)"
+          python scripts/build_ifd_latest.py \
+            --source-dir ${{ env.SOURCE_DIR }} \
+            --ifd-base tools/v0/v0.1 \
+            --up-to auto
+
+      - name: Generate i18n locale pages
+        run: |
+          python scripts/generate_tools_i18n_pages.py \
+            --source-dir ${{ env.SOURCE_DIR }}/tools/v0/v0.1/_latest
+
+      - name: Inject build version
+        run: |
+          python scripts/inject_build_version.py \
+            --version ${{ steps.ifd.outputs.ui_version }} \
+            --source-dir ${{ env.SOURCE_DIR }}/tools/v0/v0.1/_latest
+
+      - name: Check AWS credentials
+        id: check-creds
+        run: |
+          if [ -z "${{ secrets.AWS_ACCESS_KEY_ID }}" ] || [ -z "${{ secrets.AWS_SECRET_ACCESS_KEY }}" ]; then
+            echo "has-credentials=false" >> $GITHUB_OUTPUT
+            echo "WARNING: AWS credentials not configured — skipping deployment"
+          else
+            echo "has-credentials=true" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Configure AWS credentials
+        if: steps.check-creds.outputs.has-credentials == 'true'
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id     : ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key : ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region            : ${{ env.AWS_REGION }}
+
+      - name: Deploy to S3
+        if: steps.check-creds.outputs.has-credentials == 'true'
+        run: |
+          python scripts/deploy_static_site.py \
+            --site sgraph-tools \
+            --version ${{ steps.ifd.outputs.ui_version }} \
+            --source-dir ${{ env.SOURCE_DIR }} \
+            --bucket ${{ secrets.SGRAPH_TOOLS__S3_BUCKET }} \
+            --region ${{ env.AWS_REGION }} \
+            --deploy-env ${{ steps.env.outputs.deploy_env }} \
+            --cloudfront-distribution-id ${{ steps.env.outputs.dist_id }} \
+            --skip-validation \
+            --clean-urls \
+            --clean-urls-source-version tools/v0/v0.1/_latest

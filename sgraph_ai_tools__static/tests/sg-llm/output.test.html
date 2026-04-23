@@ -1,0 +1,242 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>sg-llm-output — Tests</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+               background: #0d0d1a; color: #e2e8f0; padding: 20px; }
+        h1 { font-size: 18px; margin-bottom: 16px; color: #4ECDC4; }
+        h2 { font-size: 14px; margin: 20px 0 8px; color: #a0aec0; text-transform: uppercase; letter-spacing: 0.05em; }
+        #test-results { background: #111122; border: 1px solid #222d4d; border-radius: 8px;
+                        padding: 16px; margin-bottom: 24px; font-size: 13px; }
+        .test-pass  { color: #4ECDC4; margin: 2px 0; }
+        .test-fail  { color: #ff6b6b; font-weight: 600; margin: 2px 0; }
+        .test-summary { margin-top: 12px; font-weight: 600; font-size: 14px; padding-top: 10px;
+                        border-top: 1px solid #222d4d; }
+        .test-summary.all-pass { color: #4ECDC4; }
+        .test-summary.has-fail { color: #ff6b6b; }
+        #demo { display: flex; flex-direction: column; gap: 12px; }
+        #demo-output { height: 300px; }
+        .demo-controls { display: flex; gap: 8px; flex-wrap: wrap; }
+        button { background: #4ECDC4; color: #0d0d1a; border: none; border-radius: 4px;
+                 padding: 7px 14px; font-size: 12px; font-weight: 600; cursor: pointer; }
+        button.ghost { background: #1a1a3a; color: #a0aec0; border: 1px solid #333d5a; }
+    </style>
+</head>
+<body>
+
+<h1>sg-llm-output v0.1.0 — Tests</h1>
+
+<div id="test-results">
+    <div id="results"></div>
+    <div class="test-summary" id="summary"></div>
+</div>
+
+<h2>Interactive Demo</h2>
+<div id="demo">
+    <div class="demo-controls">
+        <button id="btn-start">Simulate Start</button>
+        <button id="btn-stream">Simulate Stream</button>
+        <button id="btn-complete">Simulate Complete</button>
+        <button id="btn-error" class="ghost">Simulate Error</button>
+        <button id="btn-md-content" class="ghost">Set Markdown Content</button>
+    </div>
+    <div id="demo-container">
+        <sg-llm-output id="demo-output"></sg-llm-output>
+    </div>
+</div>
+
+<script type="module">
+import { SGL_LLM } from '/components/llm/sg-llm-events/v0/v0.1/v0.1.0/sg-llm-events.js';
+import '/components/llm/sg-llm-output/v0/v0.1/v0.1.0/sg-llm-output.js';
+
+const container = document.getElementById('demo-container');
+const output    = document.getElementById('demo-output');
+
+// ============================================================
+// TESTS
+// ============================================================
+
+const results = document.getElementById('results');
+const summary = document.getElementById('summary');
+let passed = 0, failed = 0;
+
+function assert(label, condition, detail = '') {
+    const div = document.createElement('div');
+    if (condition) {
+        div.className = 'test-pass';
+        div.textContent = `✓ ${label}`;
+        passed++;
+    } else {
+        div.className = 'test-fail';
+        div.textContent = `✗ ${label}${detail ? ': ' + detail : ''}`;
+        failed++;
+    }
+    results.appendChild(div);
+}
+
+function showSummary() {
+    summary.textContent = `${passed + failed} tests — ${passed} passed, ${failed} failed`;
+    summary.className = `test-summary ${failed === 0 ? 'all-pass' : 'has-fail'}`;
+}
+
+await new Promise(r => setTimeout(r, 50));
+
+// Test 1: custom element registered
+assert('customElements.get("sg-llm-output") defined', !!customElements.get('sg-llm-output'));
+
+// Test 2: shadow root
+assert('Shadow root has content', output.shadowRoot.innerHTML.length > 0);
+
+// Test 3: initial content is empty
+assert('content starts empty', output.content === '');
+
+// Test 4: window.SgLlmOutput exposed
+assert('window.SgLlmOutput exposed', !!window.SgLlmOutput);
+
+// Test 5: REQUEST_START clears output
+container.dispatchEvent(new CustomEvent(SGL_LLM.REQUEST_START, {
+    detail: { streaming: true, provider: 'openrouter', model: 'test', tokenEstimate: 100 },
+    bubbles: true
+}));
+await new Promise(r => setTimeout(r, 20));
+assert('REQUEST_START: shows waiting state', output.shadowRoot.querySelector('.output-waiting') !== null);
+
+// Test 6: REQUEST_CHUNK appends content
+container.dispatchEvent(new CustomEvent(SGL_LLM.REQUEST_CHUNK, {
+    detail: { chunk: 'Hello ', accumulated: 'Hello ' },
+    bubbles: true
+}));
+container.dispatchEvent(new CustomEvent(SGL_LLM.REQUEST_CHUNK, {
+    detail: { chunk: 'world!', accumulated: 'Hello world!' },
+    bubbles: true
+}));
+await new Promise(r => setTimeout(r, 20));
+assert('REQUEST_CHUNK: content updates', output.content === 'Hello world!');
+
+// Test 7: REQUEST_COMPLETE finalises
+const readyEvents = [];
+output.addEventListener(SGL_LLM.OUTPUT_READY, e => readyEvents.push(e.detail));
+
+container.dispatchEvent(new CustomEvent(SGL_LLM.REQUEST_COMPLETE, {
+    detail: {
+        content: 'Final response text',
+        promptTokens: 20,
+        completionTokens: 10,
+        cost: 0.001,
+        latencyMs: 500,
+        model: 'test',
+        finishReason: 'stop'
+    },
+    bubbles: true
+}));
+await new Promise(r => setTimeout(r, 20));
+assert('REQUEST_COMPLETE: content set',       output.content === 'Final response text');
+assert('OUTPUT_READY fired',                  readyEvents.length > 0);
+assert('OUTPUT_READY has content',            readyEvents[0]?.content === 'Final response text');
+
+// Test 8: REQUEST_ERROR shows error UI
+container.dispatchEvent(new CustomEvent(SGL_LLM.REQUEST_ERROR, {
+    detail: { error: 'Connection refused', status: 0, provider: 'ollama' },
+    bubbles: true
+}));
+await new Promise(r => setTimeout(r, 20));
+assert('REQUEST_ERROR: error element shown', output.shadowRoot.querySelector('.output-error') !== null);
+
+// Test 9: set content programmatically
+output.content = '## Test heading\n\nSome **bold** text.';
+await new Promise(r => setTimeout(r, 20));
+assert('Programmatic content set', output.content === '## Test heading\n\nSome **bold** text.');
+assert('Markdown renders h2', output.shadowRoot.querySelector('.output-markdown h2') !== null);
+
+// Test 10: BUNDLE_LOADED restores response
+container.dispatchEvent(new CustomEvent(SGL_LLM.BUNDLE_LOADED, {
+    detail: { bundle: { response: { text: 'Restored from bundle' } } },
+    bubbles: true
+}));
+await new Promise(r => setTimeout(r, 20));
+assert('BUNDLE_LOADED restores content', output.content === 'Restored from bundle');
+
+showSummary();
+
+// ============================================================
+// DEMO controls
+// ============================================================
+
+let streamInterval = null;
+
+document.getElementById('btn-start').onclick = () => {
+    clearInterval(streamInterval);
+    container.dispatchEvent(new CustomEvent(SGL_LLM.REQUEST_START, {
+        detail: { streaming: true, provider: 'openrouter', model: 'claude-3', tokenEstimate: 200 },
+        bubbles: true
+    }));
+};
+
+document.getElementById('btn-stream').onclick = () => {
+    const words = 'This is a streamed response appearing word by word to demonstrate the live streaming display.'.split(' ');
+    let i = 0, acc = '';
+    clearInterval(streamInterval);
+    streamInterval = setInterval(() => {
+        if (i >= words.length) { clearInterval(streamInterval); return; }
+        acc += (i > 0 ? ' ' : '') + words[i++];
+        container.dispatchEvent(new CustomEvent(SGL_LLM.REQUEST_CHUNK, {
+            detail: { chunk: words[i-1], accumulated: acc },
+            bubbles: true
+        }));
+    }, 120);
+};
+
+document.getElementById('btn-complete').onclick = () => {
+    clearInterval(streamInterval);
+    container.dispatchEvent(new CustomEvent(SGL_LLM.REQUEST_COMPLETE, {
+        detail: {
+            content: output.content || 'No streamed content — direct complete.',
+            promptTokens: 150, completionTokens: 80, cost: 0.0002, latencyMs: 1200,
+            model: 'claude-haiku-4-5', finishReason: 'stop'
+        },
+        bubbles: true
+    }));
+};
+
+document.getElementById('btn-error').onclick = () => {
+    clearInterval(streamInterval);
+    container.dispatchEvent(new CustomEvent(SGL_LLM.REQUEST_ERROR, {
+        detail: { error: 'HTTP 429: Rate limit exceeded', status: 429, provider: 'openrouter' },
+        bubbles: true
+    }));
+};
+
+document.getElementById('btn-md-content').onclick = () => {
+    output.content = `# Markdown Demo
+
+Here is some **bold text** and _italic text_.
+
+## Code Example
+
+\`\`\`javascript
+function greet(name) {
+    return \`Hello, \${name}!\`;
+}
+\`\`\`
+
+And an inline \`code snippet\`.
+
+- Item one
+- Item two
+- Item three
+
+> A blockquote with important information.
+
+| Column A | Column B |
+|----------|----------|
+| Value 1  | Value 2  |
+| Value 3  | Value 4  |
+`;
+};
+</script>
+</body>
+</html>

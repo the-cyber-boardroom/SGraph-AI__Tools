@@ -1,0 +1,15 @@
+{
+  "name": "sg-llm-chat-history",
+  "version": "0.1.1",
+  "tag": "sg-llm-chat-history",
+  "class": "SgLlmChatHistory",
+  "file": "sg-llm-chat-history.js",
+  "description": "Chat conversation display. Scroll lock pauses auto-scroll on manual scroll. Raw text during streaming avoids broken partial markdown.",
+  "changes": [
+    "Scroll lock: auto-scroll pauses when user scrolls up; jump-to-bottom button resumes",
+    "Streaming display: raw text shown during REQUEST_CHUNK, full markdown rendered on REQUEST_COMPLETE"
+  ],
+  "dependencies": [
+    "/components/llm/sg-llm-events/v0/v0.1/v0.1.0/sg-llm-events.js"
+  ]
+}

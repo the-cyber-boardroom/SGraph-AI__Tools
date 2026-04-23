@@ -1,0 +1,49 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>SG/Tools — Redirecting...</title>
+    <script>
+    (function() {
+        var supported = [
+            'en-gb','en-us','de-de','de-ch',
+            'es-es','es-ar','es-mx',
+            'fr-fr','fr-ca',
+            'hr-hr','it-it','nl-nl','pl-pl',
+            'pt-br','pt-pt','ro-ro','tlh'
+        ]
+        // Check for a previously chosen locale stored in sessionStorage
+        try {
+            var stored = sessionStorage.getItem('sg-locale')
+            if (stored && supported.indexOf(stored) !== -1) {
+                window.location.replace('/' + stored + '/')
+                return
+            }
+        } catch(e) {}
+        // Detect from browser language
+        var langs = navigator.languages || [navigator.language || 'en']
+        for (var i = 0; i < langs.length; i++) {
+            var code = langs[i].toLowerCase().replace('_', '-')
+            // Try exact match first (en-gb)
+            if (supported.indexOf(code) !== -1) {
+                window.location.replace('/' + code + '/')
+                return
+            }
+            // Try language-only match (en -> en-gb)
+            var base = code.split('-')[0]
+            for (var j = 0; j < supported.length; j++) {
+                if (supported[j].split('-')[0] === base) {
+                    window.location.replace('/' + supported[j] + '/')
+                    return
+                }
+            }
+        }
+        // Default
+        window.location.replace('/en-gb/')
+    })()
+    </script>
+    <!-- Fallback for no-JS -->
+    <noscript><meta http-equiv="refresh" content="0;url=/en-gb/"></noscript>
+</head>
+<body></body>
+</html>

@@ -1,0 +1,35 @@
+{
+  "id": "e1000001",
+  "type": "git-repository",
+  "label": "Librarian-1",
+  "title": "Librarian Role — Issue Tracker",
+  "description": "Knowledge base maintenance, master index, reality document, and documentation organisation tasks for sgraph_ai_tools__static (tools.sgraph.ai).",
+  "status": "active",
+  "created": "2026-04-15",
+  "updated": "2026-04-15",
+  "creator": "librarian",
+  "tags": ["librarian", "knowledge-base", "reality-doc", "master-index"],
+  "open_issues": [
+    {
+      "id": "L-001",
+      "title": "Reality document filename does not reflect current version",
+      "description": "File is named v0.1.0__what-exists-today.md but project is now at v0.1.91. A new snapshot v0.1.91__what-exists-today.md should be created at next major milestone.",
+      "priority": "low",
+      "created": "2026-04-15"
+    },
+    {
+      "id": "L-002",
+      "title": "Two 04/15 human briefs violate naming convention",
+      "description": "Files team/humans/dinis_cruz/briefs/04/15/briefing-browser-video-creation.md and briefing-image-pdf-compression.md lack the required {version}__ prefix. Raise with human author.",
+      "priority": "low",
+      "created": "2026-04-15"
+    },
+    {
+      "id": "L-003",
+      "title": "Master index not updated since v0.1.68 (8 Apr 2026)",
+      "description": "10+ new documents added (04/13 briefs, 04/15 briefs, role reviews) since last master index. New index created at reviews/04/15/ but PROPOSED items from 04/13 briefs need code verification.",
+      "priority": "medium",
+      "created": "2026-04-15"
+    }
+  ]
+}

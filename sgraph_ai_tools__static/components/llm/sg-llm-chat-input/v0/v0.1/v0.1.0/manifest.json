@@ -1,0 +1,20 @@
+{
+    "name": "sg-llm-chat-input",
+    "version": "0.1.0",
+    "description": "Message input bar with file/image attachment support. Enter=send, Shift+Enter=newline. File picker, drag-and-drop, clipboard paste (Ctrl+V images). Attachment previews. Disables during in-flight requests, shows Cancel. Emits llm:chat-message.",
+    "files": ["sg-llm-chat-input.js"],
+    "exports": {
+        "sg-llm-chat-input.js": ["SgLlmChatInput"]
+    },
+    "customElements": {
+        "sg-llm-chat-input": "sg-llm-chat-input.js"
+    },
+    "dependencies": {
+        "sg-llm-events": "/components/llm/sg-llm-events/v0/v0.1/v0.1.0/sg-llm-events.js"
+    },
+    "compatibleWith": {
+        "sg-llm-events":       ">=0.1.0",
+        "sg-llm-chat-history": ">=0.1.0"
+    },
+    "notes": "Uses Shadow DOM. Emits llm:chat-message (consumed by sg-llm-chat-history). Auto-resizing textarea. Image attachments → dataUrl, text files → textContent. Document-level paste listener for clipboard images."
+}

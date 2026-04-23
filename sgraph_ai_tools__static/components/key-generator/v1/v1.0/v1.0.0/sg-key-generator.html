@@ -1,0 +1,64 @@
+<div class="keygen">
+    <h3 class="keygen__title">Create Your Key</h3>
+
+    <div id="word-slots" class="keygen__word-slots">
+        <!-- Word slots rendered dynamically -->
+    </div>
+
+    <div class="keygen__suffix-row">
+        <label class="keygen__word-label">Suffix</label>
+        <div class="keygen__word-row">
+            <input type="text" id="suffix-input" class="keygen__suffix-input" placeholder="56" maxlength="4">
+            <span class="keygen__suffix-hint">auto-generated</span>
+        </div>
+    </div>
+
+    <div class="keygen__preview">
+        <span class="keygen__preview-label">Your key:</span>
+        <span id="key-preview" class="keygen__preview-key"></span>
+    </div>
+
+    <div class="keygen__entropy">
+        <span class="keygen__entropy-title">Security:</span>
+        <div id="entropy-bar" class="keygen__entropy-bar">
+            <div id="entropy-fill" class="keygen__entropy-fill"></div>
+        </div>
+        <span id="entropy-label" class="keygen__entropy-rating"></span>
+        <span id="entropy-count" class="keygen__entropy-count"></span>
+    </div>
+
+    <div class="keygen__geek">
+        <button type="button" id="geek-toggle" class="keygen__geek-toggle" aria-expanded="false">
+            Geek Mode &#x25BC;
+        </button>
+        <div id="geek-section" class="keygen__geek-section">
+            <div class="keygen__geek-row">
+                <span class="keygen__geek-label">Derived AES key:</span>
+                <code id="geek-key" class="keygen__geek-value"></code>
+            </div>
+            <div class="keygen__geek-row">
+                <span class="keygen__geek-label">KDF:</span>
+                <span id="geek-kdf" class="keygen__geek-value"></span>
+            </div>
+            <div class="keygen__geek-row">
+                <span class="keygen__geek-label">Time to derive:</span>
+                <span id="geek-time" class="keygen__geek-value"></span>
+            </div>
+            <div class="keygen__geek-row">
+                <span class="keygen__geek-label">Salt:</span>
+                <span id="geek-salt" class="keygen__geek-value"></span>
+            </div>
+            <div class="keygen__geek-row">
+                <span class="keygen__geek-label">Key length:</span>
+                <span class="keygen__geek-value">256 bits</span>
+            </div>
+        </div>
+    </div>
+
+    <div class="keygen__actions">
+        <button type="button" id="copy-btn" class="keygen__btn keygen__btn--secondary">Copy Key</button>
+        <button type="button" id="regen-btn" class="keygen__btn keygen__btn--secondary">Regenerate</button>
+        <button type="button" id="use-btn" class="keygen__btn keygen__btn--primary">Use This Key</button>
+        <slot name="actions"></slot>
+    </div>
+</div>

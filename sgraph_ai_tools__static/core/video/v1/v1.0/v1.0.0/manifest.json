@@ -1,0 +1,22 @@
+{
+  "name": "sg-video",
+  "version": "1.0.0",
+  "description": "Browser-based video processing via FFmpeg WASM — split, trim, extract audio/video",
+  "exports": {
+    "sg-video.js": [
+      "loadFFmpeg",
+      "getVideoInfo",
+      "splitVideo",
+      "trimVideo",
+      "extractAudio",
+      "extractVideo",
+      "parseTime",
+      "formatTime",
+      "isWasmSupported",
+      "generateTestClip",
+      "runHealthCheck",
+      "FFMPEG_CDN_URL",
+      "FFMPEG_UTIL_URL"
+    ]
+  }
+}

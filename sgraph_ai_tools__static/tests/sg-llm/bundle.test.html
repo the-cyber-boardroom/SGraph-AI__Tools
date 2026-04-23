@@ -1,0 +1,410 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>sg-llm-bundle — Tests</title>
+<style>
+    body { font-family: monospace; background: #0d0d1a; color: #e2e8f0; padding: 24px; margin: 0; }
+    h1 { color: #7c9ef8; margin: 0 0 8px; }
+    .subtitle { color: #64748b; font-size: 13px; margin: 0 0 24px; }
+    .test-summary { font-size: 14px; font-weight: bold; margin-bottom: 20px; padding: 10px 16px; border-radius: 6px; }
+    .test-summary.pass { background: #0d2a1a; color: #4ade80; border: 1px solid #166534; }
+    .test-summary.fail { background: #2a0d0d; color: #f87171; border: 1px solid #991b1b; }
+    .suite { margin-bottom: 20px; }
+    .suite-title { color: #a0aec0; font-size: 12px; text-transform: uppercase; letter-spacing: 0.08em; margin-bottom: 8px; }
+    .test { display: flex; align-items: flex-start; gap: 8px; font-size: 13px; padding: 4px 0; }
+    .test .icon { flex-shrink: 0; }
+    .pass .icon { color: #4ade80; }
+    .fail .icon { color: #f87171; }
+    .fail .msg { color: #f87171; }
+    .detail { color: #64748b; font-size: 12px; margin-top: 2px; }
+</style>
+</head>
+<body>
+<h1>sg-llm-bundle</h1>
+<p class="subtitle">Headless bundle orchestrator — save/load/delete, parent_id fork tree, auto-save, index management</p>
+<div class="test-summary" id="summary">Running…</div>
+<div id="results"></div>
+
+<script type="module">
+import { SgLlmBundle } from '/components/llm/sg-llm-bundle/v0/v0.1/v0.1.0/sg-llm-bundle.js';
+import { SGL_LLM }     from '/components/llm/sg-llm-events/v0/v0.1/v0.1.0/sg-llm-events.js';
+
+// ── Harness ───────────────────────────────────────────────────────────────────
+
+let passed = 0, failed = 0;
+const suites = [];
+let currentSuite = null;
+
+function suite(name) { currentSuite = { name, tests: [] }; suites.push(currentSuite); }
+function test(name, fn) {
+    try { fn(); currentSuite.tests.push({ name, ok: true }); passed++; }
+    catch (err) { currentSuite.tests.push({ name, ok: false, msg: err.message }); failed++; }
+}
+function assert(cond, msg)      { if (!cond) throw new Error(msg || 'Assertion failed'); }
+function assertEqual(a, b, msg) {
+    const as = JSON.stringify(a), bs = JSON.stringify(b);
+    if (as !== bs) throw new Error(msg || `Expected ${bs}, got ${as}`);
+}
+
+// Clear localStorage before tests so they don't interfere
+localStorage.removeItem('sg-llm-bundles');
+localStorage.removeItem('sg-llm-bundles-index');
+
+function makeComp(autoSave = false) {
+    const bus  = document.createElement('div');
+    const comp = document.createElement('sg-llm-bundle');
+    if (autoSave) comp.setAttribute('auto-save', '');
+    bus.appendChild(comp);
+    document.body.appendChild(bus);
+    return { bus, comp, cleanup() { bus.remove(); localStorage.removeItem('sg-llm-bundles'); localStorage.removeItem('sg-llm-bundles-index'); } };
+}
+
+function dispatch(bus, name, detail = {}) {
+    bus.dispatchEvent(new CustomEvent(name, { detail, bubbles: true, composed: true }));
+}
+
+function nextEvent(bus, name) {
+    return new Promise(r => bus.addEventListener(name, e => r(e.detail), { once: true }));
+}
+
+// ── Tests ─────────────────────────────────────────────────────────────────────
+
+suite('Custom element');
+
+test('sg-llm-bundle is registered', () => {
+    assert(customElements.get('sg-llm-bundle') !== undefined);
+});
+
+test('no shadow DOM (headless)', () => {
+    const { comp, cleanup } = makeComp();
+    assertEqual(comp.shadowRoot, null);
+    cleanup();
+});
+
+test('auto-save attribute read', () => {
+    const { comp, cleanup } = makeComp(true);
+    assert(comp.autoSave === true, 'autoSave should be true');
+    cleanup();
+});
+
+// ── saveBundle ────────────────────────────────────────────────────────────────
+
+suite('saveBundle');
+
+test('saveBundle returns a bundle with id and timestamp', () => {
+    const { comp, cleanup } = makeComp();
+    const b = comp.saveBundle();
+    assert(typeof b.id === 'string' && b.id.startsWith('bundle-'), 'id format');
+    assert(typeof b.timestamp === 'string', 'timestamp should be string');
+    cleanup();
+});
+
+test('saveBundle emits BUNDLE_SAVED', async () => {
+    const { bus, comp, cleanup } = makeComp();
+    const p = nextEvent(bus, SGL_LLM.BUNDLE_SAVED);
+    comp.saveBundle();
+    const detail = await p;
+    assert(detail.bundle?.id, 'bundle should have id');
+    cleanup();
+});
+
+test('saveBundle emits BUNDLE_LIST_CHANGED', async () => {
+    const { bus, comp, cleanup } = makeComp();
+    const p = nextEvent(bus, SGL_LLM.BUNDLE_LIST_CHANGED);
+    comp.saveBundle();
+    await p;
+    cleanup();
+});
+
+test('bundle is persisted to localStorage', () => {
+    const { comp, cleanup } = makeComp();
+    const b = comp.saveBundle();
+    const raw = JSON.parse(localStorage.getItem('sg-llm-bundles') || '{}');
+    assert(raw[b.id] !== undefined, 'bundle should be in localStorage');
+    cleanup();
+});
+
+test('getBundle retrieves saved bundle', () => {
+    const { comp, cleanup } = makeComp();
+    const b = comp.saveBundle();
+    const retrieved = comp.getBundle(b.id);
+    assertEqual(retrieved?.id, b.id);
+    cleanup();
+});
+
+// ── Config capture ────────────────────────────────────────────────────────────
+
+suite('Config capture');
+
+test('CONNECTED event sets config', () => {
+    const { bus, comp, cleanup } = makeComp();
+    dispatch(bus, SGL_LLM.CONNECTED, { provider: 'openrouter', model: 'claude-haiku', streaming: true });
+    const b = comp.saveBundle();
+    assertEqual(b.config.provider, 'openrouter');
+    assertEqual(b.config.model, 'claude-haiku');
+    cleanup();
+});
+
+test('MODEL_CHANGED updates model in config', () => {
+    const { bus, comp, cleanup } = makeComp();
+    dispatch(bus, SGL_LLM.CONNECTED,    { provider: 'openrouter', model: 'old-model' });
+    dispatch(bus, SGL_LLM.MODEL_CHANGED, { model: 'new-model' });
+    const b = comp.saveBundle();
+    assertEqual(b.config.model, 'new-model');
+    cleanup();
+});
+
+test('STREAMING_CHANGED updates streaming flag', () => {
+    const { bus, comp, cleanup } = makeComp();
+    dispatch(bus, SGL_LLM.STREAMING_CHANGED, { streaming: false });
+    const b = comp.saveBundle();
+    assertEqual(b.config.streaming, false);
+    cleanup();
+});
+
+// ── Response capture ──────────────────────────────────────────────────────────
+
+suite('Response capture');
+
+test('REQUEST_COMPLETE captures response data', () => {
+    const { bus, comp, cleanup } = makeComp();
+    dispatch(bus, SGL_LLM.REQUEST_COMPLETE, {
+        content: 'Answer text', promptTokens: 100, completionTokens: 50, cost: 0.001, latencyMs: 400,
+    });
+    const b = comp.saveBundle();
+    assertEqual(b.response.text, 'Answer text');
+    assertEqual(b.response.tokens.prompt,     100);
+    assertEqual(b.response.tokens.completion, 50);
+    assertEqual(b.response.tokens.total,      150);
+    assertEqual(b.response.cost, 0.001);
+    cleanup();
+});
+
+// ── parent_id fork tree ───────────────────────────────────────────────────────
+
+suite('parent_id fork tree');
+
+test('first bundle has parent_id: null', () => {
+    const { comp, cleanup } = makeComp();
+    const b = comp.saveBundle();
+    assertEqual(b.parent_id, null);
+    cleanup();
+});
+
+test('second bundle parent_id === first bundle id', () => {
+    const { comp, cleanup } = makeComp();
+    const b1 = comp.saveBundle();
+    const b2 = comp.saveBundle();
+    assertEqual(b2.parent_id, b1.id);
+    cleanup();
+});
+
+test('three bundles form a chain', () => {
+    const { comp, cleanup } = makeComp();
+    const b1 = comp.saveBundle();
+    const b2 = comp.saveBundle();
+    const b3 = comp.saveBundle();
+    assertEqual(b1.parent_id, null);
+    assertEqual(b2.parent_id, b1.id);
+    assertEqual(b3.parent_id, b2.id);
+    cleanup();
+});
+
+test('loadBundle resets active id — next save forks from loaded', () => {
+    const { comp, cleanup } = makeComp();
+    const b1 = comp.saveBundle();
+    comp.saveBundle(); // b2
+    comp.loadBundle(b1.id); // go back to b1
+    const b3 = comp.saveBundle(); // fork from b1
+    assertEqual(b3.parent_id, b1.id);
+    cleanup();
+});
+
+// ── loadBundle ────────────────────────────────────────────────────────────────
+
+suite('loadBundle');
+
+test('loadBundle emits BUNDLE_LOADED', async () => {
+    const { bus, comp, cleanup } = makeComp();
+    const b = comp.saveBundle();
+    const p = nextEvent(bus, SGL_LLM.BUNDLE_LOADED);
+    comp.loadBundle(b.id);
+    const detail = await p;
+    assertEqual(detail.bundle.id, b.id);
+    cleanup();
+});
+
+test('loadBundle returns the bundle', () => {
+    const { comp, cleanup } = makeComp();
+    const saved = comp.saveBundle();
+    const loaded = comp.loadBundle(saved.id);
+    assertEqual(loaded?.id, saved.id);
+    cleanup();
+});
+
+test('loadBundle with unknown id returns null', () => {
+    const { comp, cleanup } = makeComp();
+    const result = comp.loadBundle('nonexistent-id');
+    assertEqual(result, null);
+    cleanup();
+});
+
+// ── deleteBundle ──────────────────────────────────────────────────────────────
+
+suite('deleteBundle');
+
+test('deleteBundle emits BUNDLE_DELETED', async () => {
+    const { bus, comp, cleanup } = makeComp();
+    const b = comp.saveBundle();
+    const p = nextEvent(bus, SGL_LLM.BUNDLE_DELETED);
+    comp.deleteBundle(b.id);
+    const detail = await p;
+    assertEqual(detail.bundleId, b.id);
+    cleanup();
+});
+
+test('deleteBundle removes from localStorage', () => {
+    const { comp, cleanup } = makeComp();
+    const b = comp.saveBundle();
+    comp.deleteBundle(b.id);
+    assertEqual(comp.getBundle(b.id), null);
+    cleanup();
+});
+
+test('deleteBundle emits BUNDLE_LIST_CHANGED', async () => {
+    const { bus, comp, cleanup } = makeComp();
+    const b = comp.saveBundle();
+    // Consume the save's LIST_CHANGED first
+    await Promise.resolve();
+    const p = nextEvent(bus, SGL_LLM.BUNDLE_LIST_CHANGED);
+    comp.deleteBundle(b.id);
+    await p;
+    cleanup();
+});
+
+// ── Index management ──────────────────────────────────────────────────────────
+
+suite('Index management');
+
+test('getIndex returns array with saved bundle entry', () => {
+    const { comp, cleanup } = makeComp();
+    comp.saveBundle();
+    comp.saveBundle();
+    const index = comp.getIndex();
+    assertEqual(index.length, 2);
+    cleanup();
+});
+
+test('index entries have id, parent_id, timestamp, model', () => {
+    const { bus, comp, cleanup } = makeComp();
+    dispatch(bus, SGL_LLM.CONNECTED, { provider: 'anthropic', model: 'claude-haiku' });
+    comp.saveBundle();
+    const entry = comp.getIndex()[0];
+    assert('id'        in entry, 'missing id');
+    assert('parent_id' in entry, 'missing parent_id');
+    assert('timestamp' in entry, 'missing timestamp');
+    assert('model'     in entry, 'missing model');
+    assertEqual(entry.model, 'claude-haiku');
+    cleanup();
+});
+
+test('index is ordered newest first', () => {
+    const { comp, cleanup } = makeComp();
+    const b1 = comp.saveBundle();
+    const b2 = comp.saveBundle();
+    const index = comp.getIndex();
+    assertEqual(index[0].id, b2.id, 'newest should be first');
+    assertEqual(index[1].id, b1.id);
+    cleanup();
+});
+
+test('deleteBundle removes entry from index', () => {
+    const { comp, cleanup } = makeComp();
+    const b = comp.saveBundle();
+    comp.deleteBundle(b.id);
+    assertEqual(comp.getIndex().length, 0);
+    cleanup();
+});
+
+// ── Auto-save ─────────────────────────────────────────────────────────────────
+
+suite('Auto-save');
+
+test('auto-save=false: REQUEST_COMPLETE does not save', async () => {
+    const { bus, comp, cleanup } = makeComp(false);
+    let saved = false;
+    bus.addEventListener(SGL_LLM.BUNDLE_SAVED, () => { saved = true; });
+    dispatch(bus, SGL_LLM.REQUEST_COMPLETE, { content: 'x', promptTokens: 5, completionTokens: 3, cost: 0, latencyMs: 100 });
+    await Promise.resolve();
+    assert(!saved, 'should NOT auto-save when auto-save attribute absent');
+    cleanup();
+});
+
+test('auto-save=true: REQUEST_COMPLETE triggers save', async () => {
+    const { bus, comp, cleanup } = makeComp(true);
+    const p = nextEvent(bus, SGL_LLM.BUNDLE_SAVED);
+    dispatch(bus, SGL_LLM.REQUEST_COMPLETE, { content: 'answer', promptTokens: 10, completionTokens: 5, cost: 0, latencyMs: 200 });
+    const detail = await p;
+    assert(detail.bundle?.id, 'auto-saved bundle should have id');
+    cleanup();
+});
+
+// ── BUNDLE_SAVE_REQUESTED ─────────────────────────────────────────────────────
+
+suite('Event-triggered save/load/delete');
+
+test('BUNDLE_SAVE_REQUESTED triggers save', async () => {
+    const { bus, comp, cleanup } = makeComp();
+    const p = nextEvent(bus, SGL_LLM.BUNDLE_SAVED);
+    dispatch(bus, SGL_LLM.BUNDLE_SAVE_REQUESTED, {});
+    await p;
+    cleanup();
+});
+
+test('BUNDLE_LOAD_REQUESTED triggers load', async () => {
+    const { bus, comp, cleanup } = makeComp();
+    const b = comp.saveBundle();
+    const p = nextEvent(bus, SGL_LLM.BUNDLE_LOADED);
+    dispatch(bus, SGL_LLM.BUNDLE_LOAD_REQUESTED, { bundleId: b.id });
+    const detail = await p;
+    assertEqual(detail.bundle.id, b.id);
+    cleanup();
+});
+
+test('llm:bundle-delete-requested triggers delete', async () => {
+    const { bus, comp, cleanup } = makeComp();
+    const b = comp.saveBundle();
+    const p = nextEvent(bus, SGL_LLM.BUNDLE_DELETED);
+    dispatch(bus, 'llm:bundle-delete-requested', { bundleId: b.id });
+    const detail = await p;
+    assertEqual(detail.bundleId, b.id);
+    cleanup();
+});
+
+// ── Render ────────────────────────────────────────────────────────────────────
+
+const resultsEl = document.getElementById('results');
+const summaryEl = document.getElementById('summary');
+
+for (const s of suites) {
+    const suiteDiv = document.createElement('div');
+    suiteDiv.className = 'suite';
+    suiteDiv.innerHTML = `<div class="suite-title">${s.name}</div>`;
+    for (const t of s.tests) {
+        const div = document.createElement('div');
+        div.className = `test ${t.ok ? 'pass' : 'fail'}`;
+        div.innerHTML = `
+            <span class="icon">${t.ok ? '✓' : '✗'}</span>
+            <div><div>${t.name}</div>${t.ok ? '' : `<div class="detail msg">${t.msg}</div>`}</div>`;
+        suiteDiv.appendChild(div);
+    }
+    resultsEl.appendChild(suiteDiv);
+}
+
+const total = passed + failed;
+summaryEl.textContent = failed === 0 ? `✓ All ${total} tests passed` : `✗ ${failed} of ${total} tests failed`;
+summaryEl.className   = `test-summary ${failed === 0 ? 'pass' : 'fail'}`;
+</script>
+</body>
+</html>

@@ -1,0 +1,21 @@
+{
+    "version": "1.0.1",
+    "name": "sg-site-header",
+    "description": "Shared sticky header for all sgraph.ai domains. SG/ logo, nav links, slotted locale picker, teal accent line.",
+    "type": "component",
+    "exports": [
+        "SgSiteHeader"
+    ],
+    "custom_element": "sg-site-header",
+    "attributes": ["site", "home-url", "nav-items"],
+    "slots": ["locale"],
+    "dependencies": [
+        "sg-component",
+        "sg-tokens"
+    ],
+    "changes_from": "1.0.0",
+    "changes": [
+        "Add <slot name='locale'> for composing locale picker",
+        "Add teal accent line under header (::after pseudo-element)"
+    ]
+}

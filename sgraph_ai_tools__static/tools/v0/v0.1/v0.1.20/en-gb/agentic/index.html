@@ -1,0 +1,423 @@
+<!DOCTYPE html>
+<html lang="en-GB">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Agentic Loop — tools.sgraph.ai</title>
+    <meta name="description" content="LLM tool calling with VFS integration, Python REPL, and structured JSON I/O. Define tools, run agentic loops, execute sandboxed JS/Python code. Human-in-the-loop approval, cost budget, trace timeline. Supports Gemma 4, Mistral, Llama 3 via Ollama or OpenRouter.">
+    <link rel="icon" type="image/svg+xml" href="../../../_common/favicon.svg">
+    <link rel="stylesheet" href="../../../_common/css/tools.css">
+    <style>
+        html, body {
+            height: 100%;
+            margin: 0;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
+        sg-site-header { flex-shrink: 0; }
+        #outer   { flex: 1; display: flex; flex-direction: column; min-height: 0; }
+        #llm-bus { flex: 1; display: flex; flex-direction: column; min-height: 0; }
+        sg-layout { flex: 1; min-height: 0; }
+        sg-llm-request, sg-tool-runner, sg-agentic-loop, sg-vfs-bus { display: none !important; }
+    </style>
+</head>
+<body>
+
+<script type="module" src="/components/site-header/v1/v1.0/v1.0.2/sg-site-header.js"></script>
+<sg-site-header site="Tools" home-url="../../../"></sg-site-header>
+
+<div id="outer">
+    <!--
+        [data-llm-bus] — LLM request + tool runner (v0.1.1, Python support) + agentic loop
+        All three headless components live here.
+    -->
+    <div id="llm-bus" data-llm-bus>
+        <sg-llm-request></sg-llm-request>
+        <sg-tool-runner id="tool-runner"></sg-tool-runner>
+        <sg-agentic-loop id="agentic-loop" max-iterations="10" cost-budget="0.50"></sg-agentic-loop>
+        <sg-layout id="layout"></sg-layout>
+    </div>
+</div>
+
+<!-- VFS bus outside LLM bus; sg-tool-runner finds it via document.querySelector -->
+<div data-vfs-bus style="display:none">
+    <sg-vfs-bus provider="memory"></sg-vfs-bus>
+</div>
+
+<script type="module">
+import '/components/site-header/v1/v1.0/v1.0.2/sg-site-header.js';
+import '/core/sg-layout/v0.1.0/sg-layout.js';
+import '/components/llm/sg-llm-events/v0/v0.1/v0.1.1/sg-llm-events.js';
+import '/components/llm/sg-llm-request/v0/v0.1/v0.1.4/sg-llm-request.js';
+import '/components/llm/sg-llm-connection/v0/v0.1/v0.1.4/sg-llm-connection.js';
+import '/components/llm/sg-llm-stats/v0/v0.1/v0.1.1/sg-llm-stats.js';
+// v0.1.1: sg-tool-runner with Python support (uses SGSandbox v0.2.0)
+import '/components/agentic/sg-tool-runner/v0/v0.1/v0.1.1/sg-tool-runner.js';
+import '/components/agentic/sg-agentic-loop/v0/v0.1/v0.1.0/sg-agentic-loop.js';
+// v0.1.1: imports BUILTIN_TOOL_DEFS from sg-tool-runner v0.1.1 (avoids double customElements.define)
+import '/components/agentic/sg-tool-definition/v0/v0.1/v0.1.1/sg-tool-definition.js';
+import '/components/agentic/sg-python-repl/v0/v0.1/v0.1.0/sg-python-repl.js';
+import '/components/agentic/sg-json-sender/v0/v0.1/v0.1.0/sg-json-sender.js';
+import '/components/agentic/sg-json-receiver/v0/v0.1/v0.1.0/sg-json-receiver.js';
+import '/components/vfs/sg-vfs-bus/v0/v0.1/v0.1.0/sg-vfs-bus.js';
+import { SGL_LLM } from '/components/llm/sg-llm-events/v0/v0.1/v0.1.1/sg-llm-events.js';
+
+// ── Layout definition ──────────────────────────────────────────────────────
+
+const LAYOUT = {
+    type: 'row',
+    sizes: [0.22, 0.46, 0.32],
+    children: [
+        // Left: connection + tool definitions
+        {
+            type: 'column', sizes: [0.35, 0.65],
+            children: [
+                { type: 'stack', tabs: [{ tag: 'sg-llm-connection', title: 'Connection' }] },
+                { type: 'stack', tabs: [{ tag: 'sg-tool-definition', title: 'Tools' }] },
+            ],
+        },
+        // Centre: task + trace/JSON tabs
+        {
+            type: 'column', sizes: [0.14, 0.86],
+            children: [
+                { type: 'stack', tabs: [{ tag: 'sg-agentic-task', title: 'Task' }] },
+                {
+                    type: 'stack',
+                    tabs: [
+                        { tag: 'sg-agentic-trace',  title: 'Trace' },
+                        { tag: 'sg-json-sender',    title: 'JSON Send' },
+                        { tag: 'sg-json-receiver',  title: 'JSON Receive' },
+                    ],
+                },
+            ],
+        },
+        // Right: stats + Python REPL + VFS
+        {
+            type: 'column', sizes: [0.15, 0.42, 0.43],
+            children: [
+                { type: 'stack', tabs: [{ tag: 'sg-llm-stats', title: 'Stats' }] },
+                { type: 'stack', tabs: [{ tag: 'sg-python-repl', title: 'Python REPL' }] },
+                { type: 'stack', tabs: [{ tag: 'sg-agentic-vfs', title: 'VFS' }] },
+            ],
+        },
+    ],
+};
+
+customElements.whenDefined('sg-layout').then(() => {
+    document.getElementById('layout').setLayout(LAYOUT);
+});
+
+// ── Shared bus reference ──────────────────────────────────────────────────────
+
+const BUS = document.getElementById('llm-bus');
+
+// ── Panel: Task Input ─────────────────────────────────────────────────────────
+
+const TASK_CSS = `
+:host { display: flex; flex-direction: column; height: 100%; min-height: 0; width: 100%; box-sizing: border-box; }
+.at-wrap { display: flex; flex-direction: column; height: 100%; padding: 10px; gap: 8px; background: #0d0d1a; border-bottom: 1px solid #1e2035; box-sizing: border-box; }
+textarea {
+    flex: 1;
+    background: #12122a; color: #e2e8f0;
+    border: 1px solid #2d3060; border-radius: 6px;
+    padding: 8px 10px; font-size: 13px;
+    font-family: system-ui, sans-serif;
+    resize: none; min-height: 40px; box-sizing: border-box; outline: none;
+}
+textarea:focus { border-color: #7c9ef8; }
+.at-row { display: flex; gap: 8px; align-items: center; flex-shrink: 0; }
+.at-cfg { display: flex; gap: 6px; align-items: center; flex: 1; }
+.at-cfg label { font-size: 10px; color: #475569; display: flex; align-items: center; gap: 4px; }
+.at-cfg input[type=number] { width: 44px; background: #12122a; border: 1px solid #2d3060; color: #e2e8f0; border-radius: 4px; padding: 2px 5px; font-size: 10px; }
+.at-cfg input[type=checkbox] { accent-color: #f87171; cursor: pointer; }
+.at-btn { height: 36px; padding: 0 14px; border-radius: 6px; border: none; cursor: pointer; font-size: 12px; font-weight: 600; flex-shrink: 0; }
+.at-btn.run  { background: #1e2860; color: #7c9ef8; }
+.at-btn.run:hover  { background: #2d3880; }
+.at-btn.run:disabled { opacity: 0.35; cursor: default; }
+.at-btn.stop { background: #2a0d0d; color: #f87171; display: none; }
+.at-btn.stop.vis { display: inline-flex; align-items: center; }
+.at-status { font-size: 10px; color: #475569; flex: 1; text-align: right; }
+`;
+
+class SgAgenticTask extends HTMLElement {
+    constructor() { super(); this.attachShadow({ mode: 'open' }); }
+    connectedCallback() {
+        this.shadowRoot.innerHTML = `<style>${TASK_CSS}</style>
+        <div class="at-wrap">
+            <textarea id="task" placeholder="Describe the task… e.g. 'List all VFS files, read each one, then produce a one-paragraph summary.'"></textarea>
+            <div class="at-row">
+                <div class="at-cfg">
+                    <label>Max iter <input type="number" id="max-iter" value="10" min="1" max="50"></label>
+                    <label>Budget $<input type="number" id="budget" value="0.50" min="0.01" step="0.10"></label>
+                    <label><input type="checkbox" id="human-approval"> Approve each step</label>
+                </div>
+                <span class="at-status" id="status"></span>
+                <button class="at-btn run"  id="run">▶ Run</button>
+                <button class="at-btn stop" id="stop">■ Stop</button>
+            </div>
+        </div>`;
+
+        const loop = document.getElementById('agentic-loop');
+        this.shadowRoot.getElementById('run').onclick = () => {
+            const task = this.shadowRoot.getElementById('task').value.trim();
+            if (!task || !loop) return;
+            const maxIter  = parseInt(this.shadowRoot.getElementById('max-iter').value, 10) || 10;
+            const budget   = parseFloat(this.shadowRoot.getElementById('budget').value) || 0.5;
+            const approval = this.shadowRoot.getElementById('human-approval').checked;
+            if (approval) loop.setAttribute('human-approval', '');
+            else          loop.removeAttribute('human-approval');
+            loop.start(task, null, { maxIterations: maxIter, costBudget: budget });
+        };
+        this.shadowRoot.getElementById('stop').onclick = () => {
+            document.getElementById('agentic-loop')?.stop();
+        };
+
+        BUS.addEventListener(SGL_LLM.AGENTIC_START,             () => this._setState('running'));
+        BUS.addEventListener(SGL_LLM.AGENTIC_DONE,              (e) => this._setState('done', e.detail.iterations));
+        BUS.addEventListener(SGL_LLM.AGENTIC_ABORT,             (e) => this._setState('aborted', e.detail.iterations, e.detail.reason));
+        BUS.addEventListener(SGL_LLM.AGENTIC_STEP,              (e) => this._onStep(e.detail));
+        BUS.addEventListener(SGL_LLM.AGENTIC_APPROVAL_REQUIRED, (e) => this._setState('awaiting', e.detail.iterations));
+    }
+    _setState(state, iter, reason) {
+        const run  = this.shadowRoot.getElementById('run');
+        const stop = this.shadowRoot.getElementById('stop');
+        const st   = this.shadowRoot.getElementById('status');
+        const running = state === 'running' || state === 'awaiting';
+        if (run)  run.disabled = running;
+        if (stop) stop.classList.toggle('vis', running);
+        if (st) {
+            if (state === 'running')   st.textContent = `Running… iter ${iter ?? '?'}`;
+            else if (state === 'awaiting') st.textContent = `Awaiting approval (iter ${iter})`;
+            else if (state === 'done')     st.textContent = `Done in ${iter} iteration${iter !== 1 ? 's' : ''}`;
+            else if (state === 'aborted')  st.textContent = `Stopped: ${reason || 'aborted'}`;
+            else st.textContent = '';
+        }
+    }
+    _onStep() {
+        const loop = document.getElementById('agentic-loop');
+        const st   = this.shadowRoot.getElementById('status');
+        if (loop && st) st.textContent = `Running… iter ${loop.iterations}`;
+    }
+}
+customElements.define('sg-agentic-task', SgAgenticTask);
+
+// ── Panel: Trace ──────────────────────────────────────────────────────────────
+
+const TRACE_CSS = `
+:host { display: block; width: 100%; height: 100%; min-height: 0; box-sizing: border-box; overflow: hidden; }
+.tr-wrap { height: 100%; overflow-y: auto; padding: 10px; box-sizing: border-box; background: #070710; font-family: system-ui, sans-serif; display: flex; flex-direction: column; gap: 6px; }
+.tr-empty { color: #2a2a4a; font-size: 13px; padding: 20px 0; text-align: center; }
+.tr-step { border-radius: 6px; overflow: hidden; }
+.tr-hdr { display: flex; align-items: center; gap: 8px; padding: 6px 10px; font-size: 11px; font-weight: 600; cursor: pointer; user-select: none; }
+.tr-hdr:hover { filter: brightness(1.15); }
+.tr-body { padding: 8px 12px; font-size: 11px; line-height: 1.6; white-space: pre-wrap; word-break: break-word; display: none; background: #0d0d1a; color: #cbd5e1; }
+.tr-body.open { display: block; }
+.tr-step.user     .tr-hdr { background: #1a1a2e; color: #94a3b8; }
+.tr-step.llm      .tr-hdr { background: #0f1a3a; color: #7c9ef8; }
+.tr-step.tool     .tr-hdr { background: #0f2a1a; color: #4ade80; }
+.tr-step.result   .tr-hdr { background: #1a0f1f; color: #c084fc; }
+.tr-step.done     .tr-hdr { background: #0d1a0d; color: #86efac; }
+.tr-step.error    .tr-hdr { background: #2a0d0d; color: #f87171; }
+.tr-step.awaiting .tr-hdr { background: #1a1a0a; color: #fbbf24; }
+.tr-badge { margin-left: auto; font-size: 9px; opacity: 0.65; font-weight: normal; }
+`;
+
+class SgAgenticTrace extends HTMLElement {
+    constructor() { super(); this.attachShadow({ mode: 'open' }); this._streamEl = null; }
+    connectedCallback() {
+        this.shadowRoot.innerHTML = `<style>${TRACE_CSS}</style>
+        <div class="tr-wrap" id="wrap">
+            <div class="tr-empty">Run a task to see the agentic trace.</div>
+        </div>`;
+        BUS.addEventListener(SGL_LLM.AGENTIC_START,             () => this._clear());
+        BUS.addEventListener(SGL_LLM.AGENTIC_STEP,              (e) => this._onStep(e.detail));
+        BUS.addEventListener(SGL_LLM.AGENTIC_DONE,              (e) => this._addDone(e.detail));
+        BUS.addEventListener(SGL_LLM.AGENTIC_ABORT,             (e) => this._addAbort(e.detail));
+        BUS.addEventListener(SGL_LLM.AGENTIC_APPROVAL_REQUIRED, (e) => this._addApproval(e.detail));
+        BUS.addEventListener(SGL_LLM.REQUEST_CHUNK,             (e) => this._onChunk(e.detail));
+    }
+    _clear() {
+        const wrap = this.shadowRoot.getElementById('wrap');
+        if (wrap) wrap.innerHTML = '';
+        this._streamEl = null;
+    }
+    _onStep(detail) {
+        const { step, type, data } = detail;
+        if (type === 'llm') {
+            const el = this._addStep(type, '[waiting for model…]', `step ${step}`);
+            this._streamEl = el.querySelector('.tr-body');
+            this._streamEl.classList.add('open');
+        } else {
+            this._addStep(type, data, `step ${step}`);
+        }
+    }
+    _addDone(detail) {
+        this._streamEl = null;
+        const el = this._addStep('done', detail.content || '(no text response)', `${detail.iterations} iter`);
+        el.querySelector('.tr-body').classList.add('open');
+    }
+    _addAbort(detail) {
+        this._streamEl = null;
+        const el = this._addStep('error', `Aborted: ${detail.reason}`, `iter ${detail.iterations}`);
+        el.querySelector('.tr-body').classList.add('open');
+    }
+    _addApproval(detail) {
+        this._streamEl = null;
+        const el = this._addStep('awaiting', `${detail.results?.length ?? 0} tool(s) done. See the approval overlay to continue or stop.`, `iter ${detail.iterations}`);
+        el.querySelector('.tr-body').classList.add('open');
+    }
+    _onChunk({ accumulated }) {
+        if (!this._streamEl) return;
+        this._streamEl.textContent = accumulated;
+        const wrap = this.shadowRoot.getElementById('wrap');
+        if (wrap) wrap.scrollTop = wrap.scrollHeight;
+    }
+    _addStep(type, data, badge) {
+        const wrap = this.shadowRoot.getElementById('wrap');
+        if (!wrap) return document.createElement('div');
+        const ICONS  = { user:'👤', llm:'🤖', tool:'🔧', result:'📦', done:'✅', error:'❌', awaiting:'⏸️' };
+        const LABELS = { user:'Task', llm:'LLM', tool:'Tool call', result:'Tool result', done:'Done', error:'Error', awaiting:'Awaiting approval' };
+        const text   = typeof data === 'object' ? JSON.stringify(data, null, 2) : String(data ?? '');
+        const div    = document.createElement('div');
+        div.className = `tr-step ${type}`;
+        div.innerHTML = `<div class="tr-hdr"><span>${ICONS[type] ?? '•'} ${LABELS[type] ?? type}</span><span class="tr-badge">${_esc(badge ?? '')}</span></div>
+                         <div class="tr-body">${_esc(text)}</div>`;
+        div.querySelector('.tr-hdr').onclick = () => div.querySelector('.tr-body').classList.toggle('open');
+        wrap.appendChild(div);
+        wrap.scrollTop = wrap.scrollHeight;
+        return div;
+    }
+}
+customElements.define('sg-agentic-trace', SgAgenticTrace);
+
+// ── Panel: VFS ────────────────────────────────────────────────────────────────
+
+const VFS_CSS = `
+:host { display: block; width: 100%; height: 100%; min-height: 0; box-sizing: border-box; overflow: hidden; }
+.vp-wrap { height: 100%; display: flex; flex-direction: column; padding: 10px; gap: 8px; background: #0d0d1a; box-sizing: border-box; overflow: hidden; }
+h4 { margin: 0; font-size: 11px; color: #94a3b8; font-weight: 600; }
+.vp-row { display: flex; gap: 6px; align-items: center; }
+.vp-input { flex: 1; background: #12122a; border: 1px solid #2d3060; color: #e2e8f0; border-radius: 4px; padding: 4px 8px; font-size: 11px; outline: none; }
+.vp-btn { background: #12122a; border: 1px solid #2d3060; color: #94a3b8; border-radius: 4px; padding: 4px 10px; font-size: 11px; cursor: pointer; flex-shrink: 0; }
+.vp-btn:hover { background: #1e2035; }
+.vp-log { flex: 1; overflow-y: auto; display: flex; flex-direction: column; gap: 3px; }
+.vp-file { display: flex; gap: 6px; align-items: center; background: #12122a; border-radius: 4px; padding: 4px 8px; font-size: 11px; cursor: pointer; }
+.vp-file:hover { background: #161630; }
+.vp-icon { flex-shrink: 0; }
+.vp-name { color: #94a3b8; flex: 1; font-family: monospace; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.vp-size { color: #475569; flex-shrink: 0; font-size: 10px; }
+.vp-empty { color: #2a2a4a; font-size: 11px; padding: 8px 0; text-align: center; }
+.vp-content { background: #070710; border: 1px solid #1e2035; border-radius: 4px; padding: 8px; font-family: monospace; font-size: 10px; color: #94a3b8; overflow-y: auto; max-height: 180px; white-space: pre-wrap; word-break: break-all; display: none; }
+.vp-content.open { display: block; }
+.vp-content-header { display: flex; align-items: center; gap: 6px; font-size: 10px; color: #475569; margin-bottom: 4px; }
+`;
+
+class SgAgenticVfs extends HTMLElement {
+    constructor() { super(); this.attachShadow({ mode: 'open' }); }
+    connectedCallback() {
+        this.shadowRoot.innerHTML = `<style>${VFS_CSS}</style>
+        <div class="vp-wrap">
+            <h4>In-Memory VFS</h4>
+            <div class="vp-row">
+                <button class="vp-btn" id="refresh">↻</button>
+                <input class="vp-input" id="seed-name" placeholder="filename.txt">
+                <button class="vp-btn" id="seed">+ Seed</button>
+            </div>
+            <div class="vp-log" id="log"><div class="vp-empty">No files</div></div>
+            <div class="vp-content-header" id="preview-hdr" style="display:none">
+                <span id="preview-name"></span>
+                <button class="vp-btn" id="preview-close" style="padding:2px 6px;font-size:10px">✕</button>
+            </div>
+            <div class="vp-content" id="preview"></div>
+        </div>`;
+        this.shadowRoot.getElementById('refresh').onclick     = () => this._refresh();
+        this.shadowRoot.getElementById('seed').onclick         = () => this._seedFile();
+        this.shadowRoot.getElementById('preview-close').onclick = () => {
+            this.shadowRoot.getElementById('preview').classList.remove('open');
+            this.shadowRoot.getElementById('preview-hdr').style.display = 'none';
+        };
+        const vfsBus = document.querySelector('[data-vfs-bus]');
+        if (vfsBus) {
+            ['vfs:write-response','vfs:delete-response','vfs:create-folder-response'].forEach(ev =>
+                vfsBus.addEventListener(ev, () => this._refresh())
+            );
+        }
+        this._refresh();
+    }
+    _vfsBus() { return document.querySelector('[data-vfs-bus]'); }
+    _refresh() {
+        const bus = this._vfsBus(); if (!bus) return;
+        const requestId = `vp-${Date.now()}`;
+        const handler = (e) => {
+            if (e.detail?.requestId !== requestId) return;
+            bus.removeEventListener('vfs:list-response', handler);
+            this._render(e.detail.entries ?? []);
+        };
+        bus.addEventListener('vfs:list-response', handler);
+        bus.dispatchEvent(new CustomEvent('vfs:list-request', {
+            detail: { requestId, path: '/' }, bubbles: true, composed: true,
+        }));
+    }
+    _render(entries) {
+        const log = this.shadowRoot.getElementById('log'); if (!log) return;
+        if (!entries.length) { log.innerHTML = '<div class="vp-empty">No files</div>'; return; }
+        log.innerHTML = '';
+        for (const e of entries) {
+            const div = document.createElement('div');
+            div.className = 'vp-file';
+            div.innerHTML = `<span class="vp-icon">${e.type === 'folder' ? '📁' : '📄'}</span>
+                             <span class="vp-name">${_esc(e.name)}</span>
+                             <span class="vp-size">${e.size != null ? _fmtSize(e.size) : ''}</span>`;
+            if (e.type !== 'folder') div.onclick = () => this._preview('/' + e.name);
+            log.appendChild(div);
+        }
+    }
+    _preview(path) {
+        const bus = this._vfsBus(); if (!bus) return;
+        const requestId = `vp-read-${Date.now()}`;
+        const handler = (e) => {
+            if (e.detail?.requestId !== requestId) return;
+            bus.removeEventListener('vfs:read-response', handler);
+            const pre = this.shadowRoot.getElementById('preview');
+            const hdr = this.shadowRoot.getElementById('preview-hdr');
+            const nm  = this.shadowRoot.getElementById('preview-name');
+            if (pre && hdr && nm) {
+                pre.textContent = e.detail.content ?? '';
+                pre.classList.add('open');
+                nm.textContent = path;
+                hdr.style.display = 'flex';
+            }
+        };
+        bus.addEventListener('vfs:read-response', handler);
+        bus.dispatchEvent(new CustomEvent('vfs:read-request', {
+            detail: { requestId, path }, bubbles: true, composed: true,
+        }));
+    }
+    _seedFile() {
+        const name = this.shadowRoot.getElementById('seed-name')?.value.trim();
+        if (!name) return;
+        const bus = this._vfsBus(); if (!bus) return;
+        const content = `# ${name}\n\nSeed file created at ${new Date().toISOString()}.\n\nYou can ask the agent to read, edit, or summarise this file.\n`;
+        bus.dispatchEvent(new CustomEvent('vfs:write-request', {
+            detail: { requestId: `seed-${Date.now()}`, path: `/${name}`, content },
+            bubbles: true, composed: true,
+        }));
+        this.shadowRoot.getElementById('seed-name').value = '';
+    }
+}
+customElements.define('sg-agentic-vfs', SgAgenticVfs);
+
+// ── Helpers ───────────────────────────────────────────────────────────────────
+
+function _esc(s) {
+    return String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
+function _fmtSize(bytes) {
+    if (bytes < 1024) return `${bytes}B`;
+    if (bytes < 1048576) return `${(bytes/1024).toFixed(1)}KB`;
+    return `${(bytes/1048576).toFixed(1)}MB`;
+}
+</script>
+</body>
+</html>

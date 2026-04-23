@@ -1,0 +1,397 @@
+<!DOCTYPE html>
+<html lang="en-GB">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title data-i18n="video_tools.title">Video Tools — tools.sgraph.ai</title>
+    <meta name="description" data-i18n="video_tools.meta_description" content="Split, trim, and extract audio/video in your browser. No upload — files never leave your device.">
+    <link rel="icon" type="image/svg+xml" href="../../_common/favicon.svg">
+    <link rel="stylesheet" href="../../_common/css/tools.css">
+    <style>
+        .main {
+            flex: 1;
+            max-width: 900px;
+            margin: 0 auto;
+            padding: 2rem 1.5rem;
+            width: 100%;
+        }
+
+        h1 {
+            font-size: 1.5rem;
+            margin-bottom: 0.5rem;
+        }
+
+        .subtitle {
+            color: var(--sg-text-muted);
+            font-size: 0.9375rem;
+            margin-bottom: 2rem;
+            line-height: 1.5;
+        }
+
+        .splitter-section {
+            display: none;
+            margin-top: 1.5rem;
+        }
+
+        .splitter-section.visible {
+            display: block;
+        }
+
+        .send-section {
+            margin-top: 2rem;
+            display: none;
+        }
+
+        .send-section.visible {
+            display: block;
+        }
+
+        .start-over {
+            margin-top: 1.5rem;
+            text-align: center;
+        }
+
+        .info-box {
+            margin-top: 2rem;
+            padding: 1rem;
+            background: rgba(78, 205, 196, 0.05);
+            border: 1px solid var(--sg-border);
+            border-radius: var(--sg-radius);
+        }
+
+        .info-box h3 {
+            font-size: 0.875rem;
+            margin-bottom: 0.5rem;
+            color: var(--sg-accent);
+        }
+
+        .info-box p {
+            color: var(--sg-text-muted);
+            font-size: 0.8125rem;
+            line-height: 1.6;
+        }
+
+        /* Setup environment section */
+        .setup-section {
+            margin-bottom: 1.5rem;
+            padding: 1.25rem;
+            background: var(--sg-bg-card, #1a1a2e);
+            border: 1px solid var(--sg-border, #333);
+            border-radius: var(--sg-radius, 8px);
+        }
+
+        .setup-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            flex-wrap: wrap;
+            gap: 0.75rem;
+        }
+
+        .setup-header h3 {
+            font-size: 0.9375rem;
+            font-weight: 600;
+            margin: 0;
+        }
+
+        .setup-btn {
+            padding: 0.4rem 1rem;
+            font-size: 0.8125rem;
+            font-weight: 600;
+            background: var(--sg-accent, #4ecdc4);
+            color: #000;
+            border: none;
+            border-radius: var(--sg-radius-pill, 20px);
+            cursor: pointer;
+            transition: opacity 150ms;
+        }
+
+        .setup-btn:hover { opacity: 0.9; }
+        .setup-btn:disabled { opacity: 0.5; cursor: default; }
+
+        .setup-status {
+            font-size: 0.8125rem;
+            color: var(--sg-text-muted, #888);
+            margin-top: 0.75rem;
+        }
+
+        .setup-checks {
+            margin-top: 0.75rem;
+            display: flex;
+            flex-direction: column;
+            gap: 0.375rem;
+        }
+
+        .setup-check {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            font-size: 0.8125rem;
+        }
+
+        .setup-check-icon {
+            width: 18px;
+            text-align: center;
+            flex-shrink: 0;
+        }
+
+        .setup-check-icon.pass { color: #66bb6a; }
+        .setup-check-icon.fail { color: #ef5350; }
+        .setup-check-icon.skip { color: #ffa726; }
+        .setup-check-icon.pending { color: var(--sg-text-muted, #888); }
+
+        .setup-check-label {
+            color: var(--sg-text, #e0e0e0);
+        }
+
+        .setup-check-detail {
+            color: var(--sg-text-muted, #888);
+            margin-left: auto;
+            font-size: 0.75rem;
+        }
+
+        .setup-progress {
+            margin-top: 0.75rem;
+            height: 4px;
+            background: var(--sg-border, #333);
+            border-radius: 2px;
+            overflow: hidden;
+        }
+
+        .setup-progress-fill {
+            height: 100%;
+            background: var(--sg-accent, #4ecdc4);
+            border-radius: 2px;
+            transition: width 300ms ease;
+        }
+
+        .setup-complete {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            margin-top: 0.75rem;
+            font-size: 0.875rem;
+            font-weight: 600;
+            color: #66bb6a;
+        }
+
+        .setup-complete.failed {
+            color: #ef5350;
+        }
+    </style>
+</head>
+<body>
+    <script type="module" src="/components/site-header/v1/v1.0/v1.0.2/sg-site-header.js"></script>
+    <script type="module" src="/components/locale-picker/v1/v1.0/v1.0.1/sg-locale-picker.js"></script>
+    <sg-site-header
+        site="Tools"
+        home-url="/en-gb/">
+        <sg-locale-picker slot="locale" locale="en-gb" base-path="/"></sg-locale-picker>
+    </sg-site-header>
+
+    <script type="module">
+        import { buildToolsNav } from '../../_common/js/sg-nav.js'
+        document.querySelector('sg-site-header').whenReady().then(() => {
+            buildToolsNav(document.querySelector('sg-site-header'))
+        }).catch(() => {
+            buildToolsNav(document.querySelector('sg-site-header'))
+        })
+    </script>
+
+    <div class="main">
+        <h1 data-i18n="video_tools.heading">Video Tools</h1>
+        <p class="subtitle" data-i18n="video_tools.subtitle">
+            Split, trim, and extract audio or video entirely in your browser.
+            Your files never leave your device.
+        </p>
+
+        <div id="setup-section" class="setup-section">
+            <div class="setup-header">
+                <h3>Setup Video Editing Environment</h3>
+                <button id="setup-btn" class="setup-btn">Setup</button>
+            </div>
+            <div id="setup-status" class="setup-status">
+                Downloads FFmpeg WASM (~30 MB on first run, cached after that) and runs health checks to verify split, trim, and extract operations work in your browser.
+            </div>
+            <div id="setup-progress" class="setup-progress" hidden>
+                <div id="setup-progress-fill" class="setup-progress-fill" style="width: 0%"></div>
+            </div>
+            <div id="setup-checks" class="setup-checks" hidden></div>
+            <div id="setup-result" hidden></div>
+        </div>
+
+        <script type="module" src="/components/upload-dropzone/v1/v1.0/v1.0.0/sg-upload-dropzone.js"></script>
+        <sg-upload-dropzone
+            id="dropzone"
+            label="Drop a video or audio file here, or click to select"
+            accept=".mp4,.webm,.mov,.avi,.mkv,.mp3,.aac,.m4a,.wav,.ogg">
+        </sg-upload-dropzone>
+
+        <div id="splitter-section" class="splitter-section">
+            <script type="module" src="/components/video-splitter/v1/v1.0/v1.0.0/sg-video-splitter.js"></script>
+            <sg-video-splitter id="splitter"></sg-video-splitter>
+
+            <div class="start-over">
+                <button class="btn btn--secondary" id="start-over-btn" data-i18n="video_tools.start_over">Start Over</button>
+            </div>
+        </div>
+
+        <div id="send-section" class="send-section">
+            <script type="module" src="/components/send-drop/v1/v1.0/v1.0.0/sg-send-drop.js"></script>
+            <sg-send-drop id="send-drop" label="Share via SG/Send"></sg-send-drop>
+        </div>
+
+        <div class="info-box">
+            <h3 data-i18n="video_tools.privacy_title">Privacy First</h3>
+            <p data-i18n="video_tools.privacy">
+                All processing happens in your browser. No data is sent to any server.
+            </p>
+        </div>
+    </div>
+
+    <script type="module" src="/components/site-footer/v1/v1.0/v1.0.0/sg-site-footer.js"></script>
+    <sg-site-footer
+        brand-desc="Free browser-based tools that run entirely on your device. No uploads, no servers, no tracking."
+        columns='[{"title":"Tools","links":[{"label":"Video Tools","href":"./"},{"label":"All Tools","href":"/en-gb/"}]},{"title":"SGraph","links":[{"label":"sgraph.ai","href":"https://sgraph.ai/en-gb/"},{"label":"send.sgraph.ai","href":"https://send.sgraph.ai"},{"label":"GitHub","href":"https://github.com/the-cyber-boardroom/SGraph-AI__Tools"}]}]'>
+    </sg-site-footer>
+
+    <script src="../../_common/js/build-info.js"></script>
+    <div id="build-version" style="text-align:center;color:var(--sg-text-dim, #4a5568);font-size:0.7rem;padding:8px 0;opacity:0.6;background:var(--sg-bg-secondary, #16213E);"></div>
+    <script>
+        (function() {
+            var b = window.SGRAPH_BUILD || { appVersion: 'v0.1.0', uiVersion: 'v0.1.5' };
+            var el = document.getElementById('build-version');
+            if (el) el.textContent = b.appVersion + '  \u00b7  UI ' + b.uiVersion + (b.buildTime ? '  \u00b7  ' + b.buildTime : '');
+        })();
+    </script>
+
+    <script type="module">
+        import { runHealthCheck } from '/core/video/v1/v1.0/v1.0.0/sg-video.js'
+
+        const dropzone        = document.getElementById('dropzone')
+        const splitterSection = document.getElementById('splitter-section')
+        const splitter        = document.getElementById('splitter')
+        const sendSection     = document.getElementById('send-section')
+        const sendDrop        = document.getElementById('send-drop')
+        const startOverBtn    = document.getElementById('start-over-btn')
+
+        // ── Setup environment ────────────────────────────────
+
+        const setupBtn        = document.getElementById('setup-btn')
+        const setupStatus     = document.getElementById('setup-status')
+        const setupProgress   = document.getElementById('setup-progress')
+        const setupFill       = document.getElementById('setup-progress-fill')
+        const setupChecks     = document.getElementById('setup-checks')
+        const setupResult     = document.getElementById('setup-result')
+        const setupSection    = document.getElementById('setup-section')
+
+        const STATUS_ICONS = { pass: '\u2713', fail: '\u2717', skip: '\u2014', pending: '\u2022' }
+
+        setupBtn.addEventListener('click', async () => {
+            setupBtn.disabled = true
+            setupBtn.textContent = 'Running...'
+            setupStatus.textContent = 'Loading FFmpeg WASM and running health checks...'
+            setupProgress.hidden = false
+            setupChecks.hidden = false
+            setupChecks.innerHTML = ''
+            setupResult.hidden = true
+
+            // Pre-render all check rows as pending
+            const checkLabels = [
+                'WebAssembly support', 'Load FFmpeg WASM', 'Generate test clip',
+                'Get video info', 'Split video', 'Trim video',
+                'Extract audio', 'Extract video (silent)'
+            ]
+            const checkRows = checkLabels.map(label => {
+                const row = document.createElement('div')
+                row.className = 'setup-check'
+                row.innerHTML = `<span class="setup-check-icon pending">${STATUS_ICONS.pending}</span>`
+                    + `<span class="setup-check-label">${label}</span>`
+                    + `<span class="setup-check-detail"></span>`
+                setupChecks.appendChild(row)
+                return row
+            })
+
+            const { passed, results } = await runHealthCheck(({ step, total, label, status }) => {
+                // Update progress bar
+                const pct = Math.round(((step + 1) / total) * 100)
+                setupFill.style.width = pct + '%'
+
+                // Update the check row
+                if (checkRows[step]) {
+                    const icon = checkRows[step].querySelector('.setup-check-icon')
+                    icon.textContent = STATUS_ICONS[status]
+                    icon.className = 'setup-check-icon ' + status
+                }
+            })
+
+            // Fill in details from results
+            results.forEach((r, i) => {
+                if (checkRows[i]) {
+                    const icon = checkRows[i].querySelector('.setup-check-icon')
+                    icon.textContent = STATUS_ICONS[r.status]
+                    icon.className = 'setup-check-icon ' + r.status
+                    const detail = checkRows[i].querySelector('.setup-check-detail')
+                    detail.textContent = r.detail
+                }
+            })
+
+            // Show result
+            setupResult.hidden = false
+            if (passed) {
+                setupResult.className = 'setup-complete'
+                setupResult.textContent = '\u2713 Environment ready — all checks passed'
+                setupStatus.textContent = 'FFmpeg WASM is cached in your browser. Subsequent visits will be instant.'
+                setupBtn.textContent = 'Ready'
+            } else {
+                setupResult.className = 'setup-complete failed'
+                setupResult.textContent = '\u2717 Some checks failed — video processing may not work fully in this browser'
+                setupStatus.textContent = 'Check the results above for details.'
+                setupBtn.textContent = 'Retry'
+                setupBtn.disabled = false
+            }
+        })
+
+        // ── File selected → load into splitter ───────────────
+
+        dropzone.addEventListener('files-selected', (e) => {
+            const file = e.detail.files[0]
+            if (!file) return
+
+            dropzone.style.display = 'none'
+            splitterSection.classList.add('visible')
+            sendSection.classList.remove('visible')
+            sendDrop.reset()
+
+            splitter.loadVideo(file)
+        })
+
+        // Splitter completes → offer results to sg-send-drop
+        splitter.addEventListener('sg-split-complete', (e) => {
+            const results = e.detail.results || e.detail
+            sendSection.classList.add('visible')
+
+            if (Array.isArray(results) && results.length > 1) {
+                const files = results.map(r => ({
+                    blob:     r.blob || r.file,
+                    filename: r.filename || r.name,
+                }))
+                sendDrop.offerFiles(files)
+            } else {
+                const result = Array.isArray(results) ? results[0] : results
+                const blob     = result.blob || result.file
+                const filename = result.filename || result.name
+                sendDrop.offerFile(blob, filename)
+            }
+        })
+
+        // Start Over → reset everything
+        startOverBtn.addEventListener('click', () => {
+            splitterSection.classList.remove('visible')
+            sendSection.classList.remove('visible')
+            dropzone.style.display = ''
+            sendDrop.reset()
+        })
+    </script>
+</body>
+</html>

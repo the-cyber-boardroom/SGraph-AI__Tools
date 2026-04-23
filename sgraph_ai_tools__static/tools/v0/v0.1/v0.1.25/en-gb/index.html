@@ -1,0 +1,406 @@
+<!DOCTYPE html>
+<html lang="en-GB">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title data-i18n="landing.title">tools.sgraph.ai — Browser-Based Privacy Tools</title>
+    <meta name="description" data-i18n="landing.meta_description"
+        content="Free browser-based tools that run entirely client-side. No uploads, no servers, no tracking.">
+    <link rel="icon" type="image/svg+xml" href="../_common/favicon.svg">
+    <link rel="stylesheet" href="../_common/css/tools.css">
+    <style>
+        /* ── Hero ── */
+        .hero {
+            text-align: center;
+            padding: 2.5rem 1.5rem 1.25rem;
+        }
+        .hero__title {
+            font-size: 2rem; font-weight: 700; margin-bottom: 0.6rem;
+        }
+        .hero__title span { color: var(--sg-accent); }
+        .hero__subtitle {
+            color: var(--sg-text-muted); font-size: 1rem; max-width: 560px;
+            margin: 0 auto 1rem; line-height: 1.6;
+        }
+
+        /* ── Featured row ── */
+        .featured-wrap {
+            max-width: 1240px; margin: 0 auto; padding: 0 1.25rem;
+        }
+        .featured-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+            gap: 0.875rem;
+            margin-bottom: 0.75rem;
+        }
+        .featured-card {
+            background: var(--sg-bg-card); border: 1px solid var(--sg-accent-border);
+            border-left: 3px solid var(--sg-accent);
+            border-radius: var(--sg-radius); padding: 1rem 1.1rem;
+            text-decoration: none; color: inherit;
+            transition: border-color 150ms, transform 150ms, background 150ms;
+            display: flex; flex-direction: column; gap: 0.35rem;
+        }
+        .featured-card:hover {
+            border-color: var(--sg-accent); background: rgba(78,205,196,0.06);
+            transform: translateY(-1px);
+        }
+        .featured-card .card-top { display: flex; align-items: center; gap: 0.6rem; }
+        .featured-card .tool-card__icon { font-size: 1.4rem; }
+        .featured-card .tool-card__title { font-size: 1rem; font-weight: 700; }
+        .featured-card .tool-card__desc {
+            color: var(--sg-text-muted); font-size: 0.82rem; line-height: 1.5;
+        }
+        .featured-card .card-tagline {
+            font-size: 0.72rem; color: var(--sg-accent); font-weight: 600;
+            margin-top: 0.15rem;
+        }
+
+        /* ── Controls row: search + filters ── */
+        .controls-wrap {
+            max-width: 1240px; margin: 0 auto;
+            padding: 0 1.25rem 0.25rem;
+            display: flex; align-items: center; gap: 1rem; flex-wrap: wrap;
+        }
+        .search-input {
+            flex: 1; min-width: 200px; max-width: 420px;
+            background: var(--sg-bg-card); border: 1px solid var(--sg-border);
+            border-radius: var(--sg-radius-pill); color: var(--sg-text);
+            font-family: var(--sg-font); font-size: 0.875rem;
+            padding: 0.45rem 1rem; outline: none; transition: border-color 150ms;
+        }
+        .search-input:focus { border-color: var(--sg-accent); }
+        .search-input::placeholder { color: var(--sg-text-dim); }
+
+        .filter-pills {
+            display: flex; gap: 0.35rem;
+        }
+        .filter-pill {
+            padding: 0.3rem 0.7rem; border-radius: var(--sg-radius-pill);
+            border: 1px solid var(--sg-border); background: transparent;
+            color: var(--sg-text-muted); font-size: 0.75rem; font-weight: 600;
+            font-family: var(--sg-font); cursor: pointer;
+            transition: all 150ms;
+        }
+        .filter-pill:hover { border-color: var(--sg-text-muted); color: var(--sg-text); }
+        .filter-pill.active {
+            background: var(--sg-accent-bg); border-color: var(--sg-accent);
+            color: var(--sg-accent);
+        }
+
+        /* ── Section headings ── */
+        .section-wrap {
+            max-width: 1240px; margin: 0 auto; padding: 0 1.25rem;
+        }
+        .section-heading {
+            display: flex; align-items: center; gap: 0.75rem;
+            padding: 1.25rem 0 0.5rem;
+            font-size: 0.7rem; font-weight: 700; text-transform: uppercase;
+            letter-spacing: 0.09em; color: var(--sg-text-dim);
+            border-bottom: 1px solid var(--sg-border);
+        }
+        .section-heading .count {
+            background: rgba(255,255,255,0.05); border-radius: var(--sg-radius-pill);
+            padding: 0.1rem 0.45rem; font-size: 0.65rem; color: var(--sg-text-dim);
+        }
+
+        /* ── Grid ── */
+        .tools-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+            gap: 0.875rem;
+            max-width: 1240px; margin: 0 auto;
+            padding: 0.875rem 1.25rem 0;
+        }
+
+        /* ── Cards ── */
+        .tool-card {
+            background: var(--sg-bg-card); border: 1px solid var(--sg-border);
+            border-radius: var(--sg-radius); padding: 1rem 1.1rem;
+            text-decoration: none; color: inherit;
+            transition: border-color 150ms, transform 150ms, background 150ms;
+            display: flex; flex-direction: column; gap: 0.35rem;
+        }
+        .tool-card:hover {
+            border-color: var(--sg-accent); background: rgba(78,205,196,0.04);
+            transform: translateY(-1px);
+        }
+        .tool-card.hidden { display: none !important; }
+
+        .card-top { display: flex; align-items: center; gap: 0.6rem; }
+        .tool-card__icon { font-size: 1.25rem; flex-shrink: 0; line-height: 1; }
+        .tool-card__title { font-size: 0.9rem; font-weight: 600; }
+        .tool-card__desc {
+            color: var(--sg-text-muted); font-size: 0.8rem; line-height: 1.5;
+            flex: 1;
+            display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical;
+            overflow: hidden;
+        }
+        .card-footer { display: flex; align-items: center; gap: 0.4rem; margin-top: 0.25rem; }
+        .tool-card__status {
+            display: inline-block; padding: 0.1rem 0.45rem;
+            border-radius: var(--sg-radius-pill); font-size: 0.62rem; font-weight: 700;
+            text-transform: uppercase; letter-spacing: 0.04em;
+        }
+        .status--live  { background: var(--sg-accent-bg); color: var(--sg-accent); }
+        .status--experimental { background: rgba(148,163,184,0.1); color: var(--sg-text-dim); }
+        .status--dev   { background: rgba(139,92,246,0.12); color: #a78bfa; }
+        .status--new   { background: rgba(251,191,36,0.12); color: #fbbf24; }
+        .tool-card__sub-badge {
+            font-size: 0.58rem; color: var(--sg-text-dim); font-weight: 600;
+            text-transform: uppercase; letter-spacing: 0.03em;
+        }
+
+        /* ── Collapsible sandbox ── */
+        .sandbox-details summary {
+            cursor: pointer; list-style: none; user-select: none;
+        }
+        .sandbox-details summary::-webkit-details-marker { display: none; }
+        .sandbox-details summary .section-heading::before {
+            content: '▸ '; transition: transform 150ms;
+        }
+        .sandbox-details[open] summary .section-heading::before {
+            content: '▾ ';
+        }
+
+        /* ── Loading / no results ── */
+        .loading-msg, .no-results {
+            max-width: 1240px; margin: 0 auto; padding: 2.5rem 1.25rem;
+            text-align: center; color: var(--sg-text-dim); font-size: 0.9rem;
+        }
+        .no-results { display: none; }
+        .no-results.visible { display: block; }
+
+        /* hide section if all cards hidden */
+        .section-group.all-hidden { display: none; }
+    </style>
+</head>
+<body>
+    <script type="module" src="/components/site-header/v1/v1.0/v1.0.2/sg-site-header.js"></script>
+    <script type="module" src="/components/locale-picker/v1/v1.0/v1.0.1/sg-locale-picker.js"></script>
+    <sg-site-header site="Tools" home-url="/en-gb/">
+        <sg-locale-picker slot="locale" locale="en-gb" base-path="/"></sg-locale-picker>
+    </sg-site-header>
+    <script type="module">
+        import { buildToolsNav } from '../_common/js/sg-nav.js'
+        document.querySelector('sg-site-header').whenReady?.().then(() => {
+            buildToolsNav(document.querySelector('sg-site-header'))
+        }).catch(() => {
+            buildToolsNav(document.querySelector('sg-site-header'))
+        })
+    </script>
+
+    <!-- ── Hero ── -->
+    <div class="hero">
+        <h1 class="hero__title"><span>tools</span>.sgraph.ai</h1>
+        <p class="hero__subtitle">
+            Free browser-based tools that run entirely on your device.
+            No uploads. No servers. No tracking. Your data never leaves your browser.
+        </p>
+        <span class="badge">100% Client-Side</span>
+    </div>
+
+    <!-- ── Featured tools ── -->
+    <div class="featured-wrap" id="featured-section">
+        <div class="featured-grid" id="featured-grid"></div>
+    </div>
+
+    <!-- ── Controls: search + audience filter ── -->
+    <div class="controls-wrap">
+        <input class="search-input" id="tool-search" type="search"
+            placeholder="Search tools…" autocomplete="off" spellcheck="false">
+        <div class="filter-pills" id="filter-pills">
+            <button class="filter-pill active" data-audience="all">All</button>
+            <button class="filter-pill" data-audience="user">End User</button>
+            <button class="filter-pill" data-audience="developer">Developer</button>
+        </div>
+    </div>
+
+    <!-- ── Tool sections (rendered dynamically) ── -->
+    <div id="tool-sections"></div>
+
+    <div class="no-results" id="no-results">No tools match your search.</div>
+    <p class="loading-msg" id="loading-msg">Loading tools…</p>
+
+    <!-- ── Footer ── -->
+    <script type="module" src="/components/site-footer/v1/v1.0/v1.0.0/sg-site-footer.js"></script>
+    <sg-site-footer
+        brand-desc="Free browser-based tools that run entirely on your device. No uploads, no servers, no tracking."
+        columns='[{"title":"Tools","links":[{"label":"Chat","href":"chat/"},{"label":"OpenRouter","href":"openrouter/"},{"label":"Agentic Loop","href":"agentic/"},{"label":"SSH Key Generator","href":"ssh-keygen/"},{"label":"All Tools","href":"./"}]},{"title":"SGraph","links":[{"label":"sgraph.ai","href":"https://sgraph.ai/en-gb/"},{"label":"send.sgraph.ai","href":"https://send.sgraph.ai"},{"label":"GitHub","href":"https://github.com/the-cyber-boardroom/SGraph-AI__Tools"}]}]'>
+    </sg-site-footer>
+
+    <script src="../_common/js/build-info.js"></script>
+    <div id="build-version" style="text-align:center;color:var(--sg-text-dim,#4a5568);font-size:0.7rem;padding:8px 0 16px;opacity:0.6"></div>
+    <script>
+        (function() {
+            var b = window.SGRAPH_BUILD || { appVersion: 'v0.1.0', uiVersion: 'v0.1.25' };
+            var el = document.getElementById('build-version');
+            if (el) el.textContent = b.appVersion + '  \u00b7  UI ' + b.uiVersion + (b.buildTime ? '  \u00b7  ' + b.buildTime : '');
+        })();
+    </script>
+
+    <!-- ── Main logic: manifest-driven rendering ── -->
+    <script type="module">
+        import { TOOL_SLUGS, CATEGORIES, loadManifests, groupByCategory, renderToolCard } from '../_common/js/sg-tool-registry.js';
+
+        // ── Featured tools (hero row) ──
+        const FEATURED_SLUGS = ['chat', 'file-encryptor', 'infographic-gen', 'vault', 'video-recorder'];
+        const FEATURED_TAGLINES = {
+            'chat':            'No account needed — just paste your API key',
+            'file-encryptor':  'AES-256-GCM encryption, entirely in your browser',
+            'infographic-gen': 'One prompt, one click — instant SVG infographics',
+            'vault':           'Browse encrypted vaults without any server',
+            'video-recorder':  'Record screen, camera & audio — all in your browser',
+        };
+
+        // ── LLM tools that need an API key ──
+        const NEEDS_API_KEY = new Set([
+            'chat', 'one-shot-chat', 'infographic-gen', 'llm-dev',
+            'multi-agent-chat', 'agentic', 'openrouter',
+        ]);
+
+        // ── Render featured cards ──
+        function renderFeatured(manifests) {
+            const grid = document.getElementById('featured-grid');
+            for (const slug of FEATURED_SLUGS) {
+                const m = manifests.find(t => t.slug === slug);
+                if (!m) continue;
+                const tagline = FEATURED_TAGLINES[slug] || '';
+                grid.innerHTML += `<a href="${m.slug}/" class="featured-card">
+                    <div class="card-top">
+                        <span class="tool-card__icon">${m.icon}</span>
+                        <span class="tool-card__title">${m.name}</span>
+                    </div>
+                    <p class="tool-card__desc">${m.description}</p>
+                    ${tagline ? `<span class="card-tagline">${tagline}</span>` : ''}
+                </a>`;
+            }
+        }
+
+        // ── Render all category sections ──
+        function renderSections(groups) {
+            const container = document.getElementById('tool-sections');
+            container.innerHTML = '';
+
+            for (const [catId, group] of groups) {
+                if (group.tools.length === 0) continue;
+
+                const isDev = catId === 'dev';
+                const sectionHTML = group.tools.map(m => {
+                    let card = renderToolCard(m);
+                    // Add "Requires API key" sub-badge
+                    if (NEEDS_API_KEY.has(m.slug)) {
+                        card = card.replace(
+                            '</div>\n</a>',
+                            '<span class="tool-card__sub-badge">Requires API key</span></div>\n</a>'
+                        );
+                    }
+                    return card;
+                }).join('');
+
+                const heading = `<div class="section-wrap">
+                    <p class="section-heading">${group.label} <span class="count">${group.tools.length}</span></p>
+                </div>
+                <div class="tools-grid">${sectionHTML}</div>`;
+
+                if (isDev) {
+                    container.innerHTML += `<details class="sandbox-details section-group" data-audience="${group.audience}">
+                        <summary>${heading.split('</div>')[0]}</div></summary>
+                        <div class="tools-grid">${sectionHTML}</div>
+                    </details>`;
+                } else {
+                    container.innerHTML += `<div class="section-group" data-audience="${group.audience}">
+                        ${heading}
+                    </div>`;
+                }
+            }
+        }
+
+        // ── Search filter ──
+        function setupSearch() {
+            const searchInput = document.getElementById('tool-search');
+            const noResults = document.getElementById('no-results');
+
+            searchInput.addEventListener('input', function() {
+                const q = this.value.trim().toLowerCase();
+                let anyVisible = false;
+
+                document.querySelectorAll('.tool-card').forEach(function(card) {
+                    const text = (card.dataset.search || '') + ' ' + (card.textContent || '');
+                    const match = !q || text.toLowerCase().includes(q);
+                    card.classList.toggle('hidden', !match);
+                    if (match) anyVisible = true;
+                });
+
+                document.querySelectorAll('.section-group').forEach(function(group) {
+                    const visible = group.querySelectorAll('.tool-card:not(.hidden)').length > 0;
+                    group.classList.toggle('all-hidden', !visible);
+                    // Auto-open collapsed sandbox if search matches something inside
+                    if (visible && group.tagName === 'DETAILS') {
+                        group.open = true;
+                    }
+                });
+
+                noResults.classList.toggle('visible', !anyVisible && q.length > 0);
+            });
+        }
+
+        // ── Audience filter pills ──
+        function setupFilters() {
+            const pills = document.querySelectorAll('.filter-pill');
+            pills.forEach(pill => {
+                pill.addEventListener('click', () => {
+                    pills.forEach(p => p.classList.remove('active'));
+                    pill.classList.add('active');
+
+                    const audience = pill.dataset.audience;
+                    document.querySelectorAll('.section-group').forEach(group => {
+                        if (audience === 'all') {
+                            group.classList.remove('all-hidden');
+                        } else {
+                            const match = group.dataset.audience === audience;
+                            group.classList.toggle('all-hidden', !match);
+                        }
+                    });
+
+                    // Update URL hash
+                    if (audience === 'all') {
+                        history.replaceState(null, '', window.location.pathname);
+                    } else {
+                        history.replaceState(null, '', '#audience=' + audience);
+                    }
+                });
+            });
+
+            // Restore from URL hash
+            const hash = window.location.hash;
+            const match = hash.match(/audience=(user|developer)/);
+            if (match) {
+                const pill = document.querySelector(`.filter-pill[data-audience="${match[1]}"]`);
+                if (pill) pill.click();
+            }
+        }
+
+        // ── Boot ──
+        async function init() {
+            try {
+                const manifests = await loadManifests();
+                const groups = groupByCategory(manifests);
+
+                document.getElementById('loading-msg').remove();
+
+                renderFeatured(manifests);
+                renderSections(groups);
+                setupSearch();
+                setupFilters();
+            } catch (err) {
+                console.error('Failed to load tool manifests:', err);
+                document.getElementById('loading-msg').textContent =
+                    'Failed to load tools. Please refresh the page.';
+            }
+        }
+
+        init();
+    </script>
+</body>
+</html>

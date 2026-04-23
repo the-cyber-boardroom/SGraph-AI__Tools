@@ -1,0 +1,29 @@
+{
+  "name": "Voice Memo",
+  "slug": "voice-memo",
+  "description": "Record, transcribe, and document voice memos locally in your browser. Segment-based audio capture with local Whisper AI transcription. Zero uploads, no server required.",
+  "icon": "🎙",
+  "version": "0.1.23",
+  "status": "beta",
+  "category": "media",
+  "keywords": ["voice", "audio", "record", "transcribe", "whisper", "memo", "speech", "local", "ai"],
+  "dependencies": {
+    "core": [
+      { "module": "sg-layout",        "path": "/core/sg-layout/v0.1.0/sg-layout.js" },
+      { "module": "sg-layout-events", "path": "/core/sg-layout/v0.1.0/sg-layout-events.js" },
+      { "module": "sg-vfs-events",    "path": "/core/sg-vfs/v0/v0.1/v0.1.0/sg-vfs-events.js" },
+      { "module": "sg-whisper",       "path": "/core/sg-whisper/v0/v0.1/v0.1.0/sg-whisper.js" }
+    ],
+    "components": [
+      { "module": "sg-vfs-bus",           "path": "/components/vfs/sg-vfs-bus/v0/v0.1/v0.1.0/sg-vfs-bus.js" },
+      { "module": "sg-audio-recorder",    "path": "/components/audio/sg-audio-recorder/v0/v0.1/v0.1.0/sg-audio-recorder.js" },
+      { "module": "sg-audio-transcript",  "path": "/components/audio/sg-audio-transcript/v0/v0.1/v0.1.0/sg-audio-transcript.js" },
+      { "module": "sg-llm-connection",    "path": "/components/llm/sg-llm-connection/v0/v0.1/v0.1.4/sg-llm-connection.js" },
+      { "module": "sg-llm-model-picker",  "path": "/components/llm/sg-llm-model-picker/v0/v0.1/v0.1.1/sg-llm-model-picker.js" }
+    ],
+    "shared": [
+      { "module": "sg-site-header", "path": "/components/site-header/v1/v1.0/v1.0.1/sg-site-header.js" },
+      { "module": "tools.css",      "path": "/_common/css/tools.css" }
+    ]
+  }
+}

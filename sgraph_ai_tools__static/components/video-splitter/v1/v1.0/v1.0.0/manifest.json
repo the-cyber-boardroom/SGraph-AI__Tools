@@ -1,0 +1,11 @@
+{
+  "name": "sg-video-splitter",
+  "version": "1.0.0",
+  "description": "Video splitter/trimmer/extractor Web Component — split, trim, extract audio/video",
+  "exports": {
+    "sg-video-splitter.js": ["SgVideoSplitter"]
+  },
+  "dependencies": {
+    "sg-video.js": "/core/video/v1/v1.0/v1.0.0/sg-video.js"
+  }
+}

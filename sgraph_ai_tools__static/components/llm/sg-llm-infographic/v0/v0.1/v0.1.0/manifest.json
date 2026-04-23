@@ -1,0 +1,20 @@
+{
+    "name": "sg-llm-infographic",
+    "version": "0.1.0",
+    "description": "SVG infographic extractor and renderer. Listens for LLM streaming chunks and final response, extracts the first <svg>…</svg> block, and renders it live. Style presets (executive/technical/playful/minimal/bold/data). Export to SVG or PNG.",
+    "files": ["sg-llm-infographic.js", "sg-llm-infographic.css"],
+    "exports": {
+        "sg-llm-infographic.js": ["SgLlmInfographic"]
+    },
+    "customElements": {
+        "sg-llm-infographic": "sg-llm-infographic.js"
+    },
+    "dependencies": {
+        "sg-llm-events": "/components/llm/sg-llm-events/v0/v0.1/v0.1.0/sg-llm-events.js"
+    },
+    "compatibleWith": {
+        "sg-llm-events":  ">=0.1.0",
+        "sg-llm-request": ">=0.1.0"
+    },
+    "notes": "Uses Shadow DOM. getSystemPrompt() returns the style-specific system prompt for the reality's system block. PNG export uses Canvas API (requires browser context). SVG sanitised against <script> and inline event handlers."
+}

@@ -1,0 +1,46 @@
+{
+  "name": "File Encryptor",
+  "slug": "file-encryptor",
+  "description": "Encrypt or decrypt any file with AES-256-GCM. Everything stays in your browser. Same encryption used by SG/Send.",
+  "icon": "🔒",
+  "version": "0.1.4",
+  "status": "live",
+  "category": "security",
+  "keywords": [
+    "encrypt",
+    "decrypt",
+    "aes-256-gcm"
+  ],
+  "dependencies": {
+    "core": [
+      {
+        "module": "sg-crypto",
+        "path": "/core/crypto/v1/v1.0/v1.0.0/sg-crypto.js"
+      }
+    ],
+    "components": [
+      {
+        "module": "sg-upload-dropzone",
+        "path": "/components/upload-dropzone/v1/v1.0/v1.0.0/sg-upload-dropzone.js"
+      }
+    ],
+    "shared": [
+      {
+        "module": "sg-locale-picker",
+        "path": "/components/locale-picker/v1/v1.0/v1.0.1/sg-locale-picker.js"
+      },
+      {
+        "module": "sg-site-footer",
+        "path": "/components/site-footer/v1/v1.0/v1.0.0/sg-site-footer.js"
+      },
+      {
+        "module": "sg-site-header",
+        "path": "/components/site-header/v1/v1.0/v1.0.2/sg-site-header.js"
+      },
+      {
+        "module": "tools.css",
+        "path": "/_common/css/tools.css"
+      }
+    ]
+  }
+}

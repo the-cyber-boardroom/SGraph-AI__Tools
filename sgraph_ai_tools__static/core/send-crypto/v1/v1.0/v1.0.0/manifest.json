@@ -1,0 +1,10 @@
+{
+  "name": "sg-send-crypto",
+  "version": "1.0.0",
+  "description": "Simple token generation, SGMETA envelope, and SG/Send upload client",
+  "exports": {
+    "sg-send-crypto.js": ["isFriendlyToken", "generateToken", "deriveTransferId", "deriveKey", "buildSgmetaEnvelope", "encrypt", "SALT", "ITERATIONS", "TOKEN_PATTERN"],
+    "sg-send-upload.js": ["uploadFile", "DIRECT_UPLOAD_LIMIT"],
+    "wordlist.js": ["WORDLIST"]
+  }
+}

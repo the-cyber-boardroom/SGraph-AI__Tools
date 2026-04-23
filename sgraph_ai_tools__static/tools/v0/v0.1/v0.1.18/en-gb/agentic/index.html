@@ -1,0 +1,475 @@
+<!DOCTYPE html>
+<html lang="en-GB">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Agentic Loop — tools.sgraph.ai</title>
+    <meta name="description" content="LLM tool calling with VFS integration. Define tools, run agentic loops, execute sandboxed code. Supports Gemma 4, Mistral, Llama 3 via Ollama or OpenRouter.">
+    <link rel="icon" type="image/svg+xml" href="../../../_common/favicon.svg">
+    <link rel="stylesheet" href="../../../_common/css/tools.css">
+    <style>
+        html, body {
+            height: 100%;
+            margin: 0;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
+        sg-site-header { flex-shrink: 0; }
+
+        #outer {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            min-height: 0;
+        }
+        #llm-bus { flex: 1; display: flex; flex-direction: column; min-height: 0; }
+        sg-layout { flex: 1; min-height: 0; }
+
+        sg-llm-request, sg-tool-runner, sg-vfs-bus { display: none !important; }
+    </style>
+</head>
+<body>
+
+<script type="module" src="/components/site-header/v1/v1.0/v1.0.2/sg-site-header.js"></script>
+<sg-site-header site="Tools" home-url="../../../"></sg-site-header>
+
+<!--
+    Two buses side by side:
+      [data-llm-bus]  — LLM request + tool runner
+      [data-vfs-bus]  — VFS bus (memory provider for in-page file operations)
+    sg-tool-runner finds [data-vfs-bus] by querying document.querySelector().
+-->
+<div id="outer">
+    <div id="llm-bus" data-llm-bus>
+        <!-- Headless: LLM request engine + tool execution -->
+        <sg-llm-request></sg-llm-request>
+        <sg-tool-runner id="tool-runner"></sg-tool-runner>
+
+        <sg-layout id="layout"></sg-layout>
+    </div>
+</div>
+
+<!-- VFS bus lives outside the LLM bus; sg-tool-runner finds it via querySelector -->
+<div data-vfs-bus style="display:none">
+    <sg-vfs-bus provider="memory"></sg-vfs-bus>
+</div>
+
+<script type="module">
+import '/components/site-header/v1/v1.0/v1.0.2/sg-site-header.js';
+import '/core/sg-layout/v0.1.0/sg-layout.js';
+import '/components/llm/sg-llm-events/v0/v0.1/v0.1.1/sg-llm-events.js';
+import '/components/llm/sg-llm-request/v0/v0.1/v0.1.4/sg-llm-request.js';
+import '/components/llm/sg-llm-connection/v0/v0.1/v0.1.4/sg-llm-connection.js';
+import '/components/llm/sg-llm-stats/v0/v0.1/v0.1.1/sg-llm-stats.js';
+import '/components/agentic/sg-tool-runner/v0/v0.1/v0.1.0/sg-tool-runner.js';
+import '/components/vfs/sg-vfs-bus/v0/v0.1/v0.1.0/sg-vfs-bus.js';
+import { SGL_LLM }        from '/components/llm/sg-llm-events/v0/v0.1/v0.1.1/sg-llm-events.js';
+import { BUILTIN_TOOL_DEFS } from '/components/agentic/sg-tool-runner/v0/v0.1/v0.1.0/sg-tool-runner.js';
+
+// ── Layout ──────────────────────────────────────────────────────────────────
+
+const LAYOUT = {
+    type: 'row',
+    sizes: [0.24, 0.48, 0.28],
+    children: [
+        // Left: connection + tool definitions
+        {
+            type: 'column', sizes: [0.42, 0.58],
+            children: [
+                { type: 'stack', tabs: [{ tag: 'sg-llm-connection', title: 'Connection' }] },
+                { type: 'stack', tabs: [{ tag: 'sg-agentic-tools-panel', title: 'Tools' }] },
+            ],
+        },
+        // Centre: task input + trace
+        {
+            type: 'column', sizes: [0.18, 0.82],
+            children: [
+                { type: 'stack', tabs: [{ tag: 'sg-agentic-task-input', title: 'Task' }] },
+                { type: 'stack', tabs: [{ tag: 'sg-agentic-trace', title: 'Trace' }] },
+            ],
+        },
+        // Right: stats + VFS dev
+        {
+            type: 'column', sizes: [0.22, 0.78],
+            children: [
+                { type: 'stack', tabs: [{ tag: 'sg-llm-stats', title: 'Stats' }] },
+                { type: 'stack', tabs: [{ tag: 'sg-agentic-vfs-panel', title: 'VFS' }] },
+            ],
+        },
+    ],
+};
+
+customElements.whenDefined('sg-layout').then(() => {
+    document.getElementById('layout').setLayout(LAYOUT);
+});
+
+// ── Agentic state ────────────────────────────────────────────────────────────
+
+const BUS  = document.getElementById('llm-bus');
+const MAX_ITERATIONS = 10;
+
+let _running     = false;
+let _iterations  = 0;
+let _messages    = [];
+let _tools       = [];
+let _steps       = [];
+
+// ── Panel: Task Input ─────────────────────────────────────────────────────────
+
+const TASK_CSS = `
+:host { display: flex; flex-direction: column; height: 100%; min-height: 0; box-sizing: border-box; }
+.at-wrap { display: flex; flex-direction: column; height: 100%; padding: 10px; gap: 8px; background: #0d0d1a; border-bottom: 1px solid #1e2035; box-sizing: border-box; }
+.at-row { display: flex; gap: 8px; align-items: flex-end; }
+textarea { flex: 1; background: #12122a; color: #e2e8f0; border: 1px solid #2d3060; border-radius: 6px; padding: 8px 10px; font-size: 13px; font-family: system-ui,sans-serif; resize: none; min-height: 56px; box-sizing: border-box; outline: none; }
+textarea:focus { border-color: #7c9ef8; }
+.at-btn { height: 44px; padding: 0 18px; border-radius: 6px; border: none; cursor: pointer; font-size: 13px; font-weight: 600; }
+.at-btn.run  { background: #1e2860; color: #7c9ef8; }
+.at-btn.run:hover  { background: #2d3880; }
+.at-btn.stop { background: #2a0d0d; color: #f87171; display: none; }
+.at-btn.stop.vis { display: inline-flex; }
+.at-iter { font-size: 11px; color: #475569; }
+`;
+
+class SgAgenticTaskInput extends HTMLElement {
+    constructor() { super(); this.attachShadow({ mode: 'open' }); }
+    connectedCallback() {
+        this.shadowRoot.innerHTML = `<style>${TASK_CSS}</style>
+        <div class="at-wrap">
+            <textarea id="task" placeholder="Describe the task for the agent… e.g. 'List all files, read each one, then summarise their contents.'" rows="2"></textarea>
+            <div class="at-row">
+                <span class="at-iter" id="iter"></span>
+                <button class="at-btn run" id="run">▶ Run</button>
+                <button class="at-btn stop" id="stop">■ Stop</button>
+            </div>
+        </div>`;
+        this.shadowRoot.getElementById('run').onclick  = () => _startLoop(this.shadowRoot.getElementById('task').value.trim());
+        this.shadowRoot.getElementById('stop').onclick = () => _stopLoop();
+        BUS.addEventListener(SGL_LLM.AGENTIC_STEP,  () => this._update());
+        BUS.addEventListener(SGL_LLM.AGENTIC_DONE,  () => this._update());
+        BUS.addEventListener(SGL_LLM.AGENTIC_ABORT, () => this._update());
+    }
+    _update() {
+        const run  = this.shadowRoot.getElementById('run');
+        const stop = this.shadowRoot.getElementById('stop');
+        const iter = this.shadowRoot.getElementById('iter');
+        if (run)  run.disabled = _running;
+        if (stop) stop.classList.toggle('vis', _running);
+        if (iter) iter.textContent = _iterations > 0 ? `iteration ${_iterations}/${MAX_ITERATIONS}` : '';
+    }
+}
+customElements.define('sg-agentic-task-input', SgAgenticTaskInput);
+
+// ── Panel: Trace ─────────────────────────────────────────────────────────────
+
+const TRACE_CSS = `
+:host { display: block; width: 100%; height: 100%; min-height: 0; box-sizing: border-box; overflow: hidden; }
+.tr-wrap { height: 100%; overflow-y: auto; padding: 12px; box-sizing: border-box; background: #070710; font-family: system-ui,sans-serif; }
+.tr-empty { color: #2a2a4a; font-size: 13px; padding: 20px 0; text-align: center; }
+.tr-step { margin-bottom: 10px; border-radius: 6px; overflow: hidden; }
+.tr-header { display: flex; align-items: center; gap: 8px; padding: 6px 10px; font-size: 12px; font-weight: 600; cursor: pointer; user-select: none; }
+.tr-header:hover { filter: brightness(1.2); }
+.tr-body { padding: 8px 12px; font-size: 12px; line-height: 1.6; white-space: pre-wrap; word-break: break-word; display: none; }
+.tr-body.open { display: block; }
+.tr-step.user   .tr-header { background: #1a1a2e; color: #94a3b8; }
+.tr-step.llm    .tr-header { background: #0f1a3a; color: #7c9ef8; }
+.tr-step.tool   .tr-header { background: #0f2a1a; color: #4ade80; }
+.tr-step.result .tr-header { background: #1a0f1f; color: #c084fc; }
+.tr-step.error  .tr-header { background: #2a0d0d; color: #f87171; }
+.tr-step.done   .tr-header { background: #0d1a0d; color: #86efac; }
+.tr-body { background: #0d0d1a; color: #cbd5e1; }
+.tr-badge { font-size: 10px; opacity: 0.7; margin-left: auto; }
+`;
+
+class SgAgenticTrace extends HTMLElement {
+    constructor() { super(); this.attachShadow({ mode: 'open' }); }
+    connectedCallback() {
+        this.shadowRoot.innerHTML = `<style>${TRACE_CSS}</style>
+        <div class="tr-wrap" id="wrap"><div class="tr-empty">Run a task to see the agentic trace.</div></div>`;
+        BUS.addEventListener(SGL_LLM.AGENTIC_STEP,  (e) => this._addStep(e.detail));
+        BUS.addEventListener(SGL_LLM.AGENTIC_DONE,  (e) => this._addStep({ type: 'done',  data: e.detail.content }));
+        BUS.addEventListener(SGL_LLM.AGENTIC_ABORT, (e) => this._addStep({ type: 'error', data: `Aborted: ${e.detail.reason}` }));
+        BUS.addEventListener(SGL_LLM.AGENTIC_START, () => { this.shadowRoot.getElementById('wrap').innerHTML = `<style>${TRACE_CSS}</style>`; });
+        BUS.addEventListener(SGL_LLM.REQUEST_CHUNK, (e) => this._onChunk(e.detail));
+    }
+    _addStep({ step, type, data }) {
+        const wrap = this.shadowRoot.getElementById('wrap');
+        if (!wrap) return;
+        const div = document.createElement('div');
+        div.className = `tr-step ${type}`;
+        const label = { user: '👤 Task', llm: '🤖 LLM', tool: '🔧 Tool call', result: '📦 Tool result', done: '✅ Done', error: '❌ Error' }[type] ?? type;
+        const badge = step !== undefined ? `step ${step}` : '';
+        const summary = typeof data === 'object' ? JSON.stringify(data).slice(0, 80) : String(data ?? '').slice(0, 80);
+        div.innerHTML = `<div class="tr-header"><span>${label}</span><span class="tr-badge">${badge}</span></div>
+                         <div class="tr-body">${_esc(typeof data === 'object' ? JSON.stringify(data, null, 2) : String(data ?? ''))}</div>`;
+        div.querySelector('.tr-header').onclick = () => div.querySelector('.tr-body').classList.toggle('open');
+        if (type === 'done' || type === 'error') div.querySelector('.tr-body').classList.add('open');
+        wrap.appendChild(div);
+        wrap.scrollTop = wrap.scrollHeight;
+        this._streamTarget = type === 'llm' ? div.querySelector('.tr-body') : null;
+    }
+    _onChunk({ accumulated }) {
+        if (!this._streamTarget) return;
+        this._streamTarget.textContent = accumulated;
+        this._streamTarget.classList.add('open');
+        const wrap = this.shadowRoot.getElementById('wrap');
+        if (wrap) wrap.scrollTop = wrap.scrollHeight;
+    }
+}
+customElements.define('sg-agentic-trace', SgAgenticTrace);
+
+// ── Panel: Tools ─────────────────────────────────────────────────────────────
+
+const TOOLS_CSS = `
+:host { display: block; width: 100%; height: 100%; min-height: 0; box-sizing: border-box; overflow: hidden; }
+.tp-wrap { height: 100%; display: flex; flex-direction: column; padding: 10px; gap: 8px; background: #0d0d1a; box-sizing: border-box; overflow: hidden; }
+h4 { margin: 0; font-size: 12px; color: #94a3b8; font-weight: 600; }
+.tp-list { flex: 1; overflow-y: auto; display: flex; flex-direction: column; gap: 4px; }
+.tp-tool { display: flex; align-items: center; gap: 8px; background: #12122a; border: 1px solid #1e2035; border-radius: 4px; padding: 5px 8px; font-size: 11px; color: #94a3b8; }
+.tp-tool input[type=checkbox] { margin: 0; accent-color: #7c9ef8; cursor: pointer; flex-shrink: 0; }
+.tp-tool label { cursor: pointer; flex: 1; }
+.tp-tool code { font-family: monospace; color: #7c9ef8; }
+.tp-hint { font-size: 10px; color: #2a2a4a; }
+`;
+
+class SgAgenticToolsPanel extends HTMLElement {
+    constructor() { super(); this.attachShadow({ mode: 'open' }); }
+    connectedCallback() {
+        this.shadowRoot.innerHTML = `<style>${TOOLS_CSS}</style>
+        <div class="tp-wrap">
+            <h4>Active Tools</h4>
+            <div class="tp-list" id="list"></div>
+            <div class="tp-hint">Checked tools are passed to the LLM on each request.</div>
+        </div>`;
+        this._renderBuiltins();
+        // Expose getter for the loop to read selected tools
+        this.getSelectedTools = () => this._getSelected();
+    }
+    _renderBuiltins() {
+        const list = this.shadowRoot.getElementById('list');
+        for (const def of BUILTIN_TOOL_DEFS) {
+            const name = def.function.name;
+            const div = document.createElement('div');
+            div.className = 'tp-tool';
+            div.innerHTML = `<input type="checkbox" id="t-${name}" checked>
+                             <label for="t-${name}"><code>${name}</code> — ${def.function.description.split('.')[0]}</label>`;
+            list.appendChild(div);
+        }
+    }
+    _getSelected() {
+        return BUILTIN_TOOL_DEFS.filter(def =>
+            this.shadowRoot.getElementById(`t-${def.function.name}`)?.checked
+        );
+    }
+}
+customElements.define('sg-agentic-tools-panel', SgAgenticToolsPanel);
+
+// ── Panel: VFS ────────────────────────────────────────────────────────────────
+
+const VFS_CSS = `
+:host { display: block; width: 100%; height: 100%; min-height: 0; box-sizing: border-box; overflow: hidden; }
+.vp-wrap { height: 100%; display: flex; flex-direction: column; padding: 10px; gap: 8px; background: #0d0d1a; box-sizing: border-box; overflow: hidden; }
+h4 { margin: 0; font-size: 12px; color: #94a3b8; font-weight: 600; }
+.vp-actions { display: flex; gap: 6px; }
+.vp-btn { background: #12122a; border: 1px solid #2d3060; color: #94a3b8; border-radius: 4px; padding: 4px 10px; font-size: 11px; cursor: pointer; }
+.vp-btn:hover { background: #1e2035; }
+.vp-seed { display: flex; gap: 6px; }
+.vp-seed input { flex: 1; background: #12122a; border: 1px solid #2d3060; color: #e2e8f0; border-radius: 4px; padding: 4px 8px; font-size: 11px; outline: none; }
+.vp-log { flex: 1; overflow-y: auto; font-family: monospace; font-size: 11px; color: #64748b; display: flex; flex-direction: column; gap: 2px; }
+.vp-entry { display: flex; gap: 6px; padding: 3px 6px; border-radius: 3px; background: #12122a; }
+.vp-entry .op  { color: #7c9ef8; width: 40px; flex-shrink: 0; }
+.vp-entry .path { color: #94a3b8; flex: 1; word-break: break-all; }
+.vp-entry .size { color: #475569; flex-shrink: 0; }
+`;
+
+class SgAgenticVfsPanel extends HTMLElement {
+    constructor() { super(); this.attachShadow({ mode: 'open' }); }
+    connectedCallback() {
+        this.shadowRoot.innerHTML = `<style>${VFS_CSS}</style>
+        <div class="vp-wrap">
+            <h4>VFS (memory)</h4>
+            <div class="vp-actions">
+                <button class="vp-btn" id="refresh">↻ Refresh</button>
+                <button class="vp-btn" id="clear">✕ Clear</button>
+            </div>
+            <div class="vp-seed">
+                <input id="seedname" placeholder="filename.txt">
+                <button class="vp-btn" id="seed">+ Seed file</button>
+            </div>
+            <div class="vp-log" id="log"></div>
+        </div>`;
+        this.shadowRoot.getElementById('refresh').onclick = () => this._refresh();
+        this.shadowRoot.getElementById('clear').onclick   = () => this._clearAll();
+        this.shadowRoot.getElementById('seed').onclick    = () => this._seedFile();
+
+        // Listen to VFS events to auto-refresh
+        const vfsBus = document.querySelector('[data-vfs-bus]');
+        if (vfsBus) {
+            vfsBus.addEventListener('vfs:write-response',         () => this._refresh());
+            vfsBus.addEventListener('vfs:delete-response',        () => this._refresh());
+            vfsBus.addEventListener('vfs:create-folder-response', () => this._refresh());
+        }
+    }
+    async _refresh() {
+        const vfsBus = document.querySelector('[data-vfs-bus]');
+        if (!vfsBus) return;
+        const requestId = `vp-${Date.now()}`;
+        const onResp = (e) => {
+            if (e.detail?.requestId !== requestId) return;
+            vfsBus.removeEventListener('vfs:list-response', onResp);
+            this._render(e.detail.entries ?? []);
+        };
+        vfsBus.addEventListener('vfs:list-response', onResp);
+        vfsBus.dispatchEvent(new CustomEvent('vfs:list-request', {
+            detail: { requestId, path: '/' }, bubbles: true, composed: true,
+        }));
+    }
+    _render(entries) {
+        const log = this.shadowRoot.getElementById('log');
+        if (!log) return;
+        if (!entries.length) { log.innerHTML = '<span style="color:#2a2a4a;padding:4px">No files</span>'; return; }
+        log.innerHTML = entries.map(e =>
+            `<div class="vp-entry">
+                <span class="op">${e.type === 'folder' ? '📁' : '📄'}</span>
+                <span class="path">/${e.name}</span>
+                <span class="size">${e.size != null ? _fmtSize(e.size) : ''}</span>
+             </div>`
+        ).join('');
+    }
+    _clearAll() {
+        const vfsBus = document.querySelector('[data-vfs-bus]');
+        if (!vfsBus) return;
+        // Re-init VFS by dispatching a sequence of deletes — for memory provider,
+        // simpler to just reload the page's VFS state. For Phase 1, warn user.
+        alert('Clear all: refresh the page to reset the in-memory VFS.');
+    }
+    _seedFile() {
+        const name = this.shadowRoot.getElementById('seedname')?.value.trim();
+        if (!name) return;
+        const vfsBus = document.querySelector('[data-vfs-bus]');
+        if (!vfsBus) return;
+        const content = `# ${name}\n\nThis is a seed file created at ${new Date().toISOString()}.\n`;
+        vfsBus.dispatchEvent(new CustomEvent('vfs:write-request', {
+            detail: { requestId: `seed-${Date.now()}`, path: `/${name}`, content },
+            bubbles: true, composed: true,
+        }));
+    }
+}
+customElements.define('sg-agentic-vfs-panel', SgAgenticVfsPanel);
+
+// ── Agentic loop ──────────────────────────────────────────────────────────────
+
+/**
+ * Start the agentic loop for the given task.
+ * Inline Phase-1 implementation — will be extracted to sg-agentic-loop in Phase 2.
+ */
+function _startLoop(task) {
+    if (_running || !task) return;
+
+    const toolsPanel = document.querySelector('sg-agentic-tools-panel');
+    _tools = toolsPanel?.getSelectedTools?.() ?? BUILTIN_TOOL_DEFS;
+
+    _running    = true;
+    _iterations = 0;
+    _steps      = [];
+    _messages   = [
+        { role: 'system', content: 'You are a helpful assistant with access to tools. Use tools to complete tasks. When you have enough information, produce a final answer without calling any more tools.' },
+        { role: 'user',   content: task },
+    ];
+
+    _emitBus(SGL_LLM.AGENTIC_START, { task, tools: _tools, maxIterations: MAX_ITERATIONS });
+    _emitBus(SGL_LLM.AGENTIC_STEP,  { step: 0, type: 'user', data: task });
+
+    _stepCount = 0;
+    _sendToLLM();
+}
+
+let _stepCount = 0;
+
+function _stopLoop() {
+    if (!_running) return;
+    _running = false;
+    _emitBus(SGL_LLM.AGENTIC_ABORT, { reason: 'cancelled', steps: _steps, iterations: _iterations });
+}
+
+function _sendToLLM() {
+    if (!_running) return;
+    if (_iterations >= MAX_ITERATIONS) {
+        _running = false;
+        _emitBus(SGL_LLM.AGENTIC_ABORT, { reason: 'max_iterations', steps: _steps, iterations: _iterations });
+        return;
+    }
+    _iterations++;
+    _stepCount++;
+    _emitBus(SGL_LLM.AGENTIC_STEP, { step: _stepCount, type: 'llm', data: '...' });
+    BUS.dispatchEvent(new CustomEvent(SGL_LLM.SEND, {
+        detail: { messages: _messages, tools: _tools, tool_choice: 'auto' },
+        bubbles: true, composed: true,
+    }));
+}
+
+// Listen for tool results — send next LLM request
+BUS.addEventListener(SGL_LLM.TOOL_RESULTS_COMPLETE, (e) => {
+    if (!_running) return;
+    const { results, messages } = e.detail;
+    _messages = messages;  // already extended by sg-tool-runner
+
+    // Log each tool result as a trace step
+    for (const r of results) {
+        _stepCount++;
+        _emitBus(SGL_LLM.AGENTIC_STEP, { step: _stepCount, type: 'result', data: r.error ? { error: r.error } : r.result });
+    }
+
+    _sendToLLM();
+});
+
+// Also log tool calls when they happen
+BUS.addEventListener(SGL_LLM.TOOL_CALLS, (e) => {
+    for (const tc of e.detail.toolCalls ?? []) {
+        let args = {};
+        try { args = JSON.parse(tc.function?.arguments || '{}'); } catch {}
+        _stepCount++;
+        _emitBus(SGL_LLM.AGENTIC_STEP, { step: _stepCount, type: 'tool', data: { name: tc.function?.name, args } });
+    }
+});
+
+// LLM returned text response (no tool calls) → loop complete
+BUS.addEventListener(SGL_LLM.REQUEST_COMPLETE, (e) => {
+    if (!_running) return;
+    const { content, toolCalls, finishReason } = e.detail;
+    if ((toolCalls ?? []).length > 0) return;  // tool calls handled separately
+
+    // Append the assistant response to messages for context
+    if (content) {
+        _messages = [..._messages, { role: 'assistant', content }];
+    }
+
+    _running = false;
+    _emitBus(SGL_LLM.AGENTIC_DONE, { steps: _steps, content, iterations: _iterations });
+});
+
+// LLM error → abort loop
+BUS.addEventListener(SGL_LLM.REQUEST_ERROR, (e) => {
+    if (!_running) return;
+    _running = false;
+    _emitBus(SGL_LLM.AGENTIC_ABORT, { reason: `error: ${e.detail.error}`, steps: _steps, iterations: _iterations });
+});
+
+// ── Helpers ───────────────────────────────────────────────────────────────────
+
+function _emitBus(name, detail) {
+    BUS.dispatchEvent(new CustomEvent(name, { detail, bubbles: true, composed: true }));
+}
+
+function _esc(s) {
+    return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
+
+function _fmtSize(bytes) {
+    if (bytes < 1024) return `${bytes}B`;
+    if (bytes < 1024 * 1024) return `${(bytes/1024).toFixed(1)}KB`;
+    return `${(bytes/1024/1024).toFixed(1)}MB`;
+}
+</script>
+</body>
+</html>

@@ -1,0 +1,144 @@
+<!DOCTYPE html>
+<html lang="en-GB">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Chat — tools.sgraph.ai</title>
+    <meta name="description" content="Multi-turn chat with any LLM. Attach images, PDFs, audio, video and files, maintain conversation history, export transcripts. API key stays in your browser.">
+    <link rel="icon" type="image/svg+xml" href="../../../_common/favicon.svg">
+    <link rel="stylesheet" href="../../../_common/css/tools.css">
+    <style>
+        html, body {
+            height: 100%;
+            margin: 0;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
+        sg-site-header { flex-shrink: 0; }
+
+        /* ── Named event bus + sg-layout ──────────────────────────────── */
+        #llm-bus {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            min-height: 0;
+        }
+        sg-layout { flex: 1; min-height: 0; }
+
+        /* Headless components — no UI, hidden */
+        sg-llm-request,
+        sg-llm-bundle { display: none !important; }
+    </style>
+</head>
+<body>
+
+<script type="module" src="/components/site-header/v1/v1.0/v1.0.2/sg-site-header.js"></script>
+<sg-site-header site="Tools" home-url="../../../"></sg-site-header>
+
+<!--
+    All sg-llm-* components share this bus div via the data-llm-bus attribute.
+    Headless components (request, bundle) live here directly — no layout panel needed.
+    sg-layout hosts all visible panel components. Each component walks up its
+    ancestor chain to find this [data-llm-bus] element and uses it as the event bus.
+-->
+<div id="llm-bus" data-llm-bus>
+    <!-- Headless (no UI) -->
+    <sg-llm-request></sg-llm-request>
+    <sg-llm-bundle auto-save></sg-llm-bundle>
+
+    <sg-layout id="layout"></sg-layout>
+</div>
+
+<script type="module">
+import '/components/llm/sg-llm-events/v0/v0.1/v0.1.0/sg-llm-events.js';
+import '/core/sg-layout/v0.1.0/sg-layout.js';
+import '/components/llm/sg-llm-request/v0/v0.1/v0.1.2/sg-llm-request.js';
+import '/components/llm/sg-llm-bundle/v0/v0.1/v0.1.6/sg-llm-bundle.js';
+import '/components/llm/sg-llm-connection/v0/v0.1/v0.1.4/sg-llm-connection.js';
+import '/components/llm/sg-llm-chat-history/v0/v0.1/v0.1.9/sg-llm-chat-history.js';
+import '/components/llm/sg-llm-chat-input/v0/v0.1/v0.1.3/sg-llm-chat-input.js';
+import '/components/llm/sg-llm-stats/v0/v0.1/v0.1.1/sg-llm-stats.js';
+import '/components/llm/sg-llm-bundle-list/v0/v0.1/v0.1.2/sg-llm-bundle-list.js';
+import '/components/llm/sg-llm-bundle-viewer/v0/v0.1/v0.1.0/sg-llm-bundle-viewer.js';
+import '/components/llm/sg-llm-attachment-manager/v0/v0.1/v0.1.3/sg-llm-attachment-manager.js';
+import '/components/llm/sg-llm-token-viz/v0/v0.1/v0.1.1/sg-llm-token-viz.js';
+import '/components/llm/sg-llm-response-inspector/v0/v0.1/v0.1.0/sg-llm-response-inspector.js';
+
+// ── Layout definition ──────────────────────────────────────────────────────
+// Three-column chat layout (from arch brief v0.19.17):
+//
+//  ┌──────────┬──────────────────────────────┬─────────────────────────┐
+//  │Connection│         Chat History          │      Bundle List        │
+//  │          │                               │                         │
+//  │  Stats   ├──────────────────────────────┤  Bundle Viewer          │
+//  │          │  Chat Input | Attachments     │  Token Viz | Inspector  │
+//  └──────────┴──────────────────────────────┴─────────────────────────┘
+
+const LAYOUT = {
+    type: 'row',
+    sizes: [0.22, 0.55, 0.23],
+    children: [
+        // Left column: Connection (top) + Stats (bottom)
+        {
+            type: 'column',
+            sizes: [0.7, 0.3],
+            children: [
+                {
+                    type: 'stack',
+                    tabs: [{ tag: 'sg-llm-connection', title: 'Connection', locked: true }],
+                },
+                {
+                    type: 'stack',
+                    tabs: [{ tag: 'sg-llm-stats', title: 'Stats', locked: true }],
+                },
+            ],
+        },
+        // Centre column: Chat History (top) + Chat Input / Attachments (bottom)
+        {
+            type: 'column',
+            sizes: [0.78, 0.22],
+            children: [
+                {
+                    type: 'stack',
+                    tabs: [{ tag: 'sg-llm-chat-history', title: 'Chat', locked: true }],
+                },
+                {
+                    type: 'stack',
+                    tabs: [
+                        { tag: 'sg-llm-chat-input',        title: 'Input',       locked: true },
+                        { tag: 'sg-llm-attachment-manager', title: 'Attachments' },
+                    ],
+                },
+            ],
+        },
+        // Right column: Bundle List (top) + Bundle Viewer / Token Viz / Inspector (bottom)
+        {
+            type: 'column',
+            sizes: [0.5, 0.5],
+            children: [
+                {
+                    type: 'stack',
+                    tabs: [{ tag: 'sg-llm-bundle-list', title: 'Bundles', locked: true }],
+                },
+                {
+                    type: 'stack',
+                    tabs: [
+                        { tag: 'sg-llm-bundle-viewer',       title: 'Bundle Data' },
+                        { tag: 'sg-llm-token-viz',           title: 'Tokens'      },
+                        { tag: 'sg-llm-response-inspector',  title: 'Inspector'   },
+                    ],
+                },
+            ],
+        },
+    ],
+};
+
+// Apply layout once sg-layout is defined and upgraded
+customElements.whenDefined('sg-layout').then(() => {
+    document.getElementById('layout').setLayout(LAYOUT);
+});
+</script>
+
+</body>
+</html>

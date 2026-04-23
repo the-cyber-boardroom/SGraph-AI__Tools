@@ -1,0 +1,21 @@
+{
+  "version"      : "1.0.0",
+  "name"         : "sg-pyodide",
+  "description"  : "Lazy Pyodide loader — loads CPython-in-WASM from CDN, installs packages via micropip, runs Python code in the browser. Includes vault crypto compatibility checker.",
+  "type"         : "core",
+  "exports"      : [
+    "loadPyodide",
+    "installPackages",
+    "runPython",
+    "runPythonCapture",
+    "isPackageAvailable",
+    "checkVaultCompatibility",
+    "deriveVaultKeysPython",
+    "getStatus",
+    "PYODIDE_CDN_URL",
+    "PYODIDE_SCRIPT_URL"
+  ],
+  "dependencies" : [],
+  "external"     : ["Pyodide v0.27.4 (CDN, ~20MB WASM)"],
+  "notes"        : "Pyodide is loaded on-demand from CDN. No WASM is bundled. Requires network access for first load."
+}

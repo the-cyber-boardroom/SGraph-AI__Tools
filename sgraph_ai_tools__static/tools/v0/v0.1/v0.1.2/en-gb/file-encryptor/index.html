@@ -1,0 +1,407 @@
+<!DOCTYPE html>
+<html lang="en-GB">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title data-i18n="file_encryptor.title">File Encryptor — tools.sgraph.ai</title>
+    <meta name="description" data-i18n="file_encryptor.meta_description" content="Encrypt or decrypt files with AES-256-GCM entirely in your browser. Same encryption used by SG/Send.">
+    <link rel="icon" type="image/svg+xml" href="../../_common/favicon.svg">
+    <link rel="stylesheet" href="../../_common/css/tools.css">
+    <style>
+        .main {
+            flex: 1;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 2rem 1.5rem;
+            width: 100%;
+        }
+
+        h1 {
+            font-size: 1.5rem;
+            margin-bottom: 0.5rem;
+        }
+
+        .subtitle {
+            color: var(--sg-text-muted);
+            font-size: 0.9375rem;
+            margin-bottom: 2rem;
+            line-height: 1.5;
+        }
+
+        .mode-toggle {
+            display: flex;
+            gap: 0;
+            margin-bottom: 1.5rem;
+            border: 1px solid var(--sg-border);
+            border-radius: var(--sg-radius);
+            overflow: hidden;
+            width: fit-content;
+        }
+
+        .mode-toggle button {
+            padding: 0.5rem 1.25rem;
+            font-size: 0.875rem;
+            font-weight: 600;
+            color: var(--sg-text-muted);
+            background: var(--sg-bg-card);
+            border: none;
+            cursor: pointer;
+            transition: background-color 150ms, color 150ms;
+        }
+
+        .mode-toggle button:not(:last-child) {
+            border-right: 1px solid var(--sg-border);
+        }
+
+        .mode-toggle button.active {
+            color: var(--sg-accent);
+            background: rgba(78, 205, 196, 0.1);
+        }
+
+        .mode-toggle button:hover:not(.active) {
+            color: var(--sg-text);
+        }
+
+        .mode-section {
+            display: none;
+        }
+
+        .mode-section.visible {
+            display: block;
+        }
+
+        .key-field {
+            margin-top: 1.5rem;
+        }
+
+        .key-field label {
+            display: block;
+            font-size: 0.875rem;
+            font-weight: 600;
+            margin-bottom: 0.5rem;
+        }
+
+        .key-field__input-wrap {
+            display: flex;
+            gap: 0.5rem;
+            align-items: stretch;
+        }
+
+        .key-field input {
+            flex: 1;
+            padding: 0.625rem 0.75rem;
+            background: var(--sg-bg-card);
+            color: var(--sg-text);
+            border: 1px solid var(--sg-border);
+            border-radius: var(--sg-radius);
+            font-family: var(--sg-font-mono);
+            font-size: 0.8125rem;
+            outline: none;
+        }
+
+        .key-field input:focus {
+            border-color: var(--sg-accent);
+        }
+
+        .key-field input::placeholder {
+            color: var(--sg-text-dim);
+        }
+
+        .action-row {
+            margin-top: 1.5rem;
+            display: flex;
+            gap: 0.75rem;
+            flex-wrap: wrap;
+        }
+
+        .status-msg {
+            margin-top: 1rem;
+            font-size: 0.875rem;
+            padding: 0.5rem 0.75rem;
+            border-radius: var(--sg-radius);
+            display: none;
+        }
+
+        .status-msg.visible {
+            display: block;
+        }
+
+        .status-msg.success {
+            color: var(--sg-accent);
+            background: rgba(78, 205, 196, 0.1);
+            border: 1px solid rgba(78, 205, 196, 0.2);
+        }
+
+        .status-msg.error {
+            color: var(--sg-error);
+            background: rgba(233, 69, 96, 0.1);
+            border: 1px solid rgba(233, 69, 96, 0.2);
+        }
+
+        .info-box {
+            margin-top: 2rem;
+            padding: 1rem;
+            background: rgba(78, 205, 196, 0.05);
+            border: 1px solid var(--sg-border);
+            border-radius: var(--sg-radius);
+        }
+
+        .info-box h3 {
+            font-size: 0.875rem;
+            margin-bottom: 0.5rem;
+            color: var(--sg-accent);
+        }
+
+        .info-box p {
+            color: var(--sg-text-muted);
+            font-size: 0.8125rem;
+            line-height: 1.6;
+        }
+    </style>
+</head>
+<body>
+    <script type="module" src="/components/site-header/v1/v1.0/v1.0.2/sg-site-header.js"></script>
+    <script type="module" src="/components/locale-picker/v1/v1.0/v1.0.1/sg-locale-picker.js"></script>
+    <sg-site-header
+        site="Tools"
+        home-url="/en-gb/">
+        <sg-locale-picker slot="locale" locale="en-gb" base-path="/"></sg-locale-picker>
+    </sg-site-header>
+
+    <script type="module">
+        import { buildToolsNav } from '../../_common/js/sg-nav.js'
+        document.querySelector('sg-site-header').whenReady().then(() => {
+            buildToolsNav(document.querySelector('sg-site-header'))
+        }).catch(() => {
+            buildToolsNav(document.querySelector('sg-site-header'))
+        })
+    </script>
+
+    <div class="main">
+        <h1 data-i18n="file_encryptor.heading">File Encryptor</h1>
+        <p class="subtitle" data-i18n="file_encryptor.subtitle">
+            Encrypt or decrypt files with AES-256-GCM entirely in your browser.
+            Your file and key never leave your device. Same encryption used by SG/Send.
+        </p>
+
+        <div class="mode-toggle">
+            <button id="mode-encrypt" class="active" data-i18n="file_encryptor.mode_encrypt">Encrypt</button>
+            <button id="mode-decrypt" data-i18n="file_encryptor.mode_decrypt">Decrypt</button>
+        </div>
+
+        <script type="module" src="/components/upload-dropzone/v1/v1.0/v1.0.0/sg-upload-dropzone.js"></script>
+
+        <!-- Encrypt Mode -->
+        <div id="encrypt-section" class="mode-section visible">
+            <sg-upload-dropzone id="encrypt-dropzone" label="Drop a file here to encrypt"></sg-upload-dropzone>
+
+            <div class="key-field">
+                <label data-i18n="file_encryptor.key_label">Encryption Key (auto-generated)</label>
+                <div class="key-field__input-wrap">
+                    <input type="text" id="encrypt-key" readonly>
+                    <button class="btn btn--secondary" id="copy-key" data-i18n="file_encryptor.copy_key">Copy Key</button>
+                    <button class="btn btn--secondary" id="regen-key" data-i18n="file_encryptor.regenerate">Regenerate</button>
+                </div>
+            </div>
+
+            <div class="action-row">
+                <button class="btn" id="encrypt-btn" disabled data-i18n="file_encryptor.encrypt_btn">Encrypt &amp; Download</button>
+            </div>
+        </div>
+
+        <!-- Decrypt Mode -->
+        <div id="decrypt-section" class="mode-section">
+            <sg-upload-dropzone id="decrypt-dropzone" label="Drop an encrypted file (.enc)"></sg-upload-dropzone>
+
+            <div class="key-field">
+                <label data-i18n="file_encryptor.key_paste">Decryption Key</label>
+                <div class="key-field__input-wrap">
+                    <input type="text" id="decrypt-key" placeholder="Paste your decryption key here">
+                </div>
+            </div>
+
+            <div class="action-row">
+                <button class="btn" id="decrypt-btn" disabled data-i18n="file_encryptor.decrypt_btn">Decrypt &amp; Download</button>
+            </div>
+        </div>
+
+        <div id="status" class="status-msg"></div>
+
+        <div class="info-box">
+            <h3 data-i18n="file_encryptor.privacy_title">Privacy First</h3>
+            <p data-i18n="file_encryptor.privacy">
+                Your file and key never leave your device. All encryption and decryption
+                happens in your browser using the Web Crypto API (AES-256-GCM).
+                Need to share encrypted files? <a href="https://send.sgraph.ai" style="color:var(--sg-accent)">Try SG/Send</a>.
+            </p>
+        </div>
+    </div>
+
+    <script type="module" src="/components/site-footer/v1/v1.0/v1.0.0/sg-site-footer.js"></script>
+    <sg-site-footer
+        brand-desc="Free browser-based tools that run entirely on your device. No uploads, no servers, no tracking."
+        columns='[{"title":"Tools","links":[{"label":"File Encryptor","href":"./"},{"label":"All Tools","href":"/en-gb/"}]},{"title":"SGraph","links":[{"label":"sgraph.ai","href":"https://sgraph.ai/en-gb/"},{"label":"send.sgraph.ai","href":"https://send.sgraph.ai"},{"label":"GitHub","href":"https://github.com/the-cyber-boardroom/SGraph-AI__Tools"}]}]'>
+    </sg-site-footer>
+
+    <script src="../../_common/js/build-info.js"></script>
+    <div id="build-version" style="text-align:center;color:var(--sg-text-dim, #4a5568);font-size:0.7rem;padding:8px 0;opacity:0.6;background:var(--sg-bg-secondary, #16213E);"></div>
+    <script>
+        (function() {
+            var b = window.SGRAPH_BUILD || { appVersion: 'v0.1.0', uiVersion: 'v0.1.2' };
+            var el = document.getElementById('build-version');
+            if (el) el.textContent = b.appVersion + '  \u00b7  UI ' + b.uiVersion + (b.buildTime ? '  \u00b7  ' + b.buildTime : '');
+        })();
+    </script>
+
+    <script type="module">
+        import { generateKey, exportKey, importKey, encryptFile, decryptFile } from '/core/crypto/v1/v1.0/v1.0.0/sg-crypto.js'
+
+        // --- Elements ---
+        const modeEncrypt   = document.getElementById('mode-encrypt')
+        const modeDecrypt   = document.getElementById('mode-decrypt')
+        const encryptSection = document.getElementById('encrypt-section')
+        const decryptSection = document.getElementById('decrypt-section')
+        const encryptDropzone = document.getElementById('encrypt-dropzone')
+        const decryptDropzone = document.getElementById('decrypt-dropzone')
+        const encryptKeyInput = document.getElementById('encrypt-key')
+        const decryptKeyInput = document.getElementById('decrypt-key')
+        const copyKeyBtn    = document.getElementById('copy-key')
+        const regenKeyBtn   = document.getElementById('regen-key')
+        const encryptBtn    = document.getElementById('encrypt-btn')
+        const decryptBtn    = document.getElementById('decrypt-btn')
+        const statusDiv     = document.getElementById('status')
+
+        let currentKey = null
+        let encryptFileObj = null
+        let decryptFileObj = null
+
+        // --- Mode Toggle ---
+        modeEncrypt.addEventListener('click', () => {
+            modeEncrypt.classList.add('active')
+            modeDecrypt.classList.remove('active')
+            encryptSection.classList.add('visible')
+            decryptSection.classList.remove('visible')
+            hideStatus()
+        })
+
+        modeDecrypt.addEventListener('click', () => {
+            modeDecrypt.classList.add('active')
+            modeEncrypt.classList.remove('active')
+            decryptSection.classList.add('visible')
+            encryptSection.classList.remove('visible')
+            hideStatus()
+        })
+
+        // --- Key Generation ---
+        async function genKey() {
+            currentKey = await generateKey()
+            encryptKeyInput.value = await exportKey(currentKey)
+        }
+
+        genKey()
+
+        regenKeyBtn.addEventListener('click', async () => {
+            await genKey()
+            showStatus('New key generated.', 'success')
+        })
+
+        copyKeyBtn.addEventListener('click', async () => {
+            await navigator.clipboard.writeText(encryptKeyInput.value)
+            const orig = copyKeyBtn.textContent
+            copyKeyBtn.textContent = 'Copied!'
+            setTimeout(() => { copyKeyBtn.textContent = orig }, 1500)
+        })
+
+        // --- File Selection ---
+        encryptDropzone.addEventListener('files-selected', (e) => {
+            encryptFileObj = e.detail.files[0]
+            encryptBtn.disabled = false
+            hideStatus()
+        })
+
+        decryptDropzone.addEventListener('files-selected', (e) => {
+            decryptFileObj = e.detail.files[0]
+            updateDecryptBtn()
+            hideStatus()
+        })
+
+        decryptKeyInput.addEventListener('input', updateDecryptBtn)
+
+        function updateDecryptBtn() {
+            decryptBtn.disabled = !(decryptFileObj && decryptKeyInput.value.trim())
+        }
+
+        // --- Encrypt ---
+        encryptBtn.addEventListener('click', async () => {
+            if (!encryptFileObj || !currentKey) return
+            encryptBtn.disabled = true
+            encryptBtn.textContent = 'Encrypting...'
+
+            try {
+                const plaintext = await encryptFileObj.arrayBuffer()
+                const encrypted = await encryptFile(currentKey, plaintext)
+
+                const blob = new Blob([encrypted], { type: 'application/octet-stream' })
+                downloadBlob(blob, encryptFileObj.name + '.enc')
+
+                showStatus('File encrypted and downloaded.', 'success')
+            } catch (err) {
+                showStatus(`Encryption failed: ${err.message}`, 'error')
+                console.error(err)
+            }
+
+            encryptBtn.disabled = false
+            encryptBtn.textContent = 'Encrypt & Download'
+        })
+
+        // --- Decrypt ---
+        decryptBtn.addEventListener('click', async () => {
+            if (!decryptFileObj || !decryptKeyInput.value.trim()) return
+            decryptBtn.disabled = true
+            decryptBtn.textContent = 'Decrypting...'
+
+            try {
+                const key = await importKey(decryptKeyInput.value.trim())
+                const encrypted = await decryptFileObj.arrayBuffer()
+                const plaintext = await decryptFile(key, encrypted)
+
+                let outName = decryptFileObj.name
+                if (outName.endsWith('.enc')) {
+                    outName = outName.slice(0, -4)
+                }
+
+                const blob = new Blob([plaintext])
+                downloadBlob(blob, outName)
+
+                showStatus('File decrypted and downloaded.', 'success')
+            } catch (err) {
+                showStatus('Decryption failed. Wrong key or corrupted file.', 'error')
+                console.error(err)
+            }
+
+            decryptBtn.disabled = false
+            decryptBtn.textContent = 'Decrypt & Download'
+            updateDecryptBtn()
+        })
+
+        // --- Helpers ---
+        function downloadBlob(blob, filename) {
+            const url = URL.createObjectURL(blob)
+            const a = document.createElement('a')
+            a.href = url
+            a.download = filename
+            a.click()
+            URL.revokeObjectURL(url)
+        }
+
+        function showStatus(msg, type) {
+            statusDiv.textContent = msg
+            statusDiv.className = `status-msg visible ${type}`
+        }
+
+        function hideStatus() {
+            statusDiv.className = 'status-msg'
+        }
+    </script>
+</body>
+</html>

@@ -1,0 +1,64 @@
+/**
+ * PlaybookLM — Slide grid: right panel tabs and slide card thumbnails.
+ * @version 0.1.0
+ */
+
+/* ── Slide grid (Step 4 left panel) ───────────────────────────────────────── */
+.plm-slide-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+  gap: 10px;
+  padding-bottom: 16px;
+}
+
+/* ── Individual slide cards ────────────────────────────────────────────────── */
+.plm-slide-card {
+  background: var(--plm-surface);
+  border: 1px solid var(--plm-border);
+  border-radius: var(--plm-radius);
+  padding: 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  cursor: pointer;
+  transition: border-color 150ms, background 150ms;
+  position: relative;
+}
+.plm-slide-card:hover    { border-color: #2d3748; background: #0f0f20; }
+
+/* Status-driven border colours */
+.plm-slide-generating    { border-color: var(--plm-info); }
+.plm-slide-complete      { border-color: var(--plm-ok); }
+.plm-slide-error         { border-color: var(--plm-error); }
+
+.plm-slide-card-num {
+  font-size: 10px;
+  font-weight: 700;
+  color: var(--plm-accent);
+  font-family: var(--plm-mono);
+}
+
+.plm-slide-card-title {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--plm-text);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.plm-slide-card-status {
+  font-size: 11px;
+  color: var(--plm-dim);
+}
+
+/* Status colour overrides */
+.plm-slide-generating .plm-slide-card-status { color: var(--plm-info); }
+.plm-slide-complete   .plm-slide-card-status { color: var(--plm-ok); }
+.plm-slide-error      .plm-slide-card-status { color: var(--plm-error); }
+
+.plm-slide-gen-btn {
+  margin-top: auto;
+  font-size: 11px;
+  padding: 4px 8px;
+}

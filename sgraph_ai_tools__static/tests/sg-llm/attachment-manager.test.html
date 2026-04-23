@@ -1,0 +1,236 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>sg-llm-attachment-manager tests</title>
+    <style>
+        body { font-family: monospace; background: #0d0d1a; color: #e2e8f0; padding: 20px; }
+        h1   { font-size: 14px; color: #7c9ef8; margin-bottom: 16px; }
+        .pass { color: #4ade80; }
+        .fail { color: #f87171; }
+        #summary { margin-top: 16px; font-size: 13px; border-top: 1px solid #1e2035; padding-top: 12px; }
+        #bus { display: none; }
+        #demo-bus { margin-top: 24px; padding: 12px; border: 1px solid #1e2035; border-radius: 4px; }
+    </style>
+</head>
+<body>
+<h1>sg-llm-attachment-manager — unit tests</h1>
+<div id="log"></div>
+<div id="summary"></div>
+
+<!-- Hidden bus for programmatic tests -->
+<div id="bus"></div>
+
+<!-- Interactive demo -->
+<div id="demo-bus" style="display:block">
+    <p style="font-size:11px;color:#64748b;margin-bottom:8px;">Interactive demo — paste an image or drop a file</p>
+</div>
+
+<script type="module">
+import '/components/llm/sg-llm-events/v0/v0.1/v0.1.0/sg-llm-events.js';
+import '/components/llm/sg-llm-attachment-manager/v0/v0.1/v0.1.0/sg-llm-attachment-manager.js';
+
+const log  = document.getElementById('log');
+const bus  = document.getElementById('bus');
+let passes = 0, fails = 0;
+
+function assert(label, condition, detail = '') {
+    const ok  = !!condition;
+    const div = document.createElement('div');
+    div.className = ok ? 'pass' : 'fail';
+    div.textContent = `${ok ? '✓' : '✗'} ${label}${detail ? ' — ' + detail : ''}`;
+    log.appendChild(div);
+    ok ? passes++ : fails++;
+}
+
+function emit(name, detail = {}) {
+    bus.dispatchEvent(new CustomEvent(name, { detail, bubbles: true, composed: true }));
+}
+
+function wait(ms = 0) { return new Promise(r => setTimeout(r, ms)); }
+
+function makeFile(name, type, content = 'hello') {
+    return new File([content], name, { type });
+}
+
+// ── Setup ─────────────────────────────────────────────────────────────────
+
+const mgr = document.createElement('sg-llm-attachment-manager');
+bus.appendChild(mgr);
+await wait(10);
+
+// ── 1. Registration ───────────────────────────────────────────────────────
+assert('Custom element registered',
+    customElements.get('sg-llm-attachment-manager') != null);
+
+assert('window.SgLlmAttachmentManager exported',
+    typeof window.SgLlmAttachmentManager === 'function');
+
+// ── 2. Shadow DOM structure ───────────────────────────────────────────────
+assert('Shadow root exists',
+    mgr.shadowRoot != null);
+assert('Drop zone rendered',
+    mgr.shadowRoot.querySelector('.am-dropzone') != null);
+assert('Browse button rendered',
+    mgr.shadowRoot.querySelector('.am-browse-btn') != null);
+assert('Attachment list element rendered',
+    mgr.shadowRoot.querySelector('.am-list') != null);
+assert('Hidden file input rendered',
+    mgr.shadowRoot.querySelector('input[type="file"]') != null);
+
+// ── 3. Initial state ──────────────────────────────────────────────────────
+assert('getAttachments() initially empty',
+    mgr.getAttachments().length === 0);
+
+// ── 4. addFile() — text file ──────────────────────────────────────────────
+let addedEvt = null;
+bus.addEventListener('llm:attachment-added', e => { addedEvt = e.detail; }, { once: true });
+
+mgr.addFile(makeFile('notes.md', 'text/markdown', '# Hello\nworld'));
+await wait(50); // FileReader is async
+
+assert('addFile() adds to internal list',
+    mgr.getAttachments().length === 1);
+assert('Attachment has correct name',
+    mgr.getAttachments()[0].name === 'notes.md');
+assert('Text attachment has textContent',
+    typeof mgr.getAttachments()[0].textContent === 'string');
+assert('llm:attachment-added event fired',
+    addedEvt != null);
+assert('Event detail has attachment object',
+    addedEvt?.attachment?.name === 'notes.md');
+
+// ── 5. addFile() — image file ─────────────────────────────────────────────
+let imgAddedEvt = null;
+bus.addEventListener('llm:attachment-added', e => { imgAddedEvt = e.detail; }, { once: true });
+
+// Create a tiny PNG (1x1 pixel, minimal valid PNG)
+const pngBytes = new Uint8Array([
+    0x89,0x50,0x4e,0x47,0x0d,0x0a,0x1a,0x0a, // PNG signature
+    0x00,0x00,0x00,0x0d,0x49,0x48,0x44,0x52, // IHDR length + type
+    0x00,0x00,0x00,0x01,0x00,0x00,0x00,0x01, // 1x1
+    0x08,0x02,0x00,0x00,0x00,0x90,0x77,0x53, // bit depth + color type + CRC
+    0xde,0x00,0x00,0x00,0x0c,0x49,0x44,0x41, // IDAT length + type
+    0x54,0x08,0xd7,0x63,0xf8,0xcf,0xc0,0x00, // IDAT data
+    0x00,0x00,0x02,0x00,0x01,0xe2,0x21,0xbc, // IDAT CRC
+    0x33,0x00,0x00,0x00,0x00,0x49,0x45,0x4e, // IEND length + type
+    0x44,0xae,0x42,0x60,0x82               // IEND CRC
+]);
+const imgFile = new File([pngBytes], 'screenshot.png', { type: 'image/png' });
+mgr.addFile(imgFile);
+await wait(50);
+
+assert('Image file added',
+    mgr.getAttachments().length === 2);
+assert('Image attachment has dataUrl',
+    mgr.getAttachments()[1].dataUrl?.startsWith('data:image/'));
+assert('llm:attachment-added fired for image',
+    imgAddedEvt?.attachment?.name === 'screenshot.png');
+
+// ── 6. Badge rendering ────────────────────────────────────────────────────
+const badges = mgr.shadowRoot.querySelectorAll('.am-badge');
+assert('Badges rendered for both attachments',
+    badges.length === 2);
+const thumb = mgr.shadowRoot.querySelector('.am-thumb');
+assert('Image badge shows thumbnail',
+    thumb != null && thumb.tagName === 'IMG');
+
+// ── 7. removeAttachment() ─────────────────────────────────────────────────
+let removedEvt = null;
+bus.addEventListener('llm:attachment-removed', e => { removedEvt = e.detail; }, { once: true });
+
+const firstId = mgr.getAttachments()[0].id;
+mgr.removeAttachment(firstId);
+await wait(10);
+
+assert('removeAttachment() removes from internal list',
+    mgr.getAttachments().length === 1);
+assert('Remaining attachment is the image',
+    mgr.getAttachments()[0].name === 'screenshot.png');
+assert('llm:attachment-removed event fired',
+    removedEvt?.id === firstId);
+
+// ── 8. Badge count updated after remove ──────────────────────────────────
+await wait(10);
+assert('Badge count updated after remove',
+    mgr.shadowRoot.querySelectorAll('.am-badge').length === 1);
+
+// ── 9. clear() ───────────────────────────────────────────────────────────
+let clearedFired = false;
+bus.addEventListener('llm:attachments-cleared', () => { clearedFired = true; }, { once: true });
+
+mgr.clear();
+await wait(10);
+
+assert('clear() empties internal list',
+    mgr.getAttachments().length === 0);
+assert('llm:attachments-cleared event fired',
+    clearedFired);
+assert('Badges removed after clear',
+    mgr.shadowRoot.querySelectorAll('.am-badge').length === 0);
+
+// ── 10. getAttachments() returns a copy ───────────────────────────────────
+mgr.addFile(makeFile('data.json', 'application/json', '{"a":1}'));
+await wait(50);
+const snapshot = mgr.getAttachments();
+mgr.clear();
+assert('getAttachments() returns copy (not live reference)',
+    snapshot.length === 1);  // original snapshot not affected by clear
+
+// ── 11. disable-on-send attribute ─────────────────────────────────────────
+const mgrDisable = document.createElement('sg-llm-attachment-manager');
+mgrDisable.setAttribute('disable-on-send', '');
+bus.appendChild(mgrDisable);
+await wait(10);
+
+emit('llm:request-start');
+await wait(10);
+assert('disable-on-send: dropzone disabled on REQUEST_START',
+    mgrDisable.shadowRoot.querySelector('.am-dropzone').classList.contains('disabled'));
+
+emit('llm:request-complete', {});
+await wait(10);
+assert('disable-on-send: dropzone re-enabled on REQUEST_COMPLETE',
+    !mgrDisable.shadowRoot.querySelector('.am-dropzone').classList.contains('disabled'));
+
+// ── 12. Without disable-on-send, REQUEST_START has no effect ─────────────
+emit('llm:request-start');
+await wait(10);
+assert('Without disable-on-send: dropzone unaffected by REQUEST_START',
+    !mgr.shadowRoot.querySelector('.am-dropzone').classList.contains('disabled'));
+
+// ── 13. placeholder attribute ─────────────────────────────────────────────
+const mgrP = document.createElement('sg-llm-attachment-manager');
+mgrP.setAttribute('placeholder', 'Drop images here');
+bus.appendChild(mgrP);
+await wait(10);
+assert('placeholder attribute shown in hint',
+    mgrP.shadowRoot.querySelector('.am-hint')?.textContent === 'Drop images here');
+
+// ── 14. Unsupported file type ignored ─────────────────────────────────────
+const before = mgr.getAttachments().length;
+mgr.addFile(new File(['data'], 'archive.zip', { type: 'application/zip' }));
+await wait(50);
+assert('Unsupported file type not added',
+    mgr.getAttachments().length === before);
+
+// ── Summary ───────────────────────────────────────────────────────────────
+document.getElementById('summary').innerHTML =
+    `<strong class="${fails === 0 ? 'pass' : 'fail'}">${passes} passed, ${fails} failed</strong>`;
+
+// ── Interactive demo ──────────────────────────────────────────────────────
+const demoBus  = document.getElementById('demo-bus');
+const demoMgr  = document.createElement('sg-llm-attachment-manager');
+demoMgr.setAttribute('placeholder', 'Drop files or paste an image (Ctrl+V)');
+demoBus.appendChild(demoMgr);
+
+const demoLog = document.createElement('div');
+demoLog.style.cssText = 'margin-top:8px;font-size:10px;color:#64748b;';
+demoBus.appendChild(demoLog);
+
+demoBus.addEventListener('llm:attachment-added',   e => { demoLog.textContent = `✓ Added: ${e.detail.attachment.name}`; });
+demoBus.addEventListener('llm:attachment-removed',  e => { demoLog.textContent = `✗ Removed: ${e.detail.id}`; });
+demoBus.addEventListener('llm:attachments-cleared', () => { demoLog.textContent = 'Cleared all'; });
+</script>
+</body>
+</html>

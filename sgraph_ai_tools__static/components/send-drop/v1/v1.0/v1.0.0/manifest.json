@@ -1,0 +1,12 @@
+{
+  "name": "sg-send-drop",
+  "version": "1.0.0",
+  "description": "Share-via-SG/Send drop zone component — encrypt, upload, display simple token",
+  "exports": {
+    "sg-send-drop.js": ["SgSendDrop"]
+  },
+  "dependencies": {
+    "sg-send-crypto.js": "/core/send-crypto/v1/v1.0/v1.0.0/sg-send-crypto.js",
+    "sg-send-upload.js": "/core/send-crypto/v1/v1.0/v1.0.0/sg-send-upload.js"
+  }
+}

@@ -1,0 +1,443 @@
+/**
+ * sg-video-splitter.css — Styles for the <sg-video-splitter> Web Component
+ *
+ * Uses CSS custom properties for theming. All classes are prefixed with .sg-vs-
+ * to avoid collisions (though Shadow DOM provides encapsulation).
+ *
+ * @version 1.0.0
+ */
+
+:host {
+    --sg-accent:       #14b8a6;
+    --sg-accent-hover: #0d9488;
+    --sg-bg-card:      #1e293b;
+    --sg-bg-surface:   #0f172a;
+    --sg-text:         #f1f5f9;
+    --sg-text-muted:   #94a3b8;
+    --sg-border:       #334155;
+    --sg-radius:       8px;
+    --sg-radius-pill:  9999px;
+    --sg-danger:       #ef4444;
+    --sg-danger-hover: #dc2626;
+
+    display: block;
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, sans-serif;
+    color: var(--sg-text);
+    line-height: 1.5;
+}
+
+:host([disabled]) {
+    opacity: 0.5;
+    pointer-events: none;
+}
+
+*,
+*::before,
+*::after {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+}
+
+button {
+    cursor: pointer;
+    font-family: inherit;
+    font-size: inherit;
+    border: none;
+    border-radius: var(--sg-radius);
+    padding: 0.5rem 1rem;
+    transition: background-color 0.15s ease, opacity 0.15s ease;
+}
+
+button:disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
+}
+
+input[type="text"],
+input[type="number"] {
+    font-family: inherit;
+    font-size: 0.875rem;
+    background: var(--sg-bg-surface);
+    color: var(--sg-text);
+    border: 1px solid var(--sg-border);
+    border-radius: var(--sg-radius);
+    padding: 0.4rem 0.6rem;
+    outline: none;
+    transition: border-color 0.15s ease;
+}
+
+input[type="text"]:focus,
+input[type="number"]:focus {
+    border-color: var(--sg-accent);
+}
+
+/* ===== Container ===== */
+
+.sg-vs-container {
+    background: var(--sg-bg-card);
+    border: 1px solid var(--sg-border);
+    border-radius: var(--sg-radius);
+    padding: 1.25rem;
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+}
+
+/* ===== File info bar ===== */
+
+.sg-vs-info {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    flex-wrap: wrap;
+    font-size: 0.875rem;
+    color: var(--sg-text-muted);
+    padding: 0.5rem 0.75rem;
+    background: var(--sg-bg-surface);
+    border-radius: var(--sg-radius);
+}
+
+.sg-vs-info strong {
+    color: var(--sg-text);
+    font-weight: 600;
+}
+
+.sg-vs-info .sg-vs-info-sep {
+    color: var(--sg-border);
+}
+
+/* ===== Video preview ===== */
+
+.sg-vs-preview {
+    width: 100%;
+    border-radius: var(--sg-radius);
+    overflow: hidden;
+    background: #000;
+}
+
+.sg-vs-preview video {
+    display: block;
+    width: 100%;
+    max-height: 400px;
+    object-fit: contain;
+    background: #000;
+}
+
+/* ===== Mode tabs ===== */
+
+.sg-vs-modes {
+    display: flex;
+    gap: 0;
+    border-radius: var(--sg-radius-pill);
+    overflow: hidden;
+    border: 1px solid var(--sg-border);
+    align-self: flex-start;
+}
+
+.sg-vs-modes button {
+    background: var(--sg-bg-surface);
+    color: var(--sg-text-muted);
+    border-radius: 0;
+    padding: 0.5rem 1.25rem;
+    font-size: 0.875rem;
+    font-weight: 500;
+    border-right: 1px solid var(--sg-border);
+}
+
+.sg-vs-modes button:last-child {
+    border-right: none;
+}
+
+.sg-vs-modes button:hover:not(.sg-vs-mode-active) {
+    background: var(--sg-border);
+}
+
+.sg-vs-mode-active {
+    background: var(--sg-accent) !important;
+    color: #fff !important;
+}
+
+/* ===== Panels ===== */
+
+.sg-vs-panel {
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+    padding: 1rem;
+    background: var(--sg-bg-surface);
+    border: 1px solid var(--sg-border);
+    border-radius: var(--sg-radius);
+}
+
+.sg-vs-panel-hidden {
+    display: none !important;
+}
+
+/* ===== Split mode ===== */
+
+.sg-vs-split-submode {
+    display: flex;
+    gap: 0;
+    border-radius: var(--sg-radius-pill);
+    overflow: hidden;
+    border: 1px solid var(--sg-border);
+    align-self: flex-start;
+}
+
+.sg-vs-split-submode button {
+    background: transparent;
+    color: var(--sg-text-muted);
+    border-radius: 0;
+    padding: 0.35rem 1rem;
+    font-size: 0.8rem;
+    border-right: 1px solid var(--sg-border);
+}
+
+.sg-vs-split-submode button:last-child {
+    border-right: none;
+}
+
+.sg-vs-split-submode-active {
+    background: var(--sg-border) !important;
+    color: var(--sg-text) !important;
+}
+
+.sg-vs-fixed-row {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    flex-wrap: wrap;
+}
+
+.sg-vs-fixed-row input[type="number"] {
+    width: 80px;
+}
+
+.sg-vs-fixed-row .sg-vs-segment-hint {
+    font-size: 0.8rem;
+    color: var(--sg-text-muted);
+}
+
+.sg-vs-segments {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+}
+
+.sg-vs-segment-row {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.sg-vs-segment-row input[type="text"] {
+    width: 100px;
+}
+
+.sg-vs-segment-row .sg-vs-arrow {
+    color: var(--sg-text-muted);
+    font-size: 0.9rem;
+}
+
+.sg-vs-segment-row .sg-vs-remove-btn {
+    background: transparent;
+    color: var(--sg-danger);
+    padding: 0.25rem 0.5rem;
+    font-size: 1rem;
+    line-height: 1;
+}
+
+.sg-vs-segment-row .sg-vs-remove-btn:hover {
+    color: var(--sg-danger-hover);
+}
+
+.sg-vs-add-segment-btn {
+    align-self: flex-start;
+    background: transparent;
+    color: var(--sg-accent);
+    font-size: 0.85rem;
+    padding: 0.25rem 0.5rem;
+}
+
+.sg-vs-add-segment-btn:hover {
+    text-decoration: underline;
+}
+
+/* ===== Trim controls ===== */
+
+.sg-vs-trim-controls {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    flex-wrap: wrap;
+}
+
+.sg-vs-trim-controls label {
+    font-size: 0.85rem;
+    color: var(--sg-text-muted);
+}
+
+.sg-vs-trim-controls input[type="text"] {
+    width: 100px;
+}
+
+.sg-vs-trim-hint {
+    font-size: 0.8rem;
+    color: var(--sg-text-muted);
+}
+
+/* ===== Extract buttons ===== */
+
+.sg-vs-extract-buttons {
+    display: flex;
+    gap: 0.75rem;
+    flex-wrap: wrap;
+}
+
+.sg-vs-extract-buttons button {
+    background: var(--sg-accent);
+    color: #fff;
+    font-weight: 500;
+}
+
+.sg-vs-extract-buttons button:hover:not(:disabled) {
+    background: var(--sg-accent-hover);
+}
+
+/* ===== Action buttons (split, trim) ===== */
+
+.sg-vs-action-btn {
+    background: var(--sg-accent);
+    color: #fff;
+    font-weight: 600;
+    padding: 0.6rem 1.5rem;
+    align-self: flex-start;
+}
+
+.sg-vs-action-btn:hover:not(:disabled) {
+    background: var(--sg-accent-hover);
+}
+
+/* ===== Progress ===== */
+
+.sg-vs-progress {
+    display: flex;
+    flex-direction: column;
+    gap: 0.4rem;
+}
+
+.sg-vs-progress-label {
+    font-size: 0.85rem;
+    color: var(--sg-text-muted);
+}
+
+.sg-vs-progress-bar {
+    height: 8px;
+    background: var(--sg-border);
+    border-radius: var(--sg-radius-pill);
+    overflow: hidden;
+}
+
+.sg-vs-progress-bar-fill {
+    height: 100%;
+    background: var(--sg-accent);
+    border-radius: var(--sg-radius-pill);
+    width: 0%;
+    transition: width 0.2s ease;
+}
+
+/* ===== Results ===== */
+
+.sg-vs-results {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+}
+
+.sg-vs-results-header {
+    font-size: 0.9rem;
+    font-weight: 600;
+    color: var(--sg-text);
+    padding-bottom: 0.25rem;
+    border-bottom: 1px solid var(--sg-border);
+}
+
+.sg-vs-result-row {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    flex-wrap: wrap;
+    padding: 0.5rem 0.75rem;
+    background: var(--sg-bg-card);
+    border: 1px solid var(--sg-border);
+    border-radius: var(--sg-radius);
+    font-size: 0.85rem;
+}
+
+.sg-vs-result-row .sg-vs-result-info {
+    flex: 1;
+    min-width: 200px;
+    color: var(--sg-text-muted);
+}
+
+.sg-vs-result-row .sg-vs-result-info strong {
+    color: var(--sg-text);
+}
+
+.sg-vs-result-row .sg-vs-result-btns {
+    display: flex;
+    gap: 0.5rem;
+}
+
+.sg-vs-result-row .sg-vs-result-btns button {
+    background: var(--sg-bg-surface);
+    color: var(--sg-text);
+    border: 1px solid var(--sg-border);
+    font-size: 0.8rem;
+    padding: 0.3rem 0.65rem;
+}
+
+.sg-vs-result-row .sg-vs-result-btns button:hover {
+    border-color: var(--sg-accent);
+    color: var(--sg-accent);
+}
+
+.sg-vs-result-player {
+    width: 100%;
+    margin-top: 0.4rem;
+}
+
+.sg-vs-result-player audio,
+.sg-vs-result-player video {
+    width: 100%;
+    max-height: 200px;
+    border-radius: var(--sg-radius);
+}
+
+/* ===== Actions (download all) ===== */
+
+.sg-vs-actions {
+    display: flex;
+    gap: 0.75rem;
+    padding-top: 0.5rem;
+}
+
+.sg-vs-actions button {
+    background: var(--sg-accent);
+    color: #fff;
+    font-weight: 600;
+}
+
+.sg-vs-actions button:hover:not(:disabled) {
+    background: var(--sg-accent-hover);
+}
+
+/* ===== Empty state ===== */
+
+.sg-vs-empty {
+    text-align: center;
+    padding: 2rem 1rem;
+    color: var(--sg-text-muted);
+    font-size: 0.95rem;
+}

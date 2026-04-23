@@ -1,0 +1,63 @@
+/**
+ * PlaybookLM — Export panel styles.
+ * @version 0.1.0
+ */
+
+/* ── Export cards ──────────────────────────────────────────────────────────── */
+.plm-export-card {
+  background: var(--plm-surface);
+  border: 1px solid var(--plm-border);
+  border-radius: var(--plm-radius);
+  padding: 14px 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  transition: border-color 150ms;
+}
+.plm-export-card:hover { border-color: #2d3748; }
+
+.plm-export-card-header {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.plm-export-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  border-radius: var(--plm-radius-sm);
+  background: var(--plm-accent-dim);
+  color: var(--plm-accent);
+  font-size: 11px;
+  font-weight: 700;
+  font-family: var(--plm-mono);
+  letter-spacing: 0.03em;
+  flex-shrink: 0;
+}
+
+.plm-export-title {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--plm-text);
+}
+
+.plm-export-desc {
+  font-size: 12px;
+  color: var(--plm-dim);
+  margin-top: 2px;
+}
+
+.plm-export-btn {
+  align-self: flex-start;
+}
+
+/* ── Summary line ──────────────────────────────────────────────────────────── */
+.plm-export-summary {
+  font-size: 12px;
+  color: var(--plm-muted);
+  padding: 8px 0;
+  border-top: 1px solid var(--plm-border);
+}

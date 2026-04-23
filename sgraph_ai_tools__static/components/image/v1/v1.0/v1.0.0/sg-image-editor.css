@@ -1,0 +1,289 @@
+/**
+ * sg-image-editor.css — Main editor component styles
+ * @version 1.0.0
+ */
+
+:host {
+    display: block;
+    font-family: system-ui, -apple-system, sans-serif;
+    color: var(--sg-text, #e0e0e0);
+    --_accent: var(--sg-accent, teal);
+    --_bg-card: var(--sg-bg-card, #1e1e2e);
+    --_border: var(--sg-border, #333);
+    --_radius: var(--sg-radius, 6px);
+    --_text: var(--sg-text, #e0e0e0);
+}
+
+.sg-editor-container {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    width: 100%;
+}
+
+/* --- File info bar --- */
+.sg-editor-info {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 12px;
+    align-items: center;
+    background: var(--_bg-card);
+    border: 1px solid var(--_border);
+    border-radius: var(--_radius);
+    padding: 8px 14px;
+    font-size: 13px;
+}
+
+.sg-editor-info span {
+    opacity: 0.7;
+}
+
+.sg-editor-info .sg-info-label {
+    opacity: 0.5;
+    font-size: 11px;
+    margin-right: 4px;
+}
+
+/* --- Toolbar --- */
+.sg-editor-toolbar {
+    display: flex;
+    gap: 6px;
+    flex-wrap: wrap;
+    align-items: center;
+}
+
+.sg-editor-toolbar button {
+    background: var(--_bg-card);
+    color: var(--_text);
+    border: 1px solid var(--_border);
+    border-radius: var(--_radius);
+    padding: 6px 14px;
+    font-size: 13px;
+    cursor: pointer;
+    font-family: inherit;
+    transition: background 0.15s, border-color 0.15s;
+}
+
+.sg-editor-toolbar button:hover {
+    background: rgba(255, 255, 255, 0.08);
+}
+
+.sg-editor-toolbar button.active {
+    background: var(--_accent);
+    color: #fff;
+    border-color: var(--_accent);
+}
+
+/* --- Preview area --- */
+.sg-editor-preview {
+    position: relative;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: var(--_bg-card);
+    border: 1px solid var(--_border);
+    border-radius: var(--_radius);
+    min-height: 300px;
+    overflow: hidden;
+    padding: 16px;
+}
+
+.sg-editor-preview .sg-preview-wrapper {
+    position: relative;
+    display: inline-block;
+    max-width: 100%;
+    max-height: 70vh;
+}
+
+.sg-editor-preview canvas {
+    display: block;
+    max-width: 100%;
+    max-height: 70vh;
+    object-fit: contain;
+}
+
+.sg-editor-empty {
+    text-align: center;
+    padding: 60px 20px;
+    opacity: 0.5;
+    font-size: 15px;
+}
+
+/* --- Panel (active tool controls) --- */
+.sg-editor-panel {
+    background: var(--_bg-card);
+    border: 1px solid var(--_border);
+    border-radius: var(--_radius);
+    padding: 12px 16px;
+}
+
+.sg-editor-panel h3 {
+    margin: 0 0 10px;
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--_accent);
+}
+
+.sg-panel-row {
+    display: flex;
+    gap: 8px;
+    align-items: center;
+    margin-bottom: 8px;
+    flex-wrap: wrap;
+}
+
+.sg-panel-row:last-child {
+    margin-bottom: 0;
+}
+
+.sg-panel-row label {
+    font-size: 12px;
+    opacity: 0.7;
+    min-width: 60px;
+}
+
+.sg-panel-row input[type="number"] {
+    background: rgba(255, 255, 255, 0.06);
+    color: var(--_text);
+    border: 1px solid var(--_border);
+    border-radius: var(--_radius);
+    padding: 4px 8px;
+    font-size: 13px;
+    width: 80px;
+    font-family: 'Courier New', Consolas, monospace;
+}
+
+.sg-panel-row input[type="range"] {
+    width: 120px;
+    accent-color: var(--_accent);
+}
+
+.sg-panel-row button {
+    background: transparent;
+    color: var(--_text);
+    border: 1px solid var(--_border);
+    border-radius: var(--_radius);
+    padding: 4px 10px;
+    font-size: 12px;
+    cursor: pointer;
+    font-family: inherit;
+    transition: background 0.15s;
+}
+
+.sg-panel-row button:hover {
+    background: rgba(255, 255, 255, 0.08);
+}
+
+.sg-panel-row button.active {
+    background: var(--_accent);
+    color: #fff;
+    border-color: var(--_accent);
+}
+
+.sg-panel-size-estimate {
+    font-size: 11px;
+    opacity: 0.6;
+    font-family: 'Courier New', Consolas, monospace;
+}
+
+.sg-panel-row .sg-lock-btn {
+    font-size: 16px;
+    padding: 2px 6px;
+    border: none;
+    background: transparent;
+    cursor: pointer;
+    color: var(--_text);
+    opacity: 0.6;
+}
+
+.sg-panel-row .sg-lock-btn.locked {
+    opacity: 1;
+    color: var(--_accent);
+}
+
+/* --- Operations (tag list) --- */
+.sg-editor-operations {
+    display: flex;
+    gap: 6px;
+    flex-wrap: wrap;
+    align-items: center;
+}
+
+.sg-editor-operations .sg-op-tag {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    background: rgba(255, 255, 255, 0.06);
+    border: 1px solid var(--_border);
+    border-radius: 20px;
+    padding: 3px 6px 3px 10px;
+    font-size: 12px;
+}
+
+.sg-editor-operations .sg-op-remove {
+    background: transparent;
+    border: none;
+    color: #f87171;
+    cursor: pointer;
+    font-size: 14px;
+    padding: 0 2px;
+    line-height: 1;
+    font-family: inherit;
+}
+
+.sg-editor-operations .sg-op-remove:hover {
+    color: #dc2626;
+}
+
+/* --- Export / action buttons --- */
+.sg-editor-export {
+    display: flex;
+    gap: 8px;
+    align-items: center;
+    flex-wrap: wrap;
+}
+
+.sg-editor-export button {
+    border-radius: var(--_radius);
+    padding: 8px 18px;
+    font-size: 14px;
+    cursor: pointer;
+    font-family: inherit;
+    font-weight: 600;
+    transition: background 0.15s, filter 0.15s;
+    border: none;
+}
+
+.sg-editor-export .sg-download-btn {
+    background: var(--_accent);
+    color: #fff;
+}
+
+.sg-editor-export .sg-download-btn:hover {
+    filter: brightness(1.15);
+}
+
+.sg-editor-export .sg-undo-btn {
+    background: transparent;
+    color: var(--_text);
+    border: 1px solid var(--_border);
+}
+
+.sg-editor-export .sg-undo-btn:hover {
+    background: rgba(255, 255, 255, 0.08);
+}
+
+.sg-editor-export .sg-reset-btn {
+    background: transparent;
+    color: #f87171;
+    border: 1px solid #f87171;
+}
+
+.sg-editor-export .sg-reset-btn:hover {
+    background: rgba(248, 113, 113, 0.12);
+}
+
+/* --- Hidden state --- */
+.hidden {
+    display: none !important;
+}

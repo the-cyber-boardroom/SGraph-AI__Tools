@@ -1,0 +1,15 @@
+<header class="site-header">
+    <div class="site-header__container">
+        <a href="/" class="site-header__logo" aria-label="SGraph AI Home">
+            <span class="brand-prefix">SG</span><span class="brand-slash">/</span><span class="brand-product" id="site-label"></span>
+        </a>
+
+        <button class="site-header__toggle" id="nav-toggle" aria-label="Toggle navigation" aria-expanded="false">&#9776;</button>
+
+        <nav class="site-header__nav" id="nav" aria-label="Main navigation"></nav>
+
+        <div class="site-header__locale">
+            <slot name="locale"></slot>
+        </div>
+    </div>
+</header>

@@ -1,0 +1,13 @@
+{
+    "name": "sg-upload-dropzone",
+    "version": "1.0.0",
+    "layer": "component",
+    "description": "Drag-and-drop file upload zone with visual feedback",
+    "exports": ["SgUploadDropzone"],
+    "dependencies": ["sg-component", "sg-tokens"],
+    "tagName": "sg-upload-dropzone",
+    "attributes": ["accept", "multiple", "max-size", "disabled", "label"],
+    "events": ["files-selected", "file-dropped", "file-rejected"],
+    "author": "SGraph Tools Team",
+    "license": "CC-BY-4.0"
+}

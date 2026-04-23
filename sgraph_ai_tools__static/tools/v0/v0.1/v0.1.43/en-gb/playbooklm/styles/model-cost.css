@@ -1,0 +1,161 @@
+/* ============================================================
+   PlaybookLM — Model selector + Cost tracker styles
+   v0.1.43 — select + custom input
+   ============================================================ */
+
+/* ── Model selector row ─────────────────────────────────────── */
+
+.plm-model-selector {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 10px;
+  background: #0f0f2a;
+  border: 1px solid #1e2048;
+  border-radius: 6px;
+  flex-shrink: 0;
+}
+
+.plm-model-selector-label {
+  font-size: 11px;
+  font-weight: 700;
+  color: #718096;
+  white-space: nowrap;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  flex-shrink: 0;
+}
+
+/* <select> with friendly optgroup labels */
+.plm-model-select {
+  flex: 1;
+  background: #1a1a3a;
+  border: 1px solid #2d2d5e;
+  border-radius: 4px;
+  color: #e2e8f0;
+  font-size: 12px;
+  font-family: system-ui, sans-serif;
+  padding: 5px 8px;
+  outline: none;
+  cursor: pointer;
+  transition: border-color 0.15s;
+  min-width: 0;
+}
+
+.plm-model-select:focus {
+  border-color: #4ECDC4;
+}
+
+.plm-model-select option,
+.plm-model-select optgroup {
+  background: #1a1a3a;
+  color: #e2e8f0;
+}
+
+/* Custom text input — shown when "Custom model ID…" selected */
+.plm-model-custom-input {
+  flex: 1;
+  background: #1a1a3a;
+  border: 1px solid #4ECDC4;
+  border-radius: 4px;
+  color: #e2e8f0;
+  font-size: 12px;
+  font-family: ui-monospace, 'Cascadia Code', 'Fira Mono', monospace;
+  padding: 5px 8px;
+  outline: none;
+  transition: border-color 0.15s;
+  min-width: 0;
+}
+
+.plm-model-custom-input:focus {
+  border-color: #81e6d9;
+}
+
+.plm-model-custom-input::placeholder {
+  color: #4a5568;
+}
+
+/* Type badges */
+.plm-model-selector-badge {
+  font-size: 10px;
+  font-weight: 700;
+  padding: 2px 7px;
+  border-radius: 3px;
+  white-space: nowrap;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  flex-shrink: 0;
+}
+
+.plm-model-badge-text {
+  background: #3b2d8a;
+  color: #c4b5fd;
+  border: 1px solid #5b21b6;
+}
+
+.plm-model-badge-image {
+  background: #0d3d3a;
+  color: #4ECDC4;
+  border: 1px solid #2c7a73;
+}
+
+/* ── Cost display bar ───────────────────────────────────────── */
+
+.plm-cost-display {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin-left: 12px;
+  padding: 3px 10px;
+  background: #0d0d1a;
+  border: 1px solid #1a1a3a;
+  border-radius: 4px;
+  font-size: 11px;
+  font-family: ui-monospace, 'Cascadia Code', 'Fira Mono', monospace;
+  color: #4a5568;
+  transition: border-color 0.2s, color 0.2s;
+  vertical-align: middle;
+}
+
+.plm-cost-display.plm-cost-has-spend {
+  border-color: #2d2d5e;
+  color: #a0aec0;
+}
+
+.plm-cost-display.plm-cost-has-spend strong {
+  color: #f6c90e;
+}
+
+.plm-cost-label {
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: #4a5568;
+  font-size: 10px;
+}
+
+.plm-cost-sep {
+  color: #2d2d5e;
+}
+
+.plm-cost-session,
+.plm-cost-deck {
+  white-space: nowrap;
+}
+
+.plm-cost-reset {
+  background: none;
+  border: 1px solid #2d2d5e;
+  border-radius: 3px;
+  color: #4a5568;
+  font-size: 12px;
+  line-height: 1;
+  padding: 1px 5px;
+  cursor: pointer;
+  transition: color 0.15s, border-color 0.15s;
+}
+
+.plm-cost-reset:hover {
+  color: #fc8181;
+  border-color: #fc8181;
+}

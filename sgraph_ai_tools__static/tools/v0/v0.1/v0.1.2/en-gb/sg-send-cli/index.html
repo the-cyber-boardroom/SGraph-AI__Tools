@@ -1,0 +1,1878 @@
+<!DOCTYPE html>
+<html lang="en-GB">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SG/Send CLI — tools.sgraph.ai</title>
+    <meta name="description" content="Run sg-send-cli vault operations entirely in your browser via Pyodide. Init, commit, push, inspect — no Python installation required.">
+    <link rel="icon" type="image/svg+xml" href="../../_common/favicon.svg">
+    <link rel="stylesheet" href="../../_common/css/tools.css">
+    <style>
+        .main {
+            flex: 1;
+            max-width: 960px;
+            margin: 0 auto;
+            padding: 2rem 1.5rem;
+            width: 100%;
+        }
+
+        h1 { font-size: 1.5rem; margin-bottom: 0.5rem; }
+
+        .subtitle {
+            color: var(--sg-text-muted);
+            font-size: 0.9375rem;
+            margin-bottom: 2rem;
+            line-height: 1.5;
+        }
+
+        .badge--pkg {
+            background: rgba(78,205,196,0.12);
+            color: var(--sg-accent);
+            font-size: 0.6875rem;
+            font-weight: 600;
+            padding: 0.125rem 0.5rem;
+            border-radius: var(--sg-radius-pill);
+            margin-left: 0.5rem;
+            vertical-align: middle;
+        }
+
+        .section {
+            background: var(--sg-bg-card);
+            border: 1px solid var(--sg-border);
+            border-radius: var(--sg-radius);
+            padding: 1.5rem;
+            margin-bottom: 1.5rem;
+        }
+
+        .section h2 {
+            font-size: 1rem;
+            margin-bottom: 0.75rem;
+        }
+
+        /* ---------- Terminal ---------- */
+        .terminal {
+            font-family: var(--sg-font-mono);
+            font-size: 0.8125rem;
+            line-height: 1.8;
+            min-height: 200px;
+            max-height: 500px;
+            overflow-y: auto;
+            background: #000;
+            border: 1px solid var(--sg-border);
+            border-radius: var(--sg-radius);
+            padding: 0.75rem;
+        }
+
+        .term-line          { color: var(--sg-text-muted); white-space: pre-wrap; word-break: break-all; }
+        .term-line.input    { color: var(--sg-text); }
+        .term-line.output   { color: var(--sg-accent); }
+        .term-line.error    { color: var(--sg-error); }
+        .term-line.warn     { color: #ffc107; }
+        .term-line.info     { color: var(--sg-text-dim); }
+        .term-line.heading  { color: var(--sg-text); font-weight: 600; margin-top: 0.5rem; }
+
+        .input-area {
+            display: flex;
+            gap: 0.5rem;
+            margin-top: 0.5rem;
+            align-items: flex-end;
+        }
+
+        .input-area textarea {
+            flex: 1;
+            background: #000;
+            color: var(--sg-text);
+            border: 1px solid var(--sg-border);
+            border-radius: var(--sg-radius);
+            padding: 0.625rem 0.75rem;
+            font-family: var(--sg-font-mono);
+            font-size: 0.8125rem;
+            resize: vertical;
+            outline: none;
+            min-height: 2.5rem;
+        }
+
+        .input-area textarea:focus { border-color: var(--sg-accent); }
+        .input-area textarea::placeholder { color: var(--sg-text-dim); }
+
+        .input-hint {
+            color: var(--sg-text-dim);
+            font-size: 0.6875rem;
+            margin-top: 0.375rem;
+        }
+
+        .progress-bar {
+            height: 4px;
+            background: var(--sg-border);
+            border-radius: 2px;
+            margin-top: 0.75rem;
+            overflow: hidden;
+            display: none;
+        }
+
+        .progress-bar.visible { display: block; }
+
+        .progress-bar__fill {
+            height: 100%;
+            background: var(--sg-accent);
+            border-radius: 2px;
+            transition: width 300ms ease;
+            width: 0%;
+        }
+
+        .spinner {
+            display: inline-block;
+            width: 14px; height: 14px;
+            border: 2px solid var(--sg-border);
+            border-top-color: var(--sg-accent);
+            border-radius: 50%;
+            animation: spin 0.6s linear infinite;
+            vertical-align: middle;
+            margin-right: 0.5rem;
+        }
+
+        @keyframes spin { to { transform: rotate(360deg); } }
+
+        .info-box {
+            margin-top: 2rem;
+            padding: 1rem;
+            background: rgba(78,205,196,0.05);
+            border: 1px solid var(--sg-border);
+            border-radius: var(--sg-radius);
+        }
+
+        .info-box h3 { font-size: 0.875rem; margin-bottom: 0.5rem; color: var(--sg-accent); }
+        .info-box p  { color: var(--sg-text-muted); font-size: 0.8125rem; line-height: 1.6; }
+        .info-box ul { color: var(--sg-text-muted); font-size: 0.8125rem; line-height: 1.8; padding-left: 1.25rem; margin-top: 0.5rem; }
+        .info-box code { background: rgba(78,205,196,0.1); padding: 0.125rem 0.375rem; border-radius: 3px; font-size: 0.75rem; }
+
+        /* ---------- CLI Terminal ---------- */
+        .cli-terminal {
+            cursor: text;
+            min-height: 300px;
+            max-height: 600px;
+            background: #000;
+        }
+
+        .cli-prompt-line {
+            display: flex;
+            align-items: center;
+            padding: 0.0625rem 0;
+        }
+
+        .cli-prompt {
+            color: var(--sg-accent);
+            font-family: var(--sg-font-mono);
+            font-size: 0.8125rem;
+            white-space: pre;
+            user-select: none;
+            flex-shrink: 0;
+        }
+
+        .cli-input {
+            flex: 1;
+            background: transparent;
+            border: none;
+            color: var(--sg-text);
+            font-family: var(--sg-font-mono);
+            font-size: 0.8125rem;
+            line-height: 1.8;
+            outline: none;
+            padding: 0;
+            caret-color: var(--sg-accent);
+        }
+
+        .cli-input::placeholder { color: var(--sg-text-dim); }
+        .cli-input:disabled { opacity: 0.5; cursor: default; }
+
+        .cli-busy {
+            color: var(--sg-text-dim);
+            font-family: var(--sg-font-mono);
+            font-size: 0.8125rem;
+            padding: 0.0625rem 0;
+            display: none;
+        }
+
+        .cli-busy.visible { display: flex; align-items: center; gap: 0.5rem; }
+
+        /* ---------- Fullscreen mode ---------- */
+        .section.fullscreen {
+            position: fixed;
+            inset: 0;
+            z-index: 9999;
+            margin: 0;
+            border-radius: 0;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
+
+        .section.fullscreen .section-toolbar,
+        .section.fullscreen .guide-bar,
+        .section.fullscreen .tab-bar,
+        .section.fullscreen .input-hint { flex-shrink: 0; }
+
+        .section.fullscreen > p { flex-shrink: 0; }
+
+        .section.fullscreen #tab-panes {
+            flex: 1;
+            min-height: 0;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .section.fullscreen .tab-pane.active {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            min-height: 0;
+        }
+
+        .section.fullscreen .cli-terminal {
+            flex: 1;
+            max-height: none;
+            min-height: 0;
+            border-radius: 0;
+        }
+
+        .section.fullscreen .section-toolbar { margin-bottom: 0; }
+
+        .section-toolbar {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 0.75rem;
+        }
+
+        .section-toolbar h2 { margin-bottom: 0; }
+
+        .toolbar-btns {
+            display: flex;
+            gap: 0.375rem;
+        }
+
+        .toolbar-btn {
+            background: var(--sg-bg-secondary, #16213E);
+            border: 1px solid var(--sg-border);
+            border-radius: var(--sg-radius);
+            color: var(--sg-text-muted);
+            cursor: pointer;
+            font-size: 0.75rem;
+            padding: 0.25rem 0.625rem;
+            transition: border-color 150ms, color 150ms;
+        }
+
+        .toolbar-btn:hover { border-color: var(--sg-accent); color: var(--sg-accent); }
+
+        /* ---------- Tab bar ---------- */
+        .tab-bar {
+            display: flex;
+            gap: 2px;
+            margin-bottom: -1px;
+            position: relative;
+            z-index: 1;
+            overflow-x: auto;
+            padding-bottom: 1px;
+        }
+
+        .tab-btn {
+            background: var(--sg-bg-secondary, #16213E);
+            border: 1px solid var(--sg-border);
+            border-bottom: 1px solid var(--sg-border);
+            border-radius: var(--sg-radius) var(--sg-radius) 0 0;
+            color: var(--sg-text-muted);
+            cursor: pointer;
+            font-family: var(--sg-font-mono);
+            font-size: 0.6875rem;
+            padding: 0.375rem 0.75rem;
+            white-space: nowrap;
+            transition: border-color 150ms, color 150ms;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .tab-btn:hover { color: var(--sg-accent); }
+
+        .tab-btn.active {
+            border-bottom-color: #000;
+            background: #000;
+            color: var(--sg-accent);
+            font-weight: 600;
+        }
+
+        .tab-btn .tab-close {
+            font-size: 0.625rem;
+            opacity: 0.5;
+            cursor: pointer;
+            padding: 0 2px;
+        }
+
+        .tab-btn .tab-close:hover { opacity: 1; color: var(--sg-error); }
+
+        .tab-add {
+            background: transparent;
+            border: 1px dashed var(--sg-border);
+            border-bottom: 1px solid var(--sg-border);
+            border-radius: var(--sg-radius) var(--sg-radius) 0 0;
+            color: var(--sg-text-dim);
+            cursor: pointer;
+            font-size: 0.75rem;
+            padding: 0.375rem 0.625rem;
+        }
+
+        .tab-add:hover { border-color: var(--sg-accent); color: var(--sg-accent); }
+
+        .tab-pane { display: none; }
+        .tab-pane.active { display: block; }
+
+        /* ---------- Guide buttons ---------- */
+        .guide-bar {
+            display: flex;
+            flex-direction: column;
+            gap: 0.375rem;
+            margin-bottom: 0.5rem;
+        }
+
+        .guide-row {
+            display: flex;
+            gap: 0.375rem;
+            flex-wrap: wrap;
+            align-items: center;
+        }
+
+        .guide-row-label {
+            font-size: 0.625rem;
+            font-weight: 600;
+            color: var(--sg-text-dim);
+            text-transform: uppercase;
+            letter-spacing: 0.04em;
+            min-width: 5.5rem;
+            white-space: nowrap;
+        }
+
+        .guide-btn {
+            background: rgba(78,205,196,0.08);
+            border: 1px solid rgba(78,205,196,0.2);
+            border-radius: var(--sg-radius-pill, 999px);
+            color: var(--sg-accent);
+            cursor: pointer;
+            font-family: var(--sg-font-mono);
+            font-size: 0.6875rem;
+            padding: 0.25rem 0.625rem;
+            transition: background 150ms, border-color 150ms;
+            white-space: nowrap;
+        }
+
+        .guide-btn:hover { background: rgba(78,205,196,0.15); border-color: var(--sg-accent); }
+        .guide-btn:disabled { opacity: 0.4; pointer-events: none; }
+
+        .guide-auto {
+            display: flex;
+            align-items: center;
+            gap: 0.25rem;
+            color: var(--sg-text-dim);
+            font-size: 0.6875rem;
+            cursor: pointer;
+            margin-left: auto;
+            white-space: nowrap;
+            user-select: none;
+        }
+
+        .guide-auto input { accent-color: var(--sg-accent); cursor: pointer; }
+
+        .guide-btn.done {
+            background: rgba(78,205,196,0.03);
+            border-color: var(--sg-border);
+            color: var(--sg-text-dim);
+            text-decoration: line-through;
+        }
+
+        /* ---------- Setup status bar ---------- */
+        .setup-status {
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+            flex-wrap: wrap;
+        }
+
+        .setup-status .version-info {
+            color: var(--sg-text-muted);
+            font-size: 0.75rem;
+            font-family: var(--sg-font-mono);
+        }
+
+        .setup-status .btn-small {
+            background: transparent;
+            border: 1px solid var(--sg-border);
+            border-radius: var(--sg-radius);
+            color: var(--sg-text-muted);
+            cursor: pointer;
+            font-size: 0.6875rem;
+            padding: 0.2rem 0.5rem;
+            transition: border-color 150ms, color 150ms;
+        }
+
+        .setup-status .btn-small:hover { border-color: var(--sg-accent); color: var(--sg-accent); }
+
+        .btn-cancel {
+            background: transparent;
+            border: 1px solid var(--sg-error, #e53e3e);
+            border-radius: var(--sg-radius);
+            color: var(--sg-error, #e53e3e);
+            cursor: pointer;
+            font-size: 0.75rem;
+            padding: 0.375rem 0.75rem;
+            margin-left: 0.5rem;
+            transition: background 150ms;
+        }
+
+        .btn-cancel:hover { background: rgba(229,62,62,0.1); }
+
+        /* ---------- Run All button ---------- */
+        .guide-run-all {
+            background: rgba(78,205,196,0.12);
+            border: 1px solid rgba(78,205,196,0.3);
+            border-radius: var(--sg-radius-pill, 999px);
+            color: var(--sg-accent);
+            cursor: pointer;
+            font-family: var(--sg-font-mono);
+            font-size: 0.625rem;
+            font-weight: 600;
+            padding: 0.25rem 0.625rem;
+            transition: background 150ms, border-color 150ms;
+            white-space: nowrap;
+            text-transform: uppercase;
+            letter-spacing: 0.04em;
+        }
+
+        .guide-run-all:hover { background: rgba(78,205,196,0.2); border-color: var(--sg-accent); }
+        .guide-run-all:disabled { opacity: 0.4; pointer-events: none; }
+
+        .guide-run-all.running {
+            background: rgba(255,193,7,0.12);
+            border-color: rgba(255,193,7,0.4);
+            color: #ffc107;
+        }
+
+        .guide-btn.active-step {
+            background: rgba(78,205,196,0.25);
+            border-color: var(--sg-accent);
+            box-shadow: 0 0 6px rgba(78,205,196,0.3);
+        }
+    </style>
+</head>
+<body>
+    <script type="module" src="/components/site-header/v1/v1.0/v1.0.1/sg-site-header.js"></script>
+    <script type="module" src="/components/locale-picker/v1/v1.0/v1.0.1/sg-locale-picker.js"></script>
+    <sg-site-header
+        site="Tools"
+        home-url="/en-gb/">
+        <sg-locale-picker slot="locale" locale="en-gb" base-path="/"></sg-locale-picker>
+    </sg-site-header>
+
+    <script type="module">
+        import { buildToolsNav } from '../../_common/js/sg-nav.js'
+        document.querySelector('sg-site-header').whenReady().then(() => {
+            buildToolsNav(document.querySelector('sg-site-header'))
+        }).catch(() => {
+            buildToolsNav(document.querySelector('sg-site-header'))
+        })
+    </script>
+
+    <div class="main">
+        <h1>SG/Send CLI <span class="badge--pkg">sg-send-cli</span></h1>
+        <p class="subtitle">
+            Run sg-send-cli vault operations entirely in your browser.
+            Init vaults, add files, commit, push, inspect — all via Pyodide with the real Python package from PyPI.
+        </p>
+
+        <!-- Setup: Load Pyodide + Install sg-send-cli (auto-starts) -->
+        <div class="section" id="section-load">
+            <h2>Setup — Load Python + Install sg-send-cli</h2>
+            <p style="color:var(--sg-text-muted);font-size:0.8125rem;margin-bottom:0.75rem;">
+                Downloads Pyodide (~20 MB) and installs <code style="background:rgba(78,205,196,0.1);padding:0.125rem 0.375rem;border-radius:3px;font-size:0.75rem;">sg-send-cli</code> from PyPI via micropip.
+                First load may take 30-60 seconds. Wheel files are cached in IndexedDB for fast reload.
+            </p>
+            <div id="load-actions">
+                <button class="btn" id="load-btn" style="display:none;">Load &amp; Install</button>
+                <button class="btn-cancel" id="cancel-btn" style="display:none;">Cancel</button>
+            </div>
+            <div class="progress-bar" id="load-progress"><div class="progress-bar__fill" id="load-progress-fill"></div></div>
+            <div id="load-log" class="terminal" style="display:none;"></div>
+            <div class="setup-status" id="setup-status" style="display:none;">
+                <span class="version-info" id="version-info"></span>
+                <button class="btn-small" id="btn-reinstall" title="Re-download and install latest from PyPI">Reinstall</button>
+                <button class="btn-small" id="btn-clear-cache" title="Clear cached wheels from IndexedDB">Clear Cache</button>
+            </div>
+        </div>
+
+        <!-- CLI Terminal -->
+        <div class="section" id="section-cli" style="opacity:0.5;pointer-events:none;">
+            <div class="section-toolbar">
+                <h2>CLI Terminal</h2>
+                <div class="toolbar-btns">
+                    <button class="toolbar-btn" id="btn-clear" title="Clear terminal">Clear</button>
+                    <button class="toolbar-btn" id="btn-maximize" title="Maximize terminal">Maximize</button>
+                </div>
+            </div>
+            <p style="color:var(--sg-text-muted);font-size:0.8125rem;margin-bottom:0.75rem;">
+                Type vault commands directly — no <code style="background:rgba(78,205,196,0.1);padding:0.125rem 0.375rem;border-radius:3px;font-size:0.75rem;">sg-send-cli</code> prefix needed.
+                All terminals share one in-memory server.
+            </p>
+            <div class="guide-bar" id="guide-bar">
+                <div class="guide-row" data-target-tab="0">
+                    <span class="guide-row-label">Terminal 1</span>
+                    <button class="guide-run-all" title="Run all commands in this row sequentially">Run All</button>
+                    <button class="guide-btn" data-cmd="init --vault-key demo-passphrase:my-vault my-vault" title="Initialise a new vault">init</button>
+                    <button class="guide-btn" data-cmd="cd my-vault" title="Enter the vault directory">cd</button>
+                    <button class="guide-btn" data-cmd="write README.md '# Hello World'" title="Create a file">write</button>
+                    <button class="guide-btn" data-cmd="status" title="Check working tree status">status</button>
+                    <button class="guide-btn" data-cmd="commit -m 'initial commit'" title="Commit changes">commit</button>
+                    <button class="guide-btn" data-cmd="push" title="Push to in-memory server">push</button>
+                </div>
+                <div class="guide-row" data-target-tab="1">
+                    <span class="guide-row-label">Terminal 2</span>
+                    <button class="guide-run-all" title="Run all commands in this row sequentially">Run All</button>
+                    <button class="guide-btn" data-cmd="clone --vault-key demo-passphrase:my-vault cloned-vault" title="Clone from shared server">clone</button>
+                    <button class="guide-btn" data-cmd="cd cloned-vault" title="Enter the cloned vault">cd</button>
+                    <button class="guide-btn" data-cmd="ls" title="List files">ls</button>
+                    <button class="guide-btn" data-cmd="cat README.md" title="View file contents">cat</button>
+                    <button class="guide-btn" data-cmd="write NOTES.md '# Notes from Terminal 2'" title="Create a new file">write</button>
+                    <button class="guide-btn" data-cmd="commit -m 'add notes'" title="Commit changes">commit</button>
+                    <button class="guide-btn" data-cmd="push" title="Push to shared server">push</button>
+                </div>
+                <div class="guide-row" data-target-tab="0">
+                    <span class="guide-row-label">Terminal 1</span>
+                    <button class="guide-run-all" title="Run all commands in this row sequentially">Run All</button>
+                    <button class="guide-btn" data-cmd="pull" title="Pull changes from shared server">pull</button>
+                    <button class="guide-btn" data-cmd="ls" title="List files after pull">ls</button>
+                    <button class="guide-btn" data-cmd="cat NOTES.md" title="See file from Terminal 2">cat</button>
+                </div>
+                <label class="guide-auto" title="When checked, clicking a guide button runs the command immediately">
+                    <input type="checkbox" id="guide-auto-exec" checked>
+                    <span>auto-run</span>
+                </label>
+            </div>
+            <div class="tab-bar" id="tab-bar">
+                <button class="tab-btn active" data-tab="0">Terminal 1</button>
+                <button class="tab-add" id="tab-add" title="Open new terminal tab">+</button>
+            </div>
+            <div id="tab-panes">
+                <div class="tab-pane active" data-tab="0">
+                    <div id="cli-terminal-0" class="terminal cli-terminal">
+                        <div id="cli-output-0"></div>
+                        <div class="cli-prompt-line" id="cli-prompt-line-0">
+                            <span class="cli-prompt">$ </span>
+                            <input type="text" id="cli-input-0" class="cli-input"
+                                   placeholder="--help  |  init --vault-key my-secret"
+                                   autocomplete="off" spellcheck="false" disabled>
+                        </div>
+                        <div class="cli-busy" id="cli-busy-0">
+                            <span class="spinner"></span> Running...
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <p class="input-hint">
+                Enter to run &nbsp;|&nbsp; Up/Down for history &nbsp;|&nbsp;
+                Prefix <code style="background:rgba(78,205,196,0.1);padding:0.125rem 0.375rem;border-radius:3px;font-size:0.6875rem;">sg-send-cli</code> is optional
+            </p>
+        </div>
+
+        <div class="info-box">
+            <h3>About sg-send-cli</h3>
+            <p>
+                <code>sg-send-cli</code> is the Python CLI for SG/Send encrypted vaults.
+                It provides git-like operations (init, commit, push, pull, clone) with client-side encryption.
+            </p>
+            <ul>
+                <li>All encryption uses PBKDF2-SHA256 (600K iterations) + AES-256-GCM</li>
+                <li>Vault keys derive deterministic read/write keys and file IDs</li>
+                <li>In-memory API mode — no external server needed for testing</li>
+                <li>Same code that runs on your machine, now running in WebAssembly</li>
+            </ul>
+            <p style="margin-top:0.75rem;">
+                PyPI: <a href="https://pypi.org/project/sg-send-cli/" style="color:var(--sg-accent);">pypi.org/project/sg-send-cli/</a>
+                &nbsp;|&nbsp;
+                GitHub: <a href="https://github.com/the-cyber-boardroom/SGraph-AI__App__Send" style="color:var(--sg-accent);">SGraph-AI__App__Send</a>
+            </p>
+        </div>
+    </div>
+
+    <script type="module" src="/components/site-footer/v1/v1.0/v1.0.0/sg-site-footer.js"></script>
+    <sg-site-footer
+        brand-desc="Free browser-based tools that run entirely on your device. No uploads, no servers, no tracking."
+        columns='[{"title":"Tools","links":[{"label":"SG/Send CLI","href":"./"},{"label":"Python REPL","href":"../pyodide-repl/"},{"label":"All Tools","href":"/en-gb/"}]},{"title":"SGraph","links":[{"label":"sgraph.ai","href":"https://sgraph.ai/en-gb/"},{"label":"send.sgraph.ai","href":"https://send.sgraph.ai"},{"label":"GitHub","href":"https://github.com/the-cyber-boardroom/SGraph-AI__Tools"}]}]'>
+    </sg-site-footer>
+
+    <script src="../../_common/js/build-info.js"></script>
+    <div id="build-version" style="text-align:center;color:var(--sg-text-dim, #4a5568);font-size:0.7rem;padding:8px 0;opacity:0.6;background:var(--sg-bg-secondary, #16213E);"></div>
+    <script>
+        (function() {
+            var b = window.SGRAPH_BUILD || { appVersion: 'v0.1.0', uiVersion: 'v0.1.2' };
+            var el = document.getElementById('build-version');
+            if (el) el.textContent = b.appVersion + '  \u00b7  UI ' + b.uiVersion + (b.buildTime ? '  \u00b7  ' + b.buildTime : '');
+        })();
+    </script>
+
+    <script type="module">
+        import {
+            loadPyodide    as loadPyodideRuntime,
+            installPackages,
+            runPythonCapture
+        } from '/core/pyodide/v1/v1.0/v1.0.0/sg-pyodide.js'
+
+        // --- Elements ---
+        const loadBtn        = document.getElementById('load-btn')
+        const cancelBtn      = document.getElementById('cancel-btn')
+        const loadLog        = document.getElementById('load-log')
+        const loadProgress   = document.getElementById('load-progress')
+        const loadFill       = document.getElementById('load-progress-fill')
+        const setupStatus    = document.getElementById('setup-status')
+        const versionInfo    = document.getElementById('version-info')
+        const sectionCli     = document.getElementById('section-cli')
+        const tabBar         = document.getElementById('tab-bar')
+        const tabPanes       = document.getElementById('tab-panes')
+        const tabAddBtn      = document.getElementById('tab-add')
+        const guideBar       = document.getElementById('guide-bar')
+
+        let pyodide = null
+        let cliRunning = false
+        let installCancelled = false
+
+        // --- IndexedDB wheel cache ---
+        const CACHE_DB_NAME = 'sg-send-cli-cache'
+        const CACHE_STORE   = 'wheels'
+
+        function openCacheDB() {
+            return new Promise((resolve, reject) => {
+                const req = indexedDB.open(CACHE_DB_NAME, 1)
+                req.onupgradeneeded = () => req.result.createObjectStore(CACHE_STORE)
+                req.onsuccess = () => resolve(req.result)
+                req.onerror = () => reject(req.error)
+            })
+        }
+
+        async function getCachedWheel(name) {
+            try {
+                const db = await openCacheDB()
+                return new Promise((resolve) => {
+                    const tx = db.transaction(CACHE_STORE, 'readonly')
+                    const req = tx.objectStore(CACHE_STORE).get(name)
+                    req.onsuccess = () => resolve(req.result || null)
+                    req.onerror = () => resolve(null)
+                })
+            } catch { return null }
+        }
+
+        async function setCachedWheel(name, data) {
+            try {
+                const db = await openCacheDB()
+                const tx = db.transaction(CACHE_STORE, 'readwrite')
+                tx.objectStore(CACHE_STORE).put(data, name)
+            } catch { /* ignore cache write failure */ }
+        }
+
+        async function clearWheelCache() {
+            try {
+                const db = await openCacheDB()
+                const tx = db.transaction(CACHE_STORE, 'readwrite')
+                tx.objectStore(CACHE_STORE).clear()
+            } catch { /* ignore */ }
+        }
+
+        // --- Multi-tab state ---
+        let activeTab = 0
+        let tabCount = 1
+        const tabs = {
+            0: { history: [], historyIdx: -1 }
+        }
+
+        function getTabEls(idx) {
+            return {
+                terminal:   document.getElementById(`cli-terminal-${idx}`),
+                output:     document.getElementById(`cli-output-${idx}`),
+                input:      document.getElementById(`cli-input-${idx}`),
+                promptLine: document.getElementById(`cli-prompt-line-${idx}`),
+                busy:       document.getElementById(`cli-busy-${idx}`)
+            }
+        }
+
+        // --- Install (auto-starts on page load) ---
+        async function runInstall({ forceReinstall = false } = {}) {
+            installCancelled = false
+            loadBtn.style.display = 'none'
+            cancelBtn.style.display = 'inline-block'
+            setupStatus.style.display = 'none'
+            loadLog.style.display = 'block'
+            loadProgress.classList.add('visible')
+            loadFill.style.width = '5%'
+
+            const stages = {
+                'loading-script': 10,
+                'initialising': 30,
+                'loading-micropip': 50,
+                'ready': 60,
+                'installing-packages': 80
+            }
+
+            try {
+                logWrite(loadLog, 'Loading Pyodide runtime...', 'info')
+                pyodide = await loadPyodideRuntime({
+                    onProgress: ({ stage, detail }) => {
+                        logWrite(loadLog, detail, 'info')
+                        if (stages[stage]) loadFill.style.width = stages[stage] + '%'
+                    }
+                })
+                if (installCancelled) throw new Error('Cancelled')
+                window._pyodide = pyodide
+
+                logWrite(loadLog, 'Pre-loading cryptography (Pyodide built-in)...', 'info')
+                loadFill.style.width = '65%'
+                await pyodide.loadPackage('cryptography')
+                logWrite(loadLog, 'Loaded: cryptography (built-in)', 'output')
+                if (installCancelled) throw new Error('Cancelled')
+
+                const micropip = pyodide.pyimport('micropip')
+
+                // --- osbot-utils ---
+                logWrite(loadLog, 'Installing osbot-utils from PyPI...', 'info')
+                loadFill.style.width = '72%'
+                await micropip.install('osbot-utils')
+                logWrite(loadLog, 'Installed: osbot-utils', 'output')
+                if (installCancelled) throw new Error('Cancelled')
+
+                // --- sg-send-cli (with IndexedDB cache) ---
+                logWrite(loadLog, 'Installing sg-send-cli from PyPI...', 'info')
+                loadFill.style.width = '78%'
+
+                const pypiMeta  = await (await fetch('https://pypi.org/pypi/sg-send-cli/json')).json()
+                const wheelInfo = pypiMeta.urls.find(u => u.filename.endsWith('.whl'))
+                const wheelName = wheelInfo.filename
+                if (installCancelled) throw new Error('Cancelled')
+
+                let wheelBytes = null
+
+                // Check IndexedDB cache first (unless force reinstall)
+                if (!forceReinstall) {
+                    const cached = await getCachedWheel(wheelName)
+                    if (cached) {
+                        logWrite(loadLog, `Using cached wheel: ${wheelName}`, 'output')
+                        wheelBytes = cached
+                    }
+                }
+
+                if (!wheelBytes) {
+                    logWrite(loadLog, `Downloading ${wheelName}...`, 'info')
+                    wheelBytes = new Uint8Array(await (await fetch(wheelInfo.url)).arrayBuffer())
+                    // Cache for next time
+                    await setCachedWheel(wheelName, wheelBytes)
+                    logWrite(loadLog, `Cached ${wheelName} in IndexedDB (${(wheelBytes.byteLength / 1024).toFixed(0)} KB)`, 'info')
+                }
+                if (installCancelled) throw new Error('Cancelled')
+                loadFill.style.width = '85%'
+
+                pyodide.FS.writeFile('/tmp/' + wheelName, wheelBytes)
+                await micropip.install.callKwargs(
+                    'emfs:///tmp/' + wheelName,
+                    { deps: false }
+                )
+
+                const sgSendVersion = await pyodide.runPythonAsync(`
+import importlib.metadata
+importlib.metadata.version('sg-send-cli')
+`)
+                logWrite(loadLog, `Installed: sg-send-cli ${sgSendVersion}`, 'output')
+                loadFill.style.width = '90%'
+
+                await pyodide.runPythonAsync(`
+from sg_send_cli.crypto.Vault__Crypto      import Vault__Crypto
+from sg_send_cli.sync.Vault__Sync          import Vault__Sync
+from sg_send_cli.objects.Vault__Inspector   import Vault__Inspector
+from sg_send_cli.api.Vault__API__In_Memory import Vault__API__In_Memory
+import sys
+`)
+                const pyVersion = await pyodide.runPythonAsync('sys.version')
+                logWrite(loadLog, `Python ${pyVersion}`, 'output')
+                logWrite(loadLog, 'All vault modules imported successfully.', 'output')
+                loadFill.style.width = '95%'
+
+                logWrite(loadLog, 'Setting up CLI dispatcher...', 'info')
+                await pyodide.runPythonAsync(CLI_DISPATCHER_CODE)
+                logWrite(loadLog, 'CLI ready.', 'output')
+                loadFill.style.width = '100%'
+
+                // Show version + reinstall bar
+                cancelBtn.style.display = 'none'
+                versionInfo.textContent = `sg-send-cli ${sgSendVersion} | Python ${pyVersion.split(' ')[0]}`
+                setupStatus.style.display = 'flex'
+
+                sectionCli.style.opacity = '1'
+                sectionCli.style.pointerEvents = 'auto'
+
+                const t0 = getTabEls(0)
+                t0.input.disabled = false
+                t0.input.focus()
+                cliWrite(0, `Ready — sg-send-cli ${sgSendVersion}. Type --help or use the guide buttons.`, 'output')
+                cliWrite(0, '', '')
+
+            } catch (err) {
+                if (installCancelled || err.message === 'Cancelled') {
+                    logWrite(loadLog, 'Installation cancelled.', 'warn')
+                    loadBtn.textContent = 'Load & Install'
+                    loadBtn.style.display = 'inline-block'
+                    cancelBtn.style.display = 'none'
+                    loadFill.style.width = '0%'
+                    pyodide = null
+                } else {
+                    logWrite(loadLog, `Error: ${err.message}`, 'error')
+                    loadBtn.textContent = 'Retry'
+                    loadBtn.style.display = 'inline-block'
+                    cancelBtn.style.display = 'none'
+                    loadFill.style.width = '0%'
+                }
+            }
+        }
+
+        // Cancel button
+        cancelBtn.addEventListener('click', () => { installCancelled = true })
+
+        // Manual load button (shown after cancel or error)
+        loadBtn.addEventListener('click', () => runInstall())
+
+        // Reinstall button
+        document.getElementById('btn-reinstall').addEventListener('click', async () => {
+            setupStatus.style.display = 'none'
+            sectionCli.style.opacity = '0.5'
+            sectionCli.style.pointerEvents = 'none'
+            loadLog.innerHTML = ''
+            pyodide = null
+            await runInstall({ forceReinstall: true })
+        })
+
+        // Clear cache button
+        document.getElementById('btn-clear-cache').addEventListener('click', async () => {
+            await clearWheelCache()
+            logWrite(loadLog, 'IndexedDB wheel cache cleared.', 'info')
+        })
+
+        // Auto-start on page load
+        runInstall()
+
+        // --- CLI Command Handler (from keyboard input) ---
+        async function runCliCommand(tabIdx) {
+            if (!pyodide || cliRunning) return
+            const els = getTabEls(tabIdx)
+            const cmd = els.input.value.trim()
+            if (!cmd) return
+            els.input.value = ''
+
+            if (cmd === 'clear') {
+                cliWrite(tabIdx, `$ ${cmd}`, 'input')
+                els.output.innerHTML = ''
+                els.input.focus()
+                return
+            }
+
+            await runSingleCommand(tabIdx, cmd)
+            els.input.focus()
+        }
+
+        // --- Terminal click: focus input only if no text selected ---
+        document.getElementById('tab-panes').addEventListener('mouseup', (e) => {
+            const sel = window.getSelection()
+            if (sel && !sel.isCollapsed) return  // user is selecting text, don't steal focus
+            const els = getTabEls(activeTab)
+            if (els.input && !els.input.disabled) els.input.focus()
+        })
+
+        // --- Keyboard handler (delegated) ---
+        document.getElementById('tab-panes').addEventListener('keydown', (e) => {
+            if (!e.target.classList.contains('cli-input')) return
+            const tabIdx = activeTab
+            const tab = tabs[tabIdx]
+
+            if (e.key === 'Enter') {
+                e.preventDefault()
+                runCliCommand(tabIdx)
+                return
+            }
+            if (e.key === 'ArrowUp') {
+                e.preventDefault()
+                if (tab.historyIdx > 0) {
+                    tab.historyIdx--
+                    e.target.value = tab.history[tab.historyIdx]
+                }
+            }
+            if (e.key === 'ArrowDown') {
+                e.preventDefault()
+                if (tab.historyIdx < tab.history.length - 1) {
+                    tab.historyIdx++
+                    e.target.value = tab.history[tab.historyIdx]
+                } else {
+                    tab.historyIdx = tab.history.length
+                    e.target.value = ''
+                }
+            }
+        })
+
+        // --- Guide buttons ---
+        const guideAutoExec = document.getElementById('guide-auto-exec')
+        let runAllCancelled = false
+
+        // Helper: ensure a target tab exists and is active
+        async function ensureTab(targetTab) {
+            if (!tabs[targetTab]) {
+                tabAddBtn.click()
+                await new Promise(r => setTimeout(r, 150))
+            }
+            if (activeTab !== targetTab) switchTab(targetTab)
+        }
+
+        // Helper: run a single command on a specific tab (returns a promise)
+        function runSingleCommand(tabIdx, cmd) {
+            return new Promise(async (resolve) => {
+                if (!pyodide) return resolve()
+                const els = getTabEls(tabIdx)
+                if (!els.input) return resolve()
+
+                cliWrite(tabIdx, `$ ${cmd}`, 'input')
+                const tab = tabs[tabIdx]
+                tab.history.push(cmd)
+                tab.historyIdx = tab.history.length
+
+                cliRunning = true
+                els.input.disabled = true
+                els.promptLine.style.display = 'none'
+                els.busy.classList.add('visible')
+
+                try {
+                    pyodide.globals.set('_cli_cmd', cmd)
+                    pyodide.globals.set('_cli_tab', tabIdx)
+                    const { stdout, stderr, error } = await runPythonCapture(pyodide, `
+_cli_result = _sg_cli_tabs[_cli_tab].run(_cli_cmd)
+if _cli_result:
+    print(_cli_result)
+`)
+                    if (stdout && stdout.trim()) {
+                        for (const line of stdout.trimEnd().split('\n')) {
+                            cliWrite(tabIdx, line, 'output')
+                        }
+                    }
+                    if (stderr && stderr.trim()) {
+                        for (const line of stderr.trimEnd().split('\n')) {
+                            cliWrite(tabIdx, line, 'warn')
+                        }
+                    }
+                    if (error) {
+                        const errLines = error.split('\n').filter(l => l.trim())
+                        cliWrite(tabIdx, errLines[errLines.length - 1] || error, 'error')
+                    }
+                } catch (err) {
+                    cliWrite(tabIdx, `Error: ${err.message}`, 'error')
+                }
+
+                cliRunning = false
+                els.busy.classList.remove('visible')
+                els.promptLine.style.display = 'flex'
+                els.input.disabled = false
+                resolve()
+            })
+        }
+
+        // Individual guide button click
+        guideBar.addEventListener('click', async (e) => {
+            const btn = e.target.closest('.guide-btn')
+            if (!btn || btn.disabled) return
+            const cmd = btn.dataset.cmd
+
+            const row = btn.closest('.guide-row')
+            if (row && row.dataset.targetTab !== undefined) {
+                await ensureTab(Number(row.dataset.targetTab))
+            }
+
+            const els = getTabEls(activeTab)
+            if (!els.input || els.input.disabled) return
+
+            els.input.value = cmd
+            els.input.focus()
+
+            if (guideAutoExec.checked) {
+                runCliCommand(activeTab)
+            }
+        })
+
+        // Run All button click
+        guideBar.addEventListener('click', async (e) => {
+            const runAllBtn = e.target.closest('.guide-run-all')
+            if (!runAllBtn || runAllBtn.disabled) return
+
+            const row = runAllBtn.closest('.guide-row')
+            const targetTab = Number(row.dataset.targetTab)
+            const buttons = Array.from(row.querySelectorAll('.guide-btn'))
+            if (!buttons.length) return
+
+            // Disable all Run All buttons during execution
+            runAllCancelled = false
+            const allRunBtns = guideBar.querySelectorAll('.guide-run-all')
+            allRunBtns.forEach(b => b.disabled = true)
+            runAllBtn.classList.add('running')
+            runAllBtn.textContent = 'Cancel'
+            runAllBtn.disabled = false
+            // Temporarily make cancel work
+            const cancelHandler = () => { runAllCancelled = true }
+            runAllBtn.addEventListener('click', cancelHandler, { once: true })
+
+            await ensureTab(targetTab)
+
+            for (const btn of buttons) {
+                if (runAllCancelled) break
+
+                // Visual: highlight the current step
+                btn.classList.add('active-step')
+                await runSingleCommand(targetTab, btn.dataset.cmd)
+                btn.classList.remove('active-step')
+                btn.classList.add('done')
+            }
+
+            // Reset state
+            runAllBtn.removeEventListener('click', cancelHandler)
+            runAllBtn.classList.remove('running')
+            runAllBtn.textContent = 'Run All'
+            allRunBtns.forEach(b => b.disabled = false)
+
+            if (runAllCancelled) {
+                cliWrite(targetTab, '(Run All cancelled)', 'warn')
+            }
+
+            const els = getTabEls(targetTab)
+            if (els.input) els.input.focus()
+        })
+
+        // --- Maximize / Restore ---
+        const btnMaximize = document.getElementById('btn-maximize')
+        btnMaximize.addEventListener('click', () => {
+            const isFs = sectionCli.classList.toggle('fullscreen')
+            btnMaximize.textContent = isFs ? 'Restore' : 'Maximize'
+            // In fullscreen, remove max-height constraint
+            document.querySelectorAll('.cli-terminal').forEach(t => {
+                t.style.maxHeight = isFs ? 'none' : ''
+            })
+        })
+
+        // Escape to exit fullscreen
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'Escape' && sectionCli.classList.contains('fullscreen')) {
+                sectionCli.classList.remove('fullscreen')
+                btnMaximize.textContent = 'Maximize'
+                document.querySelectorAll('.cli-terminal').forEach(t => { t.style.maxHeight = '' })
+            }
+        })
+
+        // --- Clear button ---
+        document.getElementById('btn-clear').addEventListener('click', () => {
+            const els = getTabEls(activeTab)
+            if (els.output) els.output.innerHTML = ''
+        })
+
+        // --- Tab management ---
+        function switchTab(idx) {
+            activeTab = idx
+            tabBar.querySelectorAll('.tab-btn').forEach(b => b.classList.toggle('active', Number(b.dataset.tab) === idx))
+            tabPanes.querySelectorAll('.tab-pane').forEach(p => p.classList.toggle('active', Number(p.dataset.tab) === idx))
+            const els = getTabEls(idx)
+            if (els.input && !els.input.disabled) els.input.focus()
+        }
+
+        tabBar.addEventListener('click', (e) => {
+            const tabBtn = e.target.closest('.tab-btn')
+            if (tabBtn) {
+                const close = e.target.closest('.tab-close')
+                const idx = Number(tabBtn.dataset.tab)
+                if (close) {
+                    // Remove tab (but keep at least one)
+                    if (Object.keys(tabs).length <= 1) return
+                    delete tabs[idx]
+                    tabBtn.remove()
+                    tabPanes.querySelector(`.tab-pane[data-tab="${idx}"]`).remove()
+                    // Destroy Python CLI instance
+                    if (pyodide) pyodide.runPythonAsync(`_sg_cli_tabs.pop(${idx}, None)`)
+                    // Switch to first remaining tab
+                    const remaining = Object.keys(tabs).map(Number)
+                    switchTab(remaining[0])
+                } else {
+                    switchTab(idx)
+                }
+            }
+        })
+
+        tabAddBtn.addEventListener('click', async () => {
+            if (!pyodide) return
+            const idx = tabCount++
+            tabs[idx] = { history: [], historyIdx: -1 }
+
+            // Create tab button
+            const btn = document.createElement('button')
+            btn.className = 'tab-btn'
+            btn.dataset.tab = idx
+            btn.innerHTML = `Terminal ${idx + 1} <span class="tab-close" title="Close tab">\u00d7</span>`
+            tabBar.insertBefore(btn, tabAddBtn)
+
+            // Create tab pane
+            const pane = document.createElement('div')
+            pane.className = 'tab-pane'
+            pane.dataset.tab = idx
+            pane.innerHTML = `
+                <div id="cli-terminal-${idx}" class="terminal cli-terminal">
+                    <div id="cli-output-${idx}"></div>
+                    <div class="cli-prompt-line" id="cli-prompt-line-${idx}">
+                        <span class="cli-prompt">$ </span>
+                        <input type="text" id="cli-input-${idx}" class="cli-input"
+                               placeholder="--help  |  init --vault-key my-secret"
+                               autocomplete="off" spellcheck="false">
+                    </div>
+                    <div class="cli-busy" id="cli-busy-${idx}">
+                        <span class="spinner"></span> Running...
+                    </div>
+                </div>`
+            tabPanes.appendChild(pane)
+
+            // Create new Python BrowserCLI instance sharing the same API
+            await pyodide.runPythonAsync(`_sg_cli_tabs[${idx}] = BrowserCLI(shared_api=_sg_shared_api)`)
+
+            switchTab(idx)
+            cliWrite(idx, `Terminal ${idx + 1} — new session (shared in-memory server)`, 'info')
+            cliWrite(idx, 'Run: init --vault-key my-key my-vault', 'info')
+            cliWrite(idx, '', '')
+        })
+
+        // --- Helpers ---
+        function cliWrite(tabIdx, text, cls) {
+            const els = getTabEls(tabIdx)
+            if (!els.output) return
+            const div = document.createElement('div')
+            div.className = `term-line ${cls || ''}`
+            div.textContent = text
+            els.output.appendChild(div)
+            els.terminal.scrollTop = els.terminal.scrollHeight
+        }
+
+        function logWrite(container, text, cls) {
+            const div = document.createElement('div')
+            div.className = `term-line ${cls || ''}`
+            div.textContent = text
+            container.appendChild(div)
+            container.scrollTop = container.scrollHeight
+        }
+
+        // --- Python CLI Dispatcher ---
+        const CLI_DISPATCHER_CODE = `
+import sys, os, shlex, tempfile, importlib.metadata
+
+class BrowserCLI:
+    def __init__(self, shared_api=None):
+        from sg_send_cli.api.Vault__API__In_Memory import Vault__API__In_Memory
+        from sg_send_cli.api.Vault__API            import Vault__API
+        from sg_send_cli.crypto.Vault__Crypto      import Vault__Crypto
+        from sg_send_cli.sync.Vault__Sync          import Vault__Sync
+        from sg_send_cli.objects.Vault__Inspector   import Vault__Inspector
+
+        self.api       = shared_api if shared_api else Vault__API__In_Memory().setup()
+        self.crypto    = Vault__Crypto()
+        self.sync      = Vault__Sync(crypto=self.crypto, api=self.api)
+        self.inspector = Vault__Inspector(crypto=self.crypto)
+        self.vault_dir = None
+        self.vault_key = None
+        self.keys      = None
+        self.home      = tempfile.mkdtemp(prefix='sg_cli_')
+        self.cwd       = self.home
+        os.chdir(self.home)
+        self.version   = importlib.metadata.version('sg-send-cli')
+
+        # Store classes for later use
+        self._Vault__API     = Vault__API
+        self._Vault__Sync    = Vault__Sync
+        self._Vault__Crypto  = Vault__Crypto
+
+    def _enter_cwd(self):
+        """Switch to this tab's working directory. Returns old cwd to restore later."""
+        old = os.getcwd()
+        if os.path.isdir(self.cwd):
+            os.chdir(self.cwd)
+        return old
+
+    def _leave_cwd(self):
+        """Save current directory as this tab's cwd."""
+        self.cwd = os.getcwd()
+
+    def _need_vault(self):
+        if not self.vault_dir:
+            raise RuntimeError("No vault initialised. Run: sg-send-cli init --vault-key <KEY>")
+        return self.vault_dir
+
+    def _parse_flag(self, args, flag):
+        """Extract --flag VALUE from args, return (value, remaining_args)."""
+        rest = []
+        value = None
+        i = 0
+        while i < len(args):
+            if args[i] == flag and i + 1 < len(args):
+                value = args[i + 1]
+                i += 2
+            else:
+                rest.append(args[i])
+                i += 1
+        return value, rest
+
+    def _connect_remote(self, base_url=None, token=None):
+        """Create a Vault__API with HTTP backend and rebuild sync.
+        Monkey-patches _request/_request_bytes to use JS XMLHttpRequest
+        since urllib doesn't support HTTPS in Pyodide (no socket/SSL)."""
+        api = self._Vault__API(base_url=base_url or '', access_token=token or '')
+        api.setup()
+
+        # Patch HTTP transport for Pyodide
+        import json as _json
+        from js import XMLHttpRequest
+
+        def _pyodide_request_json(method, url, headers=None, data=None):
+            """Synchronous HTTP request returning parsed JSON."""
+            xhr = XMLHttpRequest.new()
+            xhr.open(method, url, False)  # False = synchronous
+            if headers:
+                for k, v in headers.items():
+                    xhr.setRequestHeader(k, str(v))
+            if data:
+                from pyodide.ffi import to_js
+                import js
+                js_data = to_js(data)
+                xhr.send(js_data)
+            else:
+                xhr.send()
+            if xhr.status >= 400:
+                raise Exception(f'HTTP {xhr.status} {method} {url}: {xhr.responseText[:200]}')
+            body = xhr.responseText
+            if body:
+                return _json.loads(body)
+            return {}
+
+        def _pyodide_request_bytes(method, url, headers=None):
+            """Synchronous HTTP request returning raw bytes."""
+            xhr = XMLHttpRequest.new()
+            # Use overrideMimeType to prevent text decoding of binary data
+            xhr.open(method, url, False)
+            xhr.overrideMimeType('text/plain; charset=x-user-defined')
+            if headers:
+                for k, v in headers.items():
+                    xhr.setRequestHeader(k, str(v))
+            xhr.send()
+            if xhr.status >= 400:
+                raise Exception(f'HTTP {xhr.status} {method} {url}: {xhr.responseText[:200]}')
+            # Convert response text to bytes (each char's code point = byte value)
+            text = xhr.responseText or ''
+            return bytes(ord(c) & 0xFF for c in text)
+
+        def patched_request(self_api, method, url, headers=None, data=None):
+            return _pyodide_request_json(method, url, headers, data)
+
+        def patched_request_bytes(self_api, method, url, headers=None):
+            return _pyodide_request_bytes(method, url, headers)
+
+        import types
+        api._request       = types.MethodType(patched_request, api)
+        api._request_bytes = types.MethodType(patched_request_bytes, api)
+
+        self.api  = api
+        self.sync = self._Vault__Sync(crypto=self.crypto, api=api)
+
+    def run(self, cmd_string):
+        # Save/restore working directory per-tab
+        self._enter_cwd()
+        try:
+            return self._run_inner(cmd_string)
+        finally:
+            self._leave_cwd()
+
+    def _run_inner(self, cmd_string):
+        cmd_string = cmd_string.strip()
+        if not cmd_string:
+            return ''
+
+        # Handle echo TEXT > FILE
+        if '>' in cmd_string and not cmd_string.startswith('sg-send-cli'):
+            parts = cmd_string.split('>', 1)
+            if len(parts) == 2:
+                text_part = parts[0].strip()
+                file_path = parts[1].strip()
+                if text_part.startswith('echo '):
+                    text_part = text_part[5:].strip().strip('"').strip("'")
+                    os.makedirs(os.path.dirname(file_path) if os.path.dirname(file_path) else '.', exist_ok=True)
+                    with open(file_path, 'w') as f:
+                        f.write(text_part + '\\n')
+                    return ''
+
+        try:
+            args = shlex.split(cmd_string)
+        except ValueError as e:
+            return f'Error: {e}'
+
+        if not args:
+            return ''
+
+        cmd = args[0]
+        rest = args[1:]
+
+        # Strip sg-send-cli prefix and extract global flags
+        if cmd in ('sg-send-cli', 'sg_send_cli'):
+            if not rest:
+                return self.cmd_help()
+            # Extract --base-url and --token before command
+            base_url, rest = self._parse_flag(rest, '--base-url')
+            token, rest    = self._parse_flag(rest, '--token')
+            if base_url or token:
+                self._connect_remote(base_url, token)
+            cmd = rest[0]
+            rest = rest[1:]
+
+        handlers = {
+            'help': 'cmd_help', '--help': 'cmd_help', '-h': 'cmd_help',
+            '--version': 'cmd_version', 'version': 'cmd_version',
+            'init': 'cmd_init',
+            'status': 'cmd_status',
+            'commit': 'cmd_commit',
+            'push': 'cmd_push',
+            'pull': 'cmd_pull',
+            'clone': 'cmd_clone',
+            'inspect': 'cmd_inspect',
+            'inspect-tree': 'cmd_inspect_tree',
+            'inspect-log': 'cmd_inspect_log',
+            'log': 'cmd_inspect_log',
+            'inspect-stats': 'cmd_inspect_stats',
+            'derive-keys': 'cmd_derive_keys',
+            'branches': 'cmd_branches',
+            'remote': 'cmd_remote',
+            'cat-object': 'cmd_cat_object',
+            'ls': 'cmd_ls',
+            'cat': 'cmd_cat',
+            'pwd': 'cmd_pwd',
+            'cd': 'cmd_cd',
+            'mkdir': 'cmd_mkdir',
+            'rm': 'cmd_rm',
+            'tree': 'cmd_tree',
+            'touch': 'cmd_touch',
+            'write': 'cmd_write',
+        }
+
+        handler_name = handlers.get(cmd)
+        if not handler_name:
+            return f"sg-send-cli: '{cmd}' is not a command. See 'sg-send-cli --help'."
+
+        try:
+            handler = getattr(self, handler_name)
+            return handler(rest) if handler_name not in ('cmd_help', 'cmd_version', 'cmd_pwd') else handler()
+        except Exception as e:
+            return f'Error: {e}'
+
+    def cmd_help(self):
+        return f"""usage: sg-send-cli [--base-url URL] [--token TOKEN] [-h] [--version] COMMAND [OPTIONS]
+
+CLI tool for syncing encrypted vaults with SG/Send  (v{self.version}, browser mode)
+
+positional arguments:
+  {{init,commit,status,push,pull,clone,remote,inspect,inspect-tree,inspect-log,inspect-stats,derive-keys,branches}}
+
+                        Available commands
+  init                  Create a new empty vault in DIRECTORY
+  commit                Commit local changes to the clone branch
+  status                Show uncommitted changes in working directory
+  push                  Push to server (in-memory or remote)
+  pull                  Pull latest changes from server
+  clone                 Clone a vault from a server
+  remote                Manage remote server connections
+
+  inspect               Show vault state overview (dev tool)
+  inspect-tree          Show current tree entries (dev tool)
+  inspect-log           Show commit chain (dev tool)
+  log                   Alias for inspect-log
+  inspect-stats         Show object store statistics (dev tool)
+  derive-keys           Derive and display vault keys (debug)
+  branches              List all branches in the vault
+
+shell commands:
+  ls [PATH]             List directory contents
+  cat FILE              Display file contents
+  write FILE TEXT       Write text to a file
+  touch FILE            Create empty file
+  mkdir DIR             Create directory
+  rm FILE               Remove a file
+  tree [DIR]            Show directory tree
+  pwd                   Print working directory
+  cd [DIR]              Change directory
+  clear                 Clear terminal
+
+global options:
+  --base-url URL        SG/Send API base URL (e.g. https://dev.send.sgraph.ai)
+  --token TOKEN         Access token for the API
+  -h, --help            Show this help message and exit
+  --version             Show version number and exit
+
+examples:
+  sg-send-cli --base-url https://dev.send.sgraph.ai --token owasp clone passphrase:vault_id
+  clone passphrase:vault_id                      (uses in-memory server)
+  push --base-url https://dev.send.sgraph.ai --token owasp"""
+
+    def cmd_version(self):
+        return f'sg-send-cli {self.version}'
+
+    def cmd_init(self, args):
+        if '-h' in args or '--help' in args:
+            return 'usage: sg-send-cli init [--vault-key KEY] DIRECTORY\\n\\nCreate a new empty vault in DIRECTORY.'
+        vault_key, args = self._parse_flag(args, '--vault-key')
+        if not vault_key:
+            vault_key = 'browser-demo:vault-key'
+        if not args:
+            return 'Error: directory required. Usage: init --vault-key passphrase:vault_id DIRECTORY'
+        vault_dir = os.path.abspath(args[0])
+        os.makedirs(vault_dir, exist_ok=True)
+
+        self.vault_key = vault_key
+        self.vault_dir = vault_dir
+        self.keys = self.crypto.derive_keys_from_vault_key(vault_key)
+
+        result = self.sync.init(vault_dir, vault_key=vault_key)
+
+        # Also store on builtins for scenario compatibility
+        import builtins
+        builtins._sg_vault_dir = vault_dir
+        builtins._sg_sync      = self.sync
+        builtins._sg_crypto    = self.crypto
+        builtins._sg_api       = self.api
+        builtins._sg_inspector = self.inspector
+        builtins._sg_keys      = self.keys
+
+        return f"""Initialised empty vault in {vault_dir}
+  Vault ID:     {result['vault_id']}
+  Named branch: {result['named_branch']}
+  Clone branch: {result['branch_id']}
+  Init commit:  {result['commit_id']}
+  Vault key:    {vault_key}"""
+
+    def cmd_status(self, args):
+        if '-h' in args or '--help' in args:
+            return 'usage: sg-send-cli status [directory]'
+        vd = self._need_vault()
+        status = self.sync.status(vd)
+        lines = ['On branch clone']
+        if status.get('clean'):
+            lines.append('nothing to commit, working tree clean')
+        else:
+            if status.get('added'):
+                lines.append('\\nNew files:')
+                for f in status['added']:
+                    lines.append(f'  new file:   {f}')
+            if status.get('modified'):
+                lines.append('\\nModified files:')
+                for f in status['modified']:
+                    lines.append(f'  modified:   {f}')
+            if status.get('deleted'):
+                lines.append('\\nDeleted files:')
+                for f in status['deleted']:
+                    lines.append(f'  deleted:    {f}')
+        return '\\n'.join(lines)
+
+    def cmd_commit(self, args):
+        vd = self._need_vault()
+        if '-h' in args or '--help' in args:
+            return 'usage: sg-send-cli commit [-m MESSAGE]'
+        message, args = self._parse_flag(args, '-m')
+        if not message:
+            message = 'update'
+        status = self.sync.status(vd)
+        if status.get('clean'):
+            return 'nothing to commit, working tree clean'
+        result = self.sync.commit(vd, message=message)
+        commit_id = result.get('commit_id', 'unknown')
+        added    = len(status.get('added', []))
+        modified = len(status.get('modified', []))
+        deleted  = len(status.get('deleted', []))
+        parts = []
+        if added:    parts.append(f'{added} new file(s)')
+        if modified: parts.append(f'{modified} modified')
+        if deleted:  parts.append(f'{deleted} deleted')
+        summary = f' {", ".join(parts)}' if parts else ''
+        return f'[clone {commit_id[:8]}] {message}\\n{summary}'.strip()
+
+    def cmd_push(self, args):
+        if '-h' in args or '--help' in args:
+            return 'usage: sg-send-cli push [--base-url URL] [--token TOKEN] [directory]'
+        base_url, args = self._parse_flag(args, '--base-url')
+        token, args    = self._parse_flag(args, '--token')
+        if base_url or token:
+            self._connect_remote(base_url, token)
+        vd = self._need_vault()
+        try:
+            result = self.sync.push(vd)
+            lines = ['Push complete.']
+            for k, v in result.items():
+                lines.append(f'  {k:20s}: {v}')
+            return '\\n'.join(lines)
+        except Exception as e:
+            return f'push: {e}'
+
+    def cmd_inspect(self, args):
+        if '-h' in args or '--help' in args:
+            return 'usage: sg-send-cli inspect [directory]'
+        vd = self._need_vault()
+        keys = self.keys
+        chain = self.inspector.inspect_commit_chain(vd, read_key=keys['read_key_bytes'])
+        tree  = self.inspector.inspect_tree(vd, read_key=keys['read_key_bytes'])
+        status = self.sync.status(vd)
+        stats = self.inspector.object_store_stats(vd)
+        return f"""=== Vault Overview ===
+  Directory: {vd}
+  Commits:   {len(chain)}
+  Files:     {tree['file_count']}
+  Objects:   {stats['total_objects']}
+  Clean:     {status.get('clean', False)}"""
+
+    def cmd_inspect_tree(self, args):
+        if '-h' in args or '--help' in args:
+            return 'usage: sg-send-cli inspect-tree [directory]'
+        vd = self._need_vault()
+        tree = self.inspector.inspect_tree(vd, read_key=self.keys['read_key_bytes'])
+        lines = [f'=== Tree ({tree["file_count"]} files) ===']
+        for entry in tree.get('entries', []):
+            lines.append(f'  {entry["path"]:30s}  blob={entry["blob_id"][:12]}  size={entry["size"]}')
+        if not tree.get('entries'):
+            lines.append('  (empty tree)')
+        return '\\n'.join(lines)
+
+    def cmd_inspect_log(self, args):
+        if '-h' in args or '--help' in args:
+            return 'usage: sg-send-cli log [--oneline] [--graph] [directory]'
+        vd = self._need_vault()
+        chain = self.inspector.inspect_commit_chain(vd, read_key=self.keys['read_key_bytes'])
+        oneline = '--oneline' in args
+        graph   = '--graph'   in args
+        if oneline:
+            lines = []
+            for c in chain:
+                lines.append(f'{c["commit_id"][:8]} {c["message"]}')
+            return '\\n'.join(lines)
+        if graph:
+            lines = []
+            for i, c in enumerate(chain):
+                prefix = '* ' if i == 0 else '| * ' if i < len(chain) - 1 else '  * '
+                lines.append(f'{prefix}{c["commit_id"][:8]} {c["message"]}')
+            return '\\n'.join(lines)
+        lines = [f'=== Commit Log ({len(chain)} commits) ===']
+        for c in chain:
+            lines.append(f'  {c["commit_id"][:12]}  {c["message"]}')
+        return '\\n'.join(lines)
+
+    def cmd_inspect_stats(self, args):
+        if '-h' in args or '--help' in args:
+            return 'usage: sg-send-cli inspect-stats [directory]'
+        vd = self._need_vault()
+        stats = self.inspector.object_store_stats(vd)
+        sg_dir = os.path.join(vd, '.sg_vault', 'bare')
+        counts = {}
+        for sub in ['data', 'refs', 'keys', 'indexes']:
+            sub_dir = os.path.join(sg_dir, sub)
+            if os.path.isdir(sub_dir):
+                counts[sub] = len([f for f in os.listdir(sub_dir) if os.path.isfile(os.path.join(sub_dir, f))])
+            else:
+                counts[sub] = 0
+        lines = [
+            '=== Object Store ===',
+            f'  Total objects: {stats["total_objects"]}',
+            f'  Total bytes:   {stats["total_bytes"]}',
+            '',
+            '=== Bare Structure ===',
+        ]
+        for k, v in sorted(counts.items()):
+            lines.append(f'  {k:10s}: {v}')
+        lines.append(f'  {"total":10s}: {sum(counts.values())}')
+        lines.extend([
+            '',
+            '=== In-Memory API ===',
+            f'  Entries:      {len(self.api._store)}',
+            f'  Total writes: {self.api._write_count}',
+        ])
+        return '\\n'.join(lines)
+
+    def cmd_derive_keys(self, args):
+        if '-h' in args or '--help' in args:
+            return 'usage: sg-send-cli derive-keys'
+        if not self.vault_key:
+            return 'No vault key set. Run init first.'
+        keys = self.keys
+        lines = ['=== Derived Keys ===', f'  Vault key: {self.vault_key}']
+        for k, v in keys.items():
+            if isinstance(v, bytes):
+                lines.append(f'  {k}: {v.hex()[:32]}...')
+            else:
+                lines.append(f'  {k}: {v}')
+        return '\\n'.join(lines)
+
+    def cmd_branches(self, args):
+        if '-h' in args or '--help' in args:
+            return 'usage: sg-send-cli branches [directory]'
+        vd = self._need_vault()
+        refs_dir = os.path.join(vd, '.sg_vault', 'bare', 'refs')
+        lines = ['=== Branches ===']
+        if os.path.isdir(refs_dir):
+            for f in sorted(os.listdir(refs_dir)):
+                lines.append(f'  {f}')
+        else:
+            lines.append('  (no branches)')
+        return '\\n'.join(lines)
+
+    def cmd_remote(self, args):
+        if not args or args[0] in ('-h', '--help'):
+            return """usage: sg-send-cli remote [-h] {add,remove,list} ...
+
+positional arguments:
+  {add,remove,list}  Remote subcommands
+    add              Add a remote (e.g. remote add origin https://dev.send.sgraph.ai)
+    remove           Remove a remote
+    list             List configured remotes
+
+options:
+  -h, --help         show this help message and exit"""
+
+        vd = self._need_vault()
+        subcmd = args[0]
+        sub_args = args[1:]
+
+        if subcmd == 'list':
+            try:
+                remotes = self.sync.remote_list(vd)
+                if not remotes:
+                    return '(no remotes configured)'
+                lines = []
+                for r in remotes:
+                    lines.append(f"  {r.get('name', '?')}\\t{r.get('url', '?')}\\tvault_id={r.get('vault_id', '-')}")
+                return '\\n'.join(lines)
+            except Exception as e:
+                return f'remote list: {e}'
+
+        elif subcmd == 'add':
+            if len(sub_args) < 2:
+                return 'usage: remote add NAME URL [VAULT_ID]\\n  e.g. remote add origin https://dev.send.sgraph.ai'
+            name     = sub_args[0]
+            url      = sub_args[1]
+            vault_id = sub_args[2] if len(sub_args) > 2 else ''
+            try:
+                self.sync.remote_add(vd, name=name, url=url, vault_id=vault_id)
+                return f"Remote '{name}' added: {url}"
+            except Exception as e:
+                return f'remote add: {e}'
+
+        elif subcmd == 'remove':
+            if not sub_args:
+                return 'usage: remote remove NAME'
+            try:
+                self.sync.remote_remove(vd, name=sub_args[0])
+                return f"Remote '{sub_args[0]}' removed"
+            except Exception as e:
+                return f'remote remove: {e}'
+
+        else:
+            return f"remote: unknown subcommand '{subcmd}'. Use add, remove, or list."
+
+    def cmd_pull(self, args):
+        if '-h' in args or '--help' in args:
+            return 'usage: sg-send-cli pull [--base-url URL] [--token TOKEN] [directory]'
+        base_url, args = self._parse_flag(args, '--base-url')
+        token, args    = self._parse_flag(args, '--token')
+        if base_url or token:
+            self._connect_remote(base_url, token)
+        vd = self._need_vault()
+        try:
+            result = self.sync.pull(vd)
+            lines = ['Pull complete.']
+            for k, v in result.items():
+                lines.append(f'  {k:20s}: {v}')
+            return '\\n'.join(lines)
+        except Exception as e:
+            return f'pull: {e}'
+
+    def cmd_clone(self, args):
+        if '-h' in args or '--help' in args:
+            return """usage: sg-send-cli [--base-url URL] [--token TOKEN] clone VAULT_KEY [DIRECTORY]
+
+Clone a vault from a server (remote or in-memory).
+
+examples:
+  clone passphrase:vault_id
+  sg-send-cli --base-url https://dev.send.sgraph.ai --token owasp clone passphrase:vault_id"""
+
+        # Extract optional per-command flags
+        base_url, args = self._parse_flag(args, '--base-url')
+        token, args    = self._parse_flag(args, '--token')
+        vault_key, args = self._parse_flag(args, '--vault-key')
+
+        if base_url or token:
+            self._connect_remote(base_url, token)
+
+        if not vault_key:
+            if args:
+                vault_key = args[0]
+                args = args[1:]
+            else:
+                return 'Error: vault key required. Usage: clone PASSPHRASE:VAULT_ID [DIR]'
+
+        vault_dir = os.path.abspath(args[0]) if args else os.path.join(os.getcwd(), 'cloned-vault')
+        os.makedirs(vault_dir, exist_ok=True)
+
+        self.vault_key = vault_key
+        self.keys = self.crypto.derive_keys_from_vault_key(vault_key)
+
+        import builtins
+        builtins._sg_crypto    = self.crypto
+        builtins._sg_api       = self.api
+        builtins._sg_inspector = self.inspector
+        builtins._sg_keys      = self.keys
+
+        try:
+            result = self.sync.clone(vault_key=vault_key, directory=vault_dir)
+            self.vault_dir = vault_dir
+            builtins._sg_vault_dir = vault_dir
+            builtins._sg_sync      = self.sync
+            lines = [f'Cloned vault into {vault_dir}']
+            for k in ['vault_id', 'named_branch', 'branch_id', 'commit_id', 'files_checked_out', 'objects_downloaded']:
+                v = result.get(k)
+                if v is not None:
+                    lines.append(f'  {k:20s}: {v}')
+            lines.append(f'  {"vault_key":20s}: {vault_key}')
+            return '\\n'.join(lines)
+        except Exception as e:
+            return f'clone: {e}'
+
+    def cmd_cat_object(self, args):
+        if not args or args[0] in ('-h', '--help'):
+            return 'usage: sg-send-cli cat-object OBJECT_ID'
+        return 'cat-object: not yet implemented in browser mode'
+
+    # --- Shell commands ---
+
+    def cmd_ls(self, args):
+        target = args[0] if args else '.'
+        try:
+            entries = sorted(os.listdir(target))
+        except Exception as e:
+            return f'ls: {e}'
+        if not entries:
+            return '(empty directory)'
+        result = []
+        for e in entries:
+            full = os.path.join(target, e)
+            if os.path.isdir(full):
+                result.append(f'{e}/')
+            else:
+                size = os.path.getsize(full)
+                result.append(f'{e}  ({size} bytes)')
+        return '\\n'.join(result)
+
+    def cmd_cat(self, args):
+        if not args:
+            return 'Usage: cat <file>'
+        try:
+            with open(args[0]) as f:
+                return f.read()
+        except Exception as e:
+            return f'cat: {e}'
+
+    def cmd_pwd(self):
+        return os.getcwd()
+
+    def cmd_cd(self, args):
+        target = args[0] if args else self.home
+        try:
+            os.chdir(target)
+            return os.getcwd()
+        except Exception as e:
+            return f'cd: {e}'
+
+    def cmd_mkdir(self, args):
+        if not args:
+            return 'Usage: mkdir <directory>'
+        try:
+            os.makedirs(args[0], exist_ok=True)
+            return ''
+        except Exception as e:
+            return f'mkdir: {e}'
+
+    def cmd_rm(self, args):
+        if not args:
+            return 'Usage: rm <file>'
+        try:
+            os.remove(args[0])
+            return ''
+        except Exception as e:
+            return f'rm: {e}'
+
+    def cmd_touch(self, args):
+        if not args:
+            return 'Usage: touch <file>'
+        try:
+            with open(args[0], 'a'):
+                pass
+            return ''
+        except Exception as e:
+            return f'touch: {e}'
+
+    def cmd_write(self, args):
+        if len(args) < 2:
+            return 'Usage: write <file> <text...>'
+        filepath = args[0]
+        text = ' '.join(args[1:])
+        try:
+            os.makedirs(os.path.dirname(filepath) if os.path.dirname(filepath) else '.', exist_ok=True)
+            with open(filepath, 'w') as f:
+                f.write(text + '\\n')
+            return ''
+        except Exception as e:
+            return f'write: {e}'
+
+    def cmd_tree(self, args):
+        target = args[0] if args else '.'
+        lines = [target]
+        self._tree_walk(target, '', lines)
+        return '\\n'.join(lines)
+
+    def _tree_walk(self, path, prefix, lines):
+        try:
+            entries = sorted(e for e in os.listdir(path) if not e.startswith('.'))
+        except PermissionError:
+            return
+        for i, entry in enumerate(entries):
+            is_last = (i == len(entries) - 1)
+            connector = '\\u2514\\u2500\\u2500 ' if is_last else '\\u251c\\u2500\\u2500 '
+            full = os.path.join(path, entry)
+            if os.path.isdir(full):
+                lines.append(f'{prefix}{connector}{entry}/')
+                ext = '    ' if is_last else '\\u2502   '
+                self._tree_walk(full, prefix + ext, lines)
+            else:
+                lines.append(f'{prefix}{connector}{entry}')
+
+import builtins
+from sg_send_cli.api.Vault__API__In_Memory import Vault__API__In_Memory as _VAPI
+
+# Shared in-memory server — all tabs push/pull to this same store
+_sg_shared_api = _VAPI().setup()
+builtins._sg_shared_api = _sg_shared_api
+
+# Tab-indexed CLI instances (all share the same API)
+_sg_cli_tabs = { 0: BrowserCLI(shared_api=_sg_shared_api) }
+builtins._sg_cli_tabs = _sg_cli_tabs
+
+# Legacy alias
+builtins._sg_cli = _sg_cli_tabs[0]
+`
+    </script>
+</body>
+</html>

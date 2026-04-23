@@ -1,0 +1,26 @@
+{
+  "name": "Vault",
+  "slug": "vault",
+  "description": "Browse, edit and save files in an SGraph zero-knowledge encrypted vault. Sub-tree model with encrypted metadata — CLI-compatible.",
+  "icon": "🏛️",
+  "version": "0.1.25",
+  "status": "live",
+  "category": "vault",
+  "keywords": ["vault", "sgraph", "send", "browse", "edit", "write", "encrypt", "zero-knowledge"],
+  "dependencies": {
+    "core": [
+      { "module": "sg-layout", "path": "/core/sg-layout/v0.1.0/sg-layout.js" },
+      { "module": "sg-vault-client", "path": "/core/vault-client/v1/v1.2/v1.2.0/sg-vault-client.js" },
+      { "module": "sg-vault-write", "path": "/core/vault-write/v1/v1.1/v1.1.0/sg-vault-write.js" }
+    ],
+    "components": [
+      { "module": "sg-vault-connect", "path": "/components/vault/sg-vault-connect/v0/v0.1/v0.1.1/sg-vault-connect.js" },
+      { "module": "sg-vault-tree", "path": "/components/vault/sg-vault-tree/v0/v0.1/v0.1.1/sg-vault-tree.js" },
+      { "module": "sg-vault-viewer", "path": "/components/vault/sg-vault-viewer/v0/v0.1/v0.1.1/sg-vault-viewer.js" }
+    ],
+    "shared": [
+      { "module": "sg-site-header", "path": "/components/site-header/v1/v1.0/v1.0.2/sg-site-header.js" },
+      { "module": "tools.css", "path": "/_common/css/tools.css" }
+    ]
+  }
+}

@@ -1,0 +1,69 @@
+/* =============================================================================
+   SGraph — Shared Design Tokens
+   v1.0.0 — Canonical brand tokens used across all sgraph.ai domains
+
+   Aligned with the sgraph.ai website design system (Aurora theme).
+   These tokens are loaded as shared CSS by all SgComponent subclasses.
+
+   Consumers:
+     - tools.sgraph.ai (components + tools)
+     - sgraph.ai (website — will migrate to importing this file)
+     - workspace.sgraph.ai, vault.sgraph.ai, send.sgraph.ai
+
+   Note: Shadow DOM components receive these via injection, not :root.
+   We use :host-level custom properties so they cascade into component markup.
+   ============================================================================= */
+
+:host {
+    /* ── Brand Colours ─────────────────────────────────────────────────────── */
+    --sg-color-teal:        #4ECDC4;
+    --sg-color-teal-hover:  #3DB8B0;
+    --sg-color-navy:        #1A1A2E;
+    --sg-color-deep-blue:   #16213E;
+    --sg-color-slate:       #2C3E6B;
+    --sg-color-coral:       #E94560;
+    --sg-color-warm-white:  #F0F0F5;
+    --sg-color-light-grey:  #E0E0E0;
+    --sg-color-mid-grey:    #8892A0;
+
+    /* ── Semantic Tokens ───────────────────────────────────────────────────── */
+    --sg-bg:                var(--sg-color-navy);
+    --sg-bg-secondary:      var(--sg-color-deep-blue);
+    --sg-bg-surface:        rgba(44, 62, 107, 0.35);
+    --sg-border:            var(--sg-color-slate);
+    --sg-text:              var(--sg-color-light-grey);
+    --sg-text-heading:      #FFFFFF;
+    --sg-text-muted:        var(--sg-color-mid-grey);
+    --sg-accent:            var(--sg-color-teal);
+    --sg-accent-hover:      var(--sg-color-teal-hover);
+    --sg-accent-subtle:     rgba(78, 205, 196, 0.12);
+    --sg-danger:            var(--sg-color-coral);
+
+    /* ── Typography ────────────────────────────────────────────────────────── */
+    --sg-font-display:      'DM Sans', system-ui, -apple-system, sans-serif;
+    --sg-font-body:         'DM Sans', system-ui, -apple-system, sans-serif;
+    --sg-font-mono:         'JetBrains Mono', ui-monospace, monospace;
+
+    --sg-fw-regular:        400;
+    --sg-fw-medium:         500;
+    --sg-fw-bold:           700;
+
+    --sg-fs-body:           1rem;
+    --sg-fs-small:          0.8rem;
+    --sg-fs-xs:             0.75rem;
+
+    /* ── Spacing (4px base) ────────────────────────────────────────────────── */
+    --sg-sp-1:    4px;
+    --sg-sp-2:    8px;
+    --sg-sp-3:   12px;
+    --sg-sp-4:   16px;
+    --sg-sp-6:   24px;
+    --sg-sp-8:   32px;
+
+    /* ── Radii ─────────────────────────────────────────────────────────────── */
+    --sg-radius:            6px;
+    --sg-radius-pill:       9999px;
+
+    /* ── Transitions ───────────────────────────────────────────────────────── */
+    --sg-transition-fast:   150ms ease;
+}

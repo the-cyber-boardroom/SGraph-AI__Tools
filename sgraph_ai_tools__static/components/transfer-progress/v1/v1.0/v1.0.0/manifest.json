@@ -1,0 +1,28 @@
+{
+    "name": "sg-transfer-progress",
+    "version": "1.0.0",
+    "layer": "component",
+    "description": "Reusable progress bar for upload and download operations. Accepts ChunkedUploader / ChunkedDownloader UploadProgress/DownloadProgress objects and a simpler { loaded, total, phase } format. Displays: phase label, animated bar, speed (MB/s), ETA, MB transferred, and chunk count for multipart transfers.",
+    "exports": ["SgTransferProgress", "normalizeProgress", "formatSpeed", "formatEta"],
+    "tagName": "sg-transfer-progress",
+    "attributes": ["phase", "label"],
+    "properties": ["progress", "phase", "label"],
+    "events": [],
+    "cssCustomProperties": [
+        "--sg-tp-bar-bg",
+        "--sg-tp-bar-fill",
+        "--sg-tp-bar-fill-complete",
+        "--sg-tp-text",
+        "--sg-tp-text-muted",
+        "--sg-tp-height",
+        "--sg-tp-radius",
+        "--sg-tp-gap"
+    ],
+    "dependencies": [],
+    "compatibleWith": [
+        "sg-send-upload@v1.1+",
+        "sg-send-download@v1.0+"
+    ],
+    "author": "SGraph Tools Team",
+    "license": "CC-BY-4.0"
+}

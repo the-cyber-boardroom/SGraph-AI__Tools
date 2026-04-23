@@ -1,0 +1,17 @@
+{
+    "name": "sg-llm-request",
+    "version": "0.1.0",
+    "description": "Headless LLM fetch engine. The only component that calls external APIs. Supports OpenRouter, Ollama, Anthropic, OpenAI. Streaming SSE + non-streaming.",
+    "files": [
+        "sg-llm-request.js"
+    ],
+    "exports": {
+        "sg-llm-request.js": ["SgLlmRequest"]
+    },
+    "dependencies": {
+        "sg-llm-events": "/components/llm/sg-llm-events/v0/v0.1/v0.1.0/sg-llm-events.js"
+    },
+    "compatibleWith": {
+        "sg-llm-events": ">=0.1.0"
+    }
+}

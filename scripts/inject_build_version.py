@@ -19,7 +19,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 REPO_ROOT        = Path(__file__).parent.parent
-VERSION_FILE     = REPO_ROOT / 'version'
+VERSION_FILE     = REPO_ROOT / 'sgraph_ai_tools' / 'version'
 UI_BASE          = 'sgraph_ai_tools__static/tools'
 
 BUILD_INFO_TEMPLATE = """\
@@ -27,8 +27,9 @@ BUILD_INFO_TEMPLATE = """\
    Source: scripts/inject_build_version.py
    Build:  {build_time} */
 window.SGRAPH_BUILD = {{
-    version   : '{version}',
-    buildTime : '{build_time}'
+    appVersion : '{app_version}',
+    uiVersion  : '{ui_version}',
+    buildTime  : '{build_time}'
 }};
 """
 
@@ -46,37 +47,49 @@ def main():
     parser = argparse.ArgumentParser(description='Inject build version into Tools UI')
     parser.add_argument('--version', type=str, default=None,
                         help='Version to target (default: read from version file)')
+    parser.add_argument('--source-dir', type=str, default=None,
+                        help='Pre-built directory to write build-info.js into (e.g. _latest/). '
+                             'Use this when running AFTER build_ifd_latest.py.')
     parser.add_argument('--dry-run', action='store_true',
                         help='Print what would be written without writing')
     args = parser.parse_args()
 
-    # Read version
-    version = args.version
-    if not version:
-        if not VERSION_FILE.exists():
-            print(f"ERROR: Version file not found: {VERSION_FILE}")
-            return 1
-        version = VERSION_FILE.read_text().strip()
+    # Read versions
+    ui_version = args.version
+    if not ui_version:
+        print("ERROR: --version (UI version) is required")
+        return 1
+
+    # App version from repo version file
+    if VERSION_FILE.exists():
+        app_version = VERSION_FILE.read_text().strip()
+    else:
+        app_version = ui_version
 
     # Resolve target path
-    ifd_path    = version_to_ifd_path(version)
-    ui_base     = REPO_ROOT / UI_BASE
-    version_dir = ui_base / ifd_path
-    target      = version_dir / '_common' / 'js' / 'build-info.js'
+    if args.source_dir:
+        target = Path(args.source_dir).resolve() / '_common' / 'js' / 'build-info.js'
+    else:
+        ifd_path    = version_to_ifd_path(ui_version)
+        ui_base     = REPO_ROOT / UI_BASE
+        version_dir = ui_base / ifd_path
+        target      = version_dir / '_common' / 'js' / 'build-info.js'
 
     # Build timestamp
     build_time = datetime.now(timezone.utc).strftime('%Y-%m-%dT%H:%M:%SZ')
 
     # Generate content
     content = BUILD_INFO_TEMPLATE.format(
-        version=version,
+        app_version=app_version,
+        ui_version=ui_version,
         build_time=build_time,
     )
 
     print(f"SGraph Tools — Build Version Injection")
-    print(f"  Version    : {version}")
-    print(f"  Build time : {build_time}")
-    print(f"  Target     : {target}")
+    print(f"  App version : {app_version}")
+    print(f"  UI version  : {ui_version}")
+    print(f"  Build time  : {build_time}")
+    print(f"  Target      : {target}")
 
     if args.dry_run:
         print(f"\n[dry-run] Would write:\n{content}")

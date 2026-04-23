@@ -1,0 +1,98 @@
+<!DOCTYPE html>
+<html lang="en-GB">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Chat — tools.sgraph.ai</title>
+    <meta name="description" content="Multi-turn chat with any LLM. Attach images and files, maintain conversation history, export transcripts. API key stays in your browser.">
+    <link rel="icon" type="image/svg+xml" href="../../_common/favicon.svg">
+    <link rel="stylesheet" href="../../_common/css/tools.css">
+    <style>
+        html, body {
+            height: 100%;
+            margin: 0;
+            overflow: hidden;
+        }
+        body {
+            display: flex;
+            flex-direction: column;
+        }
+        sg-site-header { flex-shrink: 0; }
+
+        /* ── Event bus + CSS Grid layout ──────────────────────────────── */
+        #bus {
+            flex: 1;
+            display: grid;
+            grid-template-columns: 26% 1fr 22%;
+            grid-template-rows: auto 1fr auto auto;
+            grid-template-areas:
+                "connection  history  bundles"
+                "connection  history  bundles"
+                "stats       input    bundles"
+                "stats       input    bundles";
+            gap: 1px;
+            background: #1a1a2e;
+            min-height: 0;
+            overflow: hidden;
+        }
+
+        #bus > * {
+            background: #0d0d1a;
+            overflow: hidden;
+            min-height: 0;
+        }
+
+        /* Headless — invisible */
+        sg-llm-request,
+        sg-llm-bundle { display: none !important; }
+
+        /* Grid areas */
+        sg-llm-connection    { grid-area: connection; overflow: auto; }
+        sg-llm-chat-history  { grid-area: history; overflow: hidden; }
+        sg-llm-chat-input    { grid-area: input; overflow: visible; max-height: 220px; }
+        sg-llm-stats         { grid-area: stats; overflow: auto; max-height: 130px; }
+        sg-llm-bundle-list   { grid-area: bundles; overflow: hidden; }
+    </style>
+</head>
+<body>
+
+<script type="module" src="/components/site-header/v1/v1.0/v1.0.2/sg-site-header.js"></script>
+<sg-site-header site="Tools" home-url="../../"></sg-site-header>
+
+<!-- All sg-llm-* are direct children of #bus — shared event bus via parentElement -->
+<div id="bus">
+
+    <!-- Headless -->
+    <sg-llm-request></sg-llm-request>
+    <sg-llm-bundle auto-save></sg-llm-bundle>
+
+    <!-- Left: provider / model settings -->
+    <sg-llm-connection></sg-llm-connection>
+
+    <!-- Centre top: scrollable conversation -->
+    <sg-llm-chat-history></sg-llm-chat-history>
+
+    <!-- Centre bottom: message input (stays active during streaming) -->
+    <sg-llm-chat-input></sg-llm-chat-input>
+
+    <!-- Left bottom: token/cost metrics -->
+    <sg-llm-stats></sg-llm-stats>
+
+    <!-- Right: session bundle history -->
+    <sg-llm-bundle-list show-save-button></sg-llm-bundle-list>
+
+</div>
+
+<script type="module">
+import '/components/llm/sg-llm-events/v0/v0.1/v0.1.0/sg-llm-events.js';
+import '/components/llm/sg-llm-request/v0/v0.1/v0.1.0/sg-llm-request.js';
+import '/components/llm/sg-llm-bundle/v0/v0.1/v0.1.0/sg-llm-bundle.js';
+import '/components/llm/sg-llm-connection/v0/v0.1/v0.1.0/sg-llm-connection.js';
+import '/components/llm/sg-llm-chat-history/v0/v0.1/v0.1.1/sg-llm-chat-history.js';
+import '/components/llm/sg-llm-chat-input/v0/v0.1/v0.1.1/sg-llm-chat-input.js';
+import '/components/llm/sg-llm-stats/v0/v0.1/v0.1.0/sg-llm-stats.js';
+import '/components/llm/sg-llm-bundle-list/v0/v0.1/v0.1.0/sg-llm-bundle-list.js';
+</script>
+
+</body>
+</html>

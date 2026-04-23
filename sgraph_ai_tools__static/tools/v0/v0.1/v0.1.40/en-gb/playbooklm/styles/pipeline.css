@@ -1,0 +1,250 @@
+/**
+ * PlaybookLM — Step cards, status badges, progress indicators.
+ * v0.1.40: adds stepper bar styles and example card styles.
+ * @version 0.1.1
+ */
+
+/* ── Drop zone ─────────────────────────────────────────────────────────────── */
+.plm-drop-zone {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 2px dashed var(--plm-border);
+  border-radius: var(--plm-radius);
+  padding: 24px 16px;
+  color: var(--plm-dim);
+  font-size: 13px;
+  cursor: pointer;
+  transition: border-color 150ms, background 150ms;
+  text-align: center;
+  margin-bottom: 12px;
+}
+.plm-drop-zone:hover,
+.plm-drop-zone:focus { border-color: var(--plm-accent); background: var(--plm-accent-dim); outline: none; }
+.plm-drop-active      { border-color: var(--plm-accent); background: var(--plm-accent-dim); }
+
+/* ── Sources list ──────────────────────────────────────────────────────────── */
+.plm-sources-list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-bottom: 10px;
+}
+
+.plm-source-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: var(--plm-surface);
+  border: 1px solid var(--plm-border);
+  border-radius: var(--plm-radius-sm);
+  padding: 6px 10px;
+  font-size: 12px;
+}
+
+.plm-source-name {
+  flex: 1;
+  color: var(--plm-text);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.plm-source-meta {
+  color: var(--plm-dim);
+  font-family: var(--plm-mono);
+  font-size: 11px;
+  white-space: nowrap;
+}
+
+.plm-source-remove {
+  background: none;
+  border: none;
+  color: var(--plm-error);
+  cursor: pointer;
+  font-size: 16px;
+  line-height: 1;
+  padding: 0 2px;
+  opacity: 0.7;
+  transition: opacity 150ms;
+}
+.plm-source-remove:hover { opacity: 1; }
+
+/* ── Brief cards ───────────────────────────────────────────────────────────── */
+.plm-briefs-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.plm-brief-card {
+  background: var(--plm-surface);
+  border: 1px solid var(--plm-border);
+  border-radius: var(--plm-radius);
+  padding: 10px 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  transition: border-color 150ms;
+}
+.plm-brief-card:hover { border-color: #2d3748; }
+
+.plm-brief-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.plm-brief-num {
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  background: var(--plm-accent-dim);
+  color: var(--plm-accent);
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.plm-brief-title {
+  flex: 1;
+  background: var(--plm-bg);
+  border: 1px solid var(--plm-border);
+  border-radius: var(--plm-radius-sm);
+  color: var(--plm-text);
+  font-size: 13px;
+  font-weight: 600;
+  padding: 4px 8px;
+  outline: none;
+  transition: border-color 150ms;
+}
+.plm-brief-title:focus { border-color: var(--plm-accent); }
+
+.plm-brief-remove {
+  background: none;
+  border: none;
+  color: var(--plm-error);
+  cursor: pointer;
+  font-size: 18px;
+  line-height: 1;
+  padding: 0;
+  opacity: 0.6;
+  transition: opacity 150ms;
+  flex-shrink: 0;
+}
+.plm-brief-remove:hover { opacity: 1; }
+
+.plm-brief-prompt {
+  width: 100%;
+  background: var(--plm-bg);
+  border: 1px solid var(--plm-border);
+  border-radius: var(--plm-radius-sm);
+  color: var(--plm-muted);
+  font-family: var(--plm-mono);
+  font-size: 11px;
+  line-height: 1.5;
+  padding: 6px 10px;
+  resize: vertical;
+  outline: none;
+  transition: border-color 150ms;
+}
+.plm-brief-prompt:focus { border-color: var(--plm-accent); }
+
+/* ── Stepper wrap ──────────────────────────────────────────────────────────── */
+.plm-stepper-wrap { display: flex; flex-direction: column; height: 100%; background: #0d0d1a; }
+
+/* Bar row: steps track + next button */
+.plm-stepper-bar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 12px 16px 0;
+  flex-shrink: 0;
+}
+
+.plm-steps-track {
+  display: flex;
+  align-items: center;
+  flex: 1;
+  gap: 0;
+  overflow: hidden;
+}
+
+/* Individual step */
+.plm-step {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  cursor: default;
+  flex-shrink: 0;
+}
+.plm-step.done { cursor: pointer; }
+
+.plm-step-node {
+  width: 26px; height: 26px;
+  border-radius: 50%;
+  border: 2px solid #4a5568;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 11px; font-weight: 600;
+  color: #718096;
+  transition: all 0.2s;
+}
+.plm-step.active .plm-step-node { background: #4ECDC4; border-color: #4ECDC4; color: #0d0d1a; }
+.plm-step.done   .plm-step-node { background: #4ECDC4; border-color: #4ECDC4; color: #0d0d1a; }
+
+.plm-step-label {
+  font-size: 9px; color: #4a5568; white-space: nowrap;
+  transition: color 0.2s;
+}
+.plm-step.active .plm-step-label { color: #4ECDC4; font-weight: 600; }
+.plm-step.done   .plm-step-label { color: #718096; }
+
+/* Connector line */
+.plm-step-connector {
+  flex: 1; height: 2px; background: #2d3748; margin-bottom: 14px;
+  transition: background 0.2s;
+  min-width: 8px;
+}
+.plm-step-connector.done { background: #4ECDC4; }
+
+/* Step counter */
+.plm-step-counter { padding: 4px 16px 8px; font-size: 11px; color: #4a5568; flex-shrink: 0; }
+
+/* Next button */
+.plm-next-btn {
+  background: #4ECDC4; color: #0d0d1a; border: none;
+  padding: 8px 16px; border-radius: 6px;
+  font-size: 13px; font-weight: 700; cursor: pointer;
+  flex-shrink: 0; white-space: nowrap;
+  transition: opacity 0.2s;
+}
+.plm-next-btn:hover   { opacity: 0.85; }
+.plm-next-btn:disabled { opacity: 0.4; cursor: default; }
+
+/* Step panels */
+.plm-panels { flex: 1; min-height: 0; overflow: hidden; position: relative; }
+.plm-panel  { position: absolute; inset: 0; overflow-y: auto; }
+.plm-panel.hidden { display: none; }
+
+/* ── Example cards ─────────────────────────────────────────────────────────── */
+.plm-examples { margin-top: 16px; }
+.plm-examples-header {
+  font-size: 11px; color: #4a5568;
+  text-transform: uppercase; letter-spacing: 0.05em;
+  margin-bottom: 8px;
+}
+.plm-examples-grid { display: flex; flex-direction: column; gap: 8px; }
+.plm-example-card {
+  display: flex; align-items: flex-start; gap: 10px;
+  padding: 10px 12px; border-radius: 8px;
+  background: #1a1a2e; border: 1px solid #2d3748;
+  cursor: pointer; transition: border-color 0.15s;
+}
+.plm-example-card:hover { border-color: #4ECDC4; }
+.plm-example-icon  { font-size: 20px; flex-shrink: 0; }
+.plm-example-title { font-size: 13px; font-weight: 600; color: #e2e8f0; }
+.plm-example-desc  { font-size: 11px; color: #718096; margin-top: 2px; }
