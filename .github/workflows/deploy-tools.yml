@@ -45,15 +45,15 @@ jobs:
   increment-tag:
     name: Increment Tag
     runs-on: ubuntu-latest
-    # Only run on automatic push to dev (not on main or manual dispatch)
-    if: github.event_name == 'push' && github.ref_name == 'dev'
+    # Run on push to dev (minor) or main (major). Skip for manual dispatch.
+    if: github.event_name == 'push' && (github.ref_name == 'dev' || github.ref_name == 'main')
     steps:
       - uses: actions/checkout@v4
 
       - name: Increment Tag
         uses: owasp-sbot/OSBot-GitHub-Actions/.github/actions/git__increment-tag@dev
         with:
-          release_type: minor
+          release_type: ${{ github.ref_name == 'main' && 'major' || 'minor' }}
 
   deploy:
     name: "Deploy Tools to S3 (${{ inputs.environment || github.ref_name || 'dev' }})"
