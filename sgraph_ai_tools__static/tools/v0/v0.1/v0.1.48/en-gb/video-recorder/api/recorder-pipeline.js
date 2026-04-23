@@ -18,7 +18,7 @@
  */
 
 import { getCameraStream, getAudioStream, getScreenStream, mergeAsPiP } from '/core/sg-capture/v0/v0.1/v0.1.0/sg-capture.js';
-import { getBestMimeType }                                   from '/core/sg-video-recorder/v0/v0.1/v0.1.1/sg-video-recorder.js';
+import { getBestMimeType }                                   from '/core/sg-video-recorder/v0/v0.1/v0.1.2/sg-video-recorder.js';
 import { RecordingConfig, RecordingState }                   from './recorder-state.js';
 import { SGA_RECORDER }                                      from './recorder-events.js';
 
