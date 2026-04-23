@@ -375,6 +375,24 @@ export function initControls(container, state, config, api, emit) {
         }
     });
 
+    // ── TRACK_LOST — show immediate warning banner ────────────────────────────
+
+    window.addEventListener(SGA_RECORDER.TRACK_LOST, (e) => {
+        const { source, kind } = e.detail;
+        if (kind === 'video') {
+            // Video loss is fatal — pipeline will auto-stop; warn the user now
+            // so they're not confused by the recording ending unexpectedly.
+            statusEl.style.color = '#f87171';
+            statusEl.textContent =
+                `⚠ ${source} video stopped unexpectedly — recording is saving now.`;
+        } else {
+            // Audio loss: recording continues but user should know
+            statusEl.style.color = '#fbbf24';
+            statusEl.textContent =
+                `⚠ ${source} audio track lost — recording continues without audio.`;
+        }
+    });
+
     // ── RECORD_STOP ───────────────────────────────────────────────────────────
 
     window.addEventListener(SGA_RECORDER.RECORD_STOP, (e) => {
@@ -387,6 +405,7 @@ export function initControls(container, state, config, api, emit) {
         _enableOptions(true);
         _applyModeState();
         const { durationMs, sizeBytes } = e.detail;
+        statusEl.style.color = '';
         statusEl.textContent = `Done — ${_formatMs(durationMs)}, ${_formatBytes(sizeBytes)}. Start new recording or review the tab.`;
     });
 
@@ -401,6 +420,7 @@ export function initControls(container, state, config, api, emit) {
         _lockModeBuilder(false);
         _enableOptions(true);
         timerEl.textContent  = '0s';
+        statusEl.style.color = '';
         statusEl.textContent = 'Ready';
         _resetPreviewBtn();
         _applyModeState();
