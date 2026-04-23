@@ -4,15 +4,19 @@
  * @version 0.1.50
  */
 
-import { CHECKS, checkState, iconFor, setGoogleEl, CLIENT_ID_KEY, RUNNERS } from '../api/checks.js';
+import { CHECKS, checkState, iconFor, setGoogleEl, setDriveEl, CLIENT_ID_KEY, RUNNERS } from '../api/checks.js';
 
 /**
  * Build the left "Checks" panel into the given element.
  * @param {HTMLElement} el
  */
-export function buildChecksPanel(el) {
+export function buildChecksPanel(el, config = {}) {
     el.style.cssText = 'overflow-y:auto;height:100%;background:#080812;box-sizing:border-box;';
 
+    // Config provides the default; localStorage override wins once user saves manually
+    if (config.googleClientId && !localStorage.getItem(CLIENT_ID_KEY)) {
+        localStorage.setItem(CLIENT_ID_KEY, config.googleClientId);
+    }
     const clientId = localStorage.getItem(CLIENT_ID_KEY) || '';
 
     // ── Setup section ─────────────────────────────────────────────────────────
@@ -126,6 +130,13 @@ function _buildCheckSection(check) {
     }
     if (check.id === 'credlist') {
         inner.innerHTML = `<sg-credential-list style="display:block;"></sg-credential-list>`;
+    }
+    if (check.id === 'driveappdata') {
+        inner.innerHTML = `<sg-drive-appdata id="am-drive-comp" style="display:block;"></sg-drive-appdata>`;
+        requestAnimationFrame(() => {
+            const comp = document.getElementById('am-drive-comp');
+            if (comp) setDriveEl(comp);
+        });
     }
 
     if (inner.innerHTML.trim()) section.appendChild(inner);

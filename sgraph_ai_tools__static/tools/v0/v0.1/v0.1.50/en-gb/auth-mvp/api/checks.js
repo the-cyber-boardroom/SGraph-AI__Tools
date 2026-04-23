@@ -14,13 +14,14 @@ export const CLIENT_ID_KEY = 'sg-auth-google-client-id';
 /** @typedef {'pending'|'running'|'pass'|'fail'|'partial'} CheckStatus */
 
 export const CHECKS = [
-    { id: 'status',    label: '1. Auth Status Detection',         icon: '🔍' },
-    { id: 'google',    label: '2. Google OAuth Flow',             icon: '🔑' },
-    { id: 'tokens',    label: '3. Token Storage (localStorage)',  icon: '💾' },
-    { id: 'user',      label: '4. User Info Display',             icon: '👤' },
-    { id: 'logout',    label: '5. Logout Workflow',               icon: '🚪' },
-    { id: 'credstore', label: '6. Browser Credential Store',      icon: '🔐' },
-    { id: 'credlist',  label: '7. Credential List',               icon: '📋' },
+    { id: 'status',       label: '1. Auth Status Detection',         icon: '🔍' },
+    { id: 'google',       label: '2. Google OAuth Flow',             icon: '🔑' },
+    { id: 'tokens',       label: '3. Token Storage (localStorage)',  icon: '💾' },
+    { id: 'user',         label: '4. User Info Display',             icon: '👤' },
+    { id: 'logout',       label: '5. Logout Workflow',               icon: '🚪' },
+    { id: 'credstore',    label: '6. Browser Credential Store',      icon: '🔐' },
+    { id: 'credlist',     label: '7. Credential List',               icon: '📋' },
+    { id: 'driveappdata', label: '8. Drive App Data',                icon: '☁️' },
 ];
 
 /** @type {Record<string, { status: CheckStatus, output: string[] }>} */
@@ -30,6 +31,10 @@ CHECKS.forEach(c => { checkState[c.id] = { status: 'pending', output: [] }; });
 /** Reference to the sg-auth-google component; set by ui-checks-panel */
 export let googleEl = null;
 export function setGoogleEl(el) { googleEl = el; }
+
+/** Reference to the sg-drive-appdata component; set by ui-checks-panel */
+export let driveEl = null;
+export function setDriveEl(el) { driveEl = el; }
 
 export function iconFor(status) {
     return { pending: '⏳', running: '🔄', pass: '✅', fail: '❌', partial: '⚠️' }[status] ?? '⏳';
@@ -193,5 +198,32 @@ export const RUNNERS = {
             'sg-credential-list rendered in section 7 ✓',
         ].filter(l => l !== undefined);
         _log('credlist', lines, index.length > 0 ? 'pass' : 'partial');
+    },
+
+    async driveappdata() {
+        _log('driveappdata', ['Running…'], 'running');
+        const lines = [];
+        const gisOk = !!window.google?.accounts?.oauth2;
+
+        lines.push(`GIS oauth2 client: ${gisOk ? '✓ available' : '✗ not loaded — sign in with Google first'}`);
+        lines.push(`Scope: drive.appdata`);
+        lines.push(`Prerequisite: Drive API enabled + scope added in Google Cloud Console`);
+
+        if (driveEl) {
+            const s = driveEl.getStatus();
+            if (s.connected) {
+                lines.push(`Drive connection: ✓ connected`);
+                lines.push(`Files in App Data: ${s.fileCount}`);
+                lines.push('sg-drive-appdata rendered in section 8 ✓');
+                _log('driveappdata', lines, 'pass');
+            } else {
+                lines.push(`Drive connection: – not yet connected`);
+                lines.push('→ Click "Connect Drive" in section 8 to grant drive.appdata access');
+                _log('driveappdata', lines, gisOk ? 'partial' : 'fail');
+            }
+        } else {
+            lines.push('Drive component not initialised');
+            _log('driveappdata', lines, 'partial');
+        }
     },
 };
