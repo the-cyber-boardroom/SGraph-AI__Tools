@@ -140,6 +140,7 @@ jobs:
 
       - name: Deploy to S3
         if: steps.check-creds.outputs.has-credentials == 'true'
+        # TODO: add --cloudfront-distribution-id back once CF cache is restored
         run: |
           python scripts/deploy_static_site.py \
             --site sgraph-tools \
@@ -148,7 +149,6 @@ jobs:
             --bucket ${{ secrets.SGRAPH_TOOLS__S3_BUCKET }} \
             --region ${{ env.AWS_REGION }} \
             --deploy-env ${{ steps.env.outputs.deploy_env }} \
-            --cloudfront-distribution-id ${{ steps.env.outputs.dist_id }} \
             --skip-validation \
             --clean-urls \
             --clean-urls-source-version tools/v0/v0.1/_latest
