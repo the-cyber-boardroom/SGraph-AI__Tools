@@ -12,6 +12,7 @@ export const SGA_RECORDER = Object.freeze({
     RECORD_START:     'tool:record:start',
     RECORD_PROGRESS:  'tool:record:progress',
     RECORD_STOP:      'tool:record:stop',
+    TRACK_LOST:       'tool:track:lost',   // video/audio track ended unexpectedly during recording
     RESET:            'tool:reset',
     ENCRYPT_PROGRESS: 'tool:encrypt:progress',
     SAVE_PROGRESS:    'tool:save:progress',

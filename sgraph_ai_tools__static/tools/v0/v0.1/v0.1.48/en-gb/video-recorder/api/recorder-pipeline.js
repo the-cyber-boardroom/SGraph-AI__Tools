@@ -18,7 +18,7 @@
  */
 
 import { getCameraStream, getAudioStream, getScreenStream, mergeAsPiP } from '/core/sg-capture/v0/v0.1/v0.1.0/sg-capture.js';
-import { getBestMimeType }                                   from '/core/sg-video-recorder/v0/v0.1/v0.1.1/sg-video-recorder.js';
+import { getBestMimeType }                                   from '/core/sg-video-recorder/v0/v0.1/v0.1.2/sg-video-recorder.js';
 import { RecordingConfig, RecordingState }                   from './recorder-state.js';
 import { SGA_RECORDER }                                      from './recorder-events.js';
 
@@ -279,12 +279,7 @@ export async function startPipeline() {
         let rawScreen = null;
         if (flags.screen) {
             rawScreen = await getScreenStream({ audio: false });
-            // Auto-stop recording when the user clicks "Stop sharing" in the browser UI
-            rawScreen.getVideoTracks().forEach(track => {
-                track.addEventListener('ended', () => {
-                    if (state.status === 'recording') stopPipeline().catch(() => {});
-                });
-            });
+            _watchTracks('screen', rawScreen);
         }
 
         // Camera (reuse preview stream if available to avoid re-requesting permissions)
@@ -299,6 +294,7 @@ export async function startPipeline() {
                 rawCamera   = await getCameraStream({ audio: flags.audio });
                 needsWarmUp = true; // fresh sensor — allow auto-exposure to settle
             }
+            _watchTracks('camera', rawCamera);
         }
 
         // Standalone audio (screen+audio, audio-only, and viz+audio modes)
@@ -521,6 +517,36 @@ export function resetPipeline() {
 }
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
+
+/**
+ * Watch all tracks on a stream for unexpected loss during recording.
+ * Video track loss → dispatch TRACK_LOST + auto-stop the pipeline immediately.
+ * Audio track loss → dispatch TRACK_LOST only (recording can continue without audio).
+ * @param {string}      sourceName  'camera' | 'screen'
+ * @param {MediaStream} stream
+ */
+function _watchTracks(sourceName, stream) {
+    stream.getTracks().forEach(track => {
+        track.addEventListener('ended', () => {
+            if (state.status !== 'recording') return;
+
+            _dispatchOnWindow(SGA_RECORDER.TRACK_LOST, {
+                source: sourceName,
+                kind:   track.kind,   // 'video' | 'audio'
+            });
+
+            if (track.kind === 'video') {
+                // Video loss makes the recording unusable — stop immediately.
+                console.warn(`[pipeline] ${sourceName} video track ended unexpectedly — stopping`);
+                stopPipeline().catch(err =>
+                    console.error('[pipeline] auto-stop after track loss failed:', err)
+                );
+            } else {
+                console.warn(`[pipeline] ${sourceName} audio track ended unexpectedly`);
+            }
+        });
+    });
+}
 
 function _dispatchOnWindow(name, detail = {}) {
     window.dispatchEvent(new CustomEvent(name, { detail }));
