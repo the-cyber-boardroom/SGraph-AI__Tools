@@ -1,0 +1,31 @@
+<!DOCTYPE html>
+<html lang="en-GB">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Video Creator — tools.sgraph.ai</title>
+  <script type="module" src="/components/site-header/v1/v1.0/v1.0.5/sg-site-header.js"></script>
+  <script type="module">
+    import { loadManifest } from '/core/manifest-loader/v0/v0.1/v0.1.0/manifest-loader.js';
+    await loadManifest('./manifest.json');
+  </script>
+  <style>
+    /* Minimal pre-load styles — full CSS loaded by manifest-loader */
+    html, body {
+      margin: 0; padding: 0; height: 100%;
+      background: #0a0a18; color: #e2e8f0;
+      font-family: system-ui, sans-serif;
+      overflow: hidden;
+    }
+    body { display: flex; flex-direction: column; }
+  </style>
+</head>
+<body>
+  <sg-site-header site="Tools" home-url="../../index.html" active-nav="Tools"></sg-site-header>
+
+  <div id="layout-wrap" style="flex:1;overflow:hidden;display:flex;flex-direction:column;"></div>
+
+  <!-- Dev panel reads manifest from here -->
+  <sg-tool-manifest src="./manifest.json"></sg-tool-manifest>
+</body>
+</html>

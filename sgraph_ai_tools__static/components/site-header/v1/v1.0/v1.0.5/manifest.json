@@ -1,0 +1,11 @@
+{
+  "name": "sg-site-header",
+  "version": "1.0.5",
+  "description": "SGraph site header web component — SITE_CONFIGS, active-nav, auto-generated nav items",
+  "entry": "sg-site-header.js",
+  "files": ["sg-site-header.js", "sg-site-header.html", "sg-site-header.css"],
+  "changelog": {
+    "1.0.5": "SITE_CONFIGS for environment-aware nav URLs; active-nav attribute; auto-generated nav items for site=Tools; no target=_blank on cross-site nav links",
+    "1.0.3": "Plain text logo — removed inline SVG favicon, matching SG/Send header"
+  }
+}

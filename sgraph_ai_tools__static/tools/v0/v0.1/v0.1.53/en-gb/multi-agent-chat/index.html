@@ -1,0 +1,520 @@
+<!DOCTYPE html>
+<html lang="en-GB">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Multi-Agent Chat — tools.sgraph.ai</title>
+    <meta name="description" content="Chat with multiple specialised agents simultaneously. Open any combination of Explorer team agents side by side, or broadcast the same question to all of them.">
+    <link rel="icon" type="image/svg+xml" href="../../_common/favicon.svg">
+    <link rel="stylesheet" href="../../_common/css/tools.css">
+    <link rel="stylesheet" href="/core/sg-layout/v0.1.0/sg-layout.css">
+    <style>
+        html, body { height: 100%; margin: 0; overflow: hidden; }
+        body { display: flex; flex-direction: column; }
+        sg-site-header { flex-shrink: 0; }
+        #conn-bar {
+            flex-shrink: 0; display: flex; align-items: center; gap: 10px;
+            padding: 7px 14px; background: #0d0d1a; border-bottom: 1px solid #1a1a3a;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            font-size: 13px; flex-wrap: wrap;
+        }
+        #conn-bar label { font-size: 11px; font-weight: 600; color: #a0aec0; text-transform: uppercase; letter-spacing: 0.05em; white-space: nowrap; }
+        #conn-bar input[type="password"] { flex: 1; min-width: 140px; max-width: 280px; background: #111122; border: 1px solid #333d5a; border-radius: 4px; color: #e2e8f0; padding: 5px 10px; font-size: 13px; outline: none; }
+        #conn-bar input:focus { border-color: #4ECDC4; }
+        #model-select { background: #111122; border: 1px solid #333d5a; border-radius: 4px; color: #e2e8f0; padding: 5px 10px; font-size: 13px; outline: none; min-width: 200px; max-width: 340px; flex: 1; }
+        #model-select:focus { border-color: #4ECDC4; }
+        #connect-btn { background: #4ECDC4; color: #0d0d1a; border: none; border-radius: 4px; padding: 5px 16px; font-size: 13px; font-weight: 700; cursor: pointer; white-space: nowrap; }
+        #connect-btn:hover { opacity: 0.85; }
+        #connect-btn:disabled { opacity: 0.5; cursor: default; }
+        #conn-status { font-size: 12px; white-space: nowrap; }
+        #conn-status.ok { color: #4ECDC4; }
+        #conn-status.error { color: #ff6b6b; }
+        #layout-wrap { flex: 1; min-height: 0; }
+        #layout-wrap sg-layout { display: block; width: 100%; height: 100%; }
+    </style>
+</head>
+<body>
+
+<script type="module" src="/components/site-header/v1/v1.0/v1.0.5/sg-site-header.js"></script>
+<sg-site-header site="Tools" home-url="../../" active-nav="Tools"></sg-site-header>
+
+<div id="conn-bar">
+    <label>OpenRouter Key</label>
+    <input type="password" id="api-key" placeholder="sk-or-v1-…" autocomplete="off" spellcheck="false">
+    <label>Model</label>
+    <select id="model-select">
+        <optgroup label="Image models">
+            <option value="google/gemini-3.1-flash-image-preview">gemini-3.1-flash-image-preview</option>
+            <option value="google/gemini-2.5-flash-image">gemini-2.5-flash-image</option>
+        </optgroup>
+        <optgroup label="Text / reasoning models" style="color:#a0aec0;">
+            <option value="anthropic/claude-haiku-4-5-20251001" selected>claude-haiku-4-5</option>
+            <option value="anthropic/claude-sonnet-4-5">claude-sonnet-4-5</option>
+            <option value="google/gemini-2.5-flash-preview">gemini-2.5-flash-preview</option>
+            <option value="google/gemini-2.0-flash-001">gemini-2.0-flash-001</option>
+            <option value="meta-llama/llama-3.3-70b-instruct">llama-3.3-70b-instruct</option>
+            <option value="mistralai/mistral-small-3.1-24b-instruct">mistral-small-3.1-24b</option>
+            <option value="deepseek/deepseek-chat-v3-0324">deepseek-chat-v3</option>
+            <option value="qwen/qwen-2.5-72b-instruct">qwen-2.5-72b</option>
+            <option value="meta-llama/llama-3.1-8b-instruct:free">llama-3.1-8b (free)</option>
+        </optgroup>
+    </select>
+    <button id="connect-btn">Connect</button>
+    <span id="conn-status"></span>
+</div>
+
+<div id="layout-wrap"></div>
+
+<script type="module">
+import { SgLayout }   from '/core/sg-layout/v0.1.0/sg-layout.js';
+import { SGL_EVENTS } from '/core/sg-layout/v0.1.0/sg-layout-events.js';
+import '/components/llm/sg-llm-events/v0/v0.1/v0.1.0/sg-llm-events.js';
+import '/components/llm/sg-llm-request/v0/v0.1/v0.1.2/sg-llm-request.js';
+import '/components/llm/sg-llm-chat-history/v0/v0.1/v0.1.8/sg-llm-chat-history.js';
+import '/components/llm/sg-llm-chat-input/v0/v0.1/v0.1.3/sg-llm-chat-input.js';
+import '/components/llm/sg-llm-stats/v0/v0.1/v0.1.1/sg-llm-stats.js';
+import { SGL_LLM } from '/components/llm/sg-llm-events/v0/v0.1/v0.1.0/sg-llm-events.js';
+
+const CHAT_MESSAGE = 'llm:chat-message'; // sg-llm-chat-input internal event (not in SGL_LLM constants)
+const STORAGE_KEY  = 'sg-multi-agent-v1';
+
+// ── Agent definitions (from team/explorer ROLE files) ─────────────────────────
+
+const AGENTS = [
+    {
+        id: 'architect', name: 'Architect', avatar: '🏛',
+        role: 'Module API design, dependency management, versioning strategy',
+        systemPrompt: `You are the Architect for the sgraph_ai_tools__static project — the canonical component library and tool platform for the SGraph ecosystem at tools.sgraph.ai.
+
+Your responsibilities:
+1. Module API design — define clean, minimal APIs for each core module (crypto, SSH, LLM, video)
+2. Dependency management — ensure modules have zero cross-dependencies where possible; document import chains
+3. Versioning strategy — folder-based versioning, pinned vs latest, migration paths
+4. Three-tier enforcement — ensure core/ has no UI, components/ has no business logic, tools/ are thin compositions
+5. CDN serving design — URL structure, cache headers, CORS policy
+6. Component portability — design modules so they can be extracted to their own repos in the future
+
+Key architecture decisions already made:
+- tools.sgraph.ai is the canonical source, not a consumer (dependency inversion)
+- Three-tier structure: core/ (pure JS), components/ (UI), tools/ (standalone pages)
+- Folder-based versioning (no package manager): core/crypto/v1.0.0/
+- ES modules with named exports only — no build step, every file deployable as-is
+
+Respond as a thoughtful technical architect. Be precise and opinionated about design decisions. Push back on approaches that violate the architecture principles.`,
+    },
+    {
+        id: 'dev', name: 'Dev', avatar: '⚙️',
+        role: 'Implementation, module extraction, tool building, testing',
+        systemPrompt: `You are the Developer (Dev) for the sgraph_ai_tools__static project — the canonical component library and tool platform for the SGraph ecosystem at tools.sgraph.ai.
+
+Your responsibilities:
+1. Extract modules — pull shared JS from send/vault repos into core/ as clean ES modules
+2. Build tools — implement standalone browser-based tools (SSH keygen, video splitter, LLM client)
+3. Create components — build reusable UI components (header, footer, upload dropzone)
+4. Write tests — browser-based manual tests and automated verification where possible
+5. Follow conventions — vanilla JS, ES modules, named exports, JSDoc, no build step
+
+Non-negotiable coding rules:
+- Vanilla JS only. No React, no Vue, no frameworks.
+- ES modules: import/export only. No CommonJS.
+- Named exports. No default exports.
+- JSDoc on every exported function.
+- No build step — every file deployable as-is.
+- No localStorage in core modules.
+
+Respond as a pragmatic, quality-focused developer. Give concrete code examples. Flag technical debt and anti-patterns when you see them.`,
+    },
+    {
+        id: 'designer', name: 'Designer', avatar: '🎨',
+        role: 'Consistent tool UX, shared styling, landing page design',
+        systemPrompt: `You are the Designer for the sgraph_ai_tools__static project — the canonical component library and tool platform for the SGraph ecosystem at tools.sgraph.ai.
+
+Your responsibilities:
+1. Consistent styling — define shared CSS variables, typography, and colour scheme across all tools
+2. Landing page — design the tools.sgraph.ai directory page
+3. Tool layouts — consistent header/footer, privacy badge, responsive design
+4. Component styling — CSS for shared components (upload dropzone, file preview, etc.)
+5. Accessibility — ensure tools are keyboard navigable and screen reader friendly
+
+Design principles:
+- Privacy-first visual language — every tool shows "All processing happens in your browser"
+- SGraph brand consistency — dark navy background (#0d0d1a), teal accent (#4ECDC4), clean typography
+- Simple, functional — tools are utilities, not showcases. Clean, minimal UI.
+- Responsive — primarily desktop but should not break on mobile
+
+Respond as a thoughtful designer who balances aesthetics with usability. Consider accessibility, consistency, and the privacy-first brand values in all recommendations.`,
+    },
+    {
+        id: 'devops', name: 'DevOps', avatar: '🚀',
+        role: 'CI/CD pipelines, S3 deployment, CloudFront config',
+        systemPrompt: `You are the DevOps engineer for the sgraph_ai_tools__static project — the canonical component library and tool platform for the SGraph ecosystem at tools.sgraph.ai.
+
+Your responsibilities:
+1. CI/CD pipeline — GitHub Actions: per-module change detection, deploy to S3
+2. S3 deployment — static site hosting, folder-based versioning
+3. CloudFront config — CDN distribution, cache headers, CORS
+4. Cache headers — immutable for pinned versions, 5-min for latest
+5. Local dev — simple static file server for testing
+
+Deployment architecture:
+- GitHub Actions detects which module changed and deploys only changed files to S3
+- S3 bucket: tools.sgraph.ai — static website hosting matching repo folder structure
+- CloudFront: Cache-Control: max-age=31536000,immutable for pinned; max-age=300 for latest
+- Local dev: python3 -m http.server 8080 — no dependencies needed
+
+Respond as a reliability-focused DevOps engineer. Prioritise stability, cache correctness, and minimal deployment surface area.`,
+    },
+    {
+        id: 'historian', name: 'Historian', avatar: '📚',
+        role: 'Decision tracking, session history, cross-reference',
+        systemPrompt: `You are the Historian for the sgraph_ai_tools__static project — the canonical component library and tool platform for the SGraph ecosystem at tools.sgraph.ai.
+
+Your responsibilities:
+1. Decision log — record architectural and design decisions with rationale
+2. Session tracking — note what was attempted, what succeeded, what failed
+3. Cross-reference — link decisions back to briefs and earlier sessions
+
+Key decisions already recorded:
+- Separate repo for tools: dependency inversion — tools is the source, not a consumer
+- Three-tier structure: separation of concerns (pure logic / UI components / tool pages)
+- Folder-based versioning: no package manager needed; proven pattern in SGraph
+- Vanilla JS only: no framework lock-in; works everywhere; no build step
+- Named exports only: easier to tree-shake and document
+- CDN-served imports: all *.sgraph.ai on CloudFront; immutable pinned versions
+- Client-side only tools: zero-knowledge principle; traffic acquisition via SEO
+
+Respond as a thoughtful chronicler. Help the team understand why decisions were made, what was tried before, and what context is important for understanding the current state of the project.`,
+    },
+    {
+        id: 'librarian', name: 'Librarian', avatar: '📖',
+        role: 'Reality document, knowledge base, briefing pack, module registry',
+        systemPrompt: `You are the Librarian for the sgraph_ai_tools__static project — the canonical component library and tool platform for the SGraph ecosystem at tools.sgraph.ai.
+
+Your responsibilities:
+1. Reality document — maintain team/explorer/librarian/reality/ with code-verified inventory
+2. Briefing pack — maintain briefs/BRIEF_PACK.md as the session bootstrap document
+3. Module registry — track all modules, their versions, exports, and status
+4. Knowledge base — ensure conventions, role definitions, and practices are accessible
+5. Document verification — confirm claims in briefs/debriefs match what exists in code
+
+Core rule: If the reality document doesn't list it, it does not exist. Proposed features must be labelled "PROPOSED — does not exist yet."
+
+The project has three tiers: core/ (pure JS, no UI), components/ (reusable UI), tools/ (standalone pages). Current modules include: sg-crypto, sg-ssh, sg-layout, sg-video, sg-image, and the sg-llm component family (request, chat-history, chat-input, stats, bundle, reality, infographic, model-picker, response-inspector, token-viz, attachment-manager, debug).
+
+Respond as a careful, precise librarian. Always distinguish between what exists vs what is proposed. Help the team maintain accurate records and avoid confusion between aspirations and reality.`,
+    },
+];
+
+// ── LocalStorage helpers ──────────────────────────────────────────────────────
+
+function loadPrefs() { try { return JSON.parse(localStorage.getItem(STORAGE_KEY) || '{}'); } catch { return {}; } }
+function savePrefs(p) { localStorage.setItem(STORAGE_KEY, JSON.stringify({ ...loadPrefs(), ...p })); }
+
+// ── DOM refs ──────────────────────────────────────────────────────────────────
+
+const apiKeyEl   = document.getElementById('api-key');
+const modelSel   = document.getElementById('model-select');
+const connectBtn = document.getElementById('connect-btn');
+const statusEl   = document.getElementById('conn-status');
+const layoutWrap = document.getElementById('layout-wrap');
+
+function setStatus(text, type) { statusEl.textContent = text; statusEl.className = type; }
+
+// ── Restore saved prefs ───────────────────────────────────────────────────────
+
+const prefs = loadPrefs();
+if (prefs.apiKey) apiKeyEl.value = prefs.apiKey;
+if (prefs.model)  { for (const o of modelSel.options) { if (o.value === prefs.model) { o.selected = true; break; } } }
+
+// ── Outer sg-layout ───────────────────────────────────────────────────────────
+
+const layout = document.createElement('sg-layout');
+layoutWrap.appendChild(layout);
+const outerReady = new Promise(r => layout.events.on(SGL_EVENTS.LAYOUT_READY, r));
+layout.setLayout({
+    type: 'row', id: 'root', sizes: [0.22, 0.78],
+    children: [
+        { type: 'stack', id: 's-picker', activeTab: 0,
+          tabs: [{ type: 'tab', id: 't-picker', title: 'Agents', tag: 'div', locked: true, closable: false }] },
+        { type: 'stack', id: 's-agents', activeTab: 0,
+          tabs: [{ type: 'tab', id: 't-placeholder', title: 'Welcome', tag: 'div', locked: true, closable: false }] },
+    ],
+});
+await outerReady;
+
+const pickerPanel      = layout.getPanelElement('t-picker');
+const placeholderPanel = layout.getPanelElement('t-placeholder');
+
+// ── Placeholder panel ─────────────────────────────────────────────────────────
+
+placeholderPanel.style.cssText = 'height:100%;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:14px;background:#0d0d1a;font-family:system-ui,sans-serif;padding:40px;box-sizing:border-box;text-align:center;';
+placeholderPanel.innerHTML = `
+  <div style="font-size:22px;font-weight:700;color:#e2e8f0;">🤖 Multi-Agent Chat</div>
+  <div style="font-size:14px;color:#718096;max-width:400px;line-height:1.7;">
+    Open an agent from the <strong style="color:#a0aec0;">Agents</strong> panel on the left.
+    Each agent runs with their full role definition as the system prompt.
+  </div>
+  <div style="font-size:13px;color:#4a5568;max-width:400px;line-height:1.8;text-align:left;">
+    <strong style="color:#a0aec0;">Multi-Ask:</strong> type a question in the broadcast bar and send it to all open agents at once.<br>
+    <strong style="color:#a0aec0;">Compare:</strong> drag tabs side by side to compare responses.
+  </div>
+`;
+
+// ── Track open agents ─────────────────────────────────────────────────────────
+// agentId → { agent, bus, tabId }
+
+const openAgents = new Map();
+
+// ── Per-agent panel factory ───────────────────────────────────────────────────
+
+let panelCounter = 0;
+
+async function openAgent(agent) {
+    // Only one panel per agent
+    if (openAgents.has(agent.id)) {
+        layout.activateTab(openAgents.get(agent.id).tabId);
+        return;
+    }
+
+    const pid    = ++panelCounter;
+    const tabId  = layout.addTabToStack('s-agents', {
+        tag: 'div', title: `${agent.avatar} ${agent.name}`,
+    });
+    const panelEl = layout.getPanelElement(tabId);
+    panelEl.style.cssText = 'overflow:hidden;height:100%;display:block;';
+
+    // Per-agent bus (isolated event scope)
+    const bus = document.createElement('div');
+    bus.setAttribute('data-llm-bus', '');
+    bus.style.cssText = 'display:flex;flex-direction:column;height:100%;overflow:hidden;';
+    panelEl.appendChild(bus);
+
+    // Headless request engine (inside bus)
+    const req = document.createElement('sg-llm-request');
+    req.style.display = 'none';
+    bus.appendChild(req);
+
+    // Inner layout: chat column (left) | stats (right)
+    const inner = document.createElement('sg-layout');
+    inner.style.cssText = 'flex:1;min-height:0;display:block;overflow:hidden;';
+    bus.appendChild(inner);
+
+    const innerReady = new Promise(r => inner.events.on(SGL_EVENTS.LAYOUT_READY, r));
+    inner.setLayout({
+        type: 'row', id: `r${pid}`, sizes: [0.75, 0.25],
+        children: [
+            {
+                type: 'column', id: `cc${pid}`, sizes: [0.8, 0.2],
+                children: [
+                    { type: 'stack', id: `sh${pid}`, activeTab: 0,
+                      tabs: [{ type: 'tab', id: `th${pid}`, title: 'Chat', tag: 'div', locked: true, closable: false }] },
+                    { type: 'stack', id: `si${pid}`, activeTab: 0,
+                      tabs: [{ type: 'tab', id: `ti${pid}`, title: 'Input', tag: 'div', locked: true, closable: false }] },
+                ],
+            },
+            { type: 'stack', id: `ss${pid}`, activeTab: 0,
+              tabs: [{ type: 'tab', id: `ts${pid}`, title: 'Stats', tag: 'div', locked: false, closable: true }] },
+        ],
+    });
+    await innerReady;
+
+    // Mount components into panels
+    const histPanel  = inner.getPanelElement(`th${pid}`);
+    const inputPanel = inner.getPanelElement(`ti${pid}`);
+    const statsPanel = inner.getPanelElement(`ts${pid}`);
+
+    histPanel.style.cssText  = 'height:100%;overflow:hidden;display:block;';
+    inputPanel.style.cssText = 'height:100%;overflow:hidden;display:block;';
+    statsPanel.style.cssText = 'height:100%;overflow:hidden;display:block;';
+
+    const chatHistory = document.createElement('sg-llm-chat-history');
+    chatHistory.style.cssText = 'height:100%;display:block;overflow:hidden;';
+    histPanel.appendChild(chatHistory);
+
+    const chatInput = document.createElement('sg-llm-chat-input');
+    chatInput.style.cssText = 'height:100%;display:block;';
+    inputPanel.appendChild(chatInput);
+
+    // Stats panel: agent info header + sg-llm-stats
+    statsPanel.style.background = '#0a0a18';
+    const agentHeader = document.createElement('div');
+    agentHeader.style.cssText = 'padding:10px 12px;border-bottom:1px solid #1a1a3a;font-family:system-ui,sans-serif;flex-shrink:0;';
+    agentHeader.innerHTML = `
+      <div style="font-size:18px;margin-bottom:2px;">${agent.avatar}</div>
+      <div style="font-size:13px;font-weight:700;color:#e2e8f0;">${agent.name}</div>
+      <div style="font-size:11px;color:#718096;line-height:1.4;margin-top:2px;">${agent.role}</div>
+    `;
+    statsPanel.appendChild(agentHeader);
+
+    const stats = document.createElement('sg-llm-stats');
+    stats.style.cssText = 'flex:1;display:block;overflow:auto;min-height:0;';
+    statsPanel.style.cssText = 'height:100%;overflow:hidden;display:flex;flex-direction:column;background:#0a0a18;';
+    statsPanel.appendChild(stats);
+
+    // Set system prompt once chat-history is defined and connected
+    await customElements.whenDefined('sg-llm-chat-history');
+    await new Promise(r => setTimeout(r, 0)); // allow connectedCallback
+    chatHistory.setSystemPrompt?.(agent.systemPrompt);
+
+    // Connect to current model/key
+    const apiKey = apiKeyEl.value.trim();
+    const model  = modelSel.value;
+    if (apiKey) {
+        bus.dispatchEvent(new CustomEvent(SGL_LLM.CONNECTED, {
+            detail: { provider: 'openrouter', model, apiKey, baseUrl: '' },
+        }));
+    }
+
+    openAgents.set(agent.id, { agent, bus, tabId });
+    updateBroadcastBtn();
+}
+
+// ── Agent Picker panel ────────────────────────────────────────────────────────
+
+pickerPanel.style.cssText = 'height:100%;display:flex;flex-direction:column;overflow:hidden;background:#0a0a18;font-family:system-ui,sans-serif;';
+
+const pickerHeader = document.createElement('div');
+pickerHeader.style.cssText = 'padding:10px 12px 6px;border-bottom:1px solid #1a1a3a;flex-shrink:0;';
+pickerHeader.innerHTML = `<div style="font-size:11px;font-weight:600;color:#a0aec0;text-transform:uppercase;letter-spacing:0.05em;">Explorer Team</div>`;
+pickerPanel.appendChild(pickerHeader);
+
+const agentList = document.createElement('div');
+agentList.style.cssText = 'flex:1;overflow-y:auto;padding:6px;display:flex;flex-direction:column;gap:4px;min-height:0;';
+pickerPanel.appendChild(agentList);
+
+AGENTS.forEach(agent => {
+    const card = document.createElement('div');
+    card.style.cssText = [
+        'display:flex', 'align-items:center', 'gap:8px',
+        'padding:7px 8px', 'border-radius:6px', 'cursor:pointer',
+        'border:1px solid #1a1a3a', 'background:#0d0d1a',
+        'transition:border-color 0.15s',
+    ].join(';');
+
+    card.innerHTML = `
+      <span style="font-size:18px;flex-shrink:0;">${agent.avatar}</span>
+      <div style="flex:1;min-width:0;">
+        <div style="font-size:13px;font-weight:600;color:#e2e8f0;">${agent.name}</div>
+        <div style="font-size:11px;color:#4a5568;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${agent.role}</div>
+      </div>
+      <button data-open style="background:#1a1a3a;border:1px solid #333d5a;border-radius:4px;color:#4ECDC4;padding:3px 9px;font-size:11px;cursor:pointer;white-space:nowrap;font-weight:600;">Open</button>
+    `;
+
+    card.querySelector('[data-open]').addEventListener('click', e => {
+        e.stopPropagation();
+        openAgent(agent);
+        card.style.borderColor = '#4ECDC4';
+    });
+    card.addEventListener('click', () => {
+        if (openAgents.has(agent.id)) layout.activateTab(openAgents.get(agent.id).tabId);
+    });
+
+    agentList.appendChild(card);
+});
+
+// ── Broadcast / Multi-Ask section ─────────────────────────────────────────────
+
+const broadcastSection = document.createElement('div');
+broadcastSection.style.cssText = [
+    'flex-shrink:0', 'border-top:1px solid #1a1a3a', 'background:#0d0d1a',
+    'display:flex', 'flex-direction:column', 'gap:6px', 'padding:8px',
+].join(';');
+
+const broadcastLabel = document.createElement('div');
+broadcastLabel.style.cssText = 'font-size:11px;font-weight:600;color:#718096;text-transform:uppercase;letter-spacing:0.05em;';
+broadcastLabel.textContent = 'Multi-Ask — Broadcast to all';
+
+const broadcastTextarea = document.createElement('textarea');
+broadcastTextarea.placeholder = 'Ask all open agents the same question…';
+broadcastTextarea.rows = 3;
+broadcastTextarea.style.cssText = [
+    'resize:none', 'width:100%', 'box-sizing:border-box',
+    'background:#111122', 'border:1px solid #333d5a', 'border-radius:4px',
+    'color:#e2e8f0', 'padding:7px 8px', 'font-size:12px', 'line-height:1.5',
+    'outline:none', 'font-family:system-ui,sans-serif',
+].join(';');
+broadcastTextarea.addEventListener('focus', () => broadcastTextarea.style.borderColor = '#4ECDC4');
+broadcastTextarea.addEventListener('blur',  () => broadcastTextarea.style.borderColor = '#333d5a');
+
+const broadcastBtn = document.createElement('button');
+broadcastBtn.innerHTML = '&#9658; Broadcast';
+broadcastBtn.style.cssText = [
+    'background:#1d4ed8', 'border:none', 'border-radius:6px', 'color:#fff',
+    'padding:7px 0', 'font-size:13px', 'font-weight:600', 'cursor:pointer',
+    'width:100%', 'opacity:0.4',
+].join(';');
+broadcastBtn.disabled = true;
+
+broadcastBtn.addEventListener('click', () => {
+    const text = broadcastTextarea.value.trim();
+    if (!text || openAgents.size === 0) return;
+    for (const { bus } of openAgents.values()) {
+        bus.dispatchEvent(new CustomEvent(CHAT_MESSAGE, {
+            detail: { text, attachments: [] },
+            bubbles: true,
+        }));
+    }
+    broadcastTextarea.value = '';
+});
+
+// Ctrl+Enter in broadcast textarea
+broadcastTextarea.addEventListener('keydown', e => {
+    if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) broadcastBtn.click();
+});
+
+broadcastSection.appendChild(broadcastLabel);
+broadcastSection.appendChild(broadcastTextarea);
+broadcastSection.appendChild(broadcastBtn);
+pickerPanel.appendChild(broadcastSection);
+
+function updateBroadcastBtn() {
+    const hasAgents = openAgents.size > 0;
+    broadcastBtn.disabled = !hasAgents;
+    broadcastBtn.style.opacity = hasAgents ? '1' : '0.4';
+    broadcastLabel.textContent = openAgents.size > 1
+        ? `Multi-Ask — Broadcast to all (${openAgents.size})`
+        : 'Multi-Ask — Broadcast to all';
+}
+
+// ── Connect handler ───────────────────────────────────────────────────────────
+
+connectBtn.addEventListener('click', async () => {
+    const apiKey = apiKeyEl.value.trim();
+    const model  = modelSel.value;
+    if (!apiKey) { setStatus('OpenRouter key required', 'error'); return; }
+
+    setStatus('Connecting…', '');
+    connectBtn.disabled = true;
+
+    try {
+        const res = await fetch('https://openrouter.ai/api/v1/models', {
+            headers: { Authorization: `Bearer ${apiKey}` },
+        });
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+
+        savePrefs({ apiKey, model });
+        setStatus(`Connected ✓  (${model.split('/').pop()})`, 'ok');
+
+        // Re-connect all open agent buses with new credentials
+        const connDetail = { provider: 'openrouter', model, apiKey, baseUrl: '' };
+        for (const { bus } of openAgents.values()) {
+            bus.dispatchEvent(new CustomEvent(SGL_LLM.CONNECTED, { detail: connDetail }));
+        }
+    } catch (err) {
+        setStatus(`Error: ${err.message}`, 'error');
+    }
+    connectBtn.disabled = false;
+});
+
+// Auto-connect on load if key was previously saved
+if (prefs.apiKey) connectBtn.click();
+
+// Re-connect + save when model changes
+modelSel.addEventListener('change', () => {
+    savePrefs({ model: modelSel.value });
+    if (apiKeyEl.value.trim()) connectBtn.click();
+});
+
+</script>
+</body>
+</html>

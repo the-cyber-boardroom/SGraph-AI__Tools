@@ -1,0 +1,151 @@
+/* =============================================================================
+   SGraph — Site Header Component Styles
+   v1.0.5 — Plain text logo matching SG/Send header (no inline SVG favicon)
+
+   Matches the sgraph.ai website header (Aurora theme).
+   Changes from v1.0.5:
+     - Removed inline SVG favicon from logo area; logo is now plain text only,
+       matching the SG/Send header at sgraph.ai.
+   ============================================================================= */
+
+:host {
+    display: block;
+}
+
+.site-header {
+    position: sticky;
+    top: 0;
+    z-index: 100;
+    background-color: var(--sg-bg, #1A1A2E);
+    border-bottom: 1px solid var(--sg-border, #2C3E6B);
+    padding: var(--sg-sp-4, 16px) 0;
+}
+
+/* Teal accent line under header */
+.site-header::after {
+    content: '';
+    display: block;
+    position: absolute;
+    bottom: -2px;
+    left: 0;
+    right: 0;
+    height: 2px;
+    background: linear-gradient(90deg, var(--sg-accent, #4ECDC4), var(--sg-accent-hover, #3DB8B0));
+    opacity: 0.6;
+}
+
+.site-header__container {
+    display: flex;
+    align-items: center;
+    gap: var(--sg-sp-6, 24px);
+    max-width: 1200px;
+    margin: 0 auto;
+    padding: 0 var(--sg-sp-6, 24px);
+}
+
+/* ── Logo ──────────────────────────────────────────────────────────────── */
+
+.site-header__logo {
+    font-size: 1.5rem;
+    text-decoration: none;
+    display: flex;
+    align-items: center;
+    gap: 2px;
+    flex-shrink: 0;
+}
+
+.site-header__logo:hover {
+    text-decoration: none;
+}
+
+.brand-prefix {
+    font-family: var(--sg-font-display, 'DM Sans', system-ui, sans-serif);
+    font-weight: var(--sg-fw-bold, 700);
+    color: var(--sg-accent, #4ECDC4);
+}
+
+.brand-slash {
+    font-family: var(--sg-font-display, 'DM Sans', system-ui, sans-serif);
+    font-weight: var(--sg-fw-regular, 400);
+    color: var(--sg-text-muted, #8892A0);
+}
+
+.brand-product {
+    font-family: var(--sg-font-display, 'DM Sans', system-ui, sans-serif);
+    font-weight: var(--sg-fw-bold, 700);
+    color: var(--sg-text-heading, #FFFFFF);
+}
+
+/* ── Navigation ────────────────────────────────────────────────────────── */
+
+.site-header__nav {
+    display: flex;
+    align-items: center;
+    gap: var(--sg-sp-6, 24px);
+}
+
+.site-header__nav a {
+    color: var(--sg-text-muted, #8892A0);
+    font-family: var(--sg-font-body, system-ui, sans-serif);
+    font-weight: var(--sg-fw-medium, 500);
+    font-size: 0.95rem;
+    text-decoration: none;
+    transition: color var(--sg-transition-fast, 150ms ease);
+    white-space: nowrap;
+}
+
+.site-header__nav a:hover,
+.site-header__nav a.active {
+    color: var(--sg-text-heading, #FFFFFF);
+}
+
+/* ── Mobile Toggle ─────────────────────────────────────────────────────── */
+
+.site-header__toggle {
+    display: none;
+    background: none;
+    border: none;
+    color: var(--sg-text-heading, #FFFFFF);
+    font-size: 1.5rem;
+    cursor: pointer;
+    padding: var(--sg-sp-2, 8px);
+}
+
+/* ── Locale Slot ───────────────────────────────────────────────────────── */
+
+.site-header__locale {
+    margin-left: auto;
+    flex-shrink: 0;
+    display: flex;
+    align-items: center;
+}
+
+/* ── Mobile Responsive ─────────────────────────────────────────────────── */
+
+@media (max-width: 768px) {
+    .site-header__toggle {
+        display: block;
+    }
+
+    .site-header__nav {
+        display: none;
+        position: absolute;
+        top: 100%;
+        left: 0;
+        right: 0;
+        flex-direction: column;
+        background-color: var(--sg-bg, #1A1A2E);
+        border-bottom: 1px solid var(--sg-border, #2C3E6B);
+        padding: var(--sg-sp-6, 24px);
+        gap: var(--sg-sp-4, 16px);
+        z-index: 99;
+    }
+
+    .site-header__nav.is-open {
+        display: flex;
+    }
+
+    .site-header__locale {
+        margin-left: 0;
+    }
+}
