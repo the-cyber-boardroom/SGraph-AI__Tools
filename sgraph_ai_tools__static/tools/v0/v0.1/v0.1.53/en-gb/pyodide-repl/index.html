@@ -1,0 +1,439 @@
+<!DOCTYPE html>
+<html lang="en-GB">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Python REPL — tools.sgraph.ai</title>
+    <meta name="description" content="Interactive Python console running entirely in your browser via Pyodide (CPython in WebAssembly). No installation required.">
+    <link rel="icon" type="image/svg+xml" href="../../_common/favicon.svg">
+    <link rel="stylesheet" href="../../_common/css/tools.css">
+    <style>
+        .main {
+            flex: 1;
+            max-width: 900px;
+            margin: 0 auto;
+            padding: 2rem 1.5rem;
+            width: 100%;
+        }
+
+        h1 { font-size: 1.5rem; margin-bottom: 0.5rem; }
+
+        .subtitle {
+            color: var(--sg-text-muted);
+            font-size: 0.9375rem;
+            margin-bottom: 2rem;
+            line-height: 1.5;
+        }
+
+        .badge--experimental {
+            background: rgba(255,193,7,0.15);
+            color: #ffc107;
+            font-size: 0.6875rem;
+            font-weight: 600;
+            padding: 0.125rem 0.5rem;
+            border-radius: var(--sg-radius-pill);
+            margin-left: 0.5rem;
+            vertical-align: middle;
+        }
+
+        .section {
+            background: var(--sg-bg-card);
+            border: 1px solid var(--sg-border);
+            border-radius: var(--sg-radius);
+            padding: 1.5rem;
+            margin-bottom: 1.5rem;
+        }
+
+        .section h2 {
+            font-size: 1rem;
+            margin-bottom: 0.75rem;
+        }
+
+        /* ---------- Terminal ---------- */
+        .terminal {
+            font-family: var(--sg-font-mono);
+            font-size: 0.8125rem;
+            line-height: 1.8;
+            min-height: 200px;
+            max-height: 500px;
+            overflow-y: auto;
+            background: var(--sg-bg-secondary, #16213E);
+            border: 1px solid var(--sg-border);
+            border-radius: var(--sg-radius);
+            padding: 0.75rem;
+        }
+
+        .term-line          { color: var(--sg-text-muted); white-space: pre-wrap; word-break: break-all; }
+        .term-line.input    { color: var(--sg-text); }
+        .term-line.output   { color: var(--sg-accent); }
+        .term-line.error    { color: var(--sg-error); }
+        .term-line.warn     { color: #ffc107; }
+        .term-line.info     { color: var(--sg-text-dim); }
+
+        .input-area {
+            display: flex;
+            gap: 0.5rem;
+            margin-top: 0.5rem;
+            align-items: flex-end;
+        }
+
+        .input-area textarea {
+            flex: 1;
+            background: var(--sg-bg-secondary, #16213E);
+            color: var(--sg-text);
+            border: 1px solid var(--sg-border);
+            border-radius: var(--sg-radius);
+            padding: 0.625rem 0.75rem;
+            font-family: var(--sg-font-mono);
+            font-size: 0.8125rem;
+            resize: vertical;
+            outline: none;
+            min-height: 2.5rem;
+        }
+
+        .input-area textarea:focus { border-color: var(--sg-accent); }
+        .input-area textarea::placeholder { color: var(--sg-text-dim); }
+
+        .input-hint {
+            color: var(--sg-text-dim);
+            font-size: 0.6875rem;
+            margin-top: 0.375rem;
+        }
+
+        /* ---------- Package chips ---------- */
+        .pkg-chips {
+            display: flex;
+            gap: 0.5rem;
+            flex-wrap: wrap;
+            margin-top: 0.75rem;
+        }
+
+        .pkg-chip {
+            font-size: 0.75rem;
+            padding: 0.25rem 0.625rem;
+            border-radius: var(--sg-radius-pill);
+            border: 1px solid var(--sg-border);
+            background: transparent;
+            color: var(--sg-text-muted);
+            cursor: pointer;
+            transition: border-color 150ms, color 150ms;
+        }
+
+        .pkg-chip:hover { border-color: var(--sg-accent); color: var(--sg-accent); }
+        .pkg-chip.installed { border-color: var(--sg-accent); color: var(--sg-accent); background: rgba(78,205,196,0.08); }
+        .pkg-chip.failed    { border-color: var(--sg-error);  color: var(--sg-error); }
+        .pkg-chip.loading   { opacity: 0.5; pointer-events: none; }
+
+        .spinner {
+            display: inline-block;
+            width: 14px; height: 14px;
+            border: 2px solid var(--sg-border);
+            border-top-color: var(--sg-accent);
+            border-radius: 50%;
+            animation: spin 0.6s linear infinite;
+            vertical-align: middle;
+            margin-right: 0.5rem;
+        }
+
+        @keyframes spin { to { transform: rotate(360deg); } }
+
+        .info-box {
+            margin-top: 2rem;
+            padding: 1rem;
+            background: rgba(78,205,196,0.05);
+            border: 1px solid var(--sg-border);
+            border-radius: var(--sg-radius);
+        }
+
+        .info-box h3 { font-size: 0.875rem; margin-bottom: 0.5rem; color: var(--sg-accent); }
+        .info-box p  { color: var(--sg-text-muted); font-size: 0.8125rem; line-height: 1.6; }
+        .info-box ul { color: var(--sg-text-muted); font-size: 0.8125rem; line-height: 1.8; padding-left: 1.25rem; margin-top: 0.5rem; }
+    </style>
+</head>
+<body>
+    <script type="module" src="/components/site-header/v1/v1.0/v1.0.5/sg-site-header.js"></script>
+    <script type="module" src="/components/locale-picker/v1/v1.0/v1.0.1/sg-locale-picker.js"></script>
+    <sg-site-header         site="Tools"
+        home-url="/en-gb/" active-nav="Tools">
+        <sg-locale-picker slot="locale" locale="en-gb" base-path="/"></sg-locale-picker>
+    </sg-site-header>
+
+    <script type="module">
+        import { buildToolsNav } from '../../_common/js/sg-nav.js'
+        document.querySelector('sg-site-header').whenReady().then(() => {
+            buildToolsNav(document.querySelector('sg-site-header'))
+        }).catch(() => {
+            buildToolsNav(document.querySelector('sg-site-header'))
+        })
+    </script>
+
+    <div class="main">
+        <h1>Python REPL <span class="badge--experimental">Pyodide</span></h1>
+        <p class="subtitle">
+            Interactive Python console running entirely in your browser.
+            CPython compiled to WebAssembly via Pyodide — no installation, no server, no data leaves your machine.
+        </p>
+
+        <!-- Load + Console -->
+        <div class="section">
+            <h2>Console</h2>
+            <p style="color:var(--sg-text-muted);font-size:0.8125rem;margin-bottom:0.75rem;">
+                Click <strong>Start Python</strong> to download the Pyodide runtime (~20 MB, cached after first load).
+            </p>
+            <button class="btn" id="load-btn">Start Python</button>
+
+            <div id="terminal" class="terminal" style="display:none;"></div>
+
+            <div class="input-area" id="input-area" style="display:none;">
+                <textarea id="code-input" rows="2" placeholder=">>> Type Python code here (Shift+Enter to run)"></textarea>
+                <button class="btn" id="run-btn" style="height:fit-content;">Run</button>
+            </div>
+            <p class="input-hint" id="input-hint" style="display:none;">
+                Shift+Enter to run &nbsp;|&nbsp; Enter for newline &nbsp;|&nbsp;
+                Up/Down arrows to recall history
+            </p>
+        </div>
+
+        <!-- Package installer -->
+        <div class="section" id="section-packages" style="opacity:0.5;pointer-events:none;">
+            <h2>Install Packages</h2>
+            <p style="color:var(--sg-text-muted);font-size:0.8125rem;margin-bottom:0.5rem;">
+                Click a package to install it via micropip. Most pure-Python PyPI packages work.
+            </p>
+            <div class="pkg-chips" id="pkg-chips">
+                <button class="pkg-chip" data-pkg="pydantic">pydantic</button>
+                <button class="pkg-chip" data-pkg="cryptography">cryptography</button>
+                <button class="pkg-chip" data-pkg="httpx">httpx</button>
+                <button class="pkg-chip" data-pkg="pyyaml">pyyaml</button>
+                <button class="pkg-chip" data-pkg="attrs">attrs</button>
+                <button class="pkg-chip" data-pkg="rich">rich</button>
+            </div>
+            <div class="input-area" style="margin-top:0.75rem;">
+                <input type="text" id="custom-pkg" placeholder="Or type a package name..." style="flex:1;background:var(--sg-bg-secondary,#16213E);color:var(--sg-text);border:1px solid var(--sg-border);border-radius:var(--sg-radius);padding:0.5rem 0.75rem;font-family:var(--sg-font-mono);font-size:0.8125rem;outline:none;">
+                <button class="btn btn--secondary" id="install-custom-btn">Install</button>
+            </div>
+        </div>
+
+        <div class="info-box">
+            <h3>What Can You Do?</h3>
+            <p>This is a full CPython interpreter running in WebAssembly. You can:</p>
+            <ul>
+                <li>Explore the Python standard library (json, hashlib, hmac, os, sys, ...)</li>
+                <li>Install and test PyPI packages (pydantic, cryptography, httpx, ...)</li>
+                <li>Run data validation experiments with Pydantic models</li>
+                <li>Test crypto operations (PBKDF2, AES, HMAC, hashing)</li>
+                <li>Prototype code without installing anything on your machine</li>
+            </ul>
+            <p style="margin-top:0.75rem;">
+                For vault-specific operations, see the
+                <a href="../sg-send-cli/" style="color:var(--sg-accent);">SG/Send CLI</a> tool
+                or the <a href="../vault-pyodide/" style="color:var(--sg-accent);">Vault (Pyodide)</a> comparison tool.
+            </p>
+        </div>
+    </div>
+
+    <script type="module" src="/components/site-footer/v1/v1.0/v1.0.0/sg-site-footer.js"></script>
+    <sg-site-footer
+        brand-desc="Free browser-based tools that run entirely on your device. No uploads, no servers, no tracking."
+        columns='[{"title":"Tools","links":[{"label":"Python REPL","href":"./"},{"label":"SG/Send CLI","href":"../sg-send-cli/"},{"label":"All Tools","href":"/en-gb/"}]},{"title":"SGraph","links":[{"label":"sgraph.ai","href":"https://sgraph.ai/en-gb/"},{"label":"send.sgraph.ai","href":"https://send.sgraph.ai"},{"label":"GitHub","href":"https://github.com/the-cyber-boardroom/SGraph-AI__Tools"}]}]'>
+    </sg-site-footer>
+
+    <script src="../../_common/js/build-info.js"></script>
+    <div id="build-version" style="text-align:center;color:var(--sg-text-dim, #4a5568);font-size:0.7rem;padding:8px 0;opacity:0.6;background:var(--sg-bg-secondary, #16213E);"></div>
+    <script>
+        (function() {
+            var b = window.SGRAPH_BUILD || { appVersion: 'v0.1.0', uiVersion: 'v0.1.3' };
+            var el = document.getElementById('build-version');
+            if (el) el.textContent = b.appVersion + '  \u00b7  UI ' + b.uiVersion + (b.buildTime ? '  \u00b7  ' + b.buildTime : '');
+        })();
+    </script>
+
+    <script type="module">
+        import {
+            loadPyodide   as loadPyodideRuntime,
+            installPackages,
+            runPythonCapture
+        } from '/core/pyodide/v1/v1.0/v1.0.0/sg-pyodide.js'
+
+        const loadBtn       = document.getElementById('load-btn')
+        const terminal      = document.getElementById('terminal')
+        const inputArea     = document.getElementById('input-area')
+        const inputHint     = document.getElementById('input-hint')
+        const codeInput     = document.getElementById('code-input')
+        const runBtn        = document.getElementById('run-btn')
+        const sectionPkgs   = document.getElementById('section-packages')
+        const pkgChips      = document.getElementById('pkg-chips')
+        const customPkgInput = document.getElementById('custom-pkg')
+        const installCustomBtn = document.getElementById('install-custom-btn')
+
+        let pyodide = null
+        let cmdHistory = []
+        let historyIdx = -1
+
+        // --- Load Pyodide ---
+        loadBtn.addEventListener('click', async () => {
+            loadBtn.disabled = true
+            loadBtn.innerHTML = '<span class="spinner"></span>Loading...'
+            terminal.style.display = 'block'
+
+            try {
+                pyodide = await loadPyodideRuntime({
+                    onProgress: ({ detail }) => termWrite(detail, 'info')
+                })
+
+                const version = await pyodide.runPythonAsync('import sys; sys.version')
+                const platform = await pyodide.runPythonAsync('import sys; sys.platform')
+
+                termWrite(`Python ${version}`, 'output')
+                termWrite(`Platform: ${platform} (WebAssembly/Pyodide)`, 'output')
+                termWrite('Type Python code below. Shift+Enter to run.', 'info')
+                termWrite('', '')
+
+                loadBtn.style.display = 'none'
+                inputArea.style.display = 'flex'
+                inputHint.style.display = 'block'
+                sectionPkgs.style.opacity = '1'
+                sectionPkgs.style.pointerEvents = 'auto'
+                codeInput.focus()
+
+            } catch (err) {
+                termWrite(`Error: ${err.message}`, 'error')
+                loadBtn.innerHTML = 'Retry'
+                loadBtn.disabled = false
+            }
+        })
+
+        // --- Run code ---
+        async function runCode() {
+            if (!pyodide) return
+            const code = codeInput.value
+            if (!code.trim()) return
+
+            // Show input in terminal
+            const lines = code.split('\n')
+            for (let i = 0; i < lines.length; i++) {
+                termWrite(`${i === 0 ? '>>>' : '...'} ${lines[i]}`, 'input')
+            }
+
+            cmdHistory.push(code)
+            historyIdx = cmdHistory.length
+            codeInput.value = ''
+
+            try {
+                const { result, stdout, stderr, error } = await runPythonCapture(pyodide, code)
+
+                if (stdout) {
+                    for (const line of stdout.trimEnd().split('\n')) {
+                        termWrite(line, 'output')
+                    }
+                }
+                if (result !== undefined && result !== null) {
+                    termWrite(String(result), 'output')
+                }
+                if (stderr) {
+                    for (const line of stderr.trimEnd().split('\n')) {
+                        termWrite(line, 'warn')
+                    }
+                }
+                if (error) {
+                    for (const line of error.split('\n')) {
+                        termWrite(line, 'error')
+                    }
+                }
+            } catch (err) {
+                const msg = err.message || String(err)
+                const lines = msg.split('\n').filter(l => l.trim())
+                termWrite(lines[lines.length - 1] || msg, 'error')
+            }
+
+            codeInput.focus()
+        }
+
+        runBtn.addEventListener('click', runCode)
+
+        codeInput.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter' && e.shiftKey) {
+                e.preventDefault()
+                runCode()
+                return
+            }
+            if (e.key === 'ArrowUp' && codeInput.selectionStart === 0) {
+                e.preventDefault()
+                if (historyIdx > 0) {
+                    historyIdx--
+                    codeInput.value = cmdHistory[historyIdx]
+                }
+            }
+            if (e.key === 'ArrowDown' && codeInput.selectionEnd === codeInput.value.length) {
+                e.preventDefault()
+                if (historyIdx < cmdHistory.length - 1) {
+                    historyIdx++
+                    codeInput.value = cmdHistory[historyIdx]
+                } else {
+                    historyIdx = cmdHistory.length
+                    codeInput.value = ''
+                }
+            }
+        })
+
+        // --- Package installer ---
+        pkgChips.addEventListener('click', async (e) => {
+            const chip = e.target.closest('.pkg-chip')
+            if (!chip || !pyodide || chip.classList.contains('installed')) return
+            await installPkg(chip.dataset.pkg, chip)
+        })
+
+        installCustomBtn.addEventListener('click', async () => {
+            const pkg = customPkgInput.value.trim()
+            if (!pkg || !pyodide) return
+            customPkgInput.value = ''
+
+            // Create a chip for it
+            const chip = document.createElement('button')
+            chip.className = 'pkg-chip'
+            chip.dataset.pkg = pkg
+            chip.textContent = pkg
+            pkgChips.appendChild(chip)
+
+            await installPkg(pkg, chip)
+        })
+
+        customPkgInput.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter') {
+                e.preventDefault()
+                installCustomBtn.click()
+            }
+        })
+
+        async function installPkg(name, chip) {
+            chip.classList.add('loading')
+            chip.textContent = `${name} ...`
+            termWrite(`>>> Installing ${name}...`, 'info')
+
+            try {
+                await installPackages(pyodide, [name])
+                chip.classList.remove('loading')
+                chip.classList.add('installed')
+                chip.textContent = `${name} ✓`
+                termWrite(`Installed: ${name}`, 'output')
+            } catch (err) {
+                chip.classList.remove('loading')
+                chip.classList.add('failed')
+                chip.textContent = `${name} ✗`
+                const msg = err.message || String(err)
+                const lines = msg.split('\n').filter(l => l.trim())
+                termWrite(`Failed to install ${name}: ${lines[lines.length - 1] || msg}`, 'error')
+            }
+        }
+
+        // --- Terminal helpers ---
+        function termWrite(text, cls) {
+            const div = document.createElement('div')
+            div.className = `term-line ${cls || ''}`
+            div.textContent = text
+            terminal.appendChild(div)
+            terminal.scrollTop = terminal.scrollHeight
+        }
+    </script>
+</body>
+</html>

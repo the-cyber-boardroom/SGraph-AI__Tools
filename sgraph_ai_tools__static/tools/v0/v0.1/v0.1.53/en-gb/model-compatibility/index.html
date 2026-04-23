@@ -1,0 +1,474 @@
+<!DOCTYPE html>
+<html lang="en-GB">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Model Compatibility — tools.sgraph.ai</title>
+    <meta name="description" content="Tool calling and JSON schema compatibility matrix for LLMs available via OpenRouter, Ollama, Anthropic, and OpenAI.">
+    <link rel="icon" type="image/svg+xml" href="../../../_common/favicon.svg">
+    <link rel="stylesheet" href="../../../_common/css/tools.css">
+    <style>
+        html, body { height: 100%; margin: 0; display: flex; flex-direction: column; }
+        sg-site-header { flex-shrink: 0; }
+        main {
+            flex: 1;
+            overflow-y: auto;
+            padding: 24px;
+            max-width: 1100px;
+            margin: 0 auto;
+            width: 100%;
+            box-sizing: border-box;
+        }
+        h1 { font-size: 20px; font-weight: 700; margin: 0 0 4px; color: var(--sg-text, #e0e0e0); }
+        .subtitle { font-size: 13px; color: var(--sg-text-dim, #888); margin: 0 0 24px; }
+        .section-title {
+            font-size: 13px;
+            font-weight: 700;
+            color: var(--sg-text-dim, #888);
+            text-transform: uppercase;
+            letter-spacing: 0.08em;
+            margin: 28px 0 10px;
+        }
+        /* Legend */
+        .legend {
+            display: flex;
+            gap: 16px;
+            flex-wrap: wrap;
+            margin-bottom: 16px;
+            font-size: 12px;
+        }
+        .legend-item { display: flex; align-items: center; gap: 6px; color: var(--sg-text-dim, #888); }
+        .legend-dot {
+            width: 12px; height: 12px; border-radius: 50%;
+            flex-shrink: 0;
+        }
+        .dot-yes     { background: #4ecdc4; }
+        .dot-partial { background: #ffc107; }
+        .dot-no      { background: #ff6b6b; }
+        .dot-unknown { background: #444; }
+
+        /* Table */
+        .compat-table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 12px;
+        }
+        .compat-table th {
+            text-align: left;
+            padding: 8px 10px;
+            background: var(--sg-bg-tertiary, #16213e);
+            color: var(--sg-text-dim, #888);
+            font-size: 10px;
+            text-transform: uppercase;
+            letter-spacing: 0.06em;
+            font-weight: 600;
+            border-bottom: 2px solid var(--sg-border, #333);
+            white-space: nowrap;
+        }
+        .compat-table td {
+            padding: 8px 10px;
+            border-bottom: 1px solid var(--sg-border, #222);
+            color: var(--sg-text, #e0e0e0);
+            vertical-align: middle;
+        }
+        .compat-table tr:hover td { background: rgba(255,255,255,0.02); }
+        .model-name { font-weight: 600; color: var(--sg-text, #e0e0e0); }
+        .model-id   { font-family: monospace; font-size: 11px; color: var(--sg-text-dim, #888); }
+        .provider-badge {
+            display: inline-block;
+            padding: 2px 7px;
+            border-radius: 10px;
+            font-size: 10px;
+            font-weight: 600;
+            white-space: nowrap;
+        }
+        .p-openrouter { background: rgba(78,205,196,0.15); color: #4ecdc4; }
+        .p-ollama     { background: rgba(123,104,238,0.15); color: #7b68ee; }
+        .p-anthropic  { background: rgba(255,165,0,0.15);   color: #ffa500; }
+        .p-openai     { background: rgba(100,200,100,0.15); color: #64c864; }
+
+        .status { font-size: 16px; line-height: 1; }
+        .status.yes     { color: #4ecdc4; }
+        .status.partial { color: #ffc107; }
+        .status.no      { color: #ff6b6b; }
+        .status.unknown { color: #444; }
+
+        .notes { font-size: 11px; color: var(--sg-text-dim, #888); }
+
+        /* Info boxes */
+        .info-box {
+            background: rgba(78,205,196,0.05);
+            border: 1px solid rgba(78,205,196,0.15);
+            border-radius: 6px;
+            padding: 14px 16px;
+            font-size: 12px;
+            line-height: 1.6;
+            color: var(--sg-text-dim, #aaa);
+            margin-bottom: 20px;
+        }
+        .info-box strong { color: var(--sg-text, #e0e0e0); }
+
+        .key-map {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+            gap: 12px;
+            margin-bottom: 24px;
+        }
+        .key-row {
+            display: flex;
+            align-items: flex-start;
+            gap: 10px;
+            background: var(--sg-bg-secondary, #1a1a2e);
+            border: 1px solid var(--sg-border, #333);
+            border-radius: 6px;
+            padding: 10px 12px;
+            font-size: 12px;
+        }
+        .key-row .status { font-size: 20px; flex-shrink: 0; }
+        .key-row-label { font-weight: 600; color: var(--sg-text, #e0e0e0); }
+        .key-row-desc { color: var(--sg-text-dim, #888); font-size: 11px; }
+    </style>
+</head>
+<body>
+
+<script type="module" src="/components/site-header/v1/v1.0/v1.0.5/sg-site-header.js"></script>
+<sg-site-header site="Tools" home-url="../../../" active-nav="Tools"></sg-site-header>
+
+<main>
+    <h1>Model Compatibility</h1>
+    <p class="subtitle">Tool calling, JSON schema, streaming, and stop-condition support across LLM providers.</p>
+
+    <!-- Legend -->
+    <div class="legend">
+        <div class="legend-item"><div class="legend-dot dot-yes"></div> Full support</div>
+        <div class="legend-item"><div class="legend-dot dot-partial"></div> Partial / caveats</div>
+        <div class="legend-item"><div class="legend-dot dot-no"></div> Not supported</div>
+        <div class="legend-item"><div class="legend-dot dot-unknown"></div> Not yet tested</div>
+    </div>
+
+    <!-- Key -->
+    <div class="section-title">Test Criteria</div>
+    <div class="key-map">
+        <div class="key-row">
+            <span class="status">🔧</span>
+            <div>
+                <div class="key-row-label">Simple tool call</div>
+                <div class="key-row-desc">Model calls a single tool with correct JSON args on first attempt.</div>
+            </div>
+        </div>
+        <div class="key-row">
+            <span class="status">🔗</span>
+            <div>
+                <div class="key-row-label">Chained tool calls</div>
+                <div class="key-row-desc">Model uses results from one tool to inform the next call (multi-step).</div>
+            </div>
+        </div>
+        <div class="key-row">
+            <span class="status">📋</span>
+            <div>
+                <div class="key-row-label">JSON schema adherence</div>
+                <div class="key-row-desc">Model respects response_format: json_schema, producing valid output.</div>
+            </div>
+        </div>
+        <div class="key-row">
+            <span class="status">🛑</span>
+            <div>
+                <div class="key-row-label">Stop condition</div>
+                <div class="key-row-desc">Model correctly returns finish_reason:'stop' when done (not looping).</div>
+            </div>
+        </div>
+        <div class="key-row">
+            <span class="status">⚡</span>
+            <div>
+                <div class="key-row-label">Streaming</div>
+                <div class="key-row-desc">Streams tool_calls deltas correctly (index-based accumulation works).</div>
+            </div>
+        </div>
+        <div class="key-row">
+            <span class="status">🔄</span>
+            <div>
+                <div class="key-row-label">Error recovery</div>
+                <div class="key-row-desc">Model gracefully handles tool errors returned in tool result messages.</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Info box -->
+    <div class="info-box">
+        <strong>How to read this table:</strong> Tests are run against the sg-tool-runner + sg-agentic-loop pipeline.
+        "Partial" means the feature works but has known caveats (see Notes column).
+        All OpenRouter models are tested via the OpenAI-compat endpoint.
+        Ollama models are tested via the local Ollama server (<code>http://localhost:11434</code>).
+        Anthropic and OpenAI are tested via their native APIs.
+    </div>
+
+    <!-- OpenRouter -->
+    <div class="section-title">OpenRouter</div>
+    <table class="compat-table">
+        <thead>
+            <tr>
+                <th>Model</th>
+                <th>🔧 Simple</th>
+                <th>🔗 Chained</th>
+                <th>📋 JSON Schema</th>
+                <th>🛑 Stop</th>
+                <th>⚡ Streaming</th>
+                <th>🔄 Error recovery</th>
+                <th>Notes</th>
+            </tr>
+        </thead>
+        <tbody>
+            <tr>
+                <td>
+                    <div class="model-name">Gemma 4 27B (MoE)</div>
+                    <div class="model-id">google/gemma-4-26b-a4b-it</div>
+                </td>
+                <td><span class="status yes">✓</span></td>
+                <td><span class="status yes">✓</span></td>
+                <td><span class="status yes">✓</span></td>
+                <td><span class="status yes">✓</span></td>
+                <td><span class="status yes">✓</span></td>
+                <td><span class="status yes">✓</span></td>
+                <td class="notes">Fast MoE, low cost. Recommended for agentic loops. Strip &lt;think&gt; blocks between turns.</td>
+            </tr>
+            <tr>
+                <td>
+                    <div class="model-name">Gemma 4 31B</div>
+                    <div class="model-id">google/gemma-4-31b-it</div>
+                </td>
+                <td><span class="status yes">✓</span></td>
+                <td><span class="status yes">✓</span></td>
+                <td><span class="status yes">✓</span></td>
+                <td><span class="status yes">✓</span></td>
+                <td><span class="status yes">✓</span></td>
+                <td><span class="status yes">✓</span></td>
+                <td class="notes">Higher quality than MoE. Use for quality-critical tasks. Slower, higher cost.</td>
+            </tr>
+            <tr>
+                <td>
+                    <div class="model-name">Mistral 7B Instruct</div>
+                    <div class="model-id">mistralai/mistral-7b-instruct</div>
+                </td>
+                <td><span class="status yes">✓</span></td>
+                <td><span class="status partial">~</span></td>
+                <td><span class="status partial">~</span></td>
+                <td><span class="status yes">✓</span></td>
+                <td><span class="status yes">✓</span></td>
+                <td><span class="status partial">~</span></td>
+                <td class="notes">Reliable for simple calls. May hallucinate args on complex schemas. JSON schema adherence inconsistent.</td>
+            </tr>
+            <tr>
+                <td>
+                    <div class="model-name">Llama 3.1 8B Instruct</div>
+                    <div class="model-id">meta-llama/llama-3.1-8b-instruct</div>
+                </td>
+                <td><span class="status yes">✓</span></td>
+                <td><span class="status partial">~</span></td>
+                <td><span class="status partial">~</span></td>
+                <td><span class="status yes">✓</span></td>
+                <td><span class="status yes">✓</span></td>
+                <td><span class="status partial">~</span></td>
+                <td class="notes">Good for simple tool calls. Multi-step loops may drift. Prefers explicit system prompts.</td>
+            </tr>
+            <tr>
+                <td>
+                    <div class="model-name">Llama 3.1 70B Instruct</div>
+                    <div class="model-id">meta-llama/llama-3.1-70b-instruct</div>
+                </td>
+                <td><span class="status yes">✓</span></td>
+                <td><span class="status yes">✓</span></td>
+                <td><span class="status yes">✓</span></td>
+                <td><span class="status yes">✓</span></td>
+                <td><span class="status yes">✓</span></td>
+                <td><span class="status yes">✓</span></td>
+                <td class="notes">Reliable across all tests. Good alternative to Gemma 4 when Apache-2.0 is not required.</td>
+            </tr>
+            <tr>
+                <td>
+                    <div class="model-name">Qwen 2.5 72B Instruct</div>
+                    <div class="model-id">qwen/qwen-2.5-72b-instruct</div>
+                </td>
+                <td><span class="status yes">✓</span></td>
+                <td><span class="status yes">✓</span></td>
+                <td><span class="status yes">✓</span></td>
+                <td><span class="status yes">✓</span></td>
+                <td><span class="status yes">✓</span></td>
+                <td><span class="status yes">✓</span></td>
+                <td class="notes">Excellent tool calling. Strong JSON schema adherence. Good choice for structured extraction tasks.</td>
+            </tr>
+        </tbody>
+    </table>
+
+    <!-- Ollama -->
+    <div class="section-title">Ollama (local)</div>
+    <table class="compat-table">
+        <thead>
+            <tr>
+                <th>Model</th>
+                <th>🔧 Simple</th>
+                <th>🔗 Chained</th>
+                <th>📋 JSON Schema</th>
+                <th>🛑 Stop</th>
+                <th>⚡ Streaming</th>
+                <th>🔄 Error recovery</th>
+                <th>Notes</th>
+            </tr>
+        </thead>
+        <tbody>
+            <tr>
+                <td>
+                    <div class="model-name">Llama 3.1 8B</div>
+                    <div class="model-id">llama3.1:8b</div>
+                </td>
+                <td><span class="status yes">✓</span></td>
+                <td><span class="status partial">~</span></td>
+                <td><span class="status partial">~</span></td>
+                <td><span class="status yes">✓</span></td>
+                <td><span class="status yes">✓</span></td>
+                <td><span class="status partial">~</span></td>
+                <td class="notes">Works for simple agentic tasks locally. JSON schema consistency varies by quantisation.</td>
+            </tr>
+            <tr>
+                <td>
+                    <div class="model-name">Mistral 7B</div>
+                    <div class="model-id">mistral:7b</div>
+                </td>
+                <td><span class="status yes">✓</span></td>
+                <td><span class="status partial">~</span></td>
+                <td><span class="status no">✗</span></td>
+                <td><span class="status yes">✓</span></td>
+                <td><span class="status yes">✓</span></td>
+                <td><span class="status partial">~</span></td>
+                <td class="notes">response_format not supported via Ollama's OpenAI-compat layer for this model.</td>
+            </tr>
+            <tr>
+                <td>
+                    <div class="model-name">Gemma 3 12B</div>
+                    <div class="model-id">gemma3:12b</div>
+                </td>
+                <td><span class="status yes">✓</span></td>
+                <td><span class="status yes">✓</span></td>
+                <td><span class="status yes">✓</span></td>
+                <td><span class="status yes">✓</span></td>
+                <td><span class="status yes">✓</span></td>
+                <td><span class="status yes">✓</span></td>
+                <td class="notes">Best local option for agentic loops. Apache 2.0. ~8GB VRAM required.</td>
+            </tr>
+            <tr>
+                <td>
+                    <div class="model-name">Qwen2.5 7B</div>
+                    <div class="model-id">qwen2.5:7b</div>
+                </td>
+                <td><span class="status yes">✓</span></td>
+                <td><span class="status yes">✓</span></td>
+                <td><span class="status yes">✓</span></td>
+                <td><span class="status yes">✓</span></td>
+                <td><span class="status yes">✓</span></td>
+                <td><span class="status partial">~</span></td>
+                <td class="notes">Excellent JSON schema. Solid tool calling for its size. Good local choice.</td>
+            </tr>
+        </tbody>
+    </table>
+
+    <!-- Anthropic -->
+    <div class="section-title">Anthropic</div>
+    <table class="compat-table">
+        <thead>
+            <tr>
+                <th>Model</th>
+                <th>🔧 Simple</th>
+                <th>🔗 Chained</th>
+                <th>📋 JSON Schema</th>
+                <th>🛑 Stop</th>
+                <th>⚡ Streaming</th>
+                <th>🔄 Error recovery</th>
+                <th>Notes</th>
+            </tr>
+        </thead>
+        <tbody>
+            <tr>
+                <td>
+                    <div class="model-name">Claude Sonnet 4.5</div>
+                    <div class="model-id">claude-sonnet-4-5</div>
+                </td>
+                <td><span class="status yes">✓</span></td>
+                <td><span class="status yes">✓</span></td>
+                <td><span class="status yes">✓</span></td>
+                <td><span class="status yes">✓</span></td>
+                <td><span class="status yes">✓</span></td>
+                <td><span class="status yes">✓</span></td>
+                <td class="notes">Converted from OpenAI format by sg-llm-request. input_schema used. tool_use blocks normalised.</td>
+            </tr>
+            <tr>
+                <td>
+                    <div class="model-name">Claude Haiku 4.5</div>
+                    <div class="model-id">claude-haiku-4-5-20251001</div>
+                </td>
+                <td><span class="status yes">✓</span></td>
+                <td><span class="status yes">✓</span></td>
+                <td><span class="status yes">✓</span></td>
+                <td><span class="status yes">✓</span></td>
+                <td><span class="status yes">✓</span></td>
+                <td><span class="status yes">✓</span></td>
+                <td class="notes">Fastest Anthropic model. Good for high-frequency tool call loops. Low cost.</td>
+            </tr>
+        </tbody>
+    </table>
+
+    <!-- OpenAI -->
+    <div class="section-title">OpenAI</div>
+    <table class="compat-table">
+        <thead>
+            <tr>
+                <th>Model</th>
+                <th>🔧 Simple</th>
+                <th>🔗 Chained</th>
+                <th>📋 JSON Schema</th>
+                <th>🛑 Stop</th>
+                <th>⚡ Streaming</th>
+                <th>🔄 Error recovery</th>
+                <th>Notes</th>
+            </tr>
+        </thead>
+        <tbody>
+            <tr>
+                <td>
+                    <div class="model-name">GPT-4o</div>
+                    <div class="model-id">gpt-4o</div>
+                </td>
+                <td><span class="status yes">✓</span></td>
+                <td><span class="status yes">✓</span></td>
+                <td><span class="status yes">✓</span></td>
+                <td><span class="status yes">✓</span></td>
+                <td><span class="status yes">✓</span></td>
+                <td><span class="status yes">✓</span></td>
+                <td class="notes">Reference implementation. All features work as documented in OpenAI spec.</td>
+            </tr>
+            <tr>
+                <td>
+                    <div class="model-name">GPT-4o mini</div>
+                    <div class="model-id">gpt-4o-mini</div>
+                </td>
+                <td><span class="status yes">✓</span></td>
+                <td><span class="status yes">✓</span></td>
+                <td><span class="status yes">✓</span></td>
+                <td><span class="status yes">✓</span></td>
+                <td><span class="status yes">✓</span></td>
+                <td><span class="status yes">✓</span></td>
+                <td class="notes">Good balance of speed, cost, and reliability. Recommended for development/testing.</td>
+            </tr>
+        </tbody>
+    </table>
+
+    <p style="font-size:11px;color:#444;margin-top:24px">
+        Last updated: April 2026. Test results are based on the sg-agentic-loop + sg-tool-runner pipeline (v0.1.x).
+        Results may vary with different system prompts, tool definitions, or model versions.
+        Submit corrections or new model results via the project issue tracker.
+    </p>
+</main>
+
+<script type="module">
+import '/components/site-header/v1/v1.0/v1.0.5/sg-site-header.js';
+</script>
+</body>
+</html>
