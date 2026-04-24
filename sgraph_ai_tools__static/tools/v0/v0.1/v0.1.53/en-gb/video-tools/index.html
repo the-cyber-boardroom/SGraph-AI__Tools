@@ -182,20 +182,9 @@
 </head>
 <body>
     <script type="module" src="https://dev.sgraph.ai/_common/js/components/sg-site-header/v1/v1.0/v1.0.5/sg-site-header.js"></script>
-    <script type="module" src="/components/locale-picker/v1/v1.0/v1.0.1/sg-locale-picker.js"></script>
-    <sg-site-header         site="Tools"
-        home-url="/en-gb/" active-nav="Tools">
-        <sg-locale-picker slot="locale" locale="en-gb" base-path="/"></sg-locale-picker>
+    <sg-site-header site="Send">
+        <div slot="locale" id="locale-picker"></div>
     </sg-site-header>
-
-    <script type="module">
-        import { buildToolsNav } from '../../_common/js/sg-nav.js'
-        document.querySelector('sg-site-header').whenReady().then(() => {
-            buildToolsNav(document.querySelector('sg-site-header'))
-        }).catch(() => {
-            buildToolsNav(document.querySelector('sg-site-header'))
-        })
-    </script>
 
     <div class="main">
         <h1 data-i18n="video_tools.heading">Video Tools</h1>
