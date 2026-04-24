@@ -393,6 +393,15 @@ export function initControls(container, state, config, api, emit) {
         }
     });
 
+    // ── ERROR — show immediate banner; pipeline will auto-stop ────────────────
+
+    window.addEventListener(SGA_RECORDER.ERROR, (e) => {
+        if (state.status !== 'recording') return;
+        const { step, message } = e.detail;
+        statusEl.style.color = '#f87171';
+        statusEl.textContent = `⚠ Recorder error (${step}): ${message} — saving what was captured.`;
+    });
+
     // ── RECORD_STOP ───────────────────────────────────────────────────────────
 
     window.addEventListener(SGA_RECORDER.RECORD_STOP, (e) => {

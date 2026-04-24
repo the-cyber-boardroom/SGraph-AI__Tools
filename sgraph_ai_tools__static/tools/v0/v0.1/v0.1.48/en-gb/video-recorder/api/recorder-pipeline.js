@@ -106,11 +106,19 @@ class RecordingSession {
             }
         };
 
-        // Wire onerror so silent encoder failures surface as tool:error events
+        // Wire onerror: MediaRecorder errors are always fatal (encoder won't recover).
+        // Dispatch tool:error for UI, then auto-stop so the recording doesn't ghost
+        // with 0 KB data while the timer keeps running.
         rec.onerror = (e) => {
             const msg = e.error?.message ?? 'Unknown MediaRecorder error';
             console.error(`[recorder:${name}]`, msg, e.error);
             _dispatchOnWindow(SGA_RECORDER.ERROR, { step: `recorder:${name}`, message: msg });
+            if (state.status === 'recording') {
+                console.warn(`[pipeline] recorder:${name} fatal error — auto-stopping pipeline`);
+                stopPipeline().catch(err =>
+                    console.error('[pipeline] auto-stop after recorder error failed:', err)
+                );
+            }
         };
 
         this._recorders.set(name, rec);
