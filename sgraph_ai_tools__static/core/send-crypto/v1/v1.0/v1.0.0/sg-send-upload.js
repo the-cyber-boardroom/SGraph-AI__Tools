@@ -162,9 +162,10 @@ async function directUpload(ciphertext, transferId, sendUrl, accessToken, onProg
  * Perform a presigned multipart upload for large files.
  *
  * Steps:
- *   1. POST /api/presigned/initiate    → { uploadId, urls: [...] }
- *   2. PUT each part to its presigned URL (max 5 concurrent)
- *   3. POST /api/presigned/complete    → done
+ *   1. POST /api/transfers/create      → registers the transfer
+ *   2. POST /api/presigned/initiate    → { uploadId, urls: [...] }
+ *   3. PUT each part to its presigned URL (max 5 concurrent)
+ *   4. POST /api/presigned/complete    → done
  *
  * @param {Uint8Array} ciphertext   - Encrypted payload.
  * @param {string}     transferId   - Derived transfer ID.
@@ -182,7 +183,18 @@ async function multipartUpload(ciphertext, transferId, sendUrl, accessToken, onP
   const totalSize = ciphertext.byteLength;
   const partCount = Math.ceil(totalSize / PART_SIZE);
 
-  // Step 1 — initiate
+  // Step 1 — create transfer
+  const createRes = await fetch(`${sendUrl}/api/transfers/create`, {
+    method:  'POST',
+    headers,
+    body:    JSON.stringify({ transfer_id: transferId, file_size_bytes: totalSize }),
+  });
+  // 409 = transfer ID already exists; treat as OK
+  if (!createRes.ok && createRes.status !== 409) {
+    throw new Error(`Transfer create failed: ${createRes.status} ${createRes.statusText}`);
+  }
+
+  // Step 2 — initiate presigned multipart
   const initRes = await fetch(`${sendUrl}/api/presigned/initiate`, {
     method:  'POST',
     headers,
@@ -193,7 +205,7 @@ async function multipartUpload(ciphertext, transferId, sendUrl, accessToken, onP
   }
   const { uploadId, urls } = await initRes.json();
 
-  // Step 2 — upload parts in parallel (max MAX_CONCURRENT)
+  // Step 3 — upload parts in parallel (max MAX_CONCURRENT)
   let completedParts = 0;
   const tasks = urls.map((url, i) => () => {
     const start = i * PART_SIZE;
@@ -210,7 +222,7 @@ async function multipartUpload(ciphertext, transferId, sendUrl, accessToken, onP
 
   const parts = await parallelLimit(tasks, MAX_CONCURRENT);
 
-  // Step 3 — complete multipart
+  // Step 4 — complete multipart
   const completeRes = await fetch(`${sendUrl}/api/presigned/complete`, {
     method:  'POST',
     headers,
