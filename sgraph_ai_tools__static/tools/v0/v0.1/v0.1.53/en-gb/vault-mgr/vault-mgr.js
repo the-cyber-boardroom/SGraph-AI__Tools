@@ -10,7 +10,7 @@
 
 // ── Layout + header ───────────────────────────────────────────────────────────
 import '/core/sg-layout/v0.1.0/sg-layout.js';
-import '/components/site-header/v1/v1.0/v1.0.5/sg-site-header.js';
+import 'https://dev.sgraph.ai/_common/js/components/sg-site-header/v1/v1.0/v1.0.5/sg-site-header.js';
 
 // ── Auth ──────────────────────────────────────────────────────────────────────
 import '/components/auth/sg-auth-tokens/v0/v0.1/v0.1.0/sg-auth-tokens.js';
