@@ -203,7 +203,15 @@ async function multipartUpload(ciphertext, transferId, sendUrl, accessToken, onP
   if (!initRes.ok) {
     throw new Error(`Multipart initiate failed: ${initRes.status} ${initRes.statusText}`);
   }
-  const { uploadId, urls } = await initRes.json();
+  const initData = await initRes.json();
+  console.log('[SG/Send] presigned/initiate response:', initData);
+
+  const uploadId = initData.uploadId ?? initData.upload_id;
+  const urls     = initData.urls ?? initData.presigned_urls ?? initData.signed_urls ?? initData.upload_urls;
+
+  if (!Array.isArray(urls) || urls.length === 0) {
+    throw new Error(`Multipart initiate response missing URLs — got keys: ${Object.keys(initData).join(', ')}`);
+  }
 
   // Step 3 — upload parts in parallel (max MAX_CONCURRENT)
   let completedParts = 0;
@@ -226,7 +234,7 @@ async function multipartUpload(ciphertext, transferId, sendUrl, accessToken, onP
   const completeRes = await fetch(`${sendUrl}/api/presigned/complete`, {
     method:  'POST',
     headers,
-    body:    JSON.stringify({ transferId, uploadId, parts }),
+    body:    JSON.stringify({ transfer_id: transferId, upload_id: uploadId, parts }),
   });
   if (!completeRes.ok) {
     throw new Error(`Multipart complete failed: ${completeRes.status} ${completeRes.statusText}`);
