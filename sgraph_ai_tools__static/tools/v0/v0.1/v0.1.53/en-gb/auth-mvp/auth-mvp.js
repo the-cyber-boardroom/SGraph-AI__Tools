@@ -18,7 +18,7 @@
 
 // ── Core + Layout ──────────────────────────────────────────────────────────────
 import '/core/sg-layout/v0.1.0/sg-layout.js';
-import 'https://dev.sgraph.ai/_common/js/components/sg-site-header/v1/v1.0/v1.0.5/sg-site-header.js';
+import 'https://dev.sgraph.ai/_common/js/components/sg-site-header/v1/v1.0/v1.0.6/sg-site-header.js';
 import '/components/tool-api/sg-tool-api-explorer/v0/v0.1/v0.1.0/sg-tool-api-explorer.js';
 import '/components/tool-api/sg-tool-api-console/v0/v0.1/v0.1.0/sg-tool-api-console.js';
 import '/components/tool-api/sg-tool-api-manifest/v0/v0.1/v0.1.0/sg-tool-api-manifest.js';
