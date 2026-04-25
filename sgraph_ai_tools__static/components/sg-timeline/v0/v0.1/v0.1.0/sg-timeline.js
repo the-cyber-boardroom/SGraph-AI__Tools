@@ -18,18 +18,10 @@ const DEFAULT_FPS = 30;
 export { SGT_EVENTS };
 
 export class SgTimeline extends HTMLElement {
-    #project = null;
-    #pps = DEFAULT_PPS;
-    #fps = DEFAULT_FPS;
-    #playhead = 0;
-    #selected = null;
-    #dispose = null;
-    #root = null;
-    #ruler = null;
-    #lanes = null;
-    #playheadEl = null;
-    #surface = null;
-    #zoom = null;
+    #project = null; #pps = DEFAULT_PPS; #fps = DEFAULT_FPS;
+    #playhead = 0; #selected = null; #dispose = null;
+    #root = null; #ruler = null; #lanes = null; #playheadEl = null;
+    #surface = null; #zoom = null;
     #historyFlags = { canUndo: false, canRedo: false };
     #editorMode = 'select';
 
@@ -160,15 +152,9 @@ export class SgTimeline extends HTMLElement {
         if (this.#zoom) this.#zoom.refresh();
     }
 
-    /**
-     * Set the active editor mode for the toolbar's Select / Move / Crop
-     * buttons. Valid values: 'select' | 'move' | 'crop'. Unknown values are
-     * coerced to 'select'.
-     * @param {string} mode
-     */
+    /** Set the editor mode for the toolbar (`'select'` | `'move'` | `'crop'`). */
     setEditorMode(mode) {
-        const next = (mode === 'move' || mode === 'crop') ? mode : 'select';
-        this.#editorMode = next;
+        this.#editorMode = (mode === 'move' || mode === 'crop') ? mode : 'select';
         if (this.#zoom) this.#zoom.refresh();
     }
 

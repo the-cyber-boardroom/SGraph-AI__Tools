@@ -139,11 +139,13 @@ export function mountMoveOverlay(cfg) {
         window.removeEventListener('pointerup', onPointerUp);
         window.removeEventListener('pointercancel', onPointerUp);
         drag = null;
+        refresh();
     }
 
     const els = buildHandles(cfg.layer, onPointerDown);
 
     function refresh() {
+        if (drag) return; // do not jump handles mid-drag
         const canvas = cfg.getCanvas();
         const active = cfg.getActive();
         const rect = canvas && active ? activeClipCanvasRect(canvas, active) : null;
