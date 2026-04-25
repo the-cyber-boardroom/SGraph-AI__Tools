@@ -4,6 +4,7 @@ import { snapToFps } from '../../../../../core/video-composer/v0/v0.1/v0.1.0/com
 import { SGT_EVENTS } from './timeline-events.js';
 import { attachDropAffordance } from './timeline-drop.js';
 import { attachKeyboard } from './timeline-keyboard.js';
+import { showDragFeedback, endDragFeedback } from './timeline-feedback.js';
 
 /**
  * Look up a clip object by id from the first video track of state.project.
@@ -90,23 +91,27 @@ export function attachInteractions(root, getState, dispatch, hostEl) {
         const dx = e.clientX - drag.startX;
         const dt = snapToFps(dx / pps, fps || 30);
         if (Math.abs(dx) > 2) drag.moved = true;
+        let preview = null;
         if (drag.kind === 'move') {
             const newStart = Math.max(0, drag.origStart + dt);
-            drag.clipEl.style.left = (newStart * pps) + 'px';
             drag.pendingStart = newStart;
+            const width = (drag.origOut - drag.origIn) * pps;
+            preview = { leftPx: newStart * pps, widthPx: width, time: newStart };
         } else if (drag.kind === 'trim-left') {
             const newIn = Math.max(0, Math.min(drag.origOut - 1 / (fps || 30), drag.origIn + dt));
             const newStart = Math.max(0, drag.origStart + (newIn - drag.origIn));
             const width = (drag.origOut - newIn) * pps;
-            drag.clipEl.style.left = (newStart * pps) + 'px';
-            drag.clipEl.style.width = Math.max(2, width) + 'px';
             drag.pendingIn = newIn;
             drag.pendingStart = newStart;
+            preview = { leftPx: newStart * pps, widthPx: width, time: newStart, inPoint: newIn, outPoint: drag.origOut };
         } else if (drag.kind === 'trim-right') {
             const newOut = Math.max(drag.origIn + 1 / (fps || 30), Math.min(drag.assetDur, drag.origOut + dt));
             const width = (newOut - drag.origIn) * pps;
-            drag.clipEl.style.width = Math.max(2, width) + 'px';
             drag.pendingOut = newOut;
+            preview = { leftPx: drag.origStart * pps, widthPx: width, time: drag.origStart, inPoint: drag.origIn, outPoint: newOut };
+        }
+        if (preview && drag.moved) {
+            showDragFeedback(lane, drag, preview, { clientX: e.clientX, clientY: e.clientY });
         }
     }
 
@@ -114,6 +119,7 @@ export function attachInteractions(root, getState, dispatch, hostEl) {
         if (!drag) return;
         const d = drag;
         drag = null;
+        endDragFeedback(lane, d.clipEl);
         if (!d.moved) return;
         if (d.kind === 'move' && Number.isFinite(d.pendingStart)) {
             dispatch(SGT_EVENTS.CLIP_MOVED, { clipId: d.clipId, timelineStart: d.pendingStart });
@@ -125,6 +131,13 @@ export function attachInteractions(root, getState, dispatch, hostEl) {
         } else if (d.kind === 'trim-right') {
             dispatch(SGT_EVENTS.CLIP_TRIMMED, { clipId: d.clipId, inPoint: d.origIn, outPoint: d.pendingOut });
         }
+    }
+
+    function onPointerCancel() {
+        if (!drag) return;
+        const d = drag;
+        drag = null;
+        endDragFeedback(lane, d.clipEl);
     }
 
     function onRulerPointerDown(e) {
@@ -159,6 +172,7 @@ export function attachInteractions(root, getState, dispatch, hostEl) {
     ruler.addEventListener('pointerdown', onRulerPointerDown);
     window.addEventListener('pointermove', onPointerMove);
     window.addEventListener('pointerup', onPointerUp);
+    window.addEventListener('pointercancel', onPointerCancel);
 
     return () => {
         disposeDrop();
@@ -168,5 +182,6 @@ export function attachInteractions(root, getState, dispatch, hostEl) {
         ruler.removeEventListener('pointerdown', onRulerPointerDown);
         window.removeEventListener('pointermove', onPointerMove);
         window.removeEventListener('pointerup', onPointerUp);
+        window.removeEventListener('pointercancel', onPointerCancel);
     };
 }
