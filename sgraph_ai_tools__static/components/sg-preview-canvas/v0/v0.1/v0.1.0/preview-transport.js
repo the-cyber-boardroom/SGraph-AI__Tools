@@ -1,5 +1,7 @@
 // preview-transport.js — transport bar builder for sg-preview-canvas (v0.1.0)
 
+import { mountModeButtons } from '/components/sg-timeline/v0/v0.1/v0.1.0/timeline-mode-buttons.js';
+
 /**
  * Format seconds as mm:ss.
  * @param {number} t
@@ -63,5 +65,48 @@ export function wireTransport(els, composer) {
         els.back.removeEventListener('click', onBack);
         els.fwd.removeEventListener('click', onFwd);
         els.play.removeEventListener('click', onPlay);
+    };
+}
+
+/**
+ * Update the time-readout span.
+ * @param {{time: HTMLElement}} els
+ * @param {number} cur
+ * @param {number} dur
+ */
+export function updateTime(els, cur, dur) {
+    if (els && els.time) els.time.textContent = `${fmtMmss(cur)} / ${fmtMmss(dur)}`;
+}
+
+/**
+ * Set enable/disable on the three transport buttons together.
+ * @param {{back: HTMLButtonElement, play: HTMLButtonElement, fwd: HTMLButtonElement}} els
+ * @param {boolean} enabled
+ */
+export function setTransportEnabled(els, enabled) {
+    if (!els) return;
+    els.back.disabled = !enabled;
+    els.play.disabled = !enabled;
+    els.fwd.disabled = !enabled;
+}
+
+/**
+ * Append a vertical separator and the Select / Move / Crop mode buttons
+ * to the transport bar. The buttons re-use the timeline component's
+ * `mountModeButtons` helper and dispatch via the supplied callback.
+ * @param {HTMLElement} parent
+ * @param {{getMode: () => string, dispatch: (name: string, detail: object) => void}} cfg
+ * @returns {{root: HTMLElement, refresh: () => void, dispose: () => void}}
+ */
+export function mountTransportModeButtons(parent, cfg) {
+    const sep = document.createElement('span');
+    sep.className = 'transport-sep';
+    parent.appendChild(sep);
+    const handle = mountModeButtons(cfg);
+    parent.appendChild(handle.root);
+    return {
+        root: handle.root,
+        refresh: handle.refresh,
+        dispose() { handle.dispose(); sep.remove(); },
     };
 }

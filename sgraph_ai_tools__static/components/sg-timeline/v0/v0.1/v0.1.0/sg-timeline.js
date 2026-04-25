@@ -18,20 +18,11 @@ const DEFAULT_FPS = 30;
 export { SGT_EVENTS };
 
 export class SgTimeline extends HTMLElement {
-    #project = null;
-    #pps = DEFAULT_PPS;
-    #fps = DEFAULT_FPS;
-    #playhead = 0;
-    #selected = null;
-    #dispose = null;
-    #root = null;
-    #ruler = null;
-    #lanes = null;
-    #playheadEl = null;
-    #surface = null;
-    #zoom = null;
+    #project = null; #pps = DEFAULT_PPS; #fps = DEFAULT_FPS;
+    #playhead = 0; #selected = null; #dispose = null;
+    #root = null; #ruler = null; #lanes = null; #playheadEl = null;
+    #surface = null; #zoom = null;
     #historyFlags = { canUndo: false, canRedo: false };
-    #editorMode = 'select';
 
     constructor() {
         super();
@@ -90,7 +81,6 @@ export class SgTimeline extends HTMLElement {
             getLane: () => this.#lanes,
             dispatch,
             getHistoryFlags: () => this.#historyFlags,
-            getEditorMode: () => this.#editorMode,
         });
         this.#renderAll();
     }
@@ -161,16 +151,10 @@ export class SgTimeline extends HTMLElement {
     }
 
     /**
-     * Set the active editor mode for the toolbar's Select / Move / Crop
-     * buttons. Valid values: 'select' | 'move' | 'crop'. Unknown values are
-     * coerced to 'select'.
-     * @param {string} mode
+     * Deprecated stub — the editor-mode toolbar moved to <sg-preview-canvas>.
+     * Kept as a no-op so older callers don't throw.
      */
-    setEditorMode(mode) {
-        const next = (mode === 'move' || mode === 'crop') ? mode : 'select';
-        this.#editorMode = next;
-        if (this.#zoom) this.#zoom.refresh();
-    }
+    setEditorMode(_mode) { /* moved to <sg-preview-canvas> */ }
 
     #renderAll() {
         const widthPx = computeSurfaceWidth(this.#project, this.#pps);

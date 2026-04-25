@@ -6,26 +6,11 @@ import { buildLayoutDescriptor, wireTimelineEvents, resolvePanels } from './ui-s
 import { mountDevPanel } from './ui-dev-panel.js';
 import { mountJsonPane } from './ui-json-pane.js';
 import { wireOverlay } from './ui-shell-overlay.js';
-import { createComposer } from '/core/video-composer/v0/v0.1/v0.1.0/sg-video-composer.js';
+import { rebuildComposer, emitErr } from './ui-shell-composer.js';
 import { SGL_EVENTS } from '/core/sg-layout/v0.1.0/sg-layout-events.js';
 
 // Side-effect import — register <sg-layout> custom element before use.
 import '/core/sg-layout/v0.1.0/sg-layout.js';
-
-/** Project has at least one clip on a video track. */
-function hasAnyClip(flat) {
-    if (!flat || !Array.isArray(flat.tracks)) return false;
-    for (const t of flat.tracks) {
-        if (t && t.kind === 'video' && Array.isArray(t.clips) && t.clips.length > 0) return true;
-    }
-    return false;
-}
-
-function emitErr(step, err) {
-    document.dispatchEvent(new CustomEvent('tool:error', {
-        detail: { step, message: err && err.message ? err.message : String(err) },
-    }));
-}
 
 /**
  * Mount the editor shell into a host element.
@@ -56,46 +41,28 @@ export function mountShell({ host, state, api, getComposer, setComposer }) {
     const exportSlot = topbar.querySelector('[data-slot="export"]');
     const ctx = { selectedClipId: null, currentPlayhead: 0, getComposer };
 
-    let assetPanel = null;
-    let exportCtl = null;
-    let unwireTimeline = null;
-    let previewEl = null;
-    let timelineEl = null;
-    let pending = null;
-    let onCanvasPlayhead = null;
-    let devPanel = null;
-    let jsonPane = null;
-    let overlayWire = null;
-    let activePending = null;
+    let assetPanel = null, exportCtl = null, unwireTimeline = null;
+    let previewEl = null, timelineEl = null;
+    let pending = null, activePending = null;
+    let onCanvasPlayhead = null, devPanel = null, jsonPane = null, overlayWire = null;
+
     function schedulePushActive() {
         if (!overlayWire) return;
+        if (typeof overlayWire.pushActive === 'function') overlayWire.pushActive();
         if (activePending) return;
         activePending = setTimeout(() => { activePending = null; overlayWire.pushActive(); }, 100);
     }
-
-    function rebuildComposer() {
-        const existing = getComposer();
-        if (existing) {
-            try { previewEl && previewEl.detachComposer(); } catch (_) {}
-            try { existing.destroy(); } catch (_) {}
-            setComposer(null);
-        }
-        const flat = state.toComposerProject();
-        if (!hasAnyClip(flat) || !previewEl) return;
-        const fps = Number.isFinite(flat.fps) ? flat.fps : 30;
-        try {
-            const c = createComposer({ project: flat, assets: state.getAssetRegistry(), canvas: previewEl.getCanvas(), fps });
-            previewEl.attachComposer(c);
-            setComposer(c);
-        } catch (err) { emitErr('composer', err); }
+    function rebuild() {
+        rebuildComposer({
+            state, previewEl, getComposer, setComposer,
+            playheadHint: ctx.currentPlayhead,
+        });
     }
-
     function syncHistoryFlags() {
         if (timelineEl && typeof timelineEl.setHistoryFlags === 'function') {
             timelineEl.setHistoryFlags({ canUndo: state.canUndo(), canRedo: state.canRedo() });
         }
     }
-
     function handleChange() {
         if (pending) clearTimeout(pending);
         pending = setTimeout(() => {
@@ -104,7 +71,7 @@ export function mountShell({ host, state, api, getComposer, setComposer }) {
             if (timelineEl) timelineEl.setProject(flat);
             if (assetPanel) assetPanel.refresh(state.getProject());
             syncHistoryFlags();
-            rebuildComposer();
+            rebuild();
             if (overlayWire) overlayWire.pushActive();
         }, 100);
     }
@@ -126,7 +93,6 @@ export function mountShell({ host, state, api, getComposer, setComposer }) {
                 }
             },
         });
-
         exportCtl = mountExportControls({
             host: exportSlot,
             onExport: ({ onProgress } = {}) => api.exportMp4({ preferMp4: true, onProgress }),
@@ -135,7 +101,7 @@ export function mountShell({ host, state, api, getComposer, setComposer }) {
         if (timelineEl) unwireTimeline = wireTimelineEvents(timelineEl, api, ctx);
 
         overlayWire = wireOverlay({
-            timelineEl, previewEl, api,
+            previewEl, api,
             getProject: () => state.toComposerProject(),
             getSelectedClipId: () => ctx.selectedClipId,
             getPlayhead: () => ctx.currentPlayhead,
@@ -158,9 +124,8 @@ export function mountShell({ host, state, api, getComposer, setComposer }) {
         assetPanel.refresh(state.getProject());
         if (jsonPanel) jsonPane = mountJsonPane({ host: jsonPanel, state });
         syncHistoryFlags();
-        rebuildComposer();
+        rebuild();
         state.addEventListener('change', handleChange);
-
         devPanel = mountDevPanel({ host, manifestUrl: './manifest.json' });
     }
 
