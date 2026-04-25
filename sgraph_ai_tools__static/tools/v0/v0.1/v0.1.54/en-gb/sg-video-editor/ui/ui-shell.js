@@ -5,7 +5,6 @@ import { mountExportControls } from './ui-export-controls.js';
 import { buildLayoutDescriptor, wireTimelineEvents, resolvePanels } from './ui-shell-layout.js';
 import { mountDevPanel } from './ui-dev-panel.js';
 import { mountJsonPane } from './ui-json-pane.js';
-import { attachShortcuts } from './ui-shortcuts.js';
 import { createComposer } from '/core/video-composer/v0/v0.1/v0.1.0/sg-video-composer.js';
 import { SGL_EVENTS } from '/core/sg-layout/v0.1.0/sg-layout-events.js';
 
@@ -65,7 +64,6 @@ export function mountShell({ host, state, api, getComposer, setComposer }) {
     let onCanvasPlayhead = null;
     let devPanel = null;
     let jsonPane = null;
-    let unwireShortcuts = null;
 
     function rebuildComposer() {
         const existing = getComposer();
@@ -139,10 +137,6 @@ export function mountShell({ host, state, api, getComposer, setComposer }) {
         syncHistoryFlags();
         rebuildComposer();
         state.addEventListener('change', handleChange);
-        unwireShortcuts = attachShortcuts({
-            undo: () => api.undo(),
-            redo: () => api.redo(),
-        });
 
         devPanel = mountDevPanel({ host, manifestUrl: './manifest.json' });
     }
@@ -153,7 +147,6 @@ export function mountShell({ host, state, api, getComposer, setComposer }) {
     function destroy() {
         if (pending) { clearTimeout(pending); pending = null; }
         try { state.removeEventListener('change', handleChange); } catch (_) {}
-        if (unwireShortcuts) { try { unwireShortcuts(); } catch (_) {} unwireShortcuts = null; }
         if (unwireTimeline) { try { unwireTimeline(); } catch (_) {} }
         if (previewEl && onCanvasPlayhead) {
             try { previewEl.getCanvas().removeEventListener('composer:playhead-changed', onCanvasPlayhead); } catch (_) {}

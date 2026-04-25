@@ -20,14 +20,14 @@ export function mountHistoryButtons(cfg) {
     undoBtn.type = 'button';
     undoBtn.className = 'history-button history-button--undo';
     undoBtn.textContent = 'Undo';
-    undoBtn.title = 'Undo (Cmd/Ctrl+Z)';
+    undoBtn.title = 'Undo';
     undoBtn.disabled = true;
 
     const redoBtn = document.createElement('button');
     redoBtn.type = 'button';
     redoBtn.className = 'history-button history-button--redo';
     redoBtn.textContent = 'Redo';
-    redoBtn.title = 'Redo (Cmd/Ctrl+Shift+Z)';
+    redoBtn.title = 'Redo';
     redoBtn.disabled = true;
 
     function refresh() {
