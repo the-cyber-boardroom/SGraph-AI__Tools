@@ -104,8 +104,10 @@ ok('YOUTUBE_UPLOAD_SCOPE is the youtube.upload scope',
 ok('requestAccess is a function',
     typeof requestAccess === 'function');
 
-ok('requestAccess rejects when GIS is not loaded',
-    await rejectsWith(() => requestAccess('does-not-matter'), /Google Sign-In library/));
+// NOTE: we don't call requestAccess() in the test page — GIS is loaded
+// (so the live demo can sign in) and any real call would trigger Google's
+// OAuth popup. Live OAuth + upload paths are exercised by Playwright
+// against route-stubbed YouTube endpoints (see SKILL-browser.md).
 
 ok('YouTubeUpload constructor requires accessToken',
     throws(() => new YouTubeUpload(undefined), /accessToken required/));
@@ -175,7 +177,7 @@ function throws(fn, re) {
     catch (e) { return re ? re.test(e.message) : true; }
 }
 
-async function rejectsWith(fn, re) {
+async function rejectsWith(fn, re) {       /* kept for future tests */
     try { await fn(); return false; }
     catch (e) { return re ? re.test(e.message) : true; }
 }
