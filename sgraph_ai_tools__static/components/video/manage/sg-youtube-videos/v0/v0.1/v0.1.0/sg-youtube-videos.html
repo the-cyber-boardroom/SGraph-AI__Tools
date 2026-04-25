@@ -6,6 +6,19 @@
         <button type="button" id="refresh-btn" class="ytv__btn ytv__btn--ghost">Refresh</button>
     </header>
 
+    <div class="ytv__toolbar">
+        <input type="search" id="filter-input" class="ytv__filter"
+               placeholder="Filter loaded videos by title…" autocomplete="off">
+        <select id="sort-select" class="ytv__sort" aria-label="Sort">
+            <option value="newest" selected>Newest first</option>
+            <option value="oldest">Oldest first</option>
+            <option value="most-viewed">Most viewed</option>
+            <option value="longest">Longest</option>
+            <option value="shortest">Shortest</option>
+            <option value="title-az">Title A → Z</option>
+        </select>
+    </div>
+
     <div id="status" class="ytv__status">Sign in to load your uploads.</div>
 
     <div id="grid" class="ytv__grid" role="list"></div>

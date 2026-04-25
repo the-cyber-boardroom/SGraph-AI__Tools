@@ -19,7 +19,8 @@ export async function initEditorTab(root, state, api, emit, { id, summary }) {
     root.innerHTML = '';
 
     const editor = document.createElement('sg-youtube-video-editor');
-    editor.setAttribute('allow-delete', '');
+    // Delete intentionally NOT enabled — too dangerous to expose by default.
+    // The component's deleteVideo() method is still callable from the SDK / tests.
     editor.style.cssText = 'display:block;width:100%;';
     root.appendChild(editor);
 
