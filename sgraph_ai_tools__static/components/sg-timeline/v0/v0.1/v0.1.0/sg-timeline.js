@@ -23,7 +23,6 @@ export class SgTimeline extends HTMLElement {
     #root = null; #ruler = null; #lanes = null; #playheadEl = null;
     #surface = null; #zoom = null;
     #historyFlags = { canUndo: false, canRedo: false };
-    #editorMode = 'select';
 
     constructor() {
         super();
@@ -82,7 +81,6 @@ export class SgTimeline extends HTMLElement {
             getLane: () => this.#lanes,
             dispatch,
             getHistoryFlags: () => this.#historyFlags,
-            getEditorMode: () => this.#editorMode,
         });
         this.#renderAll();
     }
@@ -152,11 +150,11 @@ export class SgTimeline extends HTMLElement {
         if (this.#zoom) this.#zoom.refresh();
     }
 
-    /** Set the editor mode for the toolbar (`'select'` | `'move'` | `'crop'`). */
-    setEditorMode(mode) {
-        this.#editorMode = (mode === 'move' || mode === 'crop') ? mode : 'select';
-        if (this.#zoom) this.#zoom.refresh();
-    }
+    /**
+     * Deprecated stub — the editor-mode toolbar moved to <sg-preview-canvas>.
+     * Kept as a no-op so older callers don't throw.
+     */
+    setEditorMode(_mode) { /* moved to <sg-preview-canvas> */ }
 
     #renderAll() {
         const widthPx = computeSurfaceWidth(this.#project, this.#pps);

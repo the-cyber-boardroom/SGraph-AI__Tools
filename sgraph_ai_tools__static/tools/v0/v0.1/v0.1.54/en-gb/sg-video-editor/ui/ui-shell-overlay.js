@@ -48,14 +48,13 @@ export function resolveActiveClip(flatProject, selectedClipId, playhead) {
 
 /**
  * Wire the editor-mode toggle + on-canvas overlay events.
- *  - Listens on the timeline for EDITOR_MODE_REQUESTED → flips local mode.
+ *  - Listens on the preview for EDITOR_MODE_REQUESTED → flips local mode.
  *  - Listens on the preview for transform-requested / crop-requested →
  *    routes to api.setClipTransform / api.setClipCrop.
  *  - Provides a `pushActive()` helper for the shell to call whenever
  *    selection / playhead / project changes.
  *
  * @param {{
- *   timelineEl: HTMLElement|null,
  *   previewEl: HTMLElement|null,
  *   api: object,
  *   getProject: () => object|null,
@@ -71,7 +70,6 @@ export function wireOverlay(cfg) {
         const mode = (next === 'move' || next === 'crop') ? next : 'select';
         editorMode = mode;
         try { cfg.previewEl && cfg.previewEl.setEditorMode(mode); } catch (_) {}
-        try { cfg.timelineEl && cfg.timelineEl.setEditorMode(mode); } catch (_) {}
         pushActive();
     }
     function pushActive() {
@@ -95,9 +93,11 @@ export function wireOverlay(cfg) {
             .catch(err => emitErr('setClipCrop', err));
     }
 
-    if (cfg.timelineEl) cfg.timelineEl.addEventListener('sg-timeline:editor-mode-requested', onModeReq);
-    if (cfg.previewEl) cfg.previewEl.addEventListener('sg-preview:transform-requested', onTransform);
-    if (cfg.previewEl) cfg.previewEl.addEventListener('sg-preview:crop-requested', onCrop);
+    if (cfg.previewEl) {
+        cfg.previewEl.addEventListener('sg-timeline:editor-mode-requested', onModeReq);
+        cfg.previewEl.addEventListener('sg-preview:transform-requested', onTransform);
+        cfg.previewEl.addEventListener('sg-preview:crop-requested', onCrop);
+    }
 
     applyMode('select');
 
@@ -105,9 +105,11 @@ export function wireOverlay(cfg) {
         getMode: () => editorMode,
         pushActive,
         destroy() {
-            if (cfg.timelineEl) cfg.timelineEl.removeEventListener('sg-timeline:editor-mode-requested', onModeReq);
-            if (cfg.previewEl) cfg.previewEl.removeEventListener('sg-preview:transform-requested', onTransform);
-            if (cfg.previewEl) cfg.previewEl.removeEventListener('sg-preview:crop-requested', onCrop);
+            if (cfg.previewEl) {
+                cfg.previewEl.removeEventListener('sg-timeline:editor-mode-requested', onModeReq);
+                cfg.previewEl.removeEventListener('sg-preview:transform-requested', onTransform);
+                cfg.previewEl.removeEventListener('sg-preview:crop-requested', onCrop);
+            }
         },
     };
 }
