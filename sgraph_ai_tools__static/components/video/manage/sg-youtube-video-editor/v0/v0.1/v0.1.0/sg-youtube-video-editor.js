@@ -551,6 +551,28 @@ function _formatBytes(n) {
     return `${v < 10 ? v.toFixed(1) : Math.round(v)} ${u[i]}`;
 }
 
+/** 12345 → "12.3K", 1234567 → "1.2M". */
+function _short(n) {
+    if (n === null || n === undefined || n === '') return '0';
+    const num = Number(n);
+    if (!Number.isFinite(num)) return '0';
+    if (Math.abs(num) < 1000)        return String(num);
+    if (Math.abs(num) < 1_000_000)   return (num / 1000).toFixed(num < 10_000 ? 1 : 0).replace(/\.0$/, '') + 'K';
+    if (Math.abs(num) < 1e9)         return (num / 1_000_000).toFixed(1).replace(/\.0$/, '') + 'M';
+    return (num / 1e9).toFixed(1) + 'B';
+}
+
+/** 213 → "3:33". */
+function _secsToHms(secs) {
+    const t = Math.round(Number(secs) || 0);
+    if (!t) return '0:00';
+    const h = Math.floor(t / 3600);
+    const m = Math.floor((t % 3600) / 60);
+    const s = t % 60;
+    if (h) return `${h}:${String(m).padStart(2,'0')}:${String(s).padStart(2,'0')}`;
+    return `${m}:${String(s).padStart(2,'0')}`;
+}
+
 customElements.define('sg-youtube-video-editor', SgYouTubeVideoEditor);
 
 export { SgYouTubeVideoEditor };
