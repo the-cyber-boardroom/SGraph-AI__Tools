@@ -57,11 +57,18 @@ Smoke-test friendly. `ok` is `true` when the tool is in a usable or just-finishe
 | `tool:ready` | activate() called | `{ instanceId, tool, version }` |
 | `tool:youtube:connected` | OAuth grant succeeded or cache hit | `{ expiresAt, fromCache? }` |
 | `tool:youtube:disconnected` | `disconnect()` | `{}` |
-| `tool:youtube:file-set` | `setFile()` | `{ fileName, fileSize, type }` |
+| `tool:youtube:file-set` | `setFile()` (any source) | `{ fileName, fileSize, type }` |
 | `tool:youtube:upload:start` | `uploadVideo()` started | `{ fileName, fileSize, metadata }` |
 | `tool:youtube:upload:progress` | XHR progress event | `{ loaded, total, percent }` |
 | `tool:youtube:upload:complete` | Upload finished 2xx | `{ id, url, snippet, status }` |
 | `tool:error` | Any pipeline error | `{ step, message }` |
+
+The `<sg-youtube-upload>` component also dispatches a composed
+`youtube-file-set` DOM event (`{fileName, fileSize, type}`) when its
+internal picker is used — the tool listens for that and forwards to
+`api.setFile()` so `state.file` and `tool:youtube:file-set` stay in sync
+regardless of which UI path supplied the file (outer `<sg-upload-dropzone>`
+or the component's own click/drop area).
 
 ## Storage
 

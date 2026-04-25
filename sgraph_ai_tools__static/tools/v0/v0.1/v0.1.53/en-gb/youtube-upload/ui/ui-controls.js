@@ -51,11 +51,16 @@ export function initControls(root, state, api, emit) {
     root.appendChild(upWrap);
 
     // ── Wiring ────────────────────────────────────────────────────────────────
+    // Both the outer dropzone and the component's own picker eventually call
+    // uploader.setFile(); the youtube-file-set listener is the single point
+    // that syncs state.file + emits SGA_YT.FILE_SET.
     dz.addEventListener('files-selected', (e) => {
         const file = e.detail?.files?.[0];
-        if (!file) return;
-        api.setFile({ file });
-        uploader.setFile(file);
+        if (file) uploader.setFile(file);
+    });
+
+    uploader.addEventListener('youtube-file-set', () => {
+        api.setFile({ file: uploader.getFile() });
     });
 
     uploader.addEventListener('youtube-connected', (e) => {

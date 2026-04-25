@@ -84,8 +84,13 @@ class SgYouTubeUpload extends SgComponent {
         this._descInput     = this.$('#desc-input');
         this._tagsInput     = this.$('#tags-input');
         this._privacyInput  = this.$('#privacy-select');
+        this._picker        = this.$('#picker');
+        this._pickerEmpty   = this.$('#picker-empty');
+        this._pickerFilled  = this.$('#picker-filled');
+        this._fileInput     = this.$('#file-input');
         this._fileNameEl    = this.$('#file-name');
         this._fileSizeEl    = this.$('#file-size');
+        this._fileClearBtn  = this.$('#file-clear');
         this._uploadBtn     = this.$('#upload-btn');
         this._progWrap      = this.$('#progress-wrap');
         this._progBar       = this.$('#progress-bar');
@@ -100,24 +105,45 @@ class SgYouTubeUpload extends SgComponent {
         this.addTrackedListener(this._connectBtn,    'click', () => this.connect());
         this.addTrackedListener(this._disconnectBtn, 'click', () => this.signOut());
         this.addTrackedListener(this._uploadBtn,     'click', () => this.upload());
+
+        this.addTrackedListener(this._picker,    'click',     this._onPickerClick);
+        this.addTrackedListener(this._fileInput, 'change',    this._onFileInputChange);
+        this.addTrackedListener(this._picker,    'dragenter', this._onDragEnter);
+        this.addTrackedListener(this._picker,    'dragover',  this._onDragOver);
+        this.addTrackedListener(this._picker,    'dragleave', this._onDragLeave);
+        this.addTrackedListener(this._picker,    'drop',      this._onDrop);
+        this.addTrackedListener(this._fileClearBtn, 'click',  this._onFileClear);
     }
 
     // ── Public API ──────────────────────────────────────────────────────────────
 
     /**
      * Set the file to upload.
-     * @param {File|Blob} file
+     * @param {File|Blob|null} file
      */
     setFile(file) {
         this._file = file || null;
         if (this._file) {
             this._fileNameEl.textContent = this._file.name || 'recording.webm';
             this._fileSizeEl.textContent = `(${_formatBytes(this._file.size)})`;
+            this._pickerEmpty.hidden  = true;
+            this._pickerFilled.hidden = false;
+            this._picker.classList.add('is-filled');
         } else {
-            this._fileNameEl.textContent = '— none —';
+            this._fileNameEl.textContent = '';
             this._fileSizeEl.textContent = '';
+            this._pickerEmpty.hidden  = false;
+            this._pickerFilled.hidden = true;
+            this._picker.classList.remove('is-filled');
+            // Reset the underlying input so the same file can be picked again
+            if (this._fileInput) this._fileInput.value = '';
         }
         this._refreshUploadBtn();
+        this.emit('youtube-file-set', this._file ? {
+            fileName: this._file.name || '',
+            fileSize: this._file.size,
+            type:     this._file.type || '',
+        } : { fileName: null, fileSize: 0, type: '' });
     }
 
     /** @returns {File|Blob|null} */
@@ -231,6 +257,38 @@ class SgYouTubeUpload extends SgComponent {
         const v = this._clientIdInput.value.trim();
         if (v) localStorage.setItem(LS_CLIENT_ID, v);
         else   localStorage.removeItem(LS_CLIENT_ID);
+    }
+
+    _onPickerClick(e) {
+        // The clear button lives inside the picker — don't open the file dialog
+        // when the user clicks ✕.
+        if (e.target.closest('#file-clear')) return;
+        if (this._file) return;
+        this._fileInput.click();
+    }
+
+    _onFileInputChange() {
+        const file = this._fileInput.files?.[0];
+        if (file) this.setFile(file);
+    }
+
+    _onDragEnter(e) { e.preventDefault(); this._picker.classList.add('is-drag-over'); }
+    _onDragOver(e)  { e.preventDefault(); e.dataTransfer.dropEffect = 'copy'; }
+    _onDragLeave(e) {
+        // Only clear the highlight when leaving the picker bounds, not its children
+        if (e.currentTarget.contains(e.relatedTarget)) return;
+        this._picker.classList.remove('is-drag-over');
+    }
+    _onDrop(e) {
+        e.preventDefault();
+        this._picker.classList.remove('is-drag-over');
+        const file = e.dataTransfer.files?.[0];
+        if (file) this.setFile(file);
+    }
+
+    _onFileClear(e) {
+        e.stopPropagation();
+        this.setFile(null);
     }
 
     _currentClientId() {

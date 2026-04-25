@@ -10,6 +10,7 @@
     "events": [
         "youtube-connected",
         "youtube-disconnected",
+        "youtube-file-set",
         "youtube-upload-start",
         "youtube-upload-progress",
         "youtube-upload-complete",

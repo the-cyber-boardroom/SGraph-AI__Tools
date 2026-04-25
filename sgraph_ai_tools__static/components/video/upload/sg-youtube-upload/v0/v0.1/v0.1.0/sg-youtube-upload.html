@@ -41,11 +41,19 @@
     </section>
 
     <section class="ytup__section">
-        <div class="ytup__file-row">
-            <span class="ytup__label">Selected file</span>
-            <span id="file-name" class="ytup__file-name">— none —</span>
-            <span id="file-size" class="ytup__file-size"></span>
-        </div>
+        <span class="ytup__label">Video file <span class="ytup__req">*</span></span>
+        <button type="button" id="picker" class="ytup__picker" aria-label="Choose or drop a video file">
+            <span id="picker-empty" class="ytup__picker-empty">
+                <span class="ytup__picker-icon" aria-hidden="true">⬆</span>
+                <span>Click to choose a video, or drop one here</span>
+            </span>
+            <span id="picker-filled" class="ytup__picker-filled" hidden>
+                <span class="ytup__file-name"  id="file-name"></span>
+                <span class="ytup__file-size"  id="file-size"></span>
+                <span class="ytup__file-clear" id="file-clear" role="button" aria-label="Remove file">✕</span>
+            </span>
+        </button>
+        <input type="file" id="file-input" accept="video/*" hidden>
     </section>
 
     <section class="ytup__section">
