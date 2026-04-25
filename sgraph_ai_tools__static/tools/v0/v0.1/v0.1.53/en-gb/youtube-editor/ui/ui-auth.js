@@ -108,7 +108,16 @@ export function initAuth(root, state, api, emit) {
 
     // ── Reflect current state ────────────────────────────────────────────────
     _setConnected(state.connected);
-    if (state.channel) _renderChannel(state.channel);
+    if (state.channel) {
+        _renderChannel(state.channel);
+    } else if (state.connected) {
+        // Page loaded with a cached token but no channel info — fetch it so
+        // the avatar/stats card populates without forcing a re-Connect click.
+        api.getMyChannel().catch(err => {
+            errEl.hidden = false;
+            errEl.textContent = err.message;
+        });
+    }
 
     // ── React to events ──────────────────────────────────────────────────────
     window.addEventListener(SGA_YT.CONNECTED,    () => { _setConnected(true);  errEl.hidden = true; });

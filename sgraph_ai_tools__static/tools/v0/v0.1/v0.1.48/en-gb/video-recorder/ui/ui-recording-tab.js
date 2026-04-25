@@ -105,6 +105,17 @@ export function initRecordingTab(container, primaryBlob, blobs, durationMs, size
                         <button class="rec-btn rec-btn--copy" id="share-copy">Copy</button>
                     </div>
                 </div>
+
+                <div class="rec-tab__section">
+                    <div class="rec-tab__section-title">Send to YouTube</div>
+                    <p style="font-size:11px;color:var(--rec-muted);margin:0 0 8px;line-height:1.5;">
+                        Open the recording in YouTube Editor (new tab) with this blob pre-loaded —
+                        set title, privacy, and upload to your channel.
+                    </p>
+                    <button id="send-youtube" class="rec-btn rec-btn--upload" ${!primaryBlob ? 'disabled' : ''}>
+                        ▶ Send to YouTube Editor
+                    </button>
+                </div>
             </div>
         </div>
     `;
@@ -208,6 +219,27 @@ export function initRecordingTab(container, primaryBlob, blobs, durationMs, size
             }
         });
     }
+
+    // ── Send to YouTube Editor ────────────────────────────────────────────────
+
+    const sendYtBtn = container.querySelector('#send-youtube');
+    sendYtBtn?.addEventListener('click', async () => {
+        if (!primaryBlob) return;
+        try {
+            const { sendToYouTubeEditor } = await import(
+                '/tools/v0/v0.1/v0.1.53/en-gb/youtube-editor/handoff/sg-youtube-handoff.js'
+            );
+            sendToYouTubeEditor({
+                blob:           primaryBlob,
+                suggestedTitle: name || `Recording ${new Date().toLocaleDateString('en-GB')}`,
+                filename:       `${(name || 'recording').replace(/[^\w-]+/g, '_')}.webm`,
+                sourceTool:     'video-recorder',
+            });
+        } catch (err) {
+            console.error('[rec-tab] hand-off failed:', err);
+            alert(`Could not open YouTube Editor: ${err.message}`);
+        }
+    });
 
     // ── SG/Send share ─────────────────────────────────────────────────────────
 

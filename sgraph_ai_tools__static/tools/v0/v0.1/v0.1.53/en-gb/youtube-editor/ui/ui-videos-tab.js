@@ -23,7 +23,9 @@ export function initVideosTab(root, state, api, emit, layout) {
     grid.style.cssText = 'display:block;height:100%;';
     root.appendChild(grid);
 
-    function _hydrateToken() {
+    async function _hydrateToken() {
+        // Wait for SgComponent to bind elements before driving DOM-touching methods.
+        try { await grid.whenReady?.(); } catch { /* fall through */ }
         if (state.connected && state.accessToken) {
             grid.setToken(state.accessToken);
             grid.refresh();

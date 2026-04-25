@@ -6,9 +6,19 @@
             <div id="head-title"  class="yte__head-title">—</div>
             <div id="head-id"     class="yte__head-id mono">—</div>
             <a id="watch-link"    class="yte__head-link" target="_blank" rel="noopener" hidden>Open on YouTube ↗</a>
+            <button type="button" id="preview-toggle" class="yte__head-btn" hidden>▶ Preview</button>
         </div>
         <span id="privacy-badge" class="yte__badge">—</span>
     </header>
+
+    <div id="preview-wrap" class="yte__preview" hidden>
+        <iframe id="preview-iframe"
+                class="yte__preview-iframe"
+                title="YouTube preview"
+                allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+                allowfullscreen
+                loading="lazy"></iframe>
+    </div>
 
     <div id="status" class="yte__status">No video selected.</div>
 
@@ -47,11 +57,20 @@
 
         <hr class="yte__sep">
 
+        <div class="yte__playlists">
+            <div class="yte__playlists-head">
+                <label class="yte__label" style="margin:0;">Playlists</label>
+                <button type="button" id="pl-refresh" class="yte__btn yte__btn--ghost yte__btn--mini">Refresh</button>
+            </div>
+            <div id="pl-status" class="yte__playlists-status">Loading…</div>
+            <div id="pl-list"   class="yte__playlists-list"></div>
+        </div>
+
+        <hr class="yte__sep" id="danger-sep" hidden>
+
         <div id="danger-zone" class="yte__danger" hidden>
             <div class="yte__danger-title">Danger zone</div>
-            <p class="yte__danger-body">
-                Delete is irreversible. Type the video title to confirm.
-            </p>
+            <p class="yte__danger-body">Delete is irreversible. Type the video title to confirm.</p>
             <input type="text" id="confirm-input" class="yte__input" placeholder="Type the title to confirm">
             <button type="button" id="delete-btn" class="yte__btn yte__btn--danger" disabled>Delete video</button>
         </div>

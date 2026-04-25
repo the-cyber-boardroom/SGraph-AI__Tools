@@ -149,6 +149,25 @@ export function initUploadTab(root, state, api, emit) {
     window.addEventListener(SGA_YT.CONNECTED,       _refresh);
     window.addEventListener(SGA_YT.DISCONNECTED,    _refresh);
 
+    // Handoff from a sibling tool (e.g. video-recorder) — receive the blob
+    // and pre-fill the form so the user just hits Upload.
+    window.addEventListener('sg-yt-handoff-pickup', (e) => {
+        const { blob, suggestedTitle, suggestedDescription, filename, sourceTool } = e.detail || {};
+        if (!blob) return;
+        const file = new File([blob], filename || 'recording.webm', { type: blob.type || 'video/webm' });
+        _file = file;
+        fileNameEl.textContent = file.name;
+        fileSizeEl.textContent = `(${_fmt(file.size)})`;
+        if (suggestedTitle && !titleInput.value)            titleInput.value = suggestedTitle;
+        if (suggestedDescription && !descInput.value)       descInput.value  = suggestedDescription;
+        if (notConnEl) {
+            notConnEl.textContent = `Received from ${sourceTool || 'another tool'}. ${state.connected ? 'Ready to upload.' : 'Sign in on the left to upload.'}`;
+            notConnEl.hidden = false;
+            notConnEl.classList.add('yte-up__notice--ok');
+        }
+        _refresh();
+    });
+
     function _setProgress(pct) {
         const v = Math.max(0, Math.min(100, pct || 0));
         progBar.style.setProperty('--progress', `${v}%`);

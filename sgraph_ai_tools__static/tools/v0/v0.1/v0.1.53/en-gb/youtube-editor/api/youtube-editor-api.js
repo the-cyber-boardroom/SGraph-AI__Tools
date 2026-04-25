@@ -47,6 +47,15 @@ async function uploadVideo({ file, metadata }) {
     return await P.uploadVideo(file, metadata, { emit });
 }
 
+async function listMyPlaylists(params = {})            { return await P.listMyPlaylists({ ...params, emit }); }
+async function listPlaylistItems({ playlistId, ...rest }) { return await P.listPlaylistItems(playlistId, { ...rest, emit }); }
+async function findVideoPlaylists({ videoId, playlistIds }) { return await P.findVideoPlaylists(videoId, playlistIds, { emit }); }
+async function addToPlaylist({ playlistId, videoId, position }) { return await P.addToPlaylist(playlistId, videoId, { position, emit }); }
+async function removeFromPlaylist({ playlistItemId, playlistId, videoId }) {
+    await P.removeFromPlaylist(playlistItemId, { emit, playlistId, videoId });
+    return { ok: true };
+}
+
 function getStatus() {
     return {
         connected:      state.connected,
@@ -76,6 +85,11 @@ api
     .register('setThumbnail',  setThumbnail,  { async: true,  events: [SGA_YT.THUMBNAIL_SET, SGA_YT.ERROR] })
     .register('deleteVideo',   deleteVideo,   { async: true,  events: [SGA_YT.VIDEO_DELETED, SGA_YT.ERROR] })
     .register('uploadVideo',   uploadVideo,   { async: true,  events: [SGA_YT.UPLOAD_START, SGA_YT.UPLOAD_PROGRESS, SGA_YT.UPLOAD_COMPLETE, SGA_YT.ERROR] })
+    .register('listMyPlaylists',    listMyPlaylists,    { async: true, events: [SGA_YT.PLAYLISTS_LOADED] })
+    .register('listPlaylistItems',  listPlaylistItems,  { async: true, events: [SGA_YT.PLAYLIST_EXPANDED] })
+    .register('findVideoPlaylists', findVideoPlaylists, { async: true })
+    .register('addToPlaylist',      addToPlaylist,      { async: true, events: [SGA_YT.PLAYLISTS_CHANGED, SGA_YT.ERROR] })
+    .register('removeFromPlaylist', removeFromPlaylist, { async: true, events: [SGA_YT.PLAYLISTS_CHANGED, SGA_YT.ERROR] })
     .register('getStatus',     getStatus,     { async: false })
     .register('health',        health,        { async: false });
 

@@ -239,6 +239,40 @@ export async function uploadVideo(file, metadata, { emit } = {}) {
     }
 }
 
+// ── Playlists ────────────────────────────────────────────────────────────────
+
+export async function listMyPlaylists({ pageToken, pageSize, emit } = {}) {
+    if (!_api) throw new Error('Not connected.');
+    const result = await _withAuth(() => _api.listMyPlaylists({ pageToken, pageSize }), emit);
+    emit?.(SGA_YT.PLAYLISTS_LOADED, { items: result.items, totalResults: result.totalResults });
+    return result;
+}
+
+export async function listPlaylistItems(playlistId, { pageToken, pageSize, emit } = {}) {
+    if (!_api) throw new Error('Not connected.');
+    const result = await _withAuth(() => _api.listPlaylistItems(playlistId, { pageToken, pageSize }), emit);
+    emit?.(SGA_YT.PLAYLIST_EXPANDED, { playlistId, items: result.items });
+    return result;
+}
+
+export async function findVideoPlaylists(videoId, playlistIds, { emit } = {}) {
+    if (!_api) throw new Error('Not connected.');
+    return await _withAuth(() => _api.findVideoPlaylists(videoId, playlistIds), emit);
+}
+
+export async function addToPlaylist(playlistId, videoId, { position, emit } = {}) {
+    if (!_api) throw new Error('Not connected.');
+    const result = await _withAuth(() => _api.addToPlaylist(playlistId, videoId, { position }), emit);
+    emit?.(SGA_YT.PLAYLISTS_CHANGED, { videoId, playlistId, action: 'added' });
+    return result;
+}
+
+export async function removeFromPlaylist(playlistItemId, { emit, videoId, playlistId } = {}) {
+    if (!_api) throw new Error('Not connected.');
+    await _withAuth(() => _api.removeFromPlaylist(playlistItemId), emit);
+    emit?.(SGA_YT.PLAYLISTS_CHANGED, { videoId, playlistId, action: 'removed' });
+}
+
 // ── Health ───────────────────────────────────────────────────────────────────
 
 export function health() {
