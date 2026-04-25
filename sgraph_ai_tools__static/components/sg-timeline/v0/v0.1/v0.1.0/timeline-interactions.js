@@ -3,6 +3,8 @@
 import { snapToFps } from '../../../../../core/video-composer/v0/v0.1/v0.1.0/composer-schema.js';
 import { SGT_EVENTS } from './timeline-events.js';
 import { attachDropAffordance } from './timeline-drop.js';
+import { attachKeyboard } from './timeline-keyboard.js';
+import { showDragFeedback, endDragFeedback } from './timeline-feedback.js';
 
 /**
  * Look up a clip object by id from the first video track of state.project.
@@ -37,11 +39,12 @@ function assetDuration(state, assetId) {
 /**
  * Attach pointer + drop interactions to the timeline shadow root.
  * @param {ShadowRoot} root
- * @param {() => {project: object|null, pps: number, fps: number}} getState
+ * @param {() => {project: object|null, pps: number, fps: number, playhead?: number, selectedClipId?: string|null, host?: HTMLElement}} getState
  * @param {(name: string, detail: object) => void} dispatch
+ * @param {HTMLElement} [hostEl] Custom-element host (for keyboard scope).
  * @returns {() => void} dispose function
  */
-export function attachInteractions(root, getState, dispatch) {
+export function attachInteractions(root, getState, dispatch, hostEl) {
     const ruler = root.querySelector('.ruler');
     const lane = root.querySelector('.lane');
     if (!ruler || !lane) return () => {};
@@ -59,6 +62,7 @@ export function attachInteractions(root, getState, dispatch) {
     function onLanePointerDown(e) {
         const clipEl = e.target.closest('.clip');
         if (!clipEl) return;
+        if (e.target.closest('.clip__delete')) return;
         const clipId = clipEl.dataset.clipId;
         const role = e.target.dataset.role || 'move';
         const state = getState();
@@ -87,23 +91,27 @@ export function attachInteractions(root, getState, dispatch) {
         const dx = e.clientX - drag.startX;
         const dt = snapToFps(dx / pps, fps || 30);
         if (Math.abs(dx) > 2) drag.moved = true;
+        let preview = null;
         if (drag.kind === 'move') {
             const newStart = Math.max(0, drag.origStart + dt);
-            drag.clipEl.style.left = (newStart * pps) + 'px';
             drag.pendingStart = newStart;
+            const width = (drag.origOut - drag.origIn) * pps;
+            preview = { leftPx: newStart * pps, widthPx: width, time: newStart };
         } else if (drag.kind === 'trim-left') {
             const newIn = Math.max(0, Math.min(drag.origOut - 1 / (fps || 30), drag.origIn + dt));
             const newStart = Math.max(0, drag.origStart + (newIn - drag.origIn));
             const width = (drag.origOut - newIn) * pps;
-            drag.clipEl.style.left = (newStart * pps) + 'px';
-            drag.clipEl.style.width = Math.max(2, width) + 'px';
             drag.pendingIn = newIn;
             drag.pendingStart = newStart;
+            preview = { leftPx: newStart * pps, widthPx: width, time: newStart, inPoint: newIn, outPoint: drag.origOut };
         } else if (drag.kind === 'trim-right') {
             const newOut = Math.max(drag.origIn + 1 / (fps || 30), Math.min(drag.assetDur, drag.origOut + dt));
             const width = (newOut - drag.origIn) * pps;
-            drag.clipEl.style.width = Math.max(2, width) + 'px';
             drag.pendingOut = newOut;
+            preview = { leftPx: drag.origStart * pps, widthPx: width, time: drag.origStart, inPoint: drag.origIn, outPoint: newOut };
+        }
+        if (preview && drag.moved) {
+            showDragFeedback(lane, drag, preview, { clientX: e.clientX, clientY: e.clientY });
         }
     }
 
@@ -111,6 +119,7 @@ export function attachInteractions(root, getState, dispatch) {
         if (!drag) return;
         const d = drag;
         drag = null;
+        endDragFeedback(lane, d.clipEl);
         if (!d.moved) return;
         if (d.kind === 'move' && Number.isFinite(d.pendingStart)) {
             dispatch(SGT_EVENTS.CLIP_MOVED, { clipId: d.clipId, timelineStart: d.pendingStart });
@@ -122,6 +131,13 @@ export function attachInteractions(root, getState, dispatch) {
         } else if (d.kind === 'trim-right') {
             dispatch(SGT_EVENTS.CLIP_TRIMMED, { clipId: d.clipId, inPoint: d.origIn, outPoint: d.pendingOut });
         }
+    }
+
+    function onPointerCancel() {
+        if (!drag) return;
+        const d = drag;
+        drag = null;
+        endDragFeedback(lane, d.clipEl);
     }
 
     function onRulerPointerDown(e) {
@@ -138,22 +154,34 @@ export function attachInteractions(root, getState, dispatch) {
     }
 
     function onLaneClick(e) {
+        const delEl = e.target.closest && e.target.closest('.clip__delete');
+        if (delEl) {
+            e.stopPropagation();
+            e.preventDefault();
+            const clipId = delEl.dataset.clipId || (delEl.closest('.clip') || {}).dataset?.clipId;
+            if (clipId) dispatch(SGT_EVENTS.CLIP_DELETED, { clipId });
+            return;
+        }
         if (e.target === lane) dispatch(SGT_EVENTS.CLIP_SELECTED, { clipId: null });
     }
 
     const disposeDrop = attachDropAffordance(lane, getState, dispatch, pxToTime);
+    const disposeKeys = attachKeyboard(hostEl, getState, dispatch);
     lane.addEventListener('pointerdown', onLanePointerDown);
     lane.addEventListener('click', onLaneClick);
     ruler.addEventListener('pointerdown', onRulerPointerDown);
     window.addEventListener('pointermove', onPointerMove);
     window.addEventListener('pointerup', onPointerUp);
+    window.addEventListener('pointercancel', onPointerCancel);
 
     return () => {
         disposeDrop();
+        disposeKeys();
         lane.removeEventListener('pointerdown', onLanePointerDown);
         lane.removeEventListener('click', onLaneClick);
         ruler.removeEventListener('pointerdown', onRulerPointerDown);
         window.removeEventListener('pointermove', onPointerMove);
         window.removeEventListener('pointerup', onPointerUp);
+        window.removeEventListener('pointercancel', onPointerCancel);
     };
 }

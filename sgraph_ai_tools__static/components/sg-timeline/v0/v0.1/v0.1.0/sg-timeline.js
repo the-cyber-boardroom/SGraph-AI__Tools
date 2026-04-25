@@ -10,6 +10,7 @@ import {
     updatePlayhead,
 } from './timeline-render.js';
 import { attachInteractions } from './timeline-interactions.js';
+import { attachZoom } from './timeline-zoom.js';
 
 const CSS_HREF = new URL('./sg-timeline.css', import.meta.url).href;
 const DEFAULT_PPS = 60;
@@ -29,6 +30,7 @@ export class SgTimeline extends HTMLElement {
     #lane = null;
     #playheadEl = null;
     #surface = null;
+    #zoom = null;
 
     constructor() {
         super();
@@ -52,7 +54,14 @@ export class SgTimeline extends HTMLElement {
 
     connectedCallback() {
         if (this.#dispose) return;
-        const getState = () => ({ project: this.#project, pps: this.#pps, fps: this.#fps });
+        const getState = () => ({
+            project: this.#project,
+            pps: this.#pps,
+            fps: this.#fps,
+            playhead: this.#playhead,
+            selectedClipId: this.#selected,
+            host: this,
+        });
         const dispatch = (name, detail) => {
             if (name === SGT_EVENTS.PLAYHEAD_CHANGED && detail && Number.isFinite(detail.time)) {
                 this.#playhead = detail.time;
@@ -64,12 +73,20 @@ export class SgTimeline extends HTMLElement {
             }
             this.dispatchEvent(new CustomEvent(name, { detail, bubbles: true, composed: true }));
         };
-        this.#dispose = attachInteractions(this.#root, getState, dispatch);
+        if (!this.hasAttribute('tabindex')) this.setAttribute('tabindex', '0');
+        this.#dispose = attachInteractions(this.#root, getState, dispatch, this);
+        this.#zoom = attachZoom({
+            root: this.#root,
+            getState: () => ({ project: this.#project, pps: this.#pps }),
+            setPixelsPerSecond: (pps) => this.setPixelsPerSecond(pps),
+            getLane: () => this.#lane,
+        });
         this.#renderAll();
     }
 
     disconnectedCallback() {
         if (this.#dispose) { this.#dispose(); this.#dispose = null; }
+        if (this.#zoom) { this.#zoom.dispose(); this.#zoom = null; }
     }
 
     /** @param {object} project */
@@ -97,6 +114,16 @@ export class SgTimeline extends HTMLElement {
         if (!Number.isFinite(pps) || pps <= 0) return;
         this.#pps = pps;
         this.#renderAll();
+        if (this.#zoom) this.#zoom.refresh();
+    }
+
+    /**
+     * Auto-fit pixelsPerSecond so the entire project fits the visible width.
+     * No-op when no project, zero duration, or lane not yet visible.
+     * @returns {void}
+     */
+    fitToView() {
+        if (this.#zoom) this.#zoom.fit();
     }
 
     #renderAll() {

@@ -46,6 +46,7 @@
             "trimClip":     { "description": "Update inPoint/outPoint of a clip; clamps to asset duration and snaps to fps." },
             "removeClip":   { "description": "Remove a clip by id from whichever track contains it." },
             "moveClip":     { "description": "Set timelineStart of a clip; snaps to fps." },
+            "splitClip":    { "description": "Split a clip at a timeline-time, producing two clips that share the asset." },
             "getProject":   { "description": "Return a defensive deep clone of the current project state." },
             "setProject":   { "description": "Replace the current project state (validated via composer-schema)." },
             "exportMp4":    { "description": "Render the project to an MP4 Blob via the composer; returns blob+meta." }
@@ -56,6 +57,8 @@
             { "name": "sg-timeline:clip-moved",      "when": "user drags a clip on the timeline",       "detail": "{ clipId, timelineStart }" },
             { "name": "sg-timeline:clip-trimmed",    "when": "user drags a clip edge",                  "detail": "{ clipId, inPoint, outPoint }" },
             { "name": "sg-timeline:clip-selected",   "when": "user clicks a clip",                      "detail": "{ clipId }" },
+            { "name": "sg-timeline:clip-deleted",    "when": "user clicks the clip x or presses Del",   "detail": "{ clipId }" },
+            { "name": "sg-timeline:clip-split",      "when": "user presses S with a clip selected",     "detail": "{ clipId, atTime }" },
             { "name": "sg-timeline:playhead-changed","when": "user scrubs the timeline ruler",          "detail": "{ time }" },
             { "name": "tool:error",                  "when": "any pipeline error",                      "detail": "{ step, message }" }
         ],

@@ -108,10 +108,13 @@ export function renderClips(laneEl, project, pps, selectedClipId) {
     if (!project) return;
     const track = getVideoTracks(project)[0];
     if (!track) return;
-    for (const clip of track.clips) {
+    for (let i = 0; i < track.clips.length; i += 1) {
+        const clip = track.clips[i];
         const dur = clipDuration(clip);
         const el = document.createElement('div');
-        el.className = 'clip' + (clip.id === selectedClipId ? ' selected' : '');
+        const shade = `clip--shade-${i % 4}`;
+        const sel = clip.id === selectedClipId ? ' is-selected selected' : '';
+        el.className = `clip ${shade}${sel}`;
         el.dataset.clipId = clip.id || '';
         el.style.left = (clip.timelineStart * pps) + 'px';
         el.style.width = Math.max(2, dur * pps) + 'px';
@@ -131,6 +134,15 @@ export function renderClips(laneEl, project, pps, selectedClipId) {
         rh.className = 'clip-handle right';
         rh.dataset.role = 'trim-right';
         el.appendChild(rh);
+        const del = document.createElement('button');
+        del.type = 'button';
+        del.className = 'clip__delete';
+        del.dataset.role = 'delete';
+        del.dataset.clipId = clip.id || '';
+        del.setAttribute('aria-label', 'Delete clip');
+        del.title = 'Delete clip';
+        del.textContent = '×';
+        el.appendChild(del);
         laneEl.appendChild(el);
     }
 }

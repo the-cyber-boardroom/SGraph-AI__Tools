@@ -112,13 +112,27 @@ export function createPlayback({ project, assets, canvas, fps }) {
         }
     }
 
+    function pickFallbackClip() {
+        const clips = (videoTrack && Array.isArray(videoTrack.clips)) ? videoTrack.clips : [];
+        if (clips.length === 0) return null;
+        const sorted = [...clips].sort((a, b) => a.timelineStart - b.timelineStart);
+        for (const c of sorted) if (c.timelineStart >= playhead) return c;
+        return sorted[0];
+    }
+
     function play() {
         if (playing || !videoTrack) return;
+        if (!Array.isArray(videoTrack.clips) || videoTrack.clips.length === 0) return;
         playing = true;
-        if (!activeClip) {
-            const c = findActiveClip(videoTrack, playhead);
-            setActive(c);
+        let current = findActiveClip(videoTrack, playhead);
+        if (!current) {
+            const fallback = pickFallbackClip();
+            if (!fallback) { playing = false; return; }
+            playhead = snapToFps(fallback.timelineStart, fps);
+            emit('composer:playhead-changed', { time: playhead });
+            current = fallback;
         }
+        if (!activeClip || activeClip !== current) setActive(current);
         if (activeVideo) {
             activeVideo.play().then(scheduleFrameLoop).catch(() => {});
         }

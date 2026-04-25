@@ -1,6 +1,7 @@
 /** state.js — pure project state container; no DOM. */
 
 import { snapToFps, validateProject, getVideoTracks } from '/core/video-composer/v0/v0.1/v0.1.0/composer-schema.js';
+import { splitClipOp } from './state-split.js';
 
 const SCHEMA_VERSION = '0.1.0';
 const DEFAULT_FPS = 30;
@@ -157,6 +158,13 @@ export function createState(initialProject) {
             loc.track.clips[loc.index].timelineStart = t;
             withOp({ op: 'moveClip', clipId, timelineStart: t });
             emit();
+        },
+
+        splitClip({ clipId, atTime }) {
+            const { newClipId, atTime: t } = splitClipOp(project, { clipId, atTime }, genId);
+            withOp({ op: 'splitClip', clipId, atTime: t, newClipId });
+            emit();
+            return { newClipId };
         },
 
         /** Project the wrapped state into a composer-shaped project. */
