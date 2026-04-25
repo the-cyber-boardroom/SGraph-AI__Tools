@@ -38,6 +38,9 @@ canvas {
     height: auto;
     object-fit: contain;
     background: #000;
+    outline: 1px solid rgba(255, 255, 255, 0.18);
+    outline-offset: 0;
+    box-shadow: 0 0 0 1px rgba(20, 184, 166, 0.25);
 }
 
 .transport {

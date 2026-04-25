@@ -44,10 +44,10 @@
         "note": "window.__tool live after tool:ready. Holds project state in-memory; assets stored as Blobs in an internal AssetRegistry. No network calls, no localStorage. Composer + MediaRecorder do MP4 export client-side.",
         "actions": {
             "loadAsset":    { "description": "Probe a video or image file and register it in the asset registry." },
-            "addClip":      { "description": "Append a clip referencing an asset to a track at a given timeline start." },
-            "trimClip":     { "description": "Update inPoint/outPoint of a clip; clamps to asset duration and snaps to fps." },
+            "addClip":      { "description": "Append a clip referencing an asset to a track at a given timeline start. Throws Error{code:'overlap'} if the new position would overlap another clip on the same track." },
+            "trimClip":     { "description": "Update inPoint/outPoint of a clip; clamps to asset duration and snaps to fps. Throws Error{code:'overlap'} if the new position would overlap another clip on the same track." },
             "removeClip":   { "description": "Remove a clip by id from whichever track contains it." },
-            "moveClip":     { "description": "Set timelineStart of a clip; snaps to fps." },
+            "moveClip":     { "description": "Set timelineStart of a clip; snaps to fps. Throws Error{code:'overlap'} if the new position would overlap another clip on the same track." },
             "splitClip":    { "description": "Split a clip at a timeline-time, producing two clips that share the asset." },
             "setClipColor": { "description": "Set or clear (color=null) a clip's optional color override; inline style overrides the auto-shade." },
             "getProject":   { "description": "Return a defensive deep clone of the current project state." },

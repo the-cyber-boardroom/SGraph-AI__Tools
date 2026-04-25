@@ -35,6 +35,10 @@ export function buildVideoElements(videoTrack, project, assets) {
 
 /**
  * Build an AudioContext + MediaStreamDestination with connect/disconnect helpers.
+ * Always connects a near-silent oscillator (gain ~1e-4) so the audio track
+ * stays live for the entire export even when no video clip is connected
+ * (e.g. image-only projects); some browsers refuse to deliver an audio
+ * track in captureStream without a continuously-playing source.
  * @returns {{
  *   audioCtx: AudioContext, audioDest: MediaStreamAudioDestinationNode,
  *   connect: (v: HTMLVideoElement|null) => void,
@@ -46,6 +50,15 @@ export function buildAudioGraph() {
     const audioCtx = new (globalThis.AudioContext || globalThis.webkitAudioContext)();
     const audioDest = audioCtx.createMediaStreamDestination();
     const sources = new Map();
+    let osc = null; let oscGain = null;
+    try {
+        osc = audioCtx.createOscillator();
+        oscGain = audioCtx.createGain();
+        oscGain.gain.value = 0.0001;
+        osc.frequency.value = 20;
+        osc.connect(oscGain).connect(audioDest);
+        osc.start();
+    } catch (_) { /* best-effort silent keepalive */ }
     function connect(video) {
         if (!video) return;
         let src = sources.get(video);
@@ -61,7 +74,10 @@ export function buildAudioGraph() {
         const src = sources.get(video);
         if (src) try { src.disconnect(audioDest); } catch (_) {}
     }
-    function close() { try { audioCtx.close(); } catch (_) {} }
+    function close() {
+        try { if (osc) osc.stop(); } catch (_) {}
+        try { audioCtx.close(); } catch (_) {}
+    }
     return { audioCtx, audioDest, connect, disconnect, close };
 }
 
