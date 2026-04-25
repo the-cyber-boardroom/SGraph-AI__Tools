@@ -18,6 +18,7 @@
  */
 
 import { getCameraStream, getAudioStream, getScreenStream, mergeAsPiP } from '/core/sg-capture/v0/v0.1/v0.1.0/sg-capture.js';
+import { mergeAsShorts }                                                 from './merge-vertical.js';
 import { getBestMimeType }                                   from '/core/sg-video-recorder/v0/v0.1/v0.1.2/sg-video-recorder.js';
 import { RecordingConfig, RecordingState }                   from './recorder-state.js';
 import { SGA_RECORDER }                                      from './recorder-events.js';
@@ -396,13 +397,23 @@ export async function startPipeline() {
             }
         }
 
-        // ── PiP composite recorder (camera+screen modes only) ─────────────
+        // ── PiP / Shorts composite recorder (camera+screen modes only) ────────
         if (!rawViz && rawCamera && rawScreen && startCombined) {
-            const pip = await mergeAsPiP(rawScreen, rawCamera, config.pipOptions);
-            session._pipStop = pip.stop;
+            let composite;
+            if (config.layout === 'shorts') {
+                composite = await mergeAsShorts(rawScreen, rawCamera, {
+                    fps:       config.fps,
+                    title:     config.recordingName,
+                    startedAt: Date.now(),
+                });
+            } else {
+                composite = await mergeAsPiP(rawScreen, rawCamera, config.pipOptions);
+            }
+            session._pipStop = composite.stop;
+            // Use canvas video + raw audio tracks (raw quality > canvas-mixed audio)
             const combinedStream = audioTracks.length > 0
-                ? new MediaStream([...pip.stream.getVideoTracks(), ...audioTracks])
-                : pip.stream;
+                ? new MediaStream([...composite.stream.getVideoTracks(), ...audioTracks])
+                : composite.stream;
             session.startRecorder('combined', combinedStream);
         }
 
