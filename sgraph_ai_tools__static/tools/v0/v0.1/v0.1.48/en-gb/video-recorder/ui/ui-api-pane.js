@@ -21,7 +21,7 @@ function _buildVersionChip() {
     const b = window.SGRAPH_BUILD;
     if (b?.appVersion) {
         chip.textContent = b.appVersion;
-        chip.title = `appVersion: ${b.appVersion} · uiVersion: ${b.uiVersion || ''} · build: ${b.buildTime || ''}`;
+        chip.title = `appVersion: ${b.appVersion} · uiVersion: ${b.uiVersion || ''} · commit: ${b.commitSha || ''} · build: ${b.buildTime || ''}`;
     } else {
         chip.classList.add('is-dev');
         chip.textContent = 'dev';

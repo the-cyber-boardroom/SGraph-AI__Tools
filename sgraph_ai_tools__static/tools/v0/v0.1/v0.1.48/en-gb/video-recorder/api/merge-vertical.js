@@ -84,12 +84,38 @@ export async function mergeAsShorts(screenStream, cameraStream, options = {}) {
     const TITLE_TEXT = _clip(title || 'Recording', 60);
     const TITLE_FS   = _adaptFontSize(ctx, TITLE_TEXT, VID_W - 32);
 
+    // Precompute SG/Send logo geometry for TOP_SAFE zone
+    const LOGO_FS   = 52;
+    ctx.font        = `bold ${LOGO_FS}px system-ui, -apple-system, sans-serif`;
+    const LOGO_SG   = 'SG/';
+    const LOGO_SEND = 'Send';
+    const LOGO_SGW  = ctx.measureText(LOGO_SG).width;
+    const LOGO_TOTW = LOGO_SGW + ctx.measureText(LOGO_SEND).width;
+    const LOGO_X    = Math.round((W - LOGO_TOTW) / 2);
+    const LOGO_Y    = Math.round(TOP_SAFE / 2);
+    const BUILD_VER = window.SGRAPH_BUILD?.appVersion || window.SGRAPH_BUILD?.uiVersion || '';
+
     // ── Draw loop ─────────────────────────────────────────────────────────────
 
     function draw() {
         // Full background (covers safe zones + gaps)
         ctx.fillStyle = '#0a0a18';
         ctx.fillRect(0, 0, W, H);
+
+        // ── Top branding (SG/Send logo + version in TOP_SAFE zone) ───────────
+        ctx.font         = `bold ${LOGO_FS}px system-ui, -apple-system, sans-serif`;
+        ctx.textBaseline = 'middle';
+        ctx.textAlign    = 'left';
+        ctx.fillStyle    = '#14b8a6';
+        ctx.fillText(LOGO_SG, LOGO_X, LOGO_Y);
+        ctx.fillStyle = '#f8fafc';
+        ctx.fillText(LOGO_SEND, LOGO_X + LOGO_SGW, LOGO_Y);
+        if (BUILD_VER) {
+            ctx.font      = '20px ui-monospace, SFMono-Regular, monospace';
+            ctx.fillStyle = 'rgba(148,163,184,0.65)';
+            ctx.textAlign = 'center';
+            ctx.fillText(BUILD_VER, W / 2, LOGO_Y + 40);
+        }
 
         // ── Screen (rounded clip + border, no glow — keeps it "content") ─────
         ctx.save();
@@ -147,28 +173,23 @@ export async function mergeAsShorts(screenStream, cameraStream, options = {}) {
         ctx.roundRect(SIDE_PAD, FOOTER_Y, VID_W, FOOTER_H, VID_R);
         ctx.stroke();
 
-        // Footer text
+        // Footer text — all centred
         const elapsed = _dur(Date.now() - startedAt);
         const now     = new Date();
         const dateStr = now.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
         const timeStr = now.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' });
 
-        const FP   = SIDE_PAD + 16;   // inner text padding from footer left/right edges
         const ROW1 = FOOTER_Y + Math.round(FOOTER_H * 0.33);
         const ROW2 = FOOTER_Y + Math.round(FOOTER_H * 0.72);
 
         ctx.textBaseline = 'middle';
-        ctx.font      = '22px system-ui, -apple-system, sans-serif';
-        ctx.fillStyle = '#94a3b8';
-        ctx.textAlign = 'left';
-        ctx.fillText(`${dateStr}  ${timeStr}`, FP, ROW1);
-        ctx.fillStyle = '#e2e8f0';
-        ctx.textAlign = 'right';
-        ctx.fillText(elapsed, W - FP, ROW1);
+        ctx.textAlign    = 'center';
+        ctx.font         = '22px system-ui, -apple-system, sans-serif';
+        ctx.fillStyle    = '#94a3b8';
+        ctx.fillText(`${dateStr}  ${timeStr}  ·  ${elapsed}`, W / 2, ROW1);
 
         ctx.font      = '19px system-ui, -apple-system, sans-serif';
         ctx.fillStyle = '#64748b';
-        ctx.textAlign = 'center';
         ctx.fillText('Recorded with tools.sgraph.ai', W / 2, ROW2);
     }
 

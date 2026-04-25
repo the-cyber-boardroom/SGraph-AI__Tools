@@ -118,7 +118,8 @@ jobs:
         run: |
           python scripts/inject_build_version.py \
             --version ${{ steps.ifd.outputs.ui_version }} \
-            --source-dir ${{ env.SOURCE_DIR }}/tools/v0/v0.1/_latest
+            --source-dir ${{ env.SOURCE_DIR }}/tools/v0/v0.1/_latest \
+            --commit ${{ github.sha }}
 
       - name: Check AWS credentials
         id: check-creds

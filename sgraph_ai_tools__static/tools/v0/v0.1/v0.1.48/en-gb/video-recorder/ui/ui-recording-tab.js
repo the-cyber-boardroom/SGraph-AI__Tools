@@ -223,22 +223,17 @@ export function initRecordingTab(container, primaryBlob, blobs, durationMs, size
     // ── Send to YouTube Editor ────────────────────────────────────────────────
 
     const sendYtBtn = container.querySelector('#send-youtube');
-    sendYtBtn?.addEventListener('click', async () => {
+    sendYtBtn?.addEventListener('click', () => {
         if (!primaryBlob) return;
-        try {
-            const { sendToYouTubeEditor } = await import(
-                '/tools/v0/v0.1/v0.1.53/en-gb/youtube-editor/handoff/sg-youtube-handoff.js'
-            );
-            sendToYouTubeEditor({
-                blob:           primaryBlob,
-                suggestedTitle: name || `Recording ${new Date().toLocaleDateString('en-GB')}`,
-                filename:       `${(name || 'recording').replace(/[^\w-]+/g, '_')}.webm`,
-                sourceTool:     'video-recorder',
-            });
-        } catch (err) {
-            console.error('[rec-tab] hand-off failed:', err);
-            alert(`Could not open YouTube Editor: ${err.message}`);
-        }
+        window.__sgYtHandoff = {
+            blob:           primaryBlob,
+            suggestedTitle: name || `Recording ${new Date().toLocaleDateString('en-GB')}`,
+            filename:       `${(name || 'recording').replace(/[^\w-]+/g, '_')}.webm`,
+            sourceUrl:      location.href,
+            sourceTool:     'video-recorder',
+            timestamp:      Date.now(),
+        };
+        window.open('/en-gb/youtube-editor/', '_blank');
     });
 
     // ── SG/Send share ─────────────────────────────────────────────────────────

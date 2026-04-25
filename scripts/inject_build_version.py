@@ -29,6 +29,7 @@ BUILD_INFO_TEMPLATE = """\
 window.SGRAPH_BUILD = {{
     appVersion : '{app_version}',
     uiVersion  : '{ui_version}',
+    commitSha  : '{commit_sha}',
     buildTime  : '{build_time}'
 }};
 """
@@ -50,6 +51,8 @@ def main():
     parser.add_argument('--source-dir', type=str, default=None,
                         help='Pre-built directory to write build-info.js into (e.g. _latest/). '
                              'Use this when running AFTER build_ifd_latest.py.')
+    parser.add_argument('--commit', type=str, default='',
+                        help='Git commit SHA (short or full); displayed in UI version chip')
     parser.add_argument('--dry-run', action='store_true',
                         help='Print what would be written without writing')
     args = parser.parse_args()
@@ -65,6 +68,9 @@ def main():
         app_version = VERSION_FILE.read_text().strip()
     else:
         app_version = ui_version
+
+    # Git commit SHA (first 7 chars if full SHA provided)
+    commit_sha = (args.commit or '')[:7] if args.commit else ''
 
     # Resolve target path
     if args.source_dir:
@@ -82,12 +88,14 @@ def main():
     content = BUILD_INFO_TEMPLATE.format(
         app_version=app_version,
         ui_version=ui_version,
+        commit_sha=commit_sha,
         build_time=build_time,
     )
 
     print(f"SGraph Tools — Build Version Injection")
     print(f"  App version : {app_version}")
     print(f"  UI version  : {ui_version}")
+    print(f"  Commit SHA  : {commit_sha or '(none)'}")
     print(f"  Build time  : {build_time}")
     print(f"  Target      : {target}")
 
