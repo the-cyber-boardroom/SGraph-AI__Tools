@@ -3,7 +3,8 @@
 import { getVideoTracks } from '/core/video-composer/v0/v0.1/v0.1.0/composer-schema.js';
 import { splitClipOp } from './state-split.js';
 import {
-    addAssetOp, addClipOp, trimClipOp, moveClipOp, removeClipOp, setClipColorOp,
+    addAssetOp, addClipOp, trimClipOp, moveClipOp, removeClipOp,
+    setClipColorOp, setClipTransformOp, setClipCropOp,
 } from './state-clip-ops.js';
 import {
     addTrackOp, removeTrackOp, moveClipToTrackOp, reorderTracksOp, setTrackMutedOp,
@@ -15,12 +16,9 @@ import {
 
 export { createInitialProject };
 
-/**
- * Create a state container with mutation helpers; emits 'change' on every
- * mutation. Undo/redo uses a 50-entry snapshot stack per side. The
- * AssetRegistry (Map<assetId, Blob>) is shared across snapshots — undoing an
- * addAsset leaves the blob behind but the project no longer references it.
- */
+/** Create a state container with mutation helpers; emits 'change' per mutation.
+ *  Undo/redo uses a 50-entry snapshot stack per side. The AssetRegistry
+ *  (Map<assetId, Blob>) is shared across snapshots. */
 export function createState(initialProject) {
     let project = validateWrapped(deepClone(initialProject));
     const assetRegistry = new Map();
@@ -64,17 +62,14 @@ export function createState(initialProject) {
             const id = addClipOp(project, params, genId);
             history.pushSnapshot(snap);
             withOp({ op: 'addClip', clipId: id, trackId: params.trackId, assetId: params.assetId });
-            emit();
-            return id;
+            emit(); return id;
         },
-
         removeClip(params) {
             snapshot();
             removeClipOp(project, params);
             withOp({ op: 'removeClip', clipId: params.clipId });
             emit();
         },
-
         trimClip(params) {
             const snap = deepClone(project);
             const { inPoint, outPoint } = trimClipOp(project, params);
@@ -82,7 +77,6 @@ export function createState(initialProject) {
             withOp({ op: 'trimClip', clipId: params.clipId, inPoint, outPoint });
             emit();
         },
-
         moveClip(params) {
             const snap = deepClone(project);
             const { timelineStart } = moveClipOp(project, params);
@@ -90,7 +84,6 @@ export function createState(initialProject) {
             withOp({ op: 'moveClip', clipId: params.clipId, timelineStart });
             emit();
         },
-
         splitClip({ clipId, atTime }) {
             snapshot();
             const r = splitClipOp(project, { clipId, atTime }, genId);
@@ -105,57 +98,59 @@ export function createState(initialProject) {
             withOp({ op: 'setClipColor', clipId, color });
             emit();
         },
+        setClipTransform(params) {
+            snapshot();
+            const r = setClipTransformOp(project, params);
+            withOp({ op: 'setClipTransform', clipId: r.clipId, transform: r.transform });
+            emit(); return r;
+        },
+        setClipCrop(params) {
+            snapshot();
+            const r = setClipCropOp(project, params);
+            withOp({ op: 'setClipCrop', clipId: r.clipId, crop: r.crop });
+            emit(); return r;
+        },
 
         addTrack(params = {}) {
             const snap = deepClone(project);
             const { trackId } = addTrackOp(project, params);
             history.pushSnapshot(snap);
             withOp({ op: 'addTrack', trackId, kind: params.kind || 'video' });
-            emit();
-            return { trackId };
+            emit(); return { trackId };
         },
-
         removeTrack(params) {
             const snap = deepClone(project);
             const { trackId } = removeTrackOp(project, params);
             history.pushSnapshot(snap);
             withOp({ op: 'removeTrack', trackId });
-            emit();
-            return { trackId };
+            emit(); return { trackId };
         },
-
         moveClipToTrack(params) {
             const snap = deepClone(project);
             const r = moveClipToTrackOp(project, params);
             history.pushSnapshot(snap);
             withOp({ op: 'moveClipToTrack', clipId: r.clipId, fromTrackId: r.fromTrackId, toTrackId: r.toTrackId });
-            emit();
-            return r;
+            emit(); return r;
         },
-
         setTrackMuted(params) {
             const snap = deepClone(project);
             const r = setTrackMutedOp(project, params);
             history.pushSnapshot(snap);
             withOp({ op: 'setTrackMuted', trackId: r.trackId, muted: r.muted });
-            emit();
-            return r;
+            emit(); return r;
         },
         reorderTracks(params) {
             const snap = deepClone(project);
             const r = reorderTracksOp(project, params);
             history.pushSnapshot(snap);
             withOp({ op: 'reorderTracks', trackIds: r.trackIds });
-            emit();
-            return r;
+            emit(); return r;
         },
-
         undo() {
             const next = history.undo(project);
             if (!next) return false;
             project = next; emit(); return true;
         },
-
         redo() {
             const next = history.redo(project);
             if (!next) return false;

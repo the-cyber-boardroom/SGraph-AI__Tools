@@ -1,7 +1,14 @@
 /**
  * composer-draw.js — canvas paint helpers for active clip frames.
+ * Per-clip transform + crop are applied here. `paintTransformedFrame` is
+ * the single source of truth for the draw math; `computeClipDestRect`
+ * exposes that math (without drawing) so the overlay UI can render handles
+ * over the same destination rect.
+ *
  * @module video-composer/composer-draw
  */
+
+import { defaultTransform, defaultCrop } from './composer-clip-fields.js';
 
 /**
  * Paint solid black across the canvas (gap fill / fallback).
@@ -15,36 +22,96 @@ export function paintBlack(ctx, canvas) {
 }
 
 /**
- * Paint the active video frame, or black if not ready.
- * @param {CanvasRenderingContext2D} ctx
- * @param {HTMLCanvasElement} canvas
- * @param {HTMLVideoElement|null} video
- * @returns {void}
+ * Compute the source-rect + destination-rect for a clip given its source
+ * dimensions, the canvas dimensions, and (optional) transform + crop.
+ * With default transform + default crop this reproduces today's aspect-fit
+ * letterboxed placement exactly.
+ *
+ * @param {number} canvasW
+ * @param {number} canvasH
+ * @param {number} srcWidth
+ * @param {number} srcHeight
+ * @param {{x: number, y: number, scale: number}} [transform]
+ * @param {{x: number, y: number, w: number, h: number}} [crop]
+ * @returns {{sx:number,sy:number,sw:number,sh:number,dx:number,dy:number,drawW:number,drawH:number}}
  */
-export function paintVideo(ctx, canvas, video) {
-    if (!video || video.readyState < 2) { paintBlack(ctx, canvas); return; }
-    ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+export function computeClipDestRect(canvasW, canvasH, srcWidth, srcHeight, transform, crop) {
+    const t = transform || defaultTransform();
+    const c = crop || defaultCrop();
+    const sx = c.x * srcWidth;
+    const sy = c.y * srcHeight;
+    const sw = c.w * srcWidth;
+    const sh = c.h * srcHeight;
+    const baseScale = Math.min(canvasW / sw, canvasH / sh);
+    const drawW = sw * baseScale * t.scale;
+    const drawH = sh * baseScale * t.scale;
+    const cx = t.x * canvasW;
+    const cy = t.y * canvasH;
+    const dx = cx - drawW / 2;
+    const dy = cy - drawH / 2;
+    return { sx, sy, sw, sh, dx, dy, drawW, drawH };
 }
 
 /**
- * Paint an image to the canvas with letterboxed contain-fit (preserves aspect).
+ * Draw a single source frame onto the canvas honouring crop + transform.
+ * Does NOT clear the canvas — the caller controls compositing order.
+ * @param {CanvasRenderingContext2D} ctx
+ * @param {HTMLCanvasElement} canvas
+ * @param {CanvasImageSource} source
+ * @param {number} srcWidth
+ * @param {number} srcHeight
+ * @param {{x: number, y: number, scale: number}} [transform]
+ * @param {{x: number, y: number, w: number, h: number}} [crop]
+ * @returns {void}
+ */
+export function paintTransformedFrame(ctx, canvas, source, srcWidth, srcHeight, transform, crop) {
+    if (!source || !srcWidth || !srcHeight) return;
+    const r = computeClipDestRect(canvas.width, canvas.height, srcWidth, srcHeight, transform, crop);
+    try { ctx.drawImage(source, r.sx, r.sy, r.sw, r.sh, r.dx, r.dy, r.drawW, r.drawH); }
+    catch (_) {}
+}
+
+/**
+ * Paint a video frame honouring per-clip transform + crop. Does NOT clear
+ * the canvas — caller controls compositing. Falls back to a stretch-fill if
+ * the browser hasn't reported videoWidth/Height yet (pre-metadata case).
+ *
+ * @param {CanvasRenderingContext2D} ctx
+ * @param {HTMLCanvasElement} canvas
+ * @param {HTMLVideoElement|null} video
+ * @param {{x: number, y: number, scale: number}} [transform]
+ * @param {{x: number, y: number, w: number, h: number}} [crop]
+ * @returns {void}
+ */
+export function paintVideo(ctx, canvas, video, transform, crop) {
+    if (!video || video.readyState < 2) return;
+    const vw = video.videoWidth || 0;
+    const vh = video.videoHeight || 0;
+    if (!vw || !vh) {
+        try { ctx.drawImage(video, 0, 0, canvas.width, canvas.height); } catch (_) {}
+        return;
+    }
+    paintTransformedFrame(ctx, canvas, video, vw, vh, transform, crop);
+}
+
+/**
+ * Paint an image honouring per-clip transform + crop. Does NOT clear the
+ * canvas — caller controls compositing. With defaults, reproduces the
+ * original aspect-fit (letterboxed) placement exactly.
+ *
  * @param {CanvasRenderingContext2D} ctx
  * @param {HTMLCanvasElement} canvas
  * @param {HTMLImageElement|null} img
+ * @param {{x: number, y: number, scale: number}} [transform]
+ * @param {{x: number, y: number, w: number, h: number}} [crop]
  * @returns {void}
  */
-export function paintImage(ctx, canvas, img) {
-    paintBlack(ctx, canvas);
+export function paintImage(ctx, canvas, img, transform, crop) {
     if (!img) return;
     const iw = img.naturalWidth || img.width;
     const ih = img.naturalHeight || img.height;
     if (!iw || !ih) return;
-    const scale = Math.min(canvas.width / iw, canvas.height / ih);
-    const dw = iw * scale;
-    const dh = ih * scale;
-    const dx = (canvas.width - dw) / 2;
-    const dy = (canvas.height - dh) / 2;
-    try { ctx.drawImage(img, dx, dy, dw, dh); } catch (_) {}
+    paintTransformedFrame(ctx, canvas, img, iw, ih, transform, crop);
 }
 
 /**

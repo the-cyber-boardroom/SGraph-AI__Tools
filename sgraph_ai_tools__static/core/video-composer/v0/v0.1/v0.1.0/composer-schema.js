@@ -3,6 +3,12 @@
  * @module video-composer/composer-schema
  */
 
+export {
+    defaultTransform, defaultCrop,
+    getClipTransform, getClipCrop,
+    clampTransform, clampCrop,
+} from './composer-clip-fields.js';
+
 /**
  * Snap a time to the nearest frame boundary.
  * @param {number} t Time in seconds.

@@ -11,8 +11,10 @@ import {
     findTopmostActiveAudioClip,
     getAssetById,
     isImageAsset,
+    getClipTransform,
+    getClipCrop,
 } from './composer-schema.js';
-import { paintBlack, paintImage, pauseUnused } from './composer-draw.js';
+import { paintBlack, paintImage, paintVideo, pauseUnused } from './composer-draw.js';
 
 /**
  * Sync a hidden video element to the desired timeline-time.
@@ -53,18 +55,18 @@ export function paintTrackStack(cfg) {
     const activeAssetIds = new Set();
     for (const { clip } of perTrack) {
         if (!clip) continue;
+        const tf = getClipTransform(clip);
+        const cr = getClipCrop(clip);
         const asset = getAssetById(project, clip.assetId);
         if (isImageAsset(asset)) {
-            paintImage(ctx, canvas, getImage ? getImage(clip.assetId) : null);
+            paintImage(ctx, canvas, getImage ? getImage(clip.assetId) : null, tf, cr);
             continue;
         }
         const v = videos.get(clip.assetId);
         if (!v) continue;
         activeAssetIds.add(clip.assetId);
         if (advance) syncVideo(v, clip, t, true);
-        if (v.readyState >= 2) {
-            try { ctx.drawImage(v, 0, 0, canvas.width, canvas.height); } catch (_) {}
-        }
+        if (v.readyState >= 2) paintVideo(ctx, canvas, v, tf, cr);
     }
     pauseUnused(videos, activeAssetIds);
     return { activeAssetIds, perTrack };

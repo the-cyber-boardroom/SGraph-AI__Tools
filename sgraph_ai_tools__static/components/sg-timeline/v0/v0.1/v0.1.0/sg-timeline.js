@@ -160,7 +160,7 @@ export class SgTimeline extends HTMLElement {
 
     #renderAll() {
         const widthPx = computeSurfaceWidth(this.#project, this.#pps);
-        this.#surface.style.width = widthPx + 'px';
+        this.#surface.style.width = (widthPx + 96) + 'px';
         renderRuler(this.#ruler, widthPx, this.#pps);
         renderLanes(this.#lanes, this.#project, widthPx, this.#pps, this.#selected);
         renderPlayhead(this.#playheadEl, this.#playhead, this.#pps);
