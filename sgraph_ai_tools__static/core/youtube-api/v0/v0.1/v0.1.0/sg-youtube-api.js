@@ -88,12 +88,13 @@ export class YouTubeApi {
         const j = await this._json(await fetch(url, { headers: this._auth }));
         const c = j.items?.[0];
         if (!c) throw new Error('No channel found for the signed-in account');
+        const thumbs = c.snippet?.thumbnails || {};
         return {
             id:                c.id,
             title:             c.snippet?.title || '',
             description:       c.snippet?.description || '',
             customUrl:         c.snippet?.customUrl || '',
-            thumbnailUrl:      c.snippet?.thumbnails?.default?.url || '',
+            thumbnailUrl:      (thumbs.medium || thumbs.high || thumbs.default || {}).url || '',
             uploadsPlaylistId: c.contentDetails?.relatedPlaylists?.uploads || '',
             statistics:        c.statistics || {},
         };

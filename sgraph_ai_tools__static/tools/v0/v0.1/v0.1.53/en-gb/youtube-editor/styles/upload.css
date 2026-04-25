@@ -1,33 +1,40 @@
-/* youtube-editor — upload tab */
+/* youtube-editor — upload tab (compact v0.2) */
 
 .yte-up {
     display: flex;
     flex-direction: column;
-    gap: 8px;
+    gap: 10px;
     max-width: 720px;
 }
 
-.yte-up__title {
-    font-size: 16px;
-    font-weight: 600;
-    margin: 0 0 4px;
+.yte-up__head {
+    display: flex;
+    align-items: baseline;
+    gap: 12px;
+    flex-wrap: wrap;
+    margin-bottom: 4px;
 }
 
-.yte-up__intro {
-    font-size: 12px;
+.yte-up__title {
+    font-size: 15px;
+    font-weight: 600;
+    margin: 0;
+}
+
+.yte-up__sub {
+    font-size: 11px;
     color: #94a3b8;
-    margin: 0 0 10px;
-    line-height: 1.55;
+    margin: 0;
+    line-height: 1.4;
 }
 
 .yte-up__notice {
-    padding: 10px 12px;
+    padding: 8px 10px;
     border-radius: 6px;
     background: rgba(237,137,54,0.08);
     border: 1px solid rgba(237,137,54,0.3);
     color: #ed8936;
-    font-size: 12px;
-    margin-bottom: 8px;
+    font-size: 11px;
 }
 
 .yte-up__notice--ok {
@@ -36,20 +43,69 @@
     color: #4ECDC4;
 }
 
+/* ── Picked-file chip (replaces the dropzone after a file is chosen) ───── */
+
+.yte-up__picked {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 8px 12px;
+    background: #0a0a18;
+    border: 1px solid #1e293b;
+    border-radius: 6px;
+}
+
+.yte-up__picked-icon { font-size: 16px; }
+
+.yte-up__picked-name {
+    flex: 1;
+    min-width: 0;
+    font-size: 13px;
+    word-break: break-all;
+}
+
+.yte-up__picked-size {
+    font-size: 11px;
+    color: #64748b;
+}
+
+.yte-up__picked-clear {
+    background: transparent;
+    border: 1px solid #1e293b;
+    color: #64748b;
+    border-radius: 4px;
+    padding: 2px 7px;
+    font-size: 12px;
+    cursor: pointer;
+    font-family: inherit;
+}
+
+.yte-up__picked-clear:hover { color: #E94560; border-color: rgba(233,69,96,0.4); }
+
+/* ── Compact 2-column form ─────────────────────────────────────────────── */
+
+.yte-up__grid {
+    display: grid;
+    grid-template-columns: 90px 1fr;
+    gap: 8px 12px;
+    align-items: center;
+}
+
 .yte-up__label {
     font-size: 11px;
     font-weight: 600;
     color: #a0aec0;
     text-transform: uppercase;
     letter-spacing: 0.04em;
-    margin-top: 6px;
+    text-align: right;
+    padding-top: 0;
 }
 
 .yte-up__req { color: #E94560; }
 
 .yte-up__input {
     width: 100%;
-    padding: 8px 10px;
+    padding: 7px 10px;
     background: #0a0a18;
     color: #e2e8f0;
     border: 1px solid #1e293b;
@@ -62,21 +118,20 @@
 }
 
 .yte-up__input:focus { border-color: #4ECDC4; }
-.yte-up__input--area { resize: vertical; min-height: 60px; }
+.yte-up__input--area { resize: vertical; min-height: 40px; align-self: start; }
 
-.yte-up__file {
+/* The textarea label should sit at the top, not centred. */
+.yte-up__grid .yte-up__label:has(+ .yte-up__input--area) { align-self: start; padding-top: 6px; }
+
+/* ── CTA ───────────────────────────────────────────────────────────────── */
+
+.yte-up__cta {
     display: flex;
     gap: 8px;
-    align-items: baseline;
-    flex-wrap: wrap;
-    margin-top: 8px;
 }
 
-.yte-up__file-name { font-size: 13px; flex: 1; min-width: 0; word-break: break-all; }
-.yte-up__file-size { font-size: 11px; color: #64748b; }
-
 .yte-up__btn {
-    padding: 10px 14px;
+    padding: 9px 16px;
     font-size: 13px;
     font-weight: 600;
     border: 1px solid transparent;
@@ -84,18 +139,23 @@
     cursor: pointer;
     font-family: inherit;
     transition: background 120ms, border-color 120ms, color 120ms;
-    margin-top: 10px;
 }
 
-.yte-up__btn--primary { background: #4ECDC4; color: #0a0a18; }
+.yte-up__btn--primary { background: #4ECDC4; color: #0a0a18; flex: 1; }
 .yte-up__btn--primary:hover:not(:disabled) { background: #5fd4cb; }
 .yte-up__btn--primary:disabled { background: #1e293b; color: #4a5568; cursor: not-allowed; }
 
+.yte-up__btn--ghost { background: transparent; border-color: #1e293b; color: #a0aec0; }
+.yte-up__btn--ghost:hover { border-color: #4ECDC4; color: #4ECDC4; }
+
+.yte-up__btn--mini { padding: 4px 10px; font-size: 11px; }
+
+/* ── Progress + result ────────────────────────────────────────────────── */
+
 .yte-up__progress {
-    margin-top: 10px;
     display: flex;
     align-items: center;
-    gap: 8px;
+    gap: 10px;
 }
 
 .yte-up__progress[hidden] { display: none; }
@@ -107,14 +167,11 @@
     border: 1px solid #1e293b;
     border-radius: 4px;
     overflow: hidden;
-    position: relative;
 }
 
-.yte-up__progress-bar::after {
-    content: '';
-    position: absolute;
-    inset: 0;
-    width: var(--progress, 0%);
+.yte-up__progress-fill {
+    width: 0;
+    height: 100%;
     background: #4ECDC4;
     transition: width 120ms;
 }
@@ -128,12 +185,32 @@
 }
 
 .yte-up__result {
-    margin-top: 10px;
-    padding: 10px 12px;
+    padding: 12px;
     background: rgba(78,205,196,0.08);
     border: 1px solid rgba(78,205,196,0.3);
     border-radius: 6px;
 }
+
+.yte-up__result-row {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
+.yte-up__result-icon {
+    font-size: 18px;
+    color: #4ECDC4;
+    background: rgba(78,205,196,0.18);
+    width: 28px;
+    height: 28px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+}
+
+.yte-up__result-meta { flex: 1; min-width: 0; }
 
 .yte-up__result-label {
     font-size: 10px;
@@ -141,15 +218,20 @@
     text-transform: uppercase;
     letter-spacing: 0.04em;
     color: #4ECDC4;
-    margin-bottom: 4px;
+    margin-bottom: 2px;
 }
 
-.yte-up__result-link { color: #e2e8f0; text-decoration: none; word-break: break-all; }
+.yte-up__result-link {
+    color: #e2e8f0;
+    text-decoration: none;
+    word-break: break-all;
+    font-size: 12px;
+}
+
 .yte-up__result-link:hover { color: #4ECDC4; text-decoration: underline; }
 
 .yte-up__error {
-    margin-top: 10px;
-    padding: 10px 12px;
+    padding: 8px 10px;
     background: rgba(233,69,96,0.08);
     border: 1px solid rgba(233,69,96,0.3);
     border-radius: 6px;

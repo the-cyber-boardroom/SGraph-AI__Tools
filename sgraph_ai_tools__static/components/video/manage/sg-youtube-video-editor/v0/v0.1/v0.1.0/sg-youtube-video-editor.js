@@ -74,6 +74,7 @@ class SgYouTubeVideoEditor extends SgComponent {
         this._headTitleEl  = this.$('#head-title');
         this._headIdEl     = this.$('#head-id');
         this._watchLinkEl  = this.$('#watch-link');
+        this._studioLinkEl = this.$('#studio-link');
         this._thumbEl      = this.$('#thumb');
         this._privacyBadge = this.$('#privacy-badge');
         this._titleInput   = this.$('#title-input');
@@ -182,7 +183,8 @@ class SgYouTubeVideoEditor extends SgComponent {
             this._video = updated;
             this._original = JSON.parse(JSON.stringify(updated));
             this._populate(updated);
-            this._setStatus('Saved.');
+            this._setStatus('');
+            this._flashSaved();
             this.emit('video-saved', { video: updated, patch });
             return updated;
         } catch (err) {
@@ -253,6 +255,11 @@ class SgYouTubeVideoEditor extends SgComponent {
         this._watchLinkEl.hidden = false;
         this._watchLinkEl.href   = `https://www.youtube.com/watch?v=${v.id}`;
         this._watchLinkEl.textContent = `Open on YouTube ↗`;
+        if (this._studioLinkEl) {
+            this._studioLinkEl.hidden = false;
+            this._studioLinkEl.href   = `https://studio.youtube.com/video/${v.id}/edit`;
+            this._studioLinkEl.textContent = 'Open in Studio ↗';
+        }
         if (this._previewToggle) this._previewToggle.hidden = false;
 
         const thumbUrl = (s.thumbnails?.medium || s.thumbnails?.default || {}).url;
@@ -321,6 +328,21 @@ class SgYouTubeVideoEditor extends SgComponent {
     _setStatus(msg) {
         this._statusEl.textContent = msg;
         this._statusEl.style.display = msg ? '' : 'none';
+    }
+
+    _flashSaved() {
+        if (!this._saveBtn) return;
+        const original = 'Save changes';
+        this._saveBtn.classList.remove('yte__btn--just-saved');   // restart animation
+        // Force a reflow so the class re-application restarts the keyframes
+        void this._saveBtn.offsetWidth;
+        this._saveBtn.classList.add('yte__btn--just-saved');
+        this._saveBtn.textContent = '✓ Saved';
+        clearTimeout(this._savedTimer);
+        this._savedTimer = setTimeout(() => {
+            this._saveBtn.textContent = original;
+            this._saveBtn.classList.remove('yte__btn--just-saved');
+        }, 1800);
     }
 
     // ── Preview iframe toggle ───────────────────────────────────────────────

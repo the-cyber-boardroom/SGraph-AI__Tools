@@ -52,6 +52,12 @@
 
 .mono { font-family: 'SF Mono', Monaco, monospace; }
 
+.yte__head-links {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+}
+
 .yte__head-link {
     font-size: 11px;
     color: var(--sg-accent, #4ECDC4);
@@ -59,6 +65,16 @@
 }
 
 .yte__head-link:hover { text-decoration: underline; }
+
+@keyframes yte-saved-flash {
+    0%   { background: var(--sg-accent, #4ECDC4); }
+    25%  { background: #5cf2a4; box-shadow: 0 0 0 4px rgba(92,242,164,0.25); }
+    100% { background: var(--sg-accent, #4ECDC4); box-shadow: 0 0 0 0 rgba(92,242,164,0); }
+}
+
+.yte__btn--just-saved {
+    animation: yte-saved-flash 1.4s ease-out;
+}
 
 .yte__head-btn {
     align-self: flex-start;
