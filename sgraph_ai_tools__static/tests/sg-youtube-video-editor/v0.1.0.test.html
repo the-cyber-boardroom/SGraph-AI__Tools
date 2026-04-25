@@ -1,0 +1,137 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>sg-youtube-video-editor v0.1.0 — Health Check</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+               background: #0d0d1a; color: #e2e8f0; padding: 20px; font-size: 13px; }
+        h1 { font-size: 16px; color: #4ECDC4; margin-bottom: 4px; }
+        .sub { font-size: 12px; color: #64748b; margin-bottom: 18px; }
+        h2 { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.06em;
+             color: #475569; margin: 18px 0 6px; border-bottom: 1px solid #1e293b; padding-bottom: 4px; }
+        #results { font-family: 'SF Mono', Monaco, monospace; line-height: 1.7; }
+        .pass { color: #4ECDC4; }
+        .fail { color: #ff6b6b; font-weight: 600; }
+        .summary { margin-top: 16px; font-weight: 700; font-size: 14px; }
+        .demo { margin-top: 24px; max-width: 640px; }
+    </style>
+</head>
+<body>
+
+<h1>sg-youtube-video-editor v0.1.0 — Health Check</h1>
+<div class="sub">Pure-browser tests with stubbed `window.fetch`. Loads a fake video.</div>
+
+<h2>Test Results</h2>
+<div id="results"></div>
+<div id="summary" class="summary"></div>
+
+<h2>Live editor (mock video)</h2>
+<div class="demo">
+    <sg-youtube-video-editor id="editor" allow-delete></sg-youtube-video-editor>
+</div>
+
+<script type="module">
+import '/components/video/manage/sg-youtube-video-editor/v0/v0.1/v0.1.0/sg-youtube-video-editor.js';
+
+const resultsEl = document.getElementById('results');
+const summaryEl = document.getElementById('summary');
+let pass = 0, fail = 0;
+function ok(label, cond) {
+    const row = document.createElement('div');
+    row.className = cond ? 'pass' : 'fail';
+    row.textContent = `${cond ? 'PASS' : 'FAIL'}  ${label}`;
+    resultsEl.appendChild(row);
+    cond ? pass++ : fail++;
+}
+
+ok('Custom element registered', !!customElements.get('sg-youtube-video-editor'));
+
+const el = document.getElementById('editor');
+await el.whenReady?.();
+ok('Component reaches ready', el.isReady === true);
+ok('Exposes setToken()',     typeof el.setToken     === 'function');
+ok('Exposes loadVideo()',    typeof el.loadVideo    === 'function');
+ok('Exposes save()',         typeof el.save         === 'function');
+ok('Exposes deleteVideo()',  typeof el.deleteVideo  === 'function');
+ok('Exposes setVideoSummary()', typeof el.setVideoSummary === 'function');
+
+// Stub fetch
+let putBody = null;
+let deleteCalled = false;
+window.fetch = async (url, opts = {}) => {
+    if (String(url).includes('/videos?id=') && opts.method === 'DELETE') {
+        deleteCalled = true;
+        return new Response('', { status: 204 });
+    }
+    if (String(url).includes('/videos?id=')) {
+        return new Response(JSON.stringify({
+            items: [{
+                id: 'V1',
+                snippet: { title: 'Original Title', description: 'Desc',
+                           tags: ['a','b'], categoryId: '22' },
+                status:  { privacyStatus: 'private' },
+            }],
+        }), { status: 200 });
+    }
+    if (String(url).includes('/videos?part=') && opts.method === 'PUT') {
+        putBody = JSON.parse(opts.body);
+        return new Response(JSON.stringify({
+            id: 'V1',
+            snippet: putBody.snippet || { title: 'Original Title', categoryId: '22' },
+            status:  putBody.status  || { privacyStatus: 'private' },
+        }), { status: 200 });
+    }
+    return new Response('500', { status: 500 });
+};
+
+el.setToken('fake-token');
+const loadEv = new Promise(r => el.addEventListener('video-loaded', r, { once: true }));
+await el.loadVideo('V1');
+await loadEv;
+
+ok('Form populated from loaded video',
+    el.shadowRoot.querySelector('#title-input')?.value === 'Original Title');
+ok('Tags joined into input',
+    el.shadowRoot.querySelector('#tags-input')?.value === 'a, b');
+ok('Privacy badge reflects status',
+    el.shadowRoot.querySelector('#privacy-badge')?.classList.contains('yte__badge--private'));
+
+// Edit + save
+el.shadowRoot.querySelector('#title-input').value = 'Edited Title';
+el.shadowRoot.querySelector('#privacy-select').value = 'unlisted';
+const savedEv = new Promise(r => el.addEventListener('video-saved', r, { once: true }));
+await el.save();
+const savedDetail = (await savedEv).detail;
+ok('save() emits video-saved',     !!savedDetail);
+ok('PUT body has snippet.title',   putBody.snippet?.title === 'Edited Title');
+ok('PUT body carries categoryId',  putBody.snippet?.categoryId === '22');
+ok('PUT body has status.privacy',  putBody.status?.privacyStatus === 'unlisted');
+
+// Delete needs typed confirm
+el.shadowRoot.querySelector('#confirm-input').value = 'wrong';
+el.shadowRoot.querySelector('#confirm-input').dispatchEvent(new Event('input'));
+ok('Delete button disabled when confirm mismatches',
+    el.shadowRoot.querySelector('#delete-btn')?.disabled === true);
+
+// (Component fetches the latest video first via getVideos to determine the
+// title for confirm — we have to use the title from the saved patch.)
+const currentTitle = putBody.snippet?.title || 'Edited Title';
+el.shadowRoot.querySelector('#confirm-input').value = currentTitle;
+el.shadowRoot.querySelector('#confirm-input').dispatchEvent(new Event('input'));
+ok('Delete button enabled when confirm matches',
+    el.shadowRoot.querySelector('#delete-btn')?.disabled === false);
+
+const delEv = new Promise(r => el.addEventListener('video-deleted', r, { once: true }));
+await el.deleteVideo();
+await delEv;
+ok('deleteVideo issued DELETE', deleteCalled === true);
+
+summaryEl.className = 'summary ' + (fail === 0 ? 'pass' : 'fail');
+summaryEl.textContent = `${pass} passed, ${fail} failed`;
+</script>
+
+</body>
+</html>

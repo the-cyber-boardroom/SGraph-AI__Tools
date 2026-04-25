@@ -1,0 +1,164 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>sg-youtube-api v0.1.0 — Health Check</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+               background: #0d0d1a; color: #e2e8f0; padding: 20px; font-size: 13px; }
+        h1 { font-size: 16px; color: #4ECDC4; margin-bottom: 4px; }
+        .sub { font-size: 12px; color: #64748b; margin-bottom: 18px; }
+        h2 { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.06em;
+             color: #475569; margin: 18px 0 6px; border-bottom: 1px solid #1e293b; padding-bottom: 4px; }
+        #results { font-family: 'SF Mono', Monaco, monospace; line-height: 1.7; }
+        .pass { color: #4ECDC4; }
+        .fail { color: #ff6b6b; font-weight: 600; }
+        .summary { margin-top: 16px; font-weight: 700; font-size: 14px; }
+    </style>
+</head>
+<body>
+
+<h1>sg-youtube-api v0.1.0 — Health Check</h1>
+<div class="sub">Pure-browser tests with stubbed `window.fetch`. No real network calls.</div>
+
+<h2>Test Results</h2>
+<div id="results"></div>
+<div id="summary" class="summary"></div>
+
+<script type="module">
+import { YouTubeApi, YOUTUBE_FULL_SCOPE, YOUTUBE_READONLY_SCOPE }
+    from '/core/youtube-api/v0/v0.1/v0.1.0/sg-youtube-api.js';
+
+const resultsEl = document.getElementById('results');
+const summaryEl = document.getElementById('summary');
+let pass = 0, fail = 0;
+
+function ok(label, cond) {
+    const row = document.createElement('div');
+    row.className = cond ? 'pass' : 'fail';
+    row.textContent = `${cond ? 'PASS' : 'FAIL'}  ${label}`;
+    resultsEl.appendChild(row);
+    cond ? pass++ : fail++;
+}
+
+function throws(fn, re) {
+    try { fn(); return false; }
+    catch (e) { return re ? re.test(e.message) : true; }
+}
+async function rejects(fn, re) {
+    try { await fn(); return false; }
+    catch (e) { return re ? re.test(e.message) : true; }
+}
+
+// ── Constants ────────────────────────────────────────────────────────────────
+ok('YOUTUBE_FULL_SCOPE constant',     YOUTUBE_FULL_SCOPE     === 'https://www.googleapis.com/auth/youtube');
+ok('YOUTUBE_READONLY_SCOPE constant', YOUTUBE_READONLY_SCOPE === 'https://www.googleapis.com/auth/youtube.readonly');
+
+// ── Constructor ─────────────────────────────────────────────────────────────
+ok('YouTubeApi requires accessToken', throws(() => new YouTubeApi(undefined), /accessToken required/));
+
+const api = new YouTubeApi('fake-token');
+ok('YouTubeApi exposes getMyChannel',  typeof api.getMyChannel  === 'function');
+ok('YouTubeApi exposes listMyUploads', typeof api.listMyUploads === 'function');
+ok('YouTubeApi exposes getVideos',     typeof api.getVideos     === 'function');
+ok('YouTubeApi exposes updateVideo',   typeof api.updateVideo   === 'function');
+ok('YouTubeApi exposes setThumbnail',  typeof api.setThumbnail  === 'function');
+ok('YouTubeApi exposes deleteVideo',   typeof api.deleteVideo   === 'function');
+
+// ── Guard rails ─────────────────────────────────────────────────────────────
+ok('updateVideo rejects without videoId',
+    await rejects(() => api.updateVideo(null, { snippet: { title: 'x', categoryId: '22' } }), /videoId required/));
+ok('updateVideo rejects when patch is empty',
+    await rejects(() => api.updateVideo('VID1', {}), /nothing to patch/));
+ok('setThumbnail rejects without videoId',
+    await rejects(() => api.setThumbnail(null, new Blob(['x'])), /videoId required/));
+ok('setThumbnail rejects without imageBlob',
+    await rejects(() => api.setThumbnail('VID1', null), /imageBlob required/));
+ok('deleteVideo rejects without videoId',
+    await rejects(() => api.deleteVideo(null), /videoId required/));
+ok('getVideos returns [] for empty input',
+    (await api.getVideos([])).length === 0);
+ok('getVideos rejects > 50 ids',
+    await rejects(() => api.getVideos(new Array(51).fill('x')), /max 50/));
+
+// ── Stubbed network round-trip ──────────────────────────────────────────────
+const realFetch = window.fetch;
+const calls = [];
+window.fetch = async (url, opts = {}) => {
+    calls.push({ url: String(url), opts });
+    if (url.includes('/channels?')) {
+        return new Response(JSON.stringify({ items: [{
+            id: 'CHAN1',
+            snippet: { title: 'T', description: 'D', customUrl: '@t',
+                       thumbnails: { default: { url: 'http://t/avatar.png' } } },
+            statistics: { subscriberCount: '1', viewCount: '2', videoCount: '3' },
+            contentDetails: { relatedPlaylists: { uploads: 'UU_FAKE' } },
+        }]}), { status: 200 });
+    }
+    if (url.includes('/playlistItems?')) {
+        return new Response(JSON.stringify({
+            items: [{
+                snippet: { title: 'Vid1', description: 'd1', publishedAt: '2026-01-01T00:00:00Z',
+                           thumbnails: { medium: { url: 'http://t/m.jpg' } },
+                           resourceId: { videoId: 'V1' } },
+                contentDetails: { videoId: 'V1', videoPublishedAt: '2026-01-01T00:00:00Z' },
+            }],
+            pageInfo: { totalResults: 7 },
+            nextPageToken: 'NEXT',
+        }), { status: 200 });
+    }
+    if (url.includes('/videos?id=')) {
+        return new Response(JSON.stringify({
+            items: [{ id: 'V1', snippet: { title: 'Vid1', categoryId: '22' },
+                      status: { privacyStatus: 'unlisted' } }],
+        }), { status: 200 });
+    }
+    if (url.includes('/videos?part=') && opts.method === 'PUT') {
+        return new Response(JSON.stringify({ id: 'V1', snippet: { title: 'New' }, status: {} }),
+            { status: 200 });
+    }
+    if (url.includes('/thumbnails/set?')) {
+        return new Response(JSON.stringify({ items: [{ default: { url: 'http://t/new.png' } }] }),
+            { status: 200 });
+    }
+    if (url.includes('/videos?id=') && opts.method === 'DELETE') {
+        return new Response('', { status: 204 });
+    }
+    return new Response('not stubbed: ' + url, { status: 500 });
+};
+
+try {
+    const channel = await api.getMyChannel();
+    ok('getMyChannel returns parsed channel', channel.id === 'CHAN1' && channel.uploadsPlaylistId === 'UU_FAKE');
+
+    const list = await api.listMyUploads({ uploadsPlaylistId: 'UU_FAKE', pageSize: 1 });
+    ok('listMyUploads returns items',          list.items.length === 1 && list.items[0].id === 'V1');
+    ok('listMyUploads returns nextPageToken',  list.nextPageToken === 'NEXT');
+    ok('listMyUploads returns totalResults',   list.totalResults === 7);
+
+    const [v] = await api.getVideos(['V1']);
+    ok('getVideos returns parsed item',        v.id === 'V1');
+
+    const updated = await api.updateVideo('V1', { snippet: { title: 'New', categoryId: '22' } });
+    ok('updateVideo returns updated resource', updated.snippet.title === 'New');
+
+    const thumbs = await api.setThumbnail('V1', new Blob([new Uint8Array(2)], { type: 'image/png' }));
+    ok('setThumbnail returns thumbnails',      !!thumbs?.default?.url);
+
+    await api.deleteVideo('V1');
+    ok('deleteVideo accepts 204 No Content',   true);
+} catch (e) {
+    ok('Network round-trip threw: ' + e.message, false);
+} finally {
+    window.fetch = realFetch;
+}
+
+// ── Summary ──────────────────────────────────────────────────────────────────
+summaryEl.className = 'summary ' + (fail === 0 ? 'pass' : 'fail');
+summaryEl.textContent = `${pass} passed, ${fail} failed`;
+</script>
+
+</body>
+</html>

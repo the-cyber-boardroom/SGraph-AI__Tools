@@ -1,0 +1,141 @@
+/* youtube-editor — left auth panel */
+
+.yte-auth {
+    background: #0d0d1a;
+    border: 1px solid #1e293b;
+    border-radius: 8px;
+    padding: 14px;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.yte-auth__header {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.yte-auth__icon {
+    color: #ff0000;
+    font-size: 18px;
+}
+
+.yte-auth__title {
+    font-size: 14px;
+    font-weight: 600;
+}
+
+.yte-auth__badge {
+    margin-left: auto;
+    font-size: 10px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    padding: 2px 8px;
+    border-radius: 10px;
+}
+
+.yte-auth__badge--off { background: rgba(113,128,150,0.18); color: #718096; }
+.yte-auth__badge--on  { background: rgba(78,205,196,0.15); color: #4ECDC4; }
+
+.yte-auth__intro {
+    font-size: 12px;
+    line-height: 1.5;
+    color: #94a3b8;
+    margin: 0;
+}
+
+.yte-auth__label {
+    font-size: 11px;
+    font-weight: 600;
+    color: #a0aec0;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+}
+
+.yte-auth__input {
+    width: 100%;
+    padding: 8px 10px;
+    background: #0a0a18;
+    color: #e2e8f0;
+    border: 1px solid #1e293b;
+    border-radius: 6px;
+    font-size: 13px;
+    font-family: inherit;
+    box-sizing: border-box;
+    outline: none;
+    transition: border-color 120ms;
+}
+
+.yte-auth__input:focus { border-color: #4ECDC4; }
+.yte-auth__input.mono  { font-family: 'SF Mono', Monaco, monospace; font-size: 12px; }
+
+.yte-auth__hint {
+    font-size: 11px;
+    color: #64748b;
+}
+
+.yte-auth__hint code {
+    font-family: 'SF Mono', Monaco, monospace;
+    background: rgba(255,255,255,0.04);
+    padding: 1px 4px;
+    border-radius: 3px;
+}
+
+.yte-auth__row {
+    display: flex;
+    gap: 8px;
+}
+
+.yte-auth__btn {
+    padding: 8px 14px;
+    font-size: 13px;
+    font-weight: 600;
+    border: 1px solid transparent;
+    border-radius: 6px;
+    cursor: pointer;
+    font-family: inherit;
+    transition: background 120ms, border-color 120ms, color 120ms;
+}
+
+.yte-auth__btn--primary { background: #4ECDC4; color: #0a0a18; }
+.yte-auth__btn--primary:hover:not(:disabled) { background: #5fd4cb; }
+.yte-auth__btn--primary:disabled { background: #1e293b; color: #4a5568; cursor: not-allowed; }
+
+.yte-auth__btn--ghost { background: transparent; border-color: #1e293b; color: #a0aec0; }
+.yte-auth__btn--ghost:hover { border-color: #4ECDC4; color: #4ECDC4; }
+
+.yte-auth__channel {
+    display: flex;
+    gap: 10px;
+    align-items: center;
+    padding: 10px;
+    background: #0a0a18;
+    border: 1px solid #1e293b;
+    border-radius: 6px;
+}
+
+.yte-auth__avatar {
+    width: 48px;
+    height: 48px;
+    border-radius: 50%;
+    background: #1e293b;
+    object-fit: cover;
+    flex-shrink: 0;
+}
+
+.yte-auth__ch-meta { flex: 1; min-width: 0; }
+.yte-auth__ch-title  { font-size: 13px; font-weight: 600; color: #e2e8f0; }
+.yte-auth__ch-stats  { font-size: 11px; color: #64748b; margin-top: 2px; }
+
+.yte-auth__error {
+    margin-top: 6px;
+    padding: 8px 10px;
+    background: rgba(233,69,96,0.08);
+    border: 1px solid rgba(233,69,96,0.3);
+    border-radius: 6px;
+    color: #E94560;
+    font-size: 12px;
+    word-break: break-word;
+}

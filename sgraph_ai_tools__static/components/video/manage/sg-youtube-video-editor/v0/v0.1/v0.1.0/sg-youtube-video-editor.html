@@ -1,0 +1,63 @@
+<div class="yte">
+
+    <header class="yte__header">
+        <img id="thumb" class="yte__thumb" alt="" loading="lazy">
+        <div class="yte__head-meta">
+            <div id="head-title"  class="yte__head-title">—</div>
+            <div id="head-id"     class="yte__head-id mono">—</div>
+            <a id="watch-link"    class="yte__head-link" target="_blank" rel="noopener" hidden>Open on YouTube ↗</a>
+        </div>
+        <span id="privacy-badge" class="yte__badge">—</span>
+    </header>
+
+    <div id="status" class="yte__status">No video selected.</div>
+
+    <form id="form" class="yte__form" hidden>
+
+        <label class="yte__label" for="title-input">Title <span class="yte__req">*</span></label>
+        <input type="text" id="title-input" class="yte__input" maxlength="100" required>
+
+        <label class="yte__label" for="desc-input">Description</label>
+        <textarea id="desc-input" class="yte__input yte__input--area" rows="6" maxlength="5000"></textarea>
+
+        <label class="yte__label" for="tags-input">Tags (comma-separated)</label>
+        <input type="text" id="tags-input" class="yte__input">
+
+        <label class="yte__label" for="privacy-select">Privacy</label>
+        <select id="privacy-select" class="yte__input">
+            <option value="private">Private</option>
+            <option value="unlisted">Unlisted (link only)</option>
+            <option value="public">Public</option>
+        </select>
+
+        <div class="yte__row">
+            <button type="submit" id="save-btn" class="yte__btn yte__btn--primary">Save changes</button>
+            <button type="button" id="reset-btn" class="yte__btn yte__btn--ghost">Reset</button>
+        </div>
+
+        <hr class="yte__sep">
+
+        <label class="yte__label">Replace thumbnail</label>
+        <div class="yte__row">
+            <input type="file" id="thumb-input" accept="image/jpeg,image/png" hidden>
+            <button type="button" id="thumb-btn" class="yte__btn yte__btn--ghost">Choose image…</button>
+            <span id="thumb-name" class="yte__thumb-name"></span>
+            <button type="button" id="thumb-upload-btn" class="yte__btn yte__btn--primary" disabled>Upload thumbnail</button>
+        </div>
+
+        <hr class="yte__sep">
+
+        <div id="danger-zone" class="yte__danger" hidden>
+            <div class="yte__danger-title">Danger zone</div>
+            <p class="yte__danger-body">
+                Delete is irreversible. Type the video title to confirm.
+            </p>
+            <input type="text" id="confirm-input" class="yte__input" placeholder="Type the title to confirm">
+            <button type="button" id="delete-btn" class="yte__btn yte__btn--danger" disabled>Delete video</button>
+        </div>
+
+    </form>
+
+    <div id="error" class="yte__error" hidden></div>
+
+</div>

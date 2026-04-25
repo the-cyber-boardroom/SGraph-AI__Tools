@@ -1,0 +1,65 @@
+{
+    "name": "YouTube Editor",
+    "slug": "youtube-editor",
+    "description": "Browser-only YouTube channel companion. Sign in with Google to upload new videos, list your existing uploads, and edit metadata + thumbnails. All API calls go browser→YouTube directly; tokens cached in localStorage (vault swap planned).",
+    "icon": "▶",
+    "version": "0.1.0",
+    "status": "live",
+    "category": "media",
+    "keywords": ["youtube", "upload", "edit", "manage", "video", "oauth", "google", "resumable"],
+    "dependencies": {
+        "core": [
+            { "module": "sg-tool-api",       "path": "/core/sg-tool-api/v0/v0.1/v0.1.0/sg-tool-api.js" },
+            { "module": "sg-youtube-upload", "path": "/core/youtube-upload/v0/v0.1/v0.1.0/sg-youtube-upload.js" },
+            { "module": "sg-youtube-api",    "path": "/core/youtube-api/v0/v0.1/v0.1.0/sg-youtube-api.js" },
+            { "module": "manifest-loader",   "path": "/core/manifest-loader/v0/v0.1/v0.1.0/manifest-loader.js" }
+        ],
+        "shared": [
+            { "module": "sg-site-header",            "path": "/components/site-header/v1/v1.0/v1.0.0/sg-site-header.js" },
+            { "module": "sg-layout",                 "path": "/core/sg-layout/v0.1.0/sg-layout.js" },
+            { "module": "sg-upload-dropzone",        "path": "/components/upload-dropzone/v1/v1.0/v1.0.0/sg-upload-dropzone.js" },
+            { "module": "sg-youtube-upload-cmp",     "path": "/components/video/upload/sg-youtube-upload/v0/v0.1/v0.1.0/sg-youtube-upload.js" },
+            { "module": "sg-youtube-videos",         "path": "/components/video/manage/sg-youtube-videos/v0/v0.1/v0.1.0/sg-youtube-videos.js" },
+            { "module": "sg-youtube-video-editor",   "path": "/components/video/manage/sg-youtube-video-editor/v0/v0.1/v0.1.0/sg-youtube-video-editor.js" },
+            { "module": "sg-tool-api-explorer",      "path": "/components/tool-api/sg-tool-api-explorer/v0/v0.1/v0.1.0/sg-tool-api-explorer.js" },
+            { "module": "sg-tool-api-console",       "path": "/components/tool-api/sg-tool-api-console/v0/v0.1/v0.1.0/sg-tool-api-console.js" },
+            { "module": "sg-tool-api-manifest",      "path": "/components/tool-api/sg-tool-api-manifest/v0/v0.1/v0.1.0/sg-tool-api-manifest.js" }
+        ],
+        "loader": [
+            { "phase": 1, "type": "css", "path": "/core/sg-layout/v0.1.0/sg-layout.css" },
+            { "phase": 1, "type": "css", "path": "./styles/auth.css" },
+            { "phase": 1, "type": "css", "path": "./styles/upload.css" },
+            { "phase": 1, "type": "css", "path": "./styles/api-pane.css" },
+            { "phase": 2, "type": "js",  "path": "/components/upload-dropzone/v1/v1.0/v1.0.0/sg-upload-dropzone.js" },
+            { "phase": 2, "type": "js",  "path": "/components/video/upload/sg-youtube-upload/v0/v0.1/v0.1.0/sg-youtube-upload.js" },
+            { "phase": 2, "type": "js",  "path": "/components/video/manage/sg-youtube-videos/v0/v0.1/v0.1.0/sg-youtube-videos.js" },
+            { "phase": 2, "type": "js",  "path": "/components/video/manage/sg-youtube-video-editor/v0/v0.1/v0.1.0/sg-youtube-video-editor.js" },
+            { "phase": 3, "type": "js",  "entry": true, "path": "./api/youtube-editor-api.js" }
+        ]
+    },
+    "api": {
+        "version": "0.1.0",
+        "note": "window.__tool live after tool:ready. Uses the broader 'youtube' OAuth scope (full read+edit). Token cached in localStorage 'sg-auth-token-youtube-editor'. All API calls go browser→YouTube; nothing transits an SGraph server.",
+        "events": [
+            { "name": "tool:ready",                   "when": "activate() called",                   "detail": "{ instanceId, tool, version }" },
+            { "name": "tool:youtube:connected",       "when": "OAuth grant succeeded or cache hit",  "detail": "{ expiresAt, fromCache?, scope }" },
+            { "name": "tool:youtube:disconnected",    "when": "disconnect() called",                 "detail": "{}" },
+            { "name": "tool:youtube:channel-loaded",  "when": "getMyChannel() fetched",              "detail": "{ channel }" },
+            { "name": "tool:youtube:videos-loaded",   "when": "list page returned",                  "detail": "{ items, totalResults, page }" },
+            { "name": "tool:youtube:video-selected",  "when": "list row clicked",                    "detail": "{ id, video }" },
+            { "name": "tool:youtube:video-loaded",    "when": "editor full-loaded a video",          "detail": "{ video }" },
+            { "name": "tool:youtube:video-saved",     "when": "updateVideo PUT succeeded",           "detail": "{ video, patch }" },
+            { "name": "tool:youtube:video-deleted",   "when": "deleteVideo succeeded",               "detail": "{ id }" },
+            { "name": "tool:youtube:thumbnail-set",   "when": "setThumbnail succeeded",              "detail": "{ id, thumbnails }" },
+            { "name": "tool:youtube:upload:start",    "when": "uploadVideo started",                 "detail": "{ fileName, fileSize, metadata }" },
+            { "name": "tool:youtube:upload:progress", "when": "PUT progress event",                  "detail": "{ loaded, total, percent }" },
+            { "name": "tool:youtube:upload:complete", "when": "upload finished",                     "detail": "{ id, url, snippet, status }" },
+            { "name": "tool:error",                   "when": "any pipeline error",                  "detail": "{ step, message }" }
+        ],
+        "skills": {
+            "human":   "./skills/SKILL-human.md",
+            "browser": "./skills/SKILL-browser.md",
+            "api":     "./skills/SKILL-api.md"
+        }
+    }
+}

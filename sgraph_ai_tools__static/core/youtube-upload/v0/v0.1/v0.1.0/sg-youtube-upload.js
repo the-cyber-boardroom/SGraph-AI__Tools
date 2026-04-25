@@ -36,18 +36,24 @@ const UPLOAD_BASE = 'https://www.googleapis.com/upload/youtube/v3/videos';
 export const YOUTUBE_UPLOAD_SCOPE = 'https://www.googleapis.com/auth/youtube.upload';
 
 /**
- * Request a youtube.upload access token via Google Identity Services.
+ * Request a Google access token via Google Identity Services.
  * Shows the consent screen on first call. Use prompt:'' for silent re-grant
  * once consent has been given (GIS session cookies still valid).
  *
  * Waits up to 3 s for GIS to load before failing.
  *
  * @param {string} clientId  Google OAuth client ID
- * @param {{ hint?: string, prompt?: '' | 'consent' | 'select_account' }} [opts]
+ * @param {{ hint?: string,
+ *           prompt?: '' | 'consent' | 'select_account',
+ *           scope?: string }} [opts]
+ *           scope defaults to youtube.upload — pass a different scope or
+ *           space-separated list of scopes for broader access (e.g.
+ *           'https://www.googleapis.com/auth/youtube').
  * @returns {Promise<{ accessToken: string, expiresAt: number, scope: string }>}
  *          expiresAt is ms since epoch; tokens are valid ~1 hour.
  */
-export function requestAccess(clientId, { hint = '', prompt } = {}) {
+export function requestAccess(clientId, { hint = '', prompt, scope } = {}) {
+    const requestedScope = scope || YOUTUBE_UPLOAD_SCOPE;
     return new Promise((resolve, reject) => {
         const attempt = (retriesLeft) => {
             if (!window.google?.accounts?.oauth2) {
@@ -60,14 +66,14 @@ export function requestAccess(clientId, { hint = '', prompt } = {}) {
             }
             const config = {
                 client_id: clientId,
-                scope:     YOUTUBE_UPLOAD_SCOPE,
+                scope:     requestedScope,
                 callback:  r => {
                     if (r.error) return reject(new Error(r.error_description || r.error));
                     const expiresIn = Number(r.expires_in) || 3600;
                     resolve({
                         accessToken: r.access_token,
                         expiresAt:   Date.now() + (expiresIn * 1000),
-                        scope:       r.scope || YOUTUBE_UPLOAD_SCOPE,
+                        scope:       r.scope || requestedScope,
                     });
                 },
             };

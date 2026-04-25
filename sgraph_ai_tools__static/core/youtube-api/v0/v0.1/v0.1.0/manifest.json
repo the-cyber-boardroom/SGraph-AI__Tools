@@ -1,0 +1,10 @@
+{
+    "name": "sg-youtube-api",
+    "version": "0.1.0",
+    "layer": "core",
+    "description": "YouTube Data API v3 read+edit client. Channel info, list uploads, get/update/delete videos, set thumbnail. Pairs with sg-youtube-upload for the resumable insert path.",
+    "exports": ["YouTubeApi", "YOUTUBE_FULL_SCOPE", "YOUTUBE_READONLY_SCOPE"],
+    "dependencies": [],
+    "author": "SGraph Tools Team",
+    "license": "CC-BY-4.0"
+}
