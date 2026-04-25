@@ -3,6 +3,7 @@
 import { mountAssetPanel } from './ui-asset-panel.js';
 import { mountExportControls } from './ui-export-controls.js';
 import { buildLayoutDescriptor, wireTimelineEvents } from './ui-shell-layout.js';
+import { mountDevPanel } from './ui-dev-panel.js';
 import { createComposer } from '/core/video-composer/v0/v0.1/v0.1.0/sg-video-composer.js';
 import { SGL_EVENTS } from '/core/sg-layout/v0.1.0/sg-layout-events.js';
 
@@ -60,6 +61,7 @@ export function mountShell({ host, state, api, getComposer, setComposer }) {
     let timelineEl = null;
     let pending = null;
     let onCanvasPlayhead = null;
+    let devPanel = null;
 
     function rebuildComposer() {
         const existing = getComposer();
@@ -135,6 +137,8 @@ export function mountShell({ host, state, api, getComposer, setComposer }) {
         assetPanel.refresh(state.getProject());
         rebuildComposer();
         state.addEventListener('change', handleChange);
+
+        devPanel = mountDevPanel({ host, manifestUrl: './manifest.json' });
     }
 
     mountInto().catch(err => emitErr('mountShell', err));
@@ -155,6 +159,7 @@ export function mountShell({ host, state, api, getComposer, setComposer }) {
         }
         try { exportCtl && exportCtl.destroy(); } catch (_) {}
         try { assetPanel && assetPanel.destroy(); } catch (_) {}
+        try { devPanel && devPanel.destroy(); } catch (_) {}
         host.innerHTML = '';
     }
 

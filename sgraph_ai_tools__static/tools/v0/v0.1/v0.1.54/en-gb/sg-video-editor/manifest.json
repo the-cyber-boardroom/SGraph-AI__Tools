@@ -15,10 +15,14 @@
             { "module": "manifest-loader",    "path": "/core/manifest-loader/v0/v0.1/v0.1.0/manifest-loader.js" }
         ],
         "shared": [
-            { "module": "sg-site-header",     "path": "/components/site-header/v1/v1.0/v1.0.3/sg-site-header.js" },
-            { "module": "sg-layout",          "path": "/core/sg-layout/v0.1.0/sg-layout.js" },
-            { "module": "sg-timeline",        "path": "/components/sg-timeline/v0/v0.1/v0.1.0/sg-timeline.js" },
-            { "module": "sg-preview-canvas",  "path": "/components/sg-preview-canvas/v0/v0.1/v0.1.0/sg-preview-canvas.js" }
+            { "module": "sg-site-header",       "path": "/components/site-header/v1/v1.0/v1.0.3/sg-site-header.js" },
+            { "module": "sg-layout",            "path": "/core/sg-layout/v0.1.0/sg-layout.js" },
+            { "module": "sg-timeline",          "path": "/components/sg-timeline/v0/v0.1/v0.1.0/sg-timeline.js" },
+            { "module": "sg-preview-canvas",    "path": "/components/sg-preview-canvas/v0/v0.1/v0.1.0/sg-preview-canvas.js" },
+            { "module": "sg-markdown",          "path": "/core/markdown/v1/v1.0/v1.0.0/sg-markdown.js" },
+            { "module": "sg-tool-api-explorer", "path": "/components/tool-api/sg-tool-api-explorer/v0/v0.1/v0.1.0/sg-tool-api-explorer.js" },
+            { "module": "sg-tool-api-console",  "path": "/components/tool-api/sg-tool-api-console/v0/v0.1/v0.1.0/sg-tool-api-console.js" },
+            { "module": "sg-tool-api-manifest", "path": "/components/tool-api/sg-tool-api-manifest/v0/v0.1/v0.1.0/sg-tool-api-manifest.js" }
         ],
         "loader": [
             { "phase": 1, "type": "css", "path": "/components/tokens/v1/v1.0/v1.0.0/sg-tokens.css" },
@@ -27,6 +31,9 @@
             { "phase": 2, "type": "js",  "path": "/core/sg-layout/v0.1.0/sg-layout.js" },
             { "phase": 2, "type": "js",  "path": "/components/sg-timeline/v0/v0.1/v0.1.0/sg-timeline.js" },
             { "phase": 2, "type": "js",  "path": "/components/sg-preview-canvas/v0/v0.1/v0.1.0/sg-preview-canvas.js" },
+            { "phase": 2, "type": "js",  "path": "/components/tool-api/sg-tool-api-explorer/v0/v0.1/v0.1.0/sg-tool-api-explorer.js" },
+            { "phase": 2, "type": "js",  "path": "/components/tool-api/sg-tool-api-console/v0/v0.1/v0.1.0/sg-tool-api-console.js" },
+            { "phase": 2, "type": "js",  "path": "/components/tool-api/sg-tool-api-manifest/v0/v0.1/v0.1.0/sg-tool-api-manifest.js" },
             { "phase": 3, "type": "js",  "entry": true, "path": "./api/sg-video-editor-api.js" }
         ]
     },
