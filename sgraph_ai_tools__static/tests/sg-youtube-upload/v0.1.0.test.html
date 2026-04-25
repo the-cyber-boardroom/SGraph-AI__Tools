@@ -1,0 +1,177 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>sg-youtube-upload v0.1.0 — Health Check + Tests</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: #0d0d1a;
+            color: #e2e8f0;
+            padding: 20px;
+            font-size: 13px;
+        }
+        h1 { font-size: 16px; color: #4ECDC4; margin-bottom: 4px; }
+        .sub { font-size: 12px; color: #64748b; margin-bottom: 18px; }
+        h2 {
+            font-size: 11px;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.06em;
+            color: #475569;
+            margin: 18px 0 6px;
+            border-bottom: 1px solid #1e293b;
+            padding-bottom: 4px;
+        }
+        #results { font-family: 'SF Mono', Monaco, monospace; line-height: 1.7; }
+        .pass { color: #4ECDC4; }
+        .fail { color: #ff6b6b; font-weight: 600; }
+        .note { color: #64748b; font-style: italic; }
+        .summary { margin-top: 16px; font-weight: 700; font-size: 14px; }
+        .demo {
+            margin-top: 24px;
+            padding: 14px;
+            background: #0a0a18;
+            border: 1px solid #1e293b;
+            border-radius: 8px;
+            max-width: 520px;
+        }
+    </style>
+</head>
+<body>
+
+<h1>sg-youtube-upload v0.1.0 — Health Check</h1>
+<div class="sub">
+    Pure-browser tests for the core module, token cache, and component. No network calls, no Google OAuth.
+</div>
+
+<h2>Test Results</h2>
+<div id="results"></div>
+<div id="summary" class="summary"></div>
+
+<h2>Live component (offline — no client-id set)</h2>
+<div class="demo">
+    <sg-youtube-upload id="demo-component" default-privacy="unlisted"></sg-youtube-upload>
+</div>
+
+<script type="module">
+import {
+    requestAccess,
+    YouTubeUpload,
+    YOUTUBE_UPLOAD_SCOPE,
+} from '/core/youtube-upload/v0/v0.1/v0.1.0/sg-youtube-upload.js';
+
+import {
+    getCachedToken, setCachedToken, clearCachedToken, YOUTUBE_TOKEN_PROVIDER,
+} from '/components/video/upload/sg-youtube-upload/v0/v0.1/v0.1.0/youtube-token-cache.js';
+
+// Side-effect: register the custom element
+import '/components/video/upload/sg-youtube-upload/v0/v0.1/v0.1.0/sg-youtube-upload.js';
+
+const resultsEl = document.getElementById('results');
+const summaryEl = document.getElementById('summary');
+let pass = 0, fail = 0;
+
+function ok(label, cond, detail = '') {
+    const row = document.createElement('div');
+    row.className = cond ? 'pass' : 'fail';
+    row.textContent = `${cond ? 'PASS' : 'FAIL'}  ${label}${detail ? '  — ' + detail : ''}`;
+    resultsEl.appendChild(row);
+    cond ? pass++ : fail++;
+}
+
+function note(msg) {
+    const row = document.createElement('div');
+    row.className = 'note';
+    row.textContent = `      ${msg}`;
+    resultsEl.appendChild(row);
+}
+
+// ── Core module ──────────────────────────────────────────────────────────────
+
+ok('YOUTUBE_UPLOAD_SCOPE is the youtube.upload scope',
+    YOUTUBE_UPLOAD_SCOPE === 'https://www.googleapis.com/auth/youtube.upload');
+
+ok('requestAccess is a function',
+    typeof requestAccess === 'function');
+
+ok('requestAccess rejects when GIS is not loaded',
+    await rejectsWith(() => requestAccess('does-not-matter'), /Google Sign-In library/));
+
+ok('YouTubeUpload constructor requires accessToken',
+    throws(() => new YouTubeUpload(undefined), /accessToken required/));
+
+const up = new YouTubeUpload('fake-token');
+ok('YouTubeUpload exposes uploadVideo()', typeof up.uploadVideo === 'function');
+
+ok('uploadVideo() rejects when no file passed',
+    await rejectsWith(() => up.uploadVideo(null, { title: 'x' }), /file required/));
+
+ok('uploadVideo() rejects when no metadata.title',
+    await rejectsWith(
+        () => up.uploadVideo(new Blob(['x']), { title: '' }),
+        /title required/
+    ));
+
+// ── Token cache ──────────────────────────────────────────────────────────────
+
+ok('YOUTUBE_TOKEN_PROVIDER === "youtube-upload"', YOUTUBE_TOKEN_PROVIDER === 'youtube-upload');
+
+clearCachedToken();
+ok('Empty cache returns null', getCachedToken() === null);
+
+setCachedToken({ accessToken: 'abc', expiresAt: Date.now() + 60_000 });
+const cached = getCachedToken();
+ok('Round-trip stores accessToken', cached?.accessToken === 'abc');
+ok('Round-trip stores expiresAt',  typeof cached?.expiresAt === 'number');
+
+setCachedToken({ accessToken: 'expired', expiresAt: Date.now() - 1000 });
+ok('Expired token returns null',  getCachedToken() === null);
+
+setCachedToken({ accessToken: 'edge', expiresAt: Date.now() + 30_000 });
+ok('Token within 60s skew returns null (skew handling)', getCachedToken() === null);
+
+clearCachedToken();
+ok('clearCachedToken removes entry', getCachedToken() === null);
+
+// ── Component ────────────────────────────────────────────────────────────────
+
+ok('sg-youtube-upload custom element is registered',
+    !!customElements.get('sg-youtube-upload'));
+
+const el = document.getElementById('demo-component');
+await el.whenReady?.();
+ok('Demo component reaches ready state', el.isReady === true);
+
+ok('Component exposes connect()',  typeof el.connect  === 'function');
+ok('Component exposes upload()',   typeof el.upload   === 'function');
+ok('Component exposes setFile()',  typeof el.setFile  === 'function');
+ok('Component exposes signOut()',  typeof el.signOut  === 'function');
+
+el.setFile(new File([new Uint8Array(64)], 'tiny.webm', { type: 'video/webm' }));
+ok('setFile() stores the blob',    el.getFile()?.name === 'tiny.webm');
+
+note('Live OAuth + upload paths require a configured client ID and are not exercised here.');
+
+// ── Summary ──────────────────────────────────────────────────────────────────
+
+summaryEl.className = 'summary ' + (fail === 0 ? 'pass' : 'fail');
+summaryEl.textContent = `${pass} passed, ${fail} failed`;
+
+// ── Helpers ──────────────────────────────────────────────────────────────────
+
+function throws(fn, re) {
+    try { fn(); return false; }
+    catch (e) { return re ? re.test(e.message) : true; }
+}
+
+async function rejectsWith(fn, re) {
+    try { await fn(); return false; }
+    catch (e) { return re ? re.test(e.message) : true; }
+}
+</script>
+
+</body>
+</html>

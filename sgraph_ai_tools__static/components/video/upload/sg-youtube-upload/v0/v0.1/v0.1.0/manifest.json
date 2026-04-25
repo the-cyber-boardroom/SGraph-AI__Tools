@@ -1,0 +1,20 @@
+{
+    "name": "sg-youtube-upload",
+    "version": "0.1.0",
+    "layer": "component",
+    "description": "Web Component that uploads a video file to YouTube via OAuth + resumable upload. Caches access token in localStorage (vault swap planned).",
+    "exports": ["SgYouTubeUpload"],
+    "dependencies": ["sg-component", "sg-tokens", "core/youtube-upload"],
+    "tagName": "sg-youtube-upload",
+    "attributes": ["client-id", "default-privacy", "default-title", "auto-connect"],
+    "events": [
+        "youtube-connected",
+        "youtube-disconnected",
+        "youtube-upload-start",
+        "youtube-upload-progress",
+        "youtube-upload-complete",
+        "youtube-upload-error"
+    ],
+    "author": "SGraph Tools Team",
+    "license": "CC-BY-4.0"
+}
