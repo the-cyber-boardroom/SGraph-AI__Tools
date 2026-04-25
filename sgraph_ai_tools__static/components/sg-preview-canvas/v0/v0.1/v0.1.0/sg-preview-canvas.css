@@ -22,6 +22,7 @@
 .canvas-holder {
     position: relative;
     flex: 1 1 auto;
+    min-width: 0;
     min-height: 0;
     display: flex;
     align-items: center;
@@ -32,6 +33,8 @@
 
 canvas {
     display: block;
+    flex: 0 0 auto;
+    margin: auto;
     max-width: 100%;
     max-height: 100%;
     width: auto;
@@ -83,6 +86,44 @@ canvas {
     font-variant-numeric: tabular-nums;
     font-size: 12px;
     color: rgba(255, 255, 255, 0.85);
+}
+
+.transport .transport-sep {
+    width: 1px;
+    align-self: stretch;
+    background: rgba(255, 255, 255, 0.15);
+    margin: 0 0.25rem;
+}
+
+.transport .editor-mode-buttons {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.25rem;
+    flex: 0 0 auto;
+}
+
+.transport .editor-mode-button {
+    background: transparent;
+    color: #f8fafc;
+    border: 1px solid rgba(255, 255, 255, 0.18);
+    border-radius: 3px;
+    padding: 0.2rem 0.55rem;
+    font-size: 12px;
+    cursor: pointer;
+}
+
+.transport .editor-mode-button:hover {
+    background: rgba(20, 184, 166, 0.18);
+}
+
+.transport .editor-mode-button.is-active {
+    background: #14b8a6;
+    color: #0f172a;
+    border-color: #14b8a6;
+}
+
+.transport .editor-mode-button.is-active:hover {
+    background: #2dd4bf;
 }
 
 .pco-overlay {

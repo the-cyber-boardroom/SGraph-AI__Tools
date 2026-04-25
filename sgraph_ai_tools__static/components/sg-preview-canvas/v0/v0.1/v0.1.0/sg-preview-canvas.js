@@ -1,7 +1,13 @@
 // sg-preview-canvas.js — canvas + transport bar + transform/crop overlay (v0.1.0)
 
-import { buildTransport, wireTransport, updateTime, setTransportEnabled } from './preview-transport.js';
+import {
+    buildTransport,
+    updateTime,
+    setTransportEnabled,
+    mountTransportModeButtons,
+} from './preview-transport.js';
 import { mountOverlay } from './preview-overlay.js';
+import { bindComposer } from './preview-composer-bind.js';
 
 const CSS_HREF = new URL('./sg-preview-canvas.css', import.meta.url).href;
 const DEFAULT_W = 1280;
@@ -14,14 +20,11 @@ export class SgPreviewCanvas extends HTMLElement {
     #transportEl = null;
     #holderEl = null;
     #els = null;
-    #composer = null;
-    #unwire = null;
-    #onPlayhead = null;
-    #onState = null;
-    #duration = 0;
+    #binding = null;
     #overlay = null;
     #editorMode = 'select';
     #activeClip = null;
+    #modeBtns = null;
 
     constructor() {
         super();
@@ -45,6 +48,11 @@ export class SgPreviewCanvas extends HTMLElement {
         this.#els = buildTransport(this.#transportEl);
         updateTime(this.#els, 0, 0);
         setTransportEnabled(this.#els, false);
+        this.#modeBtns = mountTransportModeButtons(this.#transportEl, {
+            getMode: () => this.#editorMode,
+            dispatch: (name, detail) => this.dispatchEvent(
+                new CustomEvent(name, { detail, bubbles: true, composed: true })),
+        });
     }
 
     connectedCallback() {
@@ -68,6 +76,7 @@ export class SgPreviewCanvas extends HTMLElement {
     disconnectedCallback() {
         this.detachComposer();
         if (this.#overlay) { try { this.#overlay.destroy(); } catch (_) {} this.#overlay = null; }
+        if (this.#modeBtns) { try { this.#modeBtns.dispose(); } catch (_) {} this.#modeBtns = null; }
     }
 
     /**
@@ -80,7 +89,6 @@ export class SgPreviewCanvas extends HTMLElement {
      * Set canvas pixel dimensions.
      * @param {number} w
      * @param {number} h
-     * @returns {void}
      */
     setSize(w, h) {
         if (Number.isFinite(w) && w > 0) this.#canvas.width = w;
@@ -98,79 +106,47 @@ export class SgPreviewCanvas extends HTMLElement {
     setEditorMode(mode) {
         const next = (mode === 'move' || mode === 'crop') ? mode : 'select';
         this.#editorMode = next;
+        if (this.#modeBtns) this.#modeBtns.refresh();
         if (this.#overlay) this.#overlay.refresh();
     }
+
+    /**
+     * Read the current overlay mode.
+     * @returns {'select'|'move'|'crop'}
+     */
+    getEditorMode() { return this.#editorMode; }
 
     /**
      * Set (or clear) the clip whose handles the overlay should render.
      * @param {{clipId: string, transform?: object, crop?: object, srcWidth: number, srcHeight: number}|null} info
      */
     setActiveClip(info) {
-        if (!info || !info.clipId
-                  || !Number.isFinite(info.srcWidth) || !Number.isFinite(info.srcHeight)
-                  || info.srcWidth <= 0 || info.srcHeight <= 0) {
-            this.#activeClip = null;
-        } else {
-            this.#activeClip = {
-                clipId: info.clipId,
-                transform: info.transform || null,
-                crop: info.crop || null,
-                srcWidth: info.srcWidth,
-                srcHeight: info.srcHeight,
-            };
-        }
+        const ok = info && info.clipId
+            && Number.isFinite(info.srcWidth) && info.srcWidth > 0
+            && Number.isFinite(info.srcHeight) && info.srcHeight > 0;
+        this.#activeClip = ok ? {
+            clipId: info.clipId,
+            transform: info.transform || null,
+            crop: info.crop || null,
+            srcWidth: info.srcWidth,
+            srcHeight: info.srcHeight,
+        } : null;
         if (this.#overlay) this.#overlay.refresh();
     }
 
     /**
      * Attach a composer handle (from createComposer).
      * @param {object} composer
-     * @returns {void}
      */
     attachComposer(composer) {
         this.detachComposer();
         if (!composer) return;
-        this.#composer = composer;
-        this.#unwire = wireTransport(this.#els, composer);
-        this.#duration = composer.getDuration ? composer.getDuration() : 0;
-        updateTime(this.#els, composer.getCurrentTime ? composer.getCurrentTime() : 0, this.#duration);
-        this.#onPlayhead = (e) => {
-            const t = (e && e.detail && Number.isFinite(e.detail.time)) ? e.detail.time : 0;
-            updateTime(this.#els, t, this.#duration);
-        };
-        this.#onState = () => { this.#updatePlayIcon(); };
-        this.#canvas.addEventListener('composer:playhead-changed', this.#onPlayhead);
-        this.#canvas.addEventListener('composer:state-changed', this.#onState);
-        this.#canvas.addEventListener('composer:ended', this.#onState);
-        setTransportEnabled(this.#els, true);
-        this.#updatePlayIcon();
+        this.#binding = bindComposer({ composer, els: this.#els, canvas: this.#canvas });
     }
 
-    /**
-     * Detach the current composer handle.
-     * @returns {void}
-     */
+    /** Detach the current composer handle. */
     detachComposer() {
-        if (this.#unwire) { this.#unwire(); this.#unwire = null; }
-        if (this.#onPlayhead) {
-            this.#canvas.removeEventListener('composer:playhead-changed', this.#onPlayhead);
-            this.#onPlayhead = null;
-        }
-        if (this.#onState) {
-            this.#canvas.removeEventListener('composer:state-changed', this.#onState);
-            this.#canvas.removeEventListener('composer:ended', this.#onState);
-            this.#onState = null;
-        }
-        this.#composer = null;
-        this.#duration = 0;
-        updateTime(this.#els, 0, 0);
-        setTransportEnabled(this.#els, false);
-        if (this.#els) this.#els.play.textContent = '▶';
-    }
-
-    #updatePlayIcon() {
-        if (!this.#composer || !this.#els) return;
-        this.#els.play.textContent = this.#composer.isPlaying() ? '⏸' : '▶';
+        if (this.#binding) { try { this.#binding.detach(); } catch (_) {} this.#binding = null; }
     }
 }
 

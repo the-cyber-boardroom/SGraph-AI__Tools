@@ -101,7 +101,7 @@ export function mountShell({ host, state, api, getComposer, setComposer }) {
         if (timelineEl) unwireTimeline = wireTimelineEvents(timelineEl, api, ctx);
 
         overlayWire = wireOverlay({
-            timelineEl, previewEl, api,
+            previewEl, api,
             getProject: () => state.toComposerProject(),
             getSelectedClipId: () => ctx.selectedClipId,
             getPlayhead: () => ctx.currentPlayhead,
