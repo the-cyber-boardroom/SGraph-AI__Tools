@@ -4,6 +4,7 @@ import { getProjectDuration } from '../../../../../core/video-composer/v0/v0.1/v
 import { mountColorPicker } from './timeline-color-picker.js';
 import { mountSplitButton } from './timeline-split-button.js';
 import { buildToolbar, findScrollViewport, updateLabel } from './timeline-toolbar-dom.js';
+import { mountHistoryButtons, buildToolbarSeparator } from './timeline-history-buttons.js';
 import { SGT_EVENTS } from './timeline-events.js';
 
 const MIN_PPS = 1;
@@ -39,12 +40,15 @@ export function computeFitPps(project, visibleWidth) {
  * Attach the zoom toolbar to the timeline root. Inserts the toolbar element as
  * the first child of the root container so it sits above the ruler.
  *
+ * Toolbar order: Undo  Redo  |  -  +  Fit  |  Split  |  Colour-swatch.
+ *
  * @param {{
  *   root: HTMLElement|ShadowRoot,
  *   getState: () => { project: object|null, pps: number, fps?: number, playhead?: number, selectedClipId?: string|null },
  *   setPixelsPerSecond: (pps: number) => void,
  *   getLane: () => HTMLElement|null,
  *   dispatch?: (name: string, detail: object) => void,
+ *   getHistoryFlags?: () => { canUndo: boolean, canRedo: boolean },
  * }} cfg
  * @returns {{ dispose: () => void, refresh: () => void, fit: () => void }}
  */
@@ -74,10 +78,19 @@ export function attachZoom(cfg) {
         onZoomIn: () => applyPps(cfg.getState().pps * 2),
         onFit: fit,
     });
+    const history = cfg.dispatch && cfg.getHistoryFlags
+        ? mountHistoryButtons({ getFlags: cfg.getHistoryFlags, dispatch: cfg.dispatch })
+        : null;
+    if (history) {
+        bar.insertBefore(history.root, bar.firstChild);
+        bar.insertBefore(buildToolbarSeparator(), history.root.nextSibling);
+        bar.appendChild(buildToolbarSeparator());
+    }
     const split = cfg.dispatch
         ? mountSplitButton({ getState: cfg.getState, dispatch: cfg.dispatch })
         : null;
     if (split) bar.appendChild(split.root);
+    if (split) bar.appendChild(buildToolbarSeparator());
     const picker = cfg.dispatch
         ? mountColorPicker({ host: bar, getState: cfg.getState, dispatch: cfg.dispatch })
         : null;
@@ -96,6 +109,7 @@ export function attachZoom(cfg) {
         updateLabel(label, cfg.getState().pps);
         if (picker) picker.refresh();
         if (split) split.refresh();
+        if (history) history.refresh();
     }
     function dispose() {
         if (hostEl && split) {
@@ -104,6 +118,7 @@ export function attachZoom(cfg) {
         }
         if (split) split.dispose();
         if (picker) picker.dispose();
+        if (history) history.dispose();
         if (bar.parentNode) bar.parentNode.removeChild(bar);
     }
     return { dispose, refresh, fit };

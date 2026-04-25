@@ -52,6 +52,10 @@
             "setClipColor": { "description": "Set or clear (color=null) a clip's optional color override; inline style overrides the auto-shade." },
             "getProject":   { "description": "Return a defensive deep clone of the current project state." },
             "setProject":   { "description": "Replace the current project state (validated via composer-schema)." },
+            "undo":         { "description": "Undo the most recent mutation (snapshot stack, max 50). Returns { undid, canUndo, canRedo }." },
+            "redo":         { "description": "Redo the most recently undone mutation. Returns { redid, canUndo, canRedo }." },
+            "canUndo":      { "description": "Report whether undo is currently available." },
+            "canRedo":      { "description": "Report whether redo is currently available." },
             "exportMp4":    { "description": "Render the project to an MP4 Blob via the composer; returns blob+meta." }
         },
         "events": [
@@ -63,6 +67,8 @@
             { "name": "sg-timeline:clip-deleted",    "when": "user clicks the clip x or presses Del",   "detail": "{ clipId }" },
             { "name": "sg-timeline:clip-split",      "when": "user presses S with a clip selected",     "detail": "{ clipId, atTime }" },
             { "name": "sg-timeline:clip-color-requested", "when": "user picks a colour for the selected clip in the timeline toolbar", "detail": "{ clipId, color }" },
+            { "name": "sg-timeline:undo-requested",  "when": "user clicks the timeline Undo button",    "detail": "{}" },
+            { "name": "sg-timeline:redo-requested",  "when": "user clicks the timeline Redo button",    "detail": "{}" },
             { "name": "sg-timeline:playhead-changed","when": "user scrubs the timeline ruler",          "detail": "{ time }" },
             { "name": "tool:error",                  "when": "any pipeline error",                      "detail": "{ step, message }" }
         ],

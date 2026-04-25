@@ -124,6 +124,19 @@ export function buildApiMethods({ state, getComposer, setComposer, hostEl }) {
         return { ok: true };
     }
 
+    function undo() {
+        const did = state.undo();
+        return { undid: did, canUndo: state.canUndo(), canRedo: state.canRedo() };
+    }
+
+    function redo() {
+        const did = state.redo();
+        return { redid: did, canUndo: state.canUndo(), canRedo: state.canRedo() };
+    }
+
+    function canUndo() { return { canUndo: state.canUndo() }; }
+    function canRedo() { return { canRedo: state.canRedo() }; }
+
     async function exportMp4(params = {}) {
         const { preferMp4 = true, bitsPerSecond, onProgress } = params || {};
         const composerProject = state.toComposerProject();
@@ -148,6 +161,8 @@ export function buildApiMethods({ state, getComposer, setComposer, hostEl }) {
 
     return {
         loadAsset, addClip, trimClip, removeClip, moveClip, splitClip,
-        setClipColor, getProject, setProject, exportMp4,
+        setClipColor, getProject, setProject,
+        undo, redo, canUndo, canRedo,
+        exportMp4,
     };
 }

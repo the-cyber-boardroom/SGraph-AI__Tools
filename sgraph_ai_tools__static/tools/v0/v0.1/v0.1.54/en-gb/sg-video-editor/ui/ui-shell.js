@@ -82,6 +82,12 @@ export function mountShell({ host, state, api, getComposer, setComposer }) {
         } catch (err) { emitErr('composer', err); }
     }
 
+    function syncHistoryFlags() {
+        if (timelineEl && typeof timelineEl.setHistoryFlags === 'function') {
+            timelineEl.setHistoryFlags({ canUndo: state.canUndo(), canRedo: state.canRedo() });
+        }
+    }
+
     function handleChange() {
         if (pending) clearTimeout(pending);
         pending = setTimeout(() => {
@@ -89,6 +95,7 @@ export function mountShell({ host, state, api, getComposer, setComposer }) {
             const flat = state.toComposerProject();
             if (timelineEl) timelineEl.setProject(flat);
             if (assetPanel) assetPanel.refresh(state.getProject());
+            syncHistoryFlags();
             rebuildComposer();
         }, 100);
     }
@@ -127,6 +134,7 @@ export function mountShell({ host, state, api, getComposer, setComposer }) {
         if (timelineEl) timelineEl.setProject(state.toComposerProject());
         assetPanel.refresh(state.getProject());
         if (jsonPanel) jsonPane = mountJsonPane({ host: jsonPanel, state });
+        syncHistoryFlags();
         rebuildComposer();
         state.addEventListener('change', handleChange);
 

@@ -95,3 +95,17 @@ export function removeClipOp(project, { clipId }) {
     if (!loc) throw badArg(`unknown clipId: ${clipId}`);
     loc.track.clips.splice(loc.index, 1);
 }
+
+/** Append an asset entry; caller wires the Blob into its registry. */
+export function addAssetOp(project, params) {
+    const { assetId, name, mime, duration, width, height, bytes, assetType } = params;
+    if (!assetId || typeof assetId !== 'string') throw badArg('assetId required');
+    const kind = assetType === 'image' ? 'image' : 'video';
+    if (kind === 'video' && (!Number.isFinite(duration) || duration <= 0)) {
+        throw badArg('duration must be > 0');
+    }
+    const entry = { id: assetId, name, mime, width, height, bytes, assetType: kind };
+    if (Number.isFinite(duration)) entry.duration = duration;
+    project.assets.push(entry);
+    return { assetId, assetType: kind };
+}

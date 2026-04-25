@@ -105,6 +105,12 @@ export function wireTimelineEvents(timelineEl, api, ctx) {
         try { api.setClipColor({ clipId: d.clipId, color: d.color == null ? null : d.color }); }
         catch (err) { emitErr('setClipColor', err); }
     }
+    function onUndo() {
+        try { api.undo(); } catch (err) { emitErr('undo', err); }
+    }
+    function onRedo() {
+        try { api.redo(); } catch (err) { emitErr('redo', err); }
+    }
     timelineEl.addEventListener('sg-timeline:clip-added', onAdded);
     timelineEl.addEventListener('sg-timeline:clip-moved', onMoved);
     timelineEl.addEventListener('sg-timeline:clip-trimmed', onTrimmed);
@@ -112,6 +118,8 @@ export function wireTimelineEvents(timelineEl, api, ctx) {
     timelineEl.addEventListener('sg-timeline:clip-deleted', onDeleted);
     timelineEl.addEventListener('sg-timeline:clip-split', onSplit);
     timelineEl.addEventListener('sg-timeline:clip-color-requested', onColor);
+    timelineEl.addEventListener('sg-timeline:undo-requested', onUndo);
+    timelineEl.addEventListener('sg-timeline:redo-requested', onRedo);
     timelineEl.addEventListener('sg-timeline:playhead-changed', onPlayhead);
     return () => {
         timelineEl.removeEventListener('sg-timeline:clip-added', onAdded);
@@ -121,6 +129,8 @@ export function wireTimelineEvents(timelineEl, api, ctx) {
         timelineEl.removeEventListener('sg-timeline:clip-deleted', onDeleted);
         timelineEl.removeEventListener('sg-timeline:clip-split', onSplit);
         timelineEl.removeEventListener('sg-timeline:clip-color-requested', onColor);
+        timelineEl.removeEventListener('sg-timeline:undo-requested', onUndo);
+        timelineEl.removeEventListener('sg-timeline:redo-requested', onRedo);
         timelineEl.removeEventListener('sg-timeline:playhead-changed', onPlayhead);
     };
 }

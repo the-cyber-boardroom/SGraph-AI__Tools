@@ -31,6 +31,7 @@ export class SgTimeline extends HTMLElement {
     #playheadEl = null;
     #surface = null;
     #zoom = null;
+    #historyFlags = { canUndo: false, canRedo: false };
 
     constructor() {
         super();
@@ -88,15 +89,14 @@ export class SgTimeline extends HTMLElement {
             setPixelsPerSecond: (pps) => this.setPixelsPerSecond(pps),
             getLane: () => this.#lane,
             dispatch,
+            getHistoryFlags: () => this.#historyFlags,
         });
         this.#renderAll();
     }
 
     /**
-     * Public method: request a colour override for the currently-selected clip.
-     * No-op when nothing is selected. Pass `null` to revert to the auto-shade.
+     * Request a colour override for the selected clip; null = auto-shade.
      * @param {string|null} color
-     * @returns {void}
      */
     setSelectedClipColor(color) {
         if (!this.#selected) return;
@@ -149,6 +149,19 @@ export class SgTimeline extends HTMLElement {
      */
     fitToView() {
         if (this.#zoom) this.#zoom.fit();
+    }
+
+    /**
+     * Update the Undo/Redo toolbar enable state. Shells call this whenever
+     * the host's history capability changes.
+     * @param {{canUndo?: boolean, canRedo?: boolean}} flags
+     */
+    setHistoryFlags(flags) {
+        this.#historyFlags = {
+            canUndo: !!(flags && flags.canUndo),
+            canRedo: !!(flags && flags.canRedo),
+        };
+        if (this.#zoom) this.#zoom.refresh();
     }
 
     #renderAll() {
