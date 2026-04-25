@@ -1,28 +1,13 @@
 /** ui-asset-panel.js — left-side asset list with file picker + drop source. */
 
+import { buildAssetRow } from './asset-row.js';
+
 const ASSET_MIME = 'application/x-sg-asset';
 
-/** Minimal HTML escaper. */
-function escape(s) {
-    return String(s == null ? '' : s)
-        .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
-        .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
-}
-
-/** Format seconds as m:ss. */
-function formatDuration(sec) {
-    if (!Number.isFinite(sec) || sec < 0) return '–';
-    const m = Math.floor(sec / 60);
-    const s = Math.floor(sec % 60);
-    return `${m}:${s < 10 ? '0' : ''}${s}`;
-}
-
-/** Format byte size as KB/MB/GB. */
-function formatSize(bytes) {
-    if (!Number.isFinite(bytes) || bytes <= 0) return '0 KB';
-    if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
-    if (bytes < 1024 * 1024 * 1024) return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
-    return `${(bytes / (1024 * 1024 * 1024)).toFixed(2)} GB`;
+/** True when a File is a video or image we can register. */
+function isAcceptedFile(f) {
+    const t = f && (f.type || '');
+    return t.startsWith('video/') || t.startsWith('image/');
 }
 
 /**
@@ -34,9 +19,9 @@ export function mountAssetPanel({ host, state, onFilesPicked }) {
     host.innerHTML = `
         <div class="sgve-asset-panel">
             <div class="sgve-asset-dropzone" tabindex="0">
-                <p>Drop video files here or</p>
+                <p>Drop video or image files here or</p>
                 <button type="button" class="sgve-asset-pick">Choose files</button>
-                <input type="file" accept="video/*" multiple hidden />
+                <input type="file" accept="video/*,image/*" multiple hidden />
             </div>
             <ul class="sgve-asset-list" role="list"></ul>
         </div>
@@ -47,10 +32,16 @@ export function mountAssetPanel({ host, state, onFilesPicked }) {
     const list = root.querySelector('.sgve-asset-list');
 
     let dragDepth = 0;
+    let activeUrls = [];
+
+    function revokeActiveUrls() {
+        for (const u of activeUrls) { try { URL.revokeObjectURL(u); } catch (_) {} }
+        activeUrls = [];
+    }
 
     function callPicked(files) {
-        const vids = (files || []).filter(f => f && (f.type || '').startsWith('video/'));
-        if (vids.length && typeof onFilesPicked === 'function') onFilesPicked(vids);
+        const ok = (files || []).filter(isAcceptedFile);
+        if (ok.length && typeof onFilesPicked === 'function') onFilesPicked(ok);
     }
 
     function onPick() { input.click(); }
@@ -89,22 +80,24 @@ export function mountAssetPanel({ host, state, onFilesPicked }) {
     root.addEventListener('drop', onDrop);
     list.addEventListener('dragstart', onRowDragStart);
 
-    /**
-     * Re-render asset list from a wrapped project shape (state.getProject()).
-     * @param {{assets: Array<object>}} project
-     */
+    /** Re-render asset list from a wrapped project shape (state.getProject()). */
     function refresh(project) {
         const assets = (project && Array.isArray(project.assets)) ? project.assets : [];
+        revokeActiveUrls();
+        list.replaceChildren();
         if (!assets.length) {
-            list.innerHTML = `<li class="sgve-asset-empty">No assets yet.</li>`;
+            const empty = document.createElement('li');
+            empty.className = 'sgve-asset-empty';
+            empty.textContent = 'No assets yet.';
+            list.appendChild(empty);
             return;
         }
-        list.innerHTML = assets.map(a => `
-            <li class="sgve-asset-row" draggable="true" data-asset-id="${escape(a.id)}">
-                <span class="sgve-asset-name">${escape(a.name || a.id)}</span>
-                <span class="sgve-asset-meta">${escape(formatDuration(a.duration))} · ${escape(formatSize(a.bytes ?? 0))}</span>
-            </li>
-        `).join('');
+        const registry = state.getAssetRegistry ? state.getAssetRegistry() : null;
+        for (const a of assets) {
+            const { element, urls } = buildAssetRow(a, registry);
+            activeUrls.push(...urls);
+            list.appendChild(element);
+        }
     }
 
     function onStateChange() { refresh(state.getProject()); }
@@ -113,6 +106,7 @@ export function mountAssetPanel({ host, state, onFilesPicked }) {
 
     /** Tear down listeners and clear host. */
     function destroy() {
+        revokeActiveUrls();
         state.removeEventListener('change', onStateChange);
         pickBtn.removeEventListener('click', onPick);
         input.removeEventListener('change', onChange);

@@ -22,7 +22,26 @@ async function probeVideoFile(file) {
     });
 }
 
+/** Probe an image File for naturalWidth/naturalHeight via a hidden <img>. */
+async function probeImageFile(file) {
+    return new Promise((resolve, reject) => {
+        const url = URL.createObjectURL(file);
+        const img = new Image();
+        const cleanup = () => { try { URL.revokeObjectURL(url); } catch (_) {} };
+        img.onload = () => {
+            const out = { width: img.naturalWidth, height: img.naturalHeight };
+            cleanup();
+            resolve(out);
+        };
+        img.onerror = () => { cleanup(); reject(new Error('failed to load image metadata')); };
+        img.src = url;
+    });
+}
+
 function badArg(msg) { return Object.assign(new Error(msg), { code: 'invalid-arg' }); }
+function unsupportedMime(mime) {
+    return Object.assign(new Error(`unsupported mime: ${mime || 'unknown'}`), { code: 'unsupported-mime' });
+}
 
 /** Build the 8 API methods bound to the given state container. */
 export function buildApiMethods({ state, getComposer, setComposer, hostEl }) {
@@ -31,19 +50,25 @@ export function buildApiMethods({ state, getComposer, setComposer, hostEl }) {
     async function loadAsset(params = {}) {
         const file = params && params.file;
         if (!(file instanceof Blob)) throw badArg('file must be a File/Blob');
-        const { duration, width, height } = await probeVideoFile(file);
+        const mime = file.type || '';
         const assetId = `a_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 8)}`;
-        state.addAsset({
-            assetId,
-            name: file.name || 'asset',
-            mime: file.type || 'video/mp4',
-            duration,
-            width,
-            height,
-            bytes: file.size,
-            blob: file,
-        });
-        return { assetId, duration, width, height, bytes: file.size };
+        if (mime.startsWith('image/')) {
+            const { width, height } = await probeImageFile(file);
+            state.addAsset({
+                assetId, name: file.name || 'asset', mime,
+                width, height, bytes: file.size, blob: file, assetType: 'image',
+            });
+            return { assetId, assetType: 'image', width, height, bytes: file.size };
+        }
+        if (mime.startsWith('video/') || !mime) {
+            const { duration, width, height } = await probeVideoFile(file);
+            state.addAsset({
+                assetId, name: file.name || 'asset', mime: mime || 'video/mp4',
+                duration, width, height, bytes: file.size, blob: file, assetType: 'video',
+            });
+            return { assetId, assetType: 'video', duration, width, height, bytes: file.size };
+        }
+        throw unsupportedMime(mime);
     }
 
     function addClip(params = {}) {
@@ -84,6 +109,13 @@ export function buildApiMethods({ state, getComposer, setComposer, hostEl }) {
         return { newClipId };
     }
 
+    function setClipColor(params = {}) {
+        const { clipId, color } = params;
+        if (!clipId) throw badArg('clipId required');
+        state.setClipColor({ clipId, color: color == null ? null : color });
+        return { clipId, color: color == null ? null : color };
+    }
+
     function getProject() { return state.getProject(); }
 
     function setProject(params = {}) {
@@ -91,6 +123,19 @@ export function buildApiMethods({ state, getComposer, setComposer, hostEl }) {
         state.setProject(params.project);
         return { ok: true };
     }
+
+    function undo() {
+        const did = state.undo();
+        return { undid: did, canUndo: state.canUndo(), canRedo: state.canRedo() };
+    }
+
+    function redo() {
+        const did = state.redo();
+        return { redid: did, canUndo: state.canUndo(), canRedo: state.canRedo() };
+    }
+
+    function canUndo() { return { canUndo: state.canUndo() }; }
+    function canRedo() { return { canRedo: state.canRedo() }; }
 
     async function exportMp4(params = {}) {
         const { preferMp4 = true, bitsPerSecond, onProgress } = params || {};
@@ -114,5 +159,10 @@ export function buildApiMethods({ state, getComposer, setComposer, hostEl }) {
         };
     }
 
-    return { loadAsset, addClip, trimClip, removeClip, moveClip, splitClip, getProject, setProject, exportMp4 };
+    return {
+        loadAsset, addClip, trimClip, removeClip, moveClip, splitClip,
+        setClipColor, getProject, setProject,
+        undo, redo, canUndo, canRedo,
+        exportMp4,
+    };
 }

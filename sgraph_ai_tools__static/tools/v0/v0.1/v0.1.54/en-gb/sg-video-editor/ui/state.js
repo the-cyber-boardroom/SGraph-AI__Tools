@@ -1,7 +1,11 @@
 /** state.js — pure project state container; no DOM. */
 
-import { snapToFps, validateProject, getVideoTracks } from '/core/video-composer/v0/v0.1/v0.1.0/composer-schema.js';
+import { validateProject, getVideoTracks } from '/core/video-composer/v0/v0.1/v0.1.0/composer-schema.js';
 import { splitClipOp } from './state-split.js';
+import {
+    addAssetOp, addClipOp, trimClipOp, moveClipOp, removeClipOp, setClipColorOp,
+} from './state-clip-ops.js';
+import { createHistory } from './state-history.js';
 
 const SCHEMA_VERSION = '0.1.0';
 const DEFAULT_FPS = 30;
@@ -41,49 +45,33 @@ function deepClone(obj) {
 
 function badArg(msg) { return Object.assign(new Error(msg), { code: 'invalid-arg' }); }
 
-function findTrack(p, trackId) { return p.tracks.find(t => t.id === trackId) || null; }
-
-function findClipLocation(p, clipId) {
-    for (const t of p.tracks) {
-        const i = t.clips.findIndex(c => c.id === clipId);
-        if (i >= 0) return { track: t, index: i };
-    }
-    return null;
-}
-
-function findAsset(p, assetId) { return p.assets.find(a => a.id === assetId) || null; }
-
-function trackEnd(track) {
-    let max = 0;
-    for (const c of track.clips) {
-        const end = c.timelineStart + (c.outPoint - c.inPoint);
-        if (end > max) max = end;
-    }
-    return max;
-}
-
 /** Validate the inner composer-shaped projection of the wrapped state. */
 function validateWrapped(p) {
     if (!p || typeof p !== 'object') throw badArg('project must be an object');
     if (!p.project || typeof p.project !== 'object') throw badArg('project.project must be an object');
     if (!Array.isArray(p.tracks)) throw badArg('project.tracks must be an array');
-    validateProject({
-        width: p.project.width, height: p.project.height, tracks: p.tracks,
-    });
+    validateProject({ width: p.project.width, height: p.project.height, tracks: p.tracks });
     return p;
 }
 
-/** Create a state container with mutation helpers; emits 'change' on every mutation. */
+/**
+ * Create a state container with mutation helpers; emits 'change' on every
+ * mutation. Undo/redo uses a 50-entry snapshot stack per side. The
+ * AssetRegistry (Map<assetId, Blob>) is shared across snapshots — undoing an
+ * addAsset leaves the blob behind but the project no longer references it.
+ */
 export function createState(initialProject) {
     let project = validateWrapped(deepClone(initialProject));
     const assetRegistry = new Map();
     const target = new EventTarget();
+    const history = createHistory({ maxEntries: 50 });
 
     function emit() {
         target.dispatchEvent(new CustomEvent('change', { detail: { project: deepClone(project) } }));
     }
-
     function withOp(op) { project.operations.push({ ...op, t: Date.now() }); }
+    /** Capture pre-mutation project (clears redo). */
+    function snapshot() { history.pushSnapshot(project); }
 
     return {
         addEventListener: target.addEventListener.bind(target),
@@ -92,80 +80,84 @@ export function createState(initialProject) {
         getProject() { return deepClone(project); },
 
         setProject(next) {
+            snapshot();
             project = validateWrapped(deepClone(next));
             emit();
         },
 
         getAssetRegistry() { return assetRegistry; },
 
-        addAsset({ assetId, name, mime, duration, width, height, bytes, blob }) {
-            if (!assetId || typeof assetId !== 'string') throw badArg('assetId required');
-            if (!(blob instanceof Blob)) throw badArg('blob must be a Blob');
-            if (!Number.isFinite(duration) || duration <= 0) throw badArg('duration must be > 0');
-            project.assets.push({ id: assetId, name, mime, duration, width, height, bytes });
-            assetRegistry.set(assetId, blob);
-            withOp({ op: 'addAsset', assetId });
+        addAsset(params) {
+            if (!(params && params.blob instanceof Blob)) throw badArg('blob must be a Blob');
+            snapshot();
+            const { assetId, assetType } = addAssetOp(project, params);
+            assetRegistry.set(assetId, params.blob);
+            withOp({ op: 'addAsset', assetId, assetType });
             emit();
             return assetId;
         },
 
-        addClip({ trackId, assetId, timelineStart, inPoint, outPoint, clipId }) {
-            const track = findTrack(project, trackId);
-            if (!track) throw badArg(`unknown trackId: ${trackId}`);
-            const asset = findAsset(project, assetId);
-            if (!asset) throw badArg(`unknown assetId: ${assetId}`);
-            const fps = project.project.fps;
-            const inP = snapToFps(Number.isFinite(inPoint) ? inPoint : 0, fps);
-            const outP = snapToFps(Number.isFinite(outPoint) ? outPoint : asset.duration, fps);
-            if (outP <= inP) throw badArg('outPoint must be > inPoint');
-            const tStart = snapToFps(Number.isFinite(timelineStart) ? timelineStart : trackEnd(track), fps);
-            const id = clipId || genId('c');
-            track.clips.push({ id, assetId, timelineStart: tStart, inPoint: inP, outPoint: outP });
-            withOp({ op: 'addClip', clipId: id, trackId, assetId });
+        addClip(params) {
+            const snap = deepClone(project);
+            const id = addClipOp(project, params, genId);
+            history.pushSnapshot(snap);
+            withOp({ op: 'addClip', clipId: id, trackId: params.trackId, assetId: params.assetId });
             emit();
             return id;
         },
 
-        removeClip({ clipId }) {
-            const loc = findClipLocation(project, clipId);
-            if (!loc) throw badArg(`unknown clipId: ${clipId}`);
-            loc.track.clips.splice(loc.index, 1);
-            withOp({ op: 'removeClip', clipId });
+        removeClip(params) {
+            snapshot();
+            removeClipOp(project, params);
+            withOp({ op: 'removeClip', clipId: params.clipId });
             emit();
         },
 
-        trimClip({ clipId, inPoint, outPoint }) {
-            const loc = findClipLocation(project, clipId);
-            if (!loc) throw badArg(`unknown clipId: ${clipId}`);
-            const clip = loc.track.clips[loc.index];
-            const asset = findAsset(project, clip.assetId);
-            const fps = project.project.fps;
-            const maxOut = asset ? asset.duration : Infinity;
-            const inP = snapToFps(Math.max(0, Number.isFinite(inPoint) ? inPoint : clip.inPoint), fps);
-            const outP = snapToFps(Math.min(maxOut, Number.isFinite(outPoint) ? outPoint : clip.outPoint), fps);
-            if (outP <= inP) throw badArg('outPoint must be > inPoint');
-            clip.inPoint = inP;
-            clip.outPoint = outP;
-            withOp({ op: 'trimClip', clipId, inPoint: inP, outPoint: outP });
+        trimClip(params) {
+            const snap = deepClone(project);
+            const { inPoint, outPoint } = trimClipOp(project, params);
+            history.pushSnapshot(snap);
+            withOp({ op: 'trimClip', clipId: params.clipId, inPoint, outPoint });
             emit();
         },
 
-        moveClip({ clipId, timelineStart }) {
-            const loc = findClipLocation(project, clipId);
-            if (!loc) throw badArg(`unknown clipId: ${clipId}`);
-            const fps = project.project.fps;
-            const t = snapToFps(Math.max(0, Number(timelineStart) || 0), fps);
-            loc.track.clips[loc.index].timelineStart = t;
-            withOp({ op: 'moveClip', clipId, timelineStart: t });
+        moveClip(params) {
+            const snap = deepClone(project);
+            const { timelineStart } = moveClipOp(project, params);
+            history.pushSnapshot(snap);
+            withOp({ op: 'moveClip', clipId: params.clipId, timelineStart });
             emit();
         },
 
         splitClip({ clipId, atTime }) {
-            const { newClipId, atTime: t } = splitClipOp(project, { clipId, atTime }, genId);
-            withOp({ op: 'splitClip', clipId, atTime: t, newClipId });
+            snapshot();
+            const r = splitClipOp(project, { clipId, atTime }, genId);
+            withOp({ op: 'splitClip', clipId, atTime: r.atTime, newClipId: r.newClipId });
             emit();
-            return { newClipId };
+            return { newClipId: r.newClipId };
         },
+
+        setClipColor(params) {
+            snapshot();
+            const { clipId, color } = setClipColorOp(project, params);
+            withOp({ op: 'setClipColor', clipId, color });
+            emit();
+        },
+
+        undo() {
+            const next = history.undo(project);
+            if (!next) return false;
+            project = next; emit(); return true;
+        },
+
+        redo() {
+            const next = history.redo(project);
+            if (!next) return false;
+            project = next; emit(); return true;
+        },
+
+        canUndo() { return history.canUndo(); },
+        canRedo() { return history.canRedo(); },
 
         /** Project the wrapped state into a composer-shaped project. */
         toComposerProject() {

@@ -2,8 +2,9 @@
 
 import { mountAssetPanel } from './ui-asset-panel.js';
 import { mountExportControls } from './ui-export-controls.js';
-import { buildLayoutDescriptor, wireTimelineEvents } from './ui-shell-layout.js';
+import { buildLayoutDescriptor, wireTimelineEvents, resolvePanels } from './ui-shell-layout.js';
 import { mountDevPanel } from './ui-dev-panel.js';
+import { mountJsonPane } from './ui-json-pane.js';
 import { createComposer } from '/core/video-composer/v0/v0.1/v0.1.0/sg-video-composer.js';
 import { SGL_EVENTS } from '/core/sg-layout/v0.1.0/sg-layout-events.js';
 
@@ -62,6 +63,7 @@ export function mountShell({ host, state, api, getComposer, setComposer }) {
     let pending = null;
     let onCanvasPlayhead = null;
     let devPanel = null;
+    let jsonPane = null;
 
     function rebuildComposer() {
         const existing = getComposer();
@@ -80,6 +82,12 @@ export function mountShell({ host, state, api, getComposer, setComposer }) {
         } catch (err) { emitErr('composer', err); }
     }
 
+    function syncHistoryFlags() {
+        if (timelineEl && typeof timelineEl.setHistoryFlags === 'function') {
+            timelineEl.setHistoryFlags({ canUndo: state.canUndo(), canRedo: state.canRedo() });
+        }
+    }
+
     function handleChange() {
         if (pending) clearTimeout(pending);
         pending = setTimeout(() => {
@@ -87,27 +95,17 @@ export function mountShell({ host, state, api, getComposer, setComposer }) {
             const flat = state.toComposerProject();
             if (timelineEl) timelineEl.setProject(flat);
             if (assetPanel) assetPanel.refresh(state.getProject());
+            syncHistoryFlags();
             rebuildComposer();
         }, 100);
     }
 
     async function mountInto() {
         await ready;
-        const assetsPanel = layout.getPanelElement('t-assets');
-        const previewPanel = layout.getPanelElement('t-preview');
-        const timelinePanel = layout.getPanelElement('t-timeline');
-
-        if (assetsPanel) assetsPanel.className = 'sgve-panel-slot';
-        if (previewPanel) {
-            previewPanel.className = 'sgve-panel-slot sgve-preview';
-            previewPanel.innerHTML = '<sg-preview-canvas></sg-preview-canvas>';
-            previewEl = previewPanel.querySelector('sg-preview-canvas');
-        }
-        if (timelinePanel) {
-            timelinePanel.className = 'sgve-panel-slot sgve-timeline';
-            timelinePanel.innerHTML = '<sg-timeline></sg-timeline>';
-            timelineEl = timelinePanel.querySelector('sg-timeline');
-        }
+        const slots = resolvePanels(layout);
+        const { assetsPanel, jsonPanel } = slots;
+        previewEl = slots.previewEl;
+        timelineEl = slots.timelineEl;
 
         assetPanel = mountAssetPanel({
             host: assetsPanel,
@@ -135,6 +133,8 @@ export function mountShell({ host, state, api, getComposer, setComposer }) {
 
         if (timelineEl) timelineEl.setProject(state.toComposerProject());
         assetPanel.refresh(state.getProject());
+        if (jsonPanel) jsonPane = mountJsonPane({ host: jsonPanel, state });
+        syncHistoryFlags();
         rebuildComposer();
         state.addEventListener('change', handleChange);
 
@@ -159,6 +159,7 @@ export function mountShell({ host, state, api, getComposer, setComposer }) {
         }
         try { exportCtl && exportCtl.destroy(); } catch (_) {}
         try { assetPanel && assetPanel.destroy(); } catch (_) {}
+        try { jsonPane && jsonPane.destroy(); } catch (_) {}
         try { devPanel && devPanel.destroy(); } catch (_) {}
         host.innerHTML = '';
     }

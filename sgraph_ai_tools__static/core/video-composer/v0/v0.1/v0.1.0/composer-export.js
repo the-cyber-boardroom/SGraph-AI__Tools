@@ -1,14 +1,32 @@
 /**
- * composer-export.js — export pipeline using captureStream + MediaRecorder.
+ * composer-export.js — orchestrator for canvas captureStream + MediaRecorder
+ * export pipeline. Wires the per-frame loop (composer-export-loop.js) into
+ * a Promise<Blob> and dispatches `composer:export-debug` CustomEvents on
+ * `document` at every stage transition (start, recorder-start, clip-active,
+ * clip-end, finish, blob, error).
+ *
+ * Bug history: pre-fix, image-only and image-leading exports stalled at
+ * very low progress because canvas.captureStream(fps) only emits frames
+ * when the canvas is repainted. Image clips painted once in setActive and
+ * then only ticked progress, so the recorder buffer received almost no
+ * data. Fix lives in composer-export-loop.js: tickImage now repaints the
+ * canvas every rAF. composer-export-setup.js also keeps a near-silent
+ * oscillator wired to the audio destination so the audio track stays live
+ * even with image-only projects.
+ *
  * @module video-composer/composer-export
  */
 
 import {
-    clipTimelineEnd,
     getProjectDuration,
     getVideoTracks,
-    findActiveClip,
 } from './composer-schema.js';
+import { createImageRegistry } from './composer-images.js';
+import {
+    buildVideoElements, buildAudioGraph, buildRecorder, teardownVideos,
+} from './composer-export-setup.js';
+import { createExportLoop } from './composer-export-loop.js';
+import { debug } from './composer-export-debug.js';
 
 /**
  * Render the project to a Blob via real-time capture + MediaRecorder.
@@ -19,145 +37,68 @@ export function exportProject({ project, assets, fps, mimeType, bitsPerSecond, o
     if (!MediaRecorder.isTypeSupported(mimeType)) {
         const err = new Error(`Unsupported mimeType: ${mimeType}`);
         err.code = 'unsupported-mime';
+        debug('error', { stage: 'mime', message: err.message, mimeType });
         throw err;
     }
 
     const total = getProjectDuration(project);
     const videoTrack = getVideoTracks(project)[0] || null;
-
     const canvas = document.createElement('canvas');
     canvas.width = project.width;
     canvas.height = project.height;
     const ctx = canvas.getContext('2d');
 
-    const videos = new Map();
-    const urls = new Map();
-    for (const clip of (videoTrack?.clips ?? [])) {
-        if (videos.has(clip.assetId)) continue;
-        const blob = assets.get(clip.assetId);
-        if (!blob) continue;
-        const url = URL.createObjectURL(blob);
-        const v = document.createElement('video');
-        v.src = url;
-        v.playsInline = true;
-        v.preload = 'auto';
-        v.crossOrigin = 'anonymous';
-        videos.set(clip.assetId, v);
-        urls.set(clip.assetId, url);
-    }
+    const { videos, urls } = buildVideoElements(videoTrack, project, assets);
+    const imageReg = createImageRegistry(project.assets || [], assets);
+    const audio = buildAudioGraph();
+    const { recorder, chunks } = buildRecorder(canvas, fps, audio.audioDest, mimeType, bitsPerSecond);
 
-    const audioCtx = new (globalThis.AudioContext || globalThis.webkitAudioContext)();
-    const audioDest = audioCtx.createMediaStreamDestination();
-    const audioSources = new Map();
-    function connectAudio(video) {
-        if (!video) return;
-        let src = audioSources.get(video);
-        if (!src) {
-            try {
-                src = audioCtx.createMediaElementSource(video);
-                audioSources.set(video, src);
-            } catch (_) { return; }
-        }
-        try { src.connect(audioDest); } catch (_) {}
-    }
-    function disconnectAudio(video) {
-        const src = audioSources.get(video);
-        if (src) try { src.disconnect(audioDest); } catch (_) {}
-    }
-
-    const videoStream = canvas.captureStream(fps);
-    const tracks = [...videoStream.getVideoTracks()];
-    const audioTracks = audioDest.stream.getAudioTracks();
-    if (audioTracks.length > 0) tracks.push(audioTracks[0]);
-    const stream = new MediaStream(tracks);
-
-    const recorder = new MediaRecorder(stream, { mimeType, bitsPerSecond });
-    const chunks = [];
-    recorder.ondataavailable = (e) => { if (e.data.size > 0) chunks.push(e.data); };
+    debug('start', { mimeType, fps, total, width: project.width, height: project.height });
+    if (typeof onLog === 'function') onLog('starting');
 
     return new Promise((resolve, reject) => {
-        let activeClip = null;
-        let activeVideo = null;
-        let rvfcHandle = 0;
-        let stopped = false;
-
-        function log(msg) { if (typeof onLog === 'function') onLog(msg); }
-        function progress(time, phase) {
-            if (typeof onProgress === 'function') {
-                onProgress({ time, total, ratio: total > 0 ? Math.min(1, time / total) : 0, phase });
-            }
-        }
-
-        function drawAndAdvance() {
-            if (stopped || !activeVideo || !activeClip) return;
-            if (activeVideo.readyState >= 2) {
-                ctx.drawImage(activeVideo, 0, 0, canvas.width, canvas.height);
-            }
-            const local = activeVideo.currentTime;
-            const tl = activeClip.timelineStart + (local - activeClip.inPoint);
-            progress(tl, 'recording');
-            if (local >= activeClip.outPoint - 1e-3 || tl >= total - 1e-3) {
-                onClipEnd();
-                return;
-            }
-            scheduleNext();
-        }
-
-        function scheduleNext() {
-            if (stopped || !activeVideo) return;
-            if (typeof activeVideo.requestVideoFrameCallback === 'function') {
-                rvfcHandle = activeVideo.requestVideoFrameCallback(drawAndAdvance);
-            } else {
-                rvfcHandle = requestAnimationFrame(drawAndAdvance);
-            }
-        }
-
-        function setActive(clip) {
-            if (activeVideo) {
-                try { activeVideo.pause(); } catch (_) {}
-                disconnectAudio(activeVideo);
-            }
-            activeClip = clip;
-            activeVideo = clip ? videos.get(clip.assetId) : null;
-            if (!activeVideo) return;
-            try { activeVideo.currentTime = clip.inPoint; } catch (_) {}
-            connectAudio(activeVideo);
-        }
-
-        function onClipEnd() {
-            if (!activeClip) return;
-            const next = findActiveClip(videoTrack, clipTimelineEnd(activeClip));
-            if (!next) { finish(); return; }
-            setActive(next);
-            activeVideo.play().then(scheduleNext).catch(reject);
-        }
-
-        function finish() {
-            if (stopped) return;
-            stopped = true;
-            progress(total, 'finalizing');
-            try { recorder.stop(); } catch (e) { reject(e); }
-        }
+        let finished = false;
+        const loop = createExportLoop({
+            project, videoTrack, total, ctx, canvas, videos,
+            getImage: (id) => imageReg.getImage(id),
+            audio,
+            onProgress: (info) => { if (typeof onProgress === 'function') onProgress(info); },
+            onError: (err) => { if (!finished) { finished = true; debug('error', { message: err && err.message }); try { recorder.stop(); } catch (_) {} reject(err); } },
+            onFinish: () => {
+                if (finished) return;
+                finished = true;
+                if (typeof onProgress === 'function') {
+                    onProgress({ time: total, total, ratio: 1, phase: 'finalizing' });
+                }
+                debug('finish', { total });
+                try { recorder.stop(); } catch (e) { reject(e); }
+            },
+        });
 
         recorder.onstop = () => {
-            for (const v of videos.values()) {
-                try { v.pause(); } catch (_) {}
-                v.removeAttribute('src');
-                try { v.load(); } catch (_) {}
-            }
-            for (const url of urls.values()) URL.revokeObjectURL(url);
-            try { audioCtx.close(); } catch (_) {}
-            resolve(new Blob(chunks, { type: mimeType }));
+            try {
+                teardownVideos(videos, urls);
+                imageReg.destroy();
+                audio.close();
+            } catch (_) {}
+            const blob = new Blob(chunks, { type: mimeType });
+            debug('blob', { size: blob.size, type: blob.type, chunks: chunks.length });
+            resolve(blob);
         };
-        recorder.onerror = (e) => reject(e.error || new Error('MediaRecorder error'));
+        recorder.onerror = (e) => {
+            const err = (e && e.error) || new Error('MediaRecorder error');
+            debug('error', { stage: 'recorder', message: err.message });
+            reject(err);
+        };
 
-        log('starting');
-        recorder.start(100);
-
-        const first = videoTrack ? findActiveClip(videoTrack, 0) : null;
-        if (!first) { finish(); return; }
-        setActive(first);
-        if (audioCtx.state === 'suspended') audioCtx.resume().catch(() => {});
-        activeVideo.play().then(scheduleNext).catch(reject);
+        try {
+            recorder.start(100);
+            debug('recorder-start', { timesliceMs: 100 });
+        } catch (e) {
+            debug('error', { stage: 'recorder-start', message: e && e.message });
+            reject(e); return;
+        }
+        if (audio.audioCtx.state === 'suspended') audio.audioCtx.resume().catch(() => {});
+        loop.start();
     });
 }

@@ -48,9 +48,14 @@ export async function init(manifest) {
             .register('trimClip',   methods.trimClip,   { async: false, sanitiseParams: passthrough })
             .register('removeClip', methods.removeClip, { async: false, sanitiseParams: passthrough })
             .register('moveClip',   methods.moveClip,   { async: false, sanitiseParams: passthrough })
-            .register('splitClip',  methods.splitClip,  { async: false, sanitiseParams: passthrough })
+            .register('splitClip',    methods.splitClip,    { async: false, sanitiseParams: passthrough })
+            .register('setClipColor', methods.setClipColor, { async: false, sanitiseParams: passthrough })
             .register('getProject', methods.getProject, { async: false, sanitiseParams: passthrough })
             .register('setProject', methods.setProject, { async: false, sanitiseParams: projectSanitiser })
+            .register('undo',       methods.undo,       { async: false, sanitiseParams: passthrough })
+            .register('redo',       methods.redo,       { async: false, sanitiseParams: passthrough })
+            .register('canUndo',    methods.canUndo,    { async: false, sanitiseParams: passthrough })
+            .register('canRedo',    methods.canRedo,    { async: false, sanitiseParams: passthrough })
             .register('exportMp4',  methods.exportMp4,  { async: true,  sanitiseParams: passthrough });
 
         api.activate();
