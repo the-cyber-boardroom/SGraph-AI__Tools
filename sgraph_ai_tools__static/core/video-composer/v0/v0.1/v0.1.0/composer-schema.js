@@ -107,6 +107,38 @@ export function getVideoTracks(project) {
 }
 
 /**
+ * For a given timeline-time, list the active clip on each video track.
+ * Returns one entry per `kind === 'video'` track in array order (bottom-up).
+ * @param {{ tracks: Array<object> }} project
+ * @param {number} t
+ * @returns {Array<{ track: object, clip: object|null }>}
+ */
+export function findActiveClipsPerTrack(project, t) {
+    return getVideoTracks(project).map(track => ({
+        track,
+        clip: findActiveClip(track, t),
+    }));
+}
+
+/**
+ * Determine which clip drives audio at timeline-time `t`. Top-most active
+ * (highest array index) wins; if the topmost track is muted, audio is silent
+ * (returns null). If the topmost track has no active clip, fall back down.
+ * @param {{ tracks: Array<object> }} project
+ * @param {number} t
+ * @returns {{ track: object, clip: object }|null}
+ */
+export function findTopmostActiveAudioClip(project, t) {
+    const videoTracks = getVideoTracks(project);
+    for (let i = videoTracks.length - 1; i >= 0; i--) {
+        const track = videoTracks[i];
+        const clip = findActiveClip(track, t);
+        if (clip) return track.muted ? null : { track, clip };
+    }
+    return null;
+}
+
+/**
  * Validate a project shape; throws on missing required fields.
  * @param {object} project
  * @returns {object} the project

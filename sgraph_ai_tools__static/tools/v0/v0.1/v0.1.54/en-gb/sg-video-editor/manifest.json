@@ -56,6 +56,10 @@
             "redo":         { "description": "Redo the most recently undone mutation. Returns { redid, canUndo, canRedo }." },
             "canUndo":      { "description": "Report whether undo is currently available." },
             "canRedo":      { "description": "Report whether redo is currently available." },
+            "addTrack":        { "description": "Append a new video track at the top of the z-order. Returns { trackId }." },
+            "removeTrack":     { "description": "Remove a track and all its clips by trackId. Throws Error{code:'invalid-arg'} if it would leave zero video tracks." },
+            "moveClipToTrack": { "description": "Move a clip to another track at the same timelineStart. Throws Error{code:'overlap'} if it would collide on the target track." },
+            "reorderTracks":   { "description": "Reorder video tracks by id (bottom-up). trackIds must contain every existing video-track id exactly once." },
             "exportMp4":    { "description": "Render the project to an MP4 Blob via the composer; returns blob+meta." }
         },
         "events": [

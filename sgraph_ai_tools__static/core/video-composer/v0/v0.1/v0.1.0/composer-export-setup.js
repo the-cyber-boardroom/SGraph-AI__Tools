@@ -3,32 +3,34 @@
  * @module video-composer/composer-export-setup
  */
 
-import { getAssetById, isImageAsset } from './composer-schema.js';
+import { getAssetById, isImageAsset, getVideoTracks } from './composer-schema.js';
 
 /**
- * Build a Map<assetId, HTMLVideoElement> for every video clip.
- * @param {object|null} videoTrack
+ * Build a Map<assetId, HTMLVideoElement> covering every video clip on every
+ * `kind: 'video'` track in the project.
  * @param {object} project
  * @param {Map<string, Blob>} assets
  * @returns {{ videos: Map<string, HTMLVideoElement>, urls: Map<string, string> }}
  */
-export function buildVideoElements(videoTrack, project, assets) {
+export function buildVideoElements(project, assets) {
     const videos = new Map();
     const urls = new Map();
-    for (const clip of (videoTrack?.clips ?? [])) {
-        if (videos.has(clip.assetId)) continue;
-        const asset = getAssetById(project, clip.assetId);
-        if (isImageAsset(asset)) continue;
-        const blob = assets.get(clip.assetId);
-        if (!blob) continue;
-        const url = URL.createObjectURL(blob);
-        const v = document.createElement('video');
-        v.src = url;
-        v.playsInline = true;
-        v.preload = 'auto';
-        v.crossOrigin = 'anonymous';
-        videos.set(clip.assetId, v);
-        urls.set(clip.assetId, url);
+    for (const track of getVideoTracks(project)) {
+        for (const clip of (track.clips || [])) {
+            if (videos.has(clip.assetId)) continue;
+            const asset = getAssetById(project, clip.assetId);
+            if (isImageAsset(asset)) continue;
+            const blob = assets.get(clip.assetId);
+            if (!blob) continue;
+            const url = URL.createObjectURL(blob);
+            const v = document.createElement('video');
+            v.src = url;
+            v.playsInline = true;
+            v.preload = 'auto';
+            v.crossOrigin = 'anonymous';
+            videos.set(clip.assetId, v);
+            urls.set(clip.assetId, url);
+        }
     }
     return { videos, urls };
 }

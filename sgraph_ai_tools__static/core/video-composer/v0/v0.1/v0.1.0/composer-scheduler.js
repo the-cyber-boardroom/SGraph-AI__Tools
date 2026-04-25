@@ -1,74 +1,27 @@
 /**
- * composer-scheduler.js — wall-clock tick loop driving canvas paint + clip media sync.
+ * composer-scheduler.js — wall-clock tick loop driving the multi-track paint.
+ * Per tick: advance time, paint the full track stack (bottom-up), emit
+ * `composer:playhead-changed`. The top-most active clip wins visually; the
+ * top-most active unmuted clip drives audio (playback uses the actual
+ * <video> element's audio output — no Web Audio routing here).
+ *
  * @module video-composer/composer-scheduler
  */
 
-import { findActiveClip, getAssetById, isImageAsset } from './composer-schema.js';
-import { paintBlack, paintVideo, paintImage, pauseOthers } from './composer-draw.js';
+import { paintTrackStack, resolveAudioSource } from './composer-scheduler-frame.js';
+import { paintBlack } from './composer-draw.js';
 
-export { paintBlack, paintVideo, pauseOthers };
-
-/**
- * Sync the hidden video element to the desired timeline-time and ensure it plays.
- * @param {HTMLVideoElement} video
- * @param {object} clip
- * @param {number} timelineTime
- * @returns {void}
- */
-export function syncClipVideo(video, clip, timelineTime) {
-    const local = clip.inPoint + (timelineTime - clip.timelineStart);
-    const target = Math.max(0, local);
-    if (Math.abs(video.currentTime - target) > 0.12) {
-        try { video.currentTime = target; } catch (_) {}
-    }
-    if (video.paused) {
-        try { video.play().catch(() => {}); } catch (_) {}
-    }
-}
+export { paintBlack };
 
 /**
- * Render the active clip (image or video) to the canvas.
- * Pauses all videos when the active clip is an image so silent audio plays.
- * @param {{
- *   ctx: CanvasRenderingContext2D, canvas: HTMLCanvasElement,
- *   project?: object, clip: object|null,
- *   videos: Map<string, HTMLVideoElement>,
- *   getImage?: (assetId: string) => HTMLImageElement|null,
- *   advance?: boolean, time?: number,
- * }} cfg
- * @returns {void}
- */
-export function renderActiveClip(cfg) {
-    const { ctx, canvas, project, clip, videos, getImage, advance, time } = cfg;
-    if (!clip) {
-        pauseOthers(videos, null);
-        paintBlack(ctx, canvas);
-        return;
-    }
-    const asset = project ? getAssetById(project, clip.assetId) : null;
-    if (isImageAsset(asset)) {
-        pauseOthers(videos, null);
-        const img = getImage ? getImage(clip.assetId) : null;
-        paintImage(ctx, canvas, img);
-        return;
-    }
-    const v = videos.get(clip.assetId) || null;
-    pauseOthers(videos, v);
-    if (v && advance) syncClipVideo(v, clip, time);
-    paintVideo(ctx, canvas, v);
-}
-
-/**
- * Create a wall-clock tick scheduler.
- * On each rAF tick: advance time, decide active clip, paint, emit events.
+ * Create a wall-clock tick scheduler for canvas playback.
  * @param {{
  *   getPlaying: () => boolean,
  *   setPlaying: (v: boolean) => void,
  *   getTime: () => number,
  *   setTime: (t: number) => void,
  *   getDuration: () => number,
- *   getTrack: () => object|null,
- *   getProject?: () => object|null,
+ *   getProject: () => object|null,
  *   getVideos: () => Map<string, HTMLVideoElement>,
  *   getImage?: (assetId: string) => HTMLImageElement|null,
  *   ctx: CanvasRenderingContext2D,
@@ -80,16 +33,31 @@ export function renderActiveClip(cfg) {
 export function createScheduler(cfg) {
     let raf = 0;
     let lastWall = 0;
+    let audioVideo = null;
 
     function paintAt(t) {
-        const track = cfg.getTrack();
-        const clip = track ? findActiveClip(track, t) : null;
-        renderActiveClip({
-            ctx: cfg.ctx, canvas: cfg.canvas,
-            project: cfg.getProject ? cfg.getProject() : null,
-            clip, videos: cfg.getVideos(), getImage: cfg.getImage,
-            advance: false, time: t,
+        const project = cfg.getProject ? cfg.getProject() : null;
+        if (!project) { paintBlack(cfg.ctx, cfg.canvas); return; }
+        paintTrackStack({
+            ctx: cfg.ctx, canvas: cfg.canvas, project, t,
+            videos: cfg.getVideos(), getImage: cfg.getImage,
+            advance: false,
         });
+    }
+
+    function updateAudio(project, t, videos) {
+        const { video } = resolveAudioSource(project, t, videos);
+        if (video === audioVideo) return;
+        if (audioVideo) {
+            // The new top-most takes over; old top is muted via element.muted=false
+            // restore later. We mute the deposed element so multiple tracks
+            // don't double up audio output.
+            try { audioVideo.muted = true; } catch (_) {}
+        }
+        if (video) {
+            try { video.muted = false; } catch (_) {}
+        }
+        audioVideo = video;
     }
 
     function tick(now) {
@@ -98,14 +66,14 @@ export function createScheduler(cfg) {
         lastWall = now;
         let t = cfg.getTime() + dt;
         const dur = cfg.getDuration();
-        const track = cfg.getTrack();
-        const clip = track ? findActiveClip(track, t) : null;
-        renderActiveClip({
-            ctx: cfg.ctx, canvas: cfg.canvas,
-            project: cfg.getProject ? cfg.getProject() : null,
-            clip, videos: cfg.getVideos(), getImage: cfg.getImage,
-            advance: true, time: t,
+        const project = cfg.getProject ? cfg.getProject() : null;
+        if (!project) { raf = 0; return; }
+        const videos = cfg.getVideos();
+        paintTrackStack({
+            ctx: cfg.ctx, canvas: cfg.canvas, project, t,
+            videos, getImage: cfg.getImage, advance: true,
         });
+        updateAudio(project, t, videos);
         if (t >= dur - 1e-3 && dur > 0) {
             t = dur;
             cfg.setTime(t);

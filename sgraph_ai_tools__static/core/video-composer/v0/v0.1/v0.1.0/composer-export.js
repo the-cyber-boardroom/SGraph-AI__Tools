@@ -19,7 +19,6 @@
 
 import {
     getProjectDuration,
-    getVideoTracks,
 } from './composer-schema.js';
 import { createImageRegistry } from './composer-images.js';
 import {
@@ -42,13 +41,12 @@ export function exportProject({ project, assets, fps, mimeType, bitsPerSecond, o
     }
 
     const total = getProjectDuration(project);
-    const videoTrack = getVideoTracks(project)[0] || null;
     const canvas = document.createElement('canvas');
     canvas.width = project.width;
     canvas.height = project.height;
     const ctx = canvas.getContext('2d');
 
-    const { videos, urls } = buildVideoElements(videoTrack, project, assets);
+    const { videos, urls } = buildVideoElements(project, assets);
     const imageReg = createImageRegistry(project.assets || [], assets);
     const audio = buildAudioGraph();
     const { recorder, chunks } = buildRecorder(canvas, fps, audio.audioDest, mimeType, bitsPerSecond);
@@ -59,7 +57,7 @@ export function exportProject({ project, assets, fps, mimeType, bitsPerSecond, o
     return new Promise((resolve, reject) => {
         let finished = false;
         const loop = createExportLoop({
-            project, videoTrack, total, ctx, canvas, videos,
+            project, total, ctx, canvas, videos,
             getImage: (id) => imageReg.getImage(id),
             audio,
             onProgress: (info) => { if (typeof onProgress === 'function') onProgress(info); },

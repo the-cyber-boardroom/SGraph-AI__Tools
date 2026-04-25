@@ -59,3 +59,18 @@ export function pauseOthers(videos, keep) {
         try { v.pause(); } catch (_) {}
     }
 }
+
+/**
+ * Pause every video whose assetId is not in the `keep` Set of assetIds.
+ * Used by the multi-track scheduler/export tick where multiple videos
+ * may be active simultaneously.
+ * @param {Map<string, HTMLVideoElement>} videos
+ * @param {Set<string>} keep
+ * @returns {void}
+ */
+export function pauseUnused(videos, keep) {
+    for (const [id, v] of videos.entries()) {
+        if (keep && keep.has(id)) continue;
+        try { v.pause(); } catch (_) {}
+    }
+}
