@@ -4,6 +4,9 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>sg-youtube-upload v0.1.0 — Health Check + Tests</title>
+
+    <!-- Google Identity Services — needed so the live demo component can sign in. -->
+    <script src="https://accounts.google.com/gsi/client" async defer></script>
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
         body {
@@ -51,9 +54,13 @@
 <div id="results"></div>
 <div id="summary" class="summary"></div>
 
-<h2>Live component (offline — no client-id set)</h2>
+<h2>Live component (with bundled tools.sgraph.ai client ID)</h2>
 <div class="demo">
-    <sg-youtube-upload id="demo-component" default-privacy="unlisted"></sg-youtube-upload>
+    <sg-youtube-upload
+        id="demo-component"
+        client-id="595529627627-i1fjfhoh8dnscpg6u09uqt1o8qc5ffnf.apps.googleusercontent.com"
+        default-privacy="unlisted">
+    </sg-youtube-upload>
 </div>
 
 <script type="module">
@@ -122,7 +129,8 @@ ok('YOUTUBE_TOKEN_PROVIDER === "youtube-upload"', YOUTUBE_TOKEN_PROVIDER === 'yo
 clearCachedToken();
 ok('Empty cache returns null', getCachedToken() === null);
 
-setCachedToken({ accessToken: 'abc', expiresAt: Date.now() + 60_000 });
+// Use 10 min so the value sits comfortably outside the 60 s expiry skew.
+setCachedToken({ accessToken: 'abc', expiresAt: Date.now() + 600_000 });
 const cached = getCachedToken();
 ok('Round-trip stores accessToken', cached?.accessToken === 'abc');
 ok('Round-trip stores expiresAt',  typeof cached?.expiresAt === 'number');

@@ -52,9 +52,10 @@ class SgYouTubeUpload extends SgComponent {
         this._file = null;
         this._uploader = null;
 
-        // Hydrate from attributes / localStorage
+        // Hydrate from localStorage first, then attribute as default — so a user's
+        // pasted ID survives reloads even when the host page hardcodes a default.
         const cidAttr = this.getAttribute('client-id');
-        const cid     = cidAttr || localStorage.getItem(LS_CLIENT_ID) || '';
+        const cid     = localStorage.getItem(LS_CLIENT_ID) || cidAttr || '';
         if (cid) this._clientIdInput.value = cid;
 
         const defTitle   = this.getAttribute('default-title');
@@ -234,8 +235,8 @@ class SgYouTubeUpload extends SgComponent {
 
     _currentClientId() {
         return (this._clientIdInput.value || '').trim()
-            || this.getAttribute('client-id')
             || localStorage.getItem(LS_CLIENT_ID)
+            || this.getAttribute('client-id')
             || '';
     }
 

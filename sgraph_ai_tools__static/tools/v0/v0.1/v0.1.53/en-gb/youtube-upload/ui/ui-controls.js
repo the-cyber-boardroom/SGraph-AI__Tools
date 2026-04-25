@@ -7,7 +7,8 @@
  * @module ui-controls
  */
 
-import { SGA_YT } from '../api/youtube-upload-events.js';
+import { SGA_YT }            from '../api/youtube-upload-events.js';
+import { DEFAULT_CLIENT_ID } from '../api/youtube-upload-pipeline.js';
 
 /**
  * @param {HTMLElement} root
@@ -44,6 +45,7 @@ export function initControls(root, state, api, emit) {
     upWrap.className = 'yt-block';
     const uploader = document.createElement('sg-youtube-upload');
     uploader.id = 'yt-uploader';
+    uploader.setAttribute('client-id', DEFAULT_CLIENT_ID);
     uploader.setAttribute('default-privacy', 'unlisted');
     upWrap.appendChild(uploader);
     root.appendChild(upWrap);

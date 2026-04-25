@@ -16,6 +16,15 @@ import { SGA_YT }             from './youtube-upload-events.js';
 
 const LS_CLIENT_ID = 'sg-youtube-client-id';
 
+/**
+ * Default Google OAuth client ID for tools.sgraph.ai.
+ * Public — OAuth web client IDs are not secrets; access is gated by the
+ * "Authorised JavaScript origins" list in the Google Cloud project.
+ * Users can override by pasting their own ID in the form.
+ */
+export const DEFAULT_CLIENT_ID =
+    '595529627627-i1fjfhoh8dnscpg6u09uqt1o8qc5ffnf.apps.googleusercontent.com';
+
 let _uploader = null;
 
 /** Hydrate connected state from any cached token at boot. */
@@ -28,8 +37,12 @@ export function hydrate() {
     }
 }
 
+/**
+ * Returns the client ID a caller should use:
+ * the user-overridden one in localStorage if set, else the bundled default.
+ */
 export function getClientId() {
-    return localStorage.getItem(LS_CLIENT_ID) || '';
+    return localStorage.getItem(LS_CLIENT_ID) || DEFAULT_CLIENT_ID;
 }
 
 /** @param {string} v */
