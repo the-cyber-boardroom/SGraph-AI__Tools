@@ -1,45 +1,12 @@
 /**
- * composer-scheduler.js — wall-clock tick loop driving canvas paint + clip video sync.
+ * composer-scheduler.js — wall-clock tick loop driving canvas paint + clip media sync.
  * @module video-composer/composer-scheduler
  */
 
-import { findActiveClip } from './composer-schema.js';
+import { findActiveClip, getAssetById, isImageAsset } from './composer-schema.js';
+import { paintBlack, paintVideo, paintImage, pauseOthers } from './composer-draw.js';
 
-/**
- * Paint the canvas with solid black (gap fill).
- * @param {CanvasRenderingContext2D} ctx
- * @param {HTMLCanvasElement} canvas
- * @returns {void}
- */
-export function paintBlack(ctx, canvas) {
-    ctx.fillStyle = '#000';
-    ctx.fillRect(0, 0, canvas.width, canvas.height);
-}
-
-/**
- * Paint the active video frame, or black if not ready.
- * @param {CanvasRenderingContext2D} ctx
- * @param {HTMLCanvasElement} canvas
- * @param {HTMLVideoElement|null} video
- * @returns {void}
- */
-export function paintVideo(ctx, canvas, video) {
-    if (!video || video.readyState < 2) { paintBlack(ctx, canvas); return; }
-    ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
-}
-
-/**
- * Pause every video element except `keep`.
- * @param {Map<string, HTMLVideoElement>} videos
- * @param {HTMLVideoElement|null} keep
- * @returns {void}
- */
-export function pauseOthers(videos, keep) {
-    for (const v of videos.values()) {
-        if (v === keep) continue;
-        try { v.pause(); } catch (_) {}
-    }
-}
+export { paintBlack, paintVideo, pauseOthers };
 
 /**
  * Sync the hidden video element to the desired timeline-time and ensure it plays.
@@ -60,6 +27,38 @@ export function syncClipVideo(video, clip, timelineTime) {
 }
 
 /**
+ * Render the active clip (image or video) to the canvas.
+ * Pauses all videos when the active clip is an image so silent audio plays.
+ * @param {{
+ *   ctx: CanvasRenderingContext2D, canvas: HTMLCanvasElement,
+ *   project?: object, clip: object|null,
+ *   videos: Map<string, HTMLVideoElement>,
+ *   getImage?: (assetId: string) => HTMLImageElement|null,
+ *   advance?: boolean, time?: number,
+ * }} cfg
+ * @returns {void}
+ */
+export function renderActiveClip(cfg) {
+    const { ctx, canvas, project, clip, videos, getImage, advance, time } = cfg;
+    if (!clip) {
+        pauseOthers(videos, null);
+        paintBlack(ctx, canvas);
+        return;
+    }
+    const asset = project ? getAssetById(project, clip.assetId) : null;
+    if (isImageAsset(asset)) {
+        pauseOthers(videos, null);
+        const img = getImage ? getImage(clip.assetId) : null;
+        paintImage(ctx, canvas, img);
+        return;
+    }
+    const v = videos.get(clip.assetId) || null;
+    pauseOthers(videos, v);
+    if (v && advance) syncClipVideo(v, clip, time);
+    paintVideo(ctx, canvas, v);
+}
+
+/**
  * Create a wall-clock tick scheduler.
  * On each rAF tick: advance time, decide active clip, paint, emit events.
  * @param {{
@@ -69,7 +68,9 @@ export function syncClipVideo(video, clip, timelineTime) {
  *   setTime: (t: number) => void,
  *   getDuration: () => number,
  *   getTrack: () => object|null,
+ *   getProject?: () => object|null,
  *   getVideos: () => Map<string, HTMLVideoElement>,
+ *   getImage?: (assetId: string) => HTMLImageElement|null,
  *   ctx: CanvasRenderingContext2D,
  *   canvas: HTMLCanvasElement,
  *   emit: (name: string, detail: object) => void,
@@ -84,15 +85,12 @@ export function createScheduler(cfg) {
     function paintAt(t) {
         const track = cfg.getTrack();
         const clip = track ? findActiveClip(track, t) : null;
-        const videos = cfg.getVideos();
-        if (clip) {
-            const v = videos.get(clip.assetId) || null;
-            pauseOthers(videos, v);
-            paintVideo(cfg.ctx, cfg.canvas, v);
-        } else {
-            pauseOthers(videos, null);
-            paintBlack(cfg.ctx, cfg.canvas);
-        }
+        renderActiveClip({
+            ctx: cfg.ctx, canvas: cfg.canvas,
+            project: cfg.getProject ? cfg.getProject() : null,
+            clip, videos: cfg.getVideos(), getImage: cfg.getImage,
+            advance: false, time: t,
+        });
     }
 
     function tick(now) {
@@ -103,21 +101,12 @@ export function createScheduler(cfg) {
         const dur = cfg.getDuration();
         const track = cfg.getTrack();
         const clip = track ? findActiveClip(track, t) : null;
-        const videos = cfg.getVideos();
-        if (clip) {
-            const v = videos.get(clip.assetId);
-            if (v) {
-                pauseOthers(videos, v);
-                syncClipVideo(v, clip, t);
-                paintVideo(cfg.ctx, cfg.canvas, v);
-            } else {
-                pauseOthers(videos, null);
-                paintBlack(cfg.ctx, cfg.canvas);
-            }
-        } else {
-            pauseOthers(videos, null);
-            paintBlack(cfg.ctx, cfg.canvas);
-        }
+        renderActiveClip({
+            ctx: cfg.ctx, canvas: cfg.canvas,
+            project: cfg.getProject ? cfg.getProject() : null,
+            clip, videos: cfg.getVideos(), getImage: cfg.getImage,
+            advance: true, time: t,
+        });
         if (t >= dur - 1e-3 && dur > 0) {
             t = dur;
             cfg.setTime(t);

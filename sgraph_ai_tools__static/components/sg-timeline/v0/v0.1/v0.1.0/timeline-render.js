@@ -5,6 +5,7 @@ import {
     getProjectDuration,
     getVideoTracks,
 } from '../../../../../core/video-composer/v0/v0.1/v0.1.0/composer-schema.js';
+import { clipAsset, clipLabel } from './timeline-clip-label.js';
 
 const TICK_TARGET_PX = 80;
 
@@ -80,20 +81,6 @@ export function renderTrack(laneEl, widthPx) {
     laneEl.style.width = widthPx + 'px';
 }
 
-/**
- * Resolve a clip's display label (asset name or assetId).
- * @param {object} clip
- * @param {object} project
- * @returns {string}
- */
-function clipLabel(clip, project) {
-    const assets = project && project.assets;
-    if (assets && typeof assets === 'object') {
-        const a = Array.isArray(assets) ? assets.find(x => x && x.id === clip.assetId) : assets[clip.assetId];
-        if (a && a.name) return a.name;
-    }
-    return clip.assetId;
-}
 
 /**
  * Render clip rectangles for the first video track.
@@ -116,6 +103,8 @@ export function renderClips(laneEl, project, pps, selectedClipId) {
         const sel = clip.id === selectedClipId ? ' is-selected selected' : '';
         el.className = `clip ${shade}${sel}`;
         el.dataset.clipId = clip.id || '';
+        const assetForClip = clipAsset(clip, project);
+        if (assetForClip && assetForClip.assetType) el.dataset.assetType = assetForClip.assetType;
         el.style.left = (clip.timelineStart * pps) + 'px';
         el.style.width = Math.max(2, dur * pps) + 'px';
         if (clip.color && typeof clip.color === 'string') el.style.background = clip.color;
