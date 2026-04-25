@@ -5,6 +5,7 @@ import { mountExportControls } from './ui-export-controls.js';
 import { buildLayoutDescriptor, wireTimelineEvents, resolvePanels } from './ui-shell-layout.js';
 import { mountDevPanel } from './ui-dev-panel.js';
 import { mountJsonPane } from './ui-json-pane.js';
+import { wireOverlay } from './ui-shell-overlay.js';
 import { createComposer } from '/core/video-composer/v0/v0.1/v0.1.0/sg-video-composer.js';
 import { SGL_EVENTS } from '/core/sg-layout/v0.1.0/sg-layout-events.js';
 
@@ -64,6 +65,13 @@ export function mountShell({ host, state, api, getComposer, setComposer }) {
     let onCanvasPlayhead = null;
     let devPanel = null;
     let jsonPane = null;
+    let overlayWire = null;
+    let activePending = null;
+    function schedulePushActive() {
+        if (!overlayWire) return;
+        if (activePending) return;
+        activePending = setTimeout(() => { activePending = null; overlayWire.pushActive(); }, 100);
+    }
 
     function rebuildComposer() {
         const existing = getComposer();
@@ -97,6 +105,7 @@ export function mountShell({ host, state, api, getComposer, setComposer }) {
             if (assetPanel) assetPanel.refresh(state.getProject());
             syncHistoryFlags();
             rebuildComposer();
+            if (overlayWire) overlayWire.pushActive();
         }, 100);
     }
 
@@ -125,9 +134,23 @@ export function mountShell({ host, state, api, getComposer, setComposer }) {
 
         if (timelineEl) unwireTimeline = wireTimelineEvents(timelineEl, api, ctx);
 
+        overlayWire = wireOverlay({
+            timelineEl, previewEl, api,
+            getProject: () => state.toComposerProject(),
+            getSelectedClipId: () => ctx.selectedClipId,
+            getPlayhead: () => ctx.currentPlayhead,
+        });
+
+        if (timelineEl) {
+            timelineEl.addEventListener('sg-timeline:clip-selected', schedulePushActive);
+            timelineEl.addEventListener('sg-timeline:playhead-changed', schedulePushActive);
+        }
+
         onCanvasPlayhead = (e) => {
             const t = e && e.detail && Number.isFinite(e.detail.time) ? e.detail.time : 0;
             if (timelineEl) timelineEl.setPlayheadTime(t);
+            ctx.currentPlayhead = t;
+            schedulePushActive();
         };
         if (previewEl) previewEl.getCanvas().addEventListener('composer:playhead-changed', onCanvasPlayhead);
 
@@ -146,8 +169,14 @@ export function mountShell({ host, state, api, getComposer, setComposer }) {
     /** Tear down everything mounted by the shell. */
     function destroy() {
         if (pending) { clearTimeout(pending); pending = null; }
+        if (activePending) { clearTimeout(activePending); activePending = null; }
         try { state.removeEventListener('change', handleChange); } catch (_) {}
         if (unwireTimeline) { try { unwireTimeline(); } catch (_) {} }
+        if (timelineEl) {
+            try { timelineEl.removeEventListener('sg-timeline:clip-selected', schedulePushActive); } catch (_) {}
+            try { timelineEl.removeEventListener('sg-timeline:playhead-changed', schedulePushActive); } catch (_) {}
+        }
+        if (overlayWire) { try { overlayWire.destroy(); } catch (_) {} overlayWire = null; }
         if (previewEl && onCanvasPlayhead) {
             try { previewEl.getCanvas().removeEventListener('composer:playhead-changed', onCanvasPlayhead); } catch (_) {}
         }
