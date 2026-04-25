@@ -39,7 +39,7 @@ export function initAuth(root, state, api, emit) {
             </div>
 
             <div id="channel-card" class="yte-auth__channel" hidden>
-                <img id="ch-thumb" class="yte-auth__avatar" alt="" loading="lazy">
+                <img id="ch-thumb" class="yte-auth__avatar" alt="" loading="lazy" referrerpolicy="no-referrer">
                 <div class="yte-auth__ch-meta">
                     <div id="ch-title" class="yte-auth__ch-title"></div>
                     <div id="ch-stats" class="yte-auth__ch-stats"></div>
