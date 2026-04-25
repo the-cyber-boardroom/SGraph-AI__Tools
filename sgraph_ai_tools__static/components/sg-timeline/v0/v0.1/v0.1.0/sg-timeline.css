@@ -57,8 +57,27 @@
     border-bottom: 1px solid #1f2937;
 }
 
-.lane.drop-target {
-    background: #14532d;
+.lane.drop-target,
+.lane.is-drop-active {
+    background: rgba(20, 184, 166, 0.08);
+    outline: 1px dashed rgba(20, 184, 166, 0.45);
+    outline-offset: -2px;
+}
+
+.drop-indicator {
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    width: 2px;
+    background: var(--sg-accent, #14b8a6);
+    box-shadow: 0 0 6px rgba(20, 184, 166, 0.55);
+    pointer-events: none;
+    display: none;
+    z-index: 4;
+}
+
+.drop-indicator.is-visible {
+    display: block;
 }
 
 .clip {

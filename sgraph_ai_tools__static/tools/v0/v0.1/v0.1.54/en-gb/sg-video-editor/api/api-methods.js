@@ -40,9 +40,10 @@ export function buildApiMethods({ state, getComposer, setComposer, hostEl }) {
             duration,
             width,
             height,
+            bytes: file.size,
             blob: file,
         });
-        return { assetId, duration, width, height };
+        return { assetId, duration, width, height, bytes: file.size };
     }
 
     function addClip(params = {}) {
