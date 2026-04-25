@@ -10,7 +10,9 @@ The tool needs a Google **OAuth Web Client ID** from a Google Cloud project that
 2. **APIs & Services → Library** → enable **YouTube Data API v3**.
 3. **APIs & Services → OAuth consent screen**:
    - User type: **External** (Workspace users may pick Internal).
-   - Add scope `https://www.googleapis.com/auth/youtube` — this covers upload + read + edit + delete + thumbnails. (You can add `youtube.upload` too if you want backwards compatibility with the upload-only tool.)
+   - Add **two** scopes:
+     - `https://www.googleapis.com/auth/youtube` — covers upload + read + edit + thumbnails.
+     - `https://www.googleapis.com/auth/yt-analytics.readonly` — channel + per-video analytics (views, watch time, retention curve).
    - Add your Google account as a **test user** so you can use the unverified app.
 4. **APIs & Services → Credentials → Create credentials → OAuth client ID**:
    - Application type: **Web application**.

@@ -24,6 +24,8 @@ export const state = {
     connected:       false,
     accessToken:     null,
     expiresAt:       null,
+    scope:           '',
+    hasAnalytics:    false,
     channel:         null,
     videos:          [],
     selectedId:      null,

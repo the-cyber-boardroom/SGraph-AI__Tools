@@ -22,5 +22,8 @@ export const SGA_YT = Object.freeze({
     PLAYLIST_EXPANDED:'tool:youtube:playlist-expanded',
     PLAYLISTS_CHANGED:'tool:youtube:playlists-changed',
     HANDOFF_RECEIVED: 'tool:youtube:handoff-received',
+    ANALYTICS_CHANNEL:'tool:youtube:analytics-channel',
+    ANALYTICS_VIDEO:  'tool:youtube:analytics-video',
+    ANALYTICS_RETENTION: 'tool:youtube:analytics-retention',
     ERROR:            'tool:error',
 });

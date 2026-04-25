@@ -14,6 +14,8 @@ import { requestAccess, YouTubeUpload }
     from '/core/youtube-upload/v0/v0.1/v0.1.0/sg-youtube-upload.js';
 import { YouTubeApi, YOUTUBE_FULL_SCOPE }
     from '/core/youtube-api/v0/v0.1/v0.1.0/sg-youtube-api.js';
+import { YouTubeAnalytics, YOUTUBE_ANALYTICS_SCOPE }
+    from '/core/youtube-analytics/v0/v0.1/v0.1.0/sg-youtube-analytics.js';
 import { saveToken, getToken, removeToken }
     from '/components/auth/sg-auth-tokens/v0/v0.1/v0.1.0/sg-auth-tokens.js';
 import { state } from './youtube-editor-state.js';
@@ -23,6 +25,9 @@ const PROVIDER     = 'youtube-editor';
 const LS_CLIENT_ID = 'sg-youtube-client-id';
 const SKEW_MS      = 60_000;
 
+/** Combined scope string requested at sign-in — youtube + analytics readonly. */
+const COMBINED_SCOPE = `${YOUTUBE_FULL_SCOPE} ${YOUTUBE_ANALYTICS_SCOPE}`;
+
 /**
  * Default Google OAuth client ID for tools.sgraph.ai.
  * Public — gated by Authorised JavaScript origins, not by secrecy.
@@ -30,8 +35,9 @@ const SKEW_MS      = 60_000;
 export const DEFAULT_CLIENT_ID =
     '595529627627-i1fjfhoh8dnscpg6u09uqt1o8qc5ffnf.apps.googleusercontent.com';
 
-let _api    = null;   // YouTubeApi instance (read+edit)
-let _upload = null;   // YouTubeUpload instance (resumable upload)
+let _api       = null;   // YouTubeApi instance (read+edit)
+let _upload    = null;   // YouTubeUpload instance (resumable upload)
+let _analytics = null;   // YouTubeAnalytics instance (only if analytics scope granted)
 
 // ── Token cache (shared shape with sg-auth-tokens) ───────────────────────────
 
@@ -46,15 +52,20 @@ function _store(token) {
     saveToken(PROVIDER, {
         accessToken: token.accessToken,
         expiresAt:   token.expiresAt,
-        scope:       token.scope || YOUTUBE_FULL_SCOPE,
+        scope:       token.scope || COMBINED_SCOPE,
     });
 }
 
 function _clear() { removeToken(PROVIDER); }
 
-function _setClients(token) {
+function _setClients(token, scopeString) {
     _api    = new YouTubeApi(token);
     _upload = new YouTubeUpload(token);
+    // Only instantiate Analytics if the user actually granted that scope.
+    _analytics = (scopeString || '').includes(YOUTUBE_ANALYTICS_SCOPE)
+        ? new YouTubeAnalytics(token)
+        : null;
+    state.hasAnalytics = !!_analytics;
 }
 
 // ── Public surface ───────────────────────────────────────────────────────────
@@ -73,25 +84,33 @@ export function setClientId(v) {
 export function hydrate() {
     const c = _cached();
     if (c) {
-        _setClients(c.accessToken);
+        _setClients(c.accessToken, c.scope);
         state.connected   = true;
         state.accessToken = c.accessToken;
         state.expiresAt   = c.expiresAt;
+        state.scope       = c.scope || '';
     }
 }
 
 /**
- * Acquire a youtube (full) scope token. Uses cache → silent → interactive.
+ * Acquire a youtube + yt-analytics.readonly token.
+ * Uses cache → silent → interactive. The user can decline analytics during
+ * consent (incremental scope grant) — we detect that via the returned scope.
+ *
  * @param {{ clientId?: string, silent?: boolean, emit?: Function }} opts
  */
 export async function connect({ clientId, silent = false, emit } = {}) {
     const cached = _cached();
     if (cached) {
-        _setClients(cached.accessToken);
+        _setClients(cached.accessToken, cached.scope);
         state.connected   = true;
         state.accessToken = cached.accessToken;
         state.expiresAt   = cached.expiresAt;
-        emit?.(SGA_YT.CONNECTED, { expiresAt: cached.expiresAt, fromCache: true, scope: cached.scope });
+        state.scope       = cached.scope || '';
+        emit?.(SGA_YT.CONNECTED, {
+            expiresAt: cached.expiresAt, fromCache: true,
+            scope: cached.scope, hasAnalytics: state.hasAnalytics,
+        });
         return { ...cached, fromCache: true };
     }
 
@@ -100,15 +119,20 @@ export async function connect({ clientId, silent = false, emit } = {}) {
     setClientId(cid);
 
     const token = await requestAccess(cid, {
-        scope:  YOUTUBE_FULL_SCOPE,
+        scope:  COMBINED_SCOPE,
         prompt: silent ? '' : undefined,
     });
+
     _store(token);
-    _setClients(token.accessToken);
+    _setClients(token.accessToken, token.scope);
     state.connected   = true;
     state.accessToken = token.accessToken;
     state.expiresAt   = token.expiresAt;
-    emit?.(SGA_YT.CONNECTED, { expiresAt: token.expiresAt, fromCache: false, scope: token.scope });
+    state.scope       = token.scope || '';
+    emit?.(SGA_YT.CONNECTED, {
+        expiresAt: token.expiresAt, fromCache: false,
+        scope: token.scope, hasAnalytics: state.hasAnalytics,
+    });
     return { ...token, fromCache: false };
 }
 
@@ -116,9 +140,12 @@ export function disconnect({ emit } = {}) {
     _clear();
     _api = null;
     _upload = null;
+    _analytics = null;
     state.connected   = false;
     state.accessToken = null;
     state.expiresAt   = null;
+    state.scope       = '';
+    state.hasAnalytics = false;
     state.channel     = null;
     state.videos      = [];
     state.selectedId  = null;
@@ -271,6 +298,34 @@ export async function removeFromPlaylist(playlistItemId, { emit, videoId, playli
     if (!_api) throw new Error('Not connected.');
     await _withAuth(() => _api.removeFromPlaylist(playlistItemId), emit);
     emit?.(SGA_YT.PLAYLISTS_CHANGED, { videoId, playlistId, action: 'removed' });
+}
+
+// ── Analytics ────────────────────────────────────────────────────────────────
+
+export async function getChannelAnalyticsSummary({ days, emit } = {}) {
+    if (!_analytics) throw new Error('Analytics scope not granted — re-connect and accept yt-analytics.readonly.');
+    const summary = await _withAuth(() => _analytics.getChannelSummary({ days }), emit);
+    emit?.(SGA_YT.ANALYTICS_CHANNEL, summary);
+    return summary;
+}
+
+export async function getVideoAnalyticsSummary(videoId, { days, emit } = {}) {
+    if (!_analytics) throw new Error('Analytics scope not granted — re-connect and accept yt-analytics.readonly.');
+    const summary = await _withAuth(() => _analytics.getVideoSummary(videoId, { days }), emit);
+    emit?.(SGA_YT.ANALYTICS_VIDEO, { videoId, ...summary });
+    return summary;
+}
+
+export async function getVideoRetention(videoId, { emit } = {}) {
+    if (!_analytics) throw new Error('Analytics scope not granted.');
+    const points = await _withAuth(() => _analytics.getRetentionCurve(videoId), emit);
+    emit?.(SGA_YT.ANALYTICS_RETENTION, { videoId, points });
+    return points;
+}
+
+export async function getVideoDailyTrend(videoId, { days, emit } = {}) {
+    if (!_analytics) throw new Error('Analytics scope not granted.');
+    return await _withAuth(() => _analytics.getDailyTrend(videoId, { days }), emit);
 }
 
 // ── Health ───────────────────────────────────────────────────────────────────
