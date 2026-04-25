@@ -99,12 +99,19 @@ export function wireTimelineEvents(timelineEl, api, ctx) {
         try { api.splitClip({ clipId: d.clipId, atTime: d.atTime }); }
         catch (err) { emitErr('splitClip', err); }
     }
+    function onColor(e) {
+        const d = e.detail || {};
+        if (!d.clipId) return;
+        try { api.setClipColor({ clipId: d.clipId, color: d.color == null ? null : d.color }); }
+        catch (err) { emitErr('setClipColor', err); }
+    }
     timelineEl.addEventListener('sg-timeline:clip-added', onAdded);
     timelineEl.addEventListener('sg-timeline:clip-moved', onMoved);
     timelineEl.addEventListener('sg-timeline:clip-trimmed', onTrimmed);
     timelineEl.addEventListener('sg-timeline:clip-selected', onSelected);
     timelineEl.addEventListener('sg-timeline:clip-deleted', onDeleted);
     timelineEl.addEventListener('sg-timeline:clip-split', onSplit);
+    timelineEl.addEventListener('sg-timeline:clip-color-requested', onColor);
     timelineEl.addEventListener('sg-timeline:playhead-changed', onPlayhead);
     return () => {
         timelineEl.removeEventListener('sg-timeline:clip-added', onAdded);
@@ -113,6 +120,7 @@ export function wireTimelineEvents(timelineEl, api, ctx) {
         timelineEl.removeEventListener('sg-timeline:clip-selected', onSelected);
         timelineEl.removeEventListener('sg-timeline:clip-deleted', onDeleted);
         timelineEl.removeEventListener('sg-timeline:clip-split', onSplit);
+        timelineEl.removeEventListener('sg-timeline:clip-color-requested', onColor);
         timelineEl.removeEventListener('sg-timeline:playhead-changed', onPlayhead);
     };
 }

@@ -8,5 +8,6 @@ export const SGT_EVENTS = Object.freeze({
     CLIP_SELECTED: 'sg-timeline:clip-selected',
     CLIP_DELETED: 'sg-timeline:clip-deleted',
     CLIP_SPLIT_REQUESTED: 'sg-timeline:clip-split',
+    CLIP_COLOR_REQUESTED: 'sg-timeline:clip-color-requested',
     PLAYHEAD_CHANGED: 'sg-timeline:playhead-changed',
 });

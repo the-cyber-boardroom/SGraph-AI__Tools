@@ -70,6 +70,7 @@ export class SgTimeline extends HTMLElement {
             if (name === SGT_EVENTS.CLIP_SELECTED) {
                 this.#selected = detail ? detail.clipId : null;
                 this.#renderAll();
+                if (this.#zoom) this.#zoom.refresh();
             }
             this.dispatchEvent(new CustomEvent(name, { detail, bubbles: true, composed: true }));
         };
@@ -77,11 +78,26 @@ export class SgTimeline extends HTMLElement {
         this.#dispose = attachInteractions(this.#root, getState, dispatch, this);
         this.#zoom = attachZoom({
             root: this.#root,
-            getState: () => ({ project: this.#project, pps: this.#pps }),
+            getState: () => ({ project: this.#project, pps: this.#pps, selectedClipId: this.#selected }),
             setPixelsPerSecond: (pps) => this.setPixelsPerSecond(pps),
             getLane: () => this.#lane,
+            dispatch,
         });
         this.#renderAll();
+    }
+
+    /**
+     * Public method: request a colour override for the currently-selected clip.
+     * No-op when nothing is selected. Pass `null` to revert to the auto-shade.
+     * @param {string|null} color
+     * @returns {void}
+     */
+    setSelectedClipColor(color) {
+        if (!this.#selected) return;
+        this.dispatchEvent(new CustomEvent(SGT_EVENTS.CLIP_COLOR_REQUESTED, {
+            detail: { clipId: this.#selected, color: color == null ? null : color },
+            bubbles: true, composed: true,
+        }));
     }
 
     disconnectedCallback() {
@@ -94,6 +110,7 @@ export class SgTimeline extends HTMLElement {
         this.#project = project || null;
         if (project && Number.isFinite(project.fps)) this.#fps = project.fps;
         this.#renderAll();
+        if (this.#zoom) this.#zoom.refresh();
     }
 
     /** @param {number} t */
@@ -107,6 +124,7 @@ export class SgTimeline extends HTMLElement {
     setSelectedClip(clipId) {
         this.#selected = clipId || null;
         renderClips(this.#lane, this.#project, this.#pps, this.#selected);
+        if (this.#zoom) this.#zoom.refresh();
     }
 
     /** @param {number} pps */

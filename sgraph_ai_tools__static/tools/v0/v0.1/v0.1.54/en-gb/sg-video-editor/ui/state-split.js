@@ -41,6 +41,7 @@ export function splitClipOp(project, { clipId, atTime }, genId) {
         outPoint: clip.outPoint,
         timelineStart: t,
     };
+    if (clip.color) right.color = clip.color;
     clip.outPoint = newOutPoint;
     loc.track.clips.splice(loc.index + 1, 0, right);
     return { newClipId: newId, atTime: t };

@@ -1,7 +1,10 @@
 /** state.js — pure project state container; no DOM. */
 
-import { snapToFps, validateProject, getVideoTracks } from '/core/video-composer/v0/v0.1/v0.1.0/composer-schema.js';
+import { validateProject, getVideoTracks } from '/core/video-composer/v0/v0.1/v0.1.0/composer-schema.js';
 import { splitClipOp } from './state-split.js';
+import {
+    addClipOp, trimClipOp, moveClipOp, removeClipOp, setClipColorOp,
+} from './state-clip-ops.js';
 
 const SCHEMA_VERSION = '0.1.0';
 const DEFAULT_FPS = 30;
@@ -40,27 +43,6 @@ function deepClone(obj) {
 }
 
 function badArg(msg) { return Object.assign(new Error(msg), { code: 'invalid-arg' }); }
-
-function findTrack(p, trackId) { return p.tracks.find(t => t.id === trackId) || null; }
-
-function findClipLocation(p, clipId) {
-    for (const t of p.tracks) {
-        const i = t.clips.findIndex(c => c.id === clipId);
-        if (i >= 0) return { track: t, index: i };
-    }
-    return null;
-}
-
-function findAsset(p, assetId) { return p.assets.find(a => a.id === assetId) || null; }
-
-function trackEnd(track) {
-    let max = 0;
-    for (const c of track.clips) {
-        const end = c.timelineStart + (c.outPoint - c.inPoint);
-        if (end > max) max = end;
-    }
-    return max;
-}
 
 /** Validate the inner composer-shaped projection of the wrapped state. */
 function validateWrapped(p) {
@@ -109,54 +91,28 @@ export function createState(initialProject) {
             return assetId;
         },
 
-        addClip({ trackId, assetId, timelineStart, inPoint, outPoint, clipId }) {
-            const track = findTrack(project, trackId);
-            if (!track) throw badArg(`unknown trackId: ${trackId}`);
-            const asset = findAsset(project, assetId);
-            if (!asset) throw badArg(`unknown assetId: ${assetId}`);
-            const fps = project.project.fps;
-            const inP = snapToFps(Number.isFinite(inPoint) ? inPoint : 0, fps);
-            const outP = snapToFps(Number.isFinite(outPoint) ? outPoint : asset.duration, fps);
-            if (outP <= inP) throw badArg('outPoint must be > inPoint');
-            const tStart = snapToFps(Number.isFinite(timelineStart) ? timelineStart : trackEnd(track), fps);
-            const id = clipId || genId('c');
-            track.clips.push({ id, assetId, timelineStart: tStart, inPoint: inP, outPoint: outP });
-            withOp({ op: 'addClip', clipId: id, trackId, assetId });
+        addClip(params) {
+            const id = addClipOp(project, params, genId);
+            withOp({ op: 'addClip', clipId: id, trackId: params.trackId, assetId: params.assetId });
             emit();
             return id;
         },
 
-        removeClip({ clipId }) {
-            const loc = findClipLocation(project, clipId);
-            if (!loc) throw badArg(`unknown clipId: ${clipId}`);
-            loc.track.clips.splice(loc.index, 1);
-            withOp({ op: 'removeClip', clipId });
+        removeClip(params) {
+            removeClipOp(project, params);
+            withOp({ op: 'removeClip', clipId: params.clipId });
             emit();
         },
 
-        trimClip({ clipId, inPoint, outPoint }) {
-            const loc = findClipLocation(project, clipId);
-            if (!loc) throw badArg(`unknown clipId: ${clipId}`);
-            const clip = loc.track.clips[loc.index];
-            const asset = findAsset(project, clip.assetId);
-            const fps = project.project.fps;
-            const maxOut = asset ? asset.duration : Infinity;
-            const inP = snapToFps(Math.max(0, Number.isFinite(inPoint) ? inPoint : clip.inPoint), fps);
-            const outP = snapToFps(Math.min(maxOut, Number.isFinite(outPoint) ? outPoint : clip.outPoint), fps);
-            if (outP <= inP) throw badArg('outPoint must be > inPoint');
-            clip.inPoint = inP;
-            clip.outPoint = outP;
-            withOp({ op: 'trimClip', clipId, inPoint: inP, outPoint: outP });
+        trimClip(params) {
+            const { inPoint, outPoint } = trimClipOp(project, params);
+            withOp({ op: 'trimClip', clipId: params.clipId, inPoint, outPoint });
             emit();
         },
 
-        moveClip({ clipId, timelineStart }) {
-            const loc = findClipLocation(project, clipId);
-            if (!loc) throw badArg(`unknown clipId: ${clipId}`);
-            const fps = project.project.fps;
-            const t = snapToFps(Math.max(0, Number(timelineStart) || 0), fps);
-            loc.track.clips[loc.index].timelineStart = t;
-            withOp({ op: 'moveClip', clipId, timelineStart: t });
+        moveClip(params) {
+            const { timelineStart } = moveClipOp(project, params);
+            withOp({ op: 'moveClip', clipId: params.clipId, timelineStart });
             emit();
         },
 
@@ -165,6 +121,12 @@ export function createState(initialProject) {
             withOp({ op: 'splitClip', clipId, atTime: t, newClipId });
             emit();
             return { newClipId };
+        },
+
+        setClipColor(params) {
+            const { clipId, color } = setClipColorOp(project, params);
+            withOp({ op: 'setClipColor', clipId, color });
+            emit();
         },
 
         /** Project the wrapped state into a composer-shaped project. */

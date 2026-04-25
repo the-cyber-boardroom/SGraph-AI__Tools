@@ -112,12 +112,13 @@ export function renderClips(laneEl, project, pps, selectedClipId) {
         const clip = track.clips[i];
         const dur = clipDuration(clip);
         const el = document.createElement('div');
-        const shade = `clip--shade-${i % 4}`;
+        const shade = `clip--shade-${i % 6}`;
         const sel = clip.id === selectedClipId ? ' is-selected selected' : '';
         el.className = `clip ${shade}${sel}`;
         el.dataset.clipId = clip.id || '';
         el.style.left = (clip.timelineStart * pps) + 'px';
         el.style.width = Math.max(2, dur * pps) + 'px';
+        if (clip.color && typeof clip.color === 'string') el.style.background = clip.color;
         const label = document.createElement('div');
         label.className = 'clip-label';
         label.textContent = clipLabel(clip, project);
