@@ -31,6 +31,7 @@ export class SgTimeline extends HTMLElement {
     #surface = null;
     #zoom = null;
     #historyFlags = { canUndo: false, canRedo: false };
+    #editorMode = 'select';
 
     constructor() {
         super();
@@ -89,6 +90,7 @@ export class SgTimeline extends HTMLElement {
             getLane: () => this.#lanes,
             dispatch,
             getHistoryFlags: () => this.#historyFlags,
+            getEditorMode: () => this.#editorMode,
         });
         this.#renderAll();
     }
@@ -155,6 +157,18 @@ export class SgTimeline extends HTMLElement {
             canUndo: !!(flags && flags.canUndo),
             canRedo: !!(flags && flags.canRedo),
         };
+        if (this.#zoom) this.#zoom.refresh();
+    }
+
+    /**
+     * Set the active editor mode for the toolbar's Select / Move / Crop
+     * buttons. Valid values: 'select' | 'move' | 'crop'. Unknown values are
+     * coerced to 'select'.
+     * @param {string} mode
+     */
+    setEditorMode(mode) {
+        const next = (mode === 'move' || mode === 'crop') ? mode : 'select';
+        this.#editorMode = next;
         if (this.#zoom) this.#zoom.refresh();
     }
 

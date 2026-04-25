@@ -98,10 +98,10 @@ export function renderLanes(lanesEl, project, widthPx, pps, selectedClipId) {
 
 /** Render the playhead element (position only). */
 export function renderPlayhead(playheadEl, time, pps) {
-    playheadEl.style.left = (time * pps) + 'px';
+    playheadEl.style.left = (96 + time * pps) + 'px';
 }
 
 /** Update playhead position only. */
 export function updatePlayhead(playheadEl, time, pps) {
-    playheadEl.style.left = (time * pps) + 'px';
+    playheadEl.style.left = (96 + time * pps) + 'px';
 }

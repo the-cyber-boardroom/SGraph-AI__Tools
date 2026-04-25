@@ -16,4 +16,5 @@ export const SGT_EVENTS = Object.freeze({
     TRACK_REMOVE_REQUESTED: 'sg-timeline:track-remove-requested',
     TRACK_MUTE_REQUESTED: 'sg-timeline:track-mute-requested',
     CLIP_TRACK_CHANGED: 'sg-timeline:clip-track-changed',
+    EDITOR_MODE_REQUESTED: 'sg-timeline:editor-mode-requested',
 });

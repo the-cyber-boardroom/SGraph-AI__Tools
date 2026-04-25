@@ -494,3 +494,34 @@
     margin-left: 0;
 }
 
+.zoom-toolbar .editor-mode-buttons {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.25rem;
+    flex: 0 0 auto;
+}
+
+.zoom-toolbar .editor-mode-button {
+    background: transparent;
+    color: #f8fafc;
+    border: 1px solid rgba(255, 255, 255, 0.18);
+    border-radius: 3px;
+    padding: 0.2rem 0.55rem;
+    font-size: 12px;
+    cursor: pointer;
+}
+
+.zoom-toolbar .editor-mode-button:hover {
+    background: rgba(20, 184, 166, 0.18);
+}
+
+.zoom-toolbar .editor-mode-button.is-active {
+    background: #14b8a6;
+    color: #0f172a;
+    border-color: #14b8a6;
+}
+
+.zoom-toolbar .editor-mode-button.is-active:hover {
+    background: #2dd4bf;
+}
+

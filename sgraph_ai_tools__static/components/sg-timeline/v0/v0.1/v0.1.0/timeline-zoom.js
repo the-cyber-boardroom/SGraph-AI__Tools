@@ -6,6 +6,7 @@ import { mountSplitButton } from './timeline-split-button.js';
 import { buildToolbar, findScrollViewport, updateLabel } from './timeline-toolbar-dom.js';
 import { mountHistoryButtons, buildToolbarSeparator } from './timeline-history-buttons.js';
 import { mountAddTrackButton } from './timeline-track-buttons.js';
+import { mountModeButtons } from './timeline-mode-buttons.js';
 import { SGT_EVENTS } from './timeline-events.js';
 
 const MIN_PPS = 1;
@@ -50,6 +51,7 @@ export function computeFitPps(project, visibleWidth) {
  *   getLane: () => HTMLElement|null,
  *   dispatch?: (name: string, detail: object) => void,
  *   getHistoryFlags?: () => { canUndo: boolean, canRedo: boolean },
+ *   getEditorMode?: () => string,
  * }} cfg
  * @returns {{ dispose: () => void, refresh: () => void, fit: () => void }}
  */
@@ -101,6 +103,11 @@ export function attachZoom(cfg) {
         ? mountColorPicker({ host: bar, getState: cfg.getState, dispatch: cfg.dispatch })
         : null;
     if (picker) bar.appendChild(picker.root);
+    const modeBtns = (cfg.dispatch && cfg.getEditorMode)
+        ? mountModeButtons({ getMode: cfg.getEditorMode, dispatch: cfg.dispatch })
+        : null;
+    if (modeBtns) bar.appendChild(buildToolbarSeparator());
+    if (modeBtns) bar.appendChild(modeBtns.root);
     container.insertBefore(bar, scrollEl);
     updateLabel(label, cfg.getState().pps);
 
@@ -116,6 +123,7 @@ export function attachZoom(cfg) {
         if (picker) picker.refresh();
         if (split) split.refresh();
         if (history) history.refresh();
+        if (modeBtns) modeBtns.refresh();
     }
     function dispose() {
         if (hostEl && split) {
@@ -126,6 +134,7 @@ export function attachZoom(cfg) {
         if (addTrack) addTrack.dispose();
         if (picker) picker.dispose();
         if (history) history.dispose();
+        if (modeBtns) modeBtns.dispose();
         if (bar.parentNode) bar.parentNode.removeChild(bar);
     }
     return { dispose, refresh, fit };
