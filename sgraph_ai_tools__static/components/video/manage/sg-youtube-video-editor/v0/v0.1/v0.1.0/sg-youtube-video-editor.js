@@ -26,6 +26,8 @@
 
 import { SgComponent } from '/components/base/v1/v1.0/v1.0.0/sg-component.js';
 import { YouTubeApi }  from '/core/youtube-api/v0/v0.1/v0.1.0/sg-youtube-api.js';
+import { YouTubeAnalytics }
+    from '/core/youtube-analytics/v0/v0.1/v0.1.0/sg-youtube-analytics.js';
 
 class SgYouTubeVideoEditor extends SgComponent {
 
@@ -38,16 +40,20 @@ class SgYouTubeVideoEditor extends SgComponent {
     }
 
     onReady() {
-        this._api      = null;
+        this._api       = null;
+        this._analytics = null;
         this._video    = null;        // raw video resource from getVideos()
         this._original = null;        // pristine snapshot for Reset
         this._thumbBlob = null;
         this._previewLoaded = false;
 
         // Playlist picker state
-        this._playlists      = [];     // [{id, title, itemCount}]
-        this._membership     = new Map();   // playlistId → playlistItemId (for videos in)
+        this._playlists      = [];
+        this._membership     = new Map();
         this._playlistsLoaded = false;
+
+        // Analytics state
+        this._analyticsWindow = 28;
 
         const showDelete = this.hasAttribute('allow-delete');
         this._dangerEl.hidden = !showDelete;
@@ -98,6 +104,20 @@ class SgYouTubeVideoEditor extends SgComponent {
         this._plStatus      = this.$('#pl-status');
         this._plList        = this.$('#pl-list');
         this._plRefreshBtn  = this.$('#pl-refresh');
+
+        this._anStatus      = this.$('#an-status');
+        this._anTiles       = this.$('#an-tiles');
+        this._anViews       = this.$('#an-views');
+        this._anWatch       = this.$('#an-watch');
+        this._anAvgDur      = this.$('#an-avgdur');
+        this._anAvgPct      = this.$('#an-avgpct');
+        this._anSubs        = this.$('#an-subs');
+        this._anLikes       = this.$('#an-likes');
+        this._anWindow      = this.$('#an-window');
+        this._anRefreshBtn  = this.$('#an-refresh');
+        this._anRetention   = this.$('#an-retention');
+        this._anRetentionSvg = this.$('#an-retention-svg');
+        this._anRetentionStatus = this.$('#an-retention-status');
     }
 
     setupEventListeners() {
@@ -110,13 +130,19 @@ class SgYouTubeVideoEditor extends SgComponent {
         this.addTrackedListener(this._deleteBtn,      'click', () => this.deleteVideo());
         this.addTrackedListener(this._previewToggle, 'click', this._onPreviewToggle);
         this.addTrackedListener(this._plRefreshBtn,  'click', () => this._loadPlaylists(true));
+        this.addTrackedListener(this._anWindow,      'change', () => {
+            this._analyticsWindow = parseInt(this._anWindow.value, 10) || 28;
+            this._loadAnalytics();
+        });
+        this.addTrackedListener(this._anRefreshBtn, 'click', () => this._loadAnalytics());
     }
 
     // ── Public API ──────────────────────────────────────────────────────────────
 
     /** @param {string|null} token */
     setToken(token) {
-        this._api = token ? new YouTubeApi(token) : null;
+        this._api       = token ? new YouTubeApi(token) : null;
+        this._analytics = token ? new YouTubeAnalytics(token) : null;
     }
 
     /**
@@ -159,8 +185,9 @@ class SgYouTubeVideoEditor extends SgComponent {
             this._populate(video);
             this._setStatus('');
             this.emit('video-loaded', { video });
-            // Kick off playlists load — non-blocking; failures are surfaced inline.
+            // Kick off playlists + analytics loads — non-blocking.
             this._loadPlaylists().catch(() => {});
+            this._loadAnalytics().catch(() => {});
         } catch (err) {
             this._setError('load', err.message);
         }
@@ -434,6 +461,77 @@ class SgYouTubeVideoEditor extends SgComponent {
         }
     }
 
+    // ── Analytics ──────────────────────────────────────────────────────────
+
+    async _loadAnalytics() {
+        if (!this._anStatus || !this._video) return;
+        this._anStatus.textContent = 'Loading analytics…';
+        this._anTiles.hidden = true;
+        this._anRetention.hidden = true;
+        try {
+            const days = this._analyticsWindow || 28;
+            const summary = await this._analytics.getVideoSummary(this._video.id, { days });
+            this._anStatus.textContent = '';
+            this._anTiles.hidden = false;
+            this._anViews.textContent  = _short(summary.views);
+            const hrs = (Number(summary.estimatedMinutesWatched) || 0) / 60;
+            this._anWatch.textContent  = hrs >= 100 ? Math.round(hrs).toLocaleString() : hrs.toFixed(1);
+            this._anAvgDur.textContent = _secsToHms(summary.averageViewDuration);
+            this._anAvgPct.textContent = (Number(summary.averageViewPercentage) || 0).toFixed(0) + '%';
+            this._anSubs.textContent   = _short(summary.subscribersGained);
+            this._anLikes.textContent  = _short(summary.likes);
+
+            // Retention curve — best-effort. Returns empty for low-view videos.
+            this._anRetention.hidden = false;
+            this._anRetentionStatus.textContent = 'loading…';
+            try {
+                const points = await this._analytics.getRetentionCurve(this._video.id);
+                if (!points.length) {
+                    this._anRetentionStatus.textContent = 'not enough views yet';
+                    this._anRetentionSvg.innerHTML = '';
+                } else {
+                    this._anRetentionStatus.textContent = `${points.length} samples`;
+                    this._renderRetention(points);
+                }
+            } catch (err) {
+                this._anRetentionStatus.textContent = err.message;
+            }
+        } catch (err) {
+            const msg = /403/.test(err.message)
+                ? 'Analytics scope not granted — sign out and reconnect to grant yt-analytics.readonly.'
+                : err.message;
+            this._anStatus.textContent = msg;
+        }
+    }
+
+    /**
+     * Render a polyline retention chart into the SVG.
+     * @param {{elapsedVideoTimeRatio: number, audienceWatchRatio: number}[]} points
+     */
+    _renderRetention(points) {
+        const W = 400, H = 80;
+        const xs = points.map(p => Number(p.elapsedVideoTimeRatio) || 0);
+        const ys = points.map(p => Number(p.audienceWatchRatio)   || 0);
+        // Y baseline = 1.0 (100%); scale so 1.0 → top 6px, 0 → bottom 0px.
+        const yMax = Math.max(1, ...ys);
+        const toX = (r) => r * (W - 4) + 2;
+        const toY = (r) => H - 6 - (r / yMax) * (H - 12);
+
+        const pathPts = points.map((p, i) => `${i === 0 ? 'M' : 'L'} ${toX(xs[i]).toFixed(1)} ${toY(ys[i]).toFixed(1)}`).join(' ');
+        const areaPts = pathPts + ` L ${toX(1).toFixed(1)} ${H} L ${toX(0).toFixed(1)} ${H} Z`;
+
+        this._anRetentionSvg.innerHTML = `
+            <defs>
+                <linearGradient id="ret-fill" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="0%"   stop-color="#4ECDC4" stop-opacity="0.45"/>
+                    <stop offset="100%" stop-color="#4ECDC4" stop-opacity="0"/>
+                </linearGradient>
+            </defs>
+            <path d="${areaPts}" fill="url(#ret-fill)" stroke="none"/>
+            <path d="${pathPts}" fill="none" stroke="#4ECDC4" stroke-width="1.5" stroke-linejoin="round"/>
+        `;
+    }
+
     _setError(step, message) {
         this._errorEl.hidden = false;
         this._errorEl.textContent = message;
@@ -451,6 +549,28 @@ function _formatBytes(n) {
     const u = ['B','KB','MB','GB']; let i = 0; let v = n;
     while (v >= 1024 && i < u.length - 1) { v /= 1024; i++; }
     return `${v < 10 ? v.toFixed(1) : Math.round(v)} ${u[i]}`;
+}
+
+/** 12345 → "12.3K", 1234567 → "1.2M". */
+function _short(n) {
+    if (n === null || n === undefined || n === '') return '0';
+    const num = Number(n);
+    if (!Number.isFinite(num)) return '0';
+    if (Math.abs(num) < 1000)        return String(num);
+    if (Math.abs(num) < 1_000_000)   return (num / 1000).toFixed(num < 10_000 ? 1 : 0).replace(/\.0$/, '') + 'K';
+    if (Math.abs(num) < 1e9)         return (num / 1_000_000).toFixed(1).replace(/\.0$/, '') + 'M';
+    return (num / 1e9).toFixed(1) + 'B';
+}
+
+/** 213 → "3:33". */
+function _secsToHms(secs) {
+    const t = Math.round(Number(secs) || 0);
+    if (!t) return '0:00';
+    const h = Math.floor(t / 3600);
+    const m = Math.floor((t % 3600) / 60);
+    const s = t % 60;
+    if (h) return `${h}:${String(m).padStart(2,'0')}:${String(s).padStart(2,'0')}`;
+    return `${m}:${String(s).padStart(2,'0')}`;
 }
 
 customElements.define('sg-youtube-video-editor', SgYouTubeVideoEditor);

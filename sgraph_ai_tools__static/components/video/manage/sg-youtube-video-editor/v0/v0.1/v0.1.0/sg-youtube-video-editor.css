@@ -181,6 +181,103 @@
     color: #64748b;
 }
 
+/* ── Analytics block ─────────────────────────────────────────────────── */
+
+.yte__analytics {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.yte__analytics-head {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.yte__input--mini {
+    width: auto;
+    padding: 4px 6px;
+    font-size: 11px;
+}
+
+.yte__analytics-status {
+    font-size: 12px;
+    color: #64748b;
+}
+
+.yte__analytics-tiles {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 6px;
+}
+
+.yte__tile {
+    background: rgba(78,205,196,0.04);
+    border: 1px solid rgba(78,205,196,0.15);
+    border-radius: 6px;
+    padding: 8px 6px;
+    text-align: center;
+}
+
+.yte__tile-val {
+    font-size: 13px;
+    font-weight: 700;
+    color: #e2e8f0;
+    font-variant-numeric: tabular-nums;
+}
+
+.yte__tile-label {
+    font-size: 10px;
+    color: #64748b;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    margin-top: 2px;
+}
+
+.yte__retention {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    margin-top: 4px;
+}
+
+.yte__retention-head {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+}
+
+.yte__retention-title {
+    font-size: 11px;
+    font-weight: 600;
+    color: #a0aec0;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+}
+
+.yte__retention-status {
+    font-size: 10px;
+    color: #64748b;
+}
+
+.yte__retention-svg {
+    width: 100%;
+    height: 80px;
+    background: #0a0a18;
+    border: 1px solid #1e293b;
+    border-radius: 4px;
+    display: block;
+}
+
+.yte__retention-axis {
+    display: flex;
+    justify-content: space-between;
+    font-size: 10px;
+    color: #64748b;
+    font-family: 'SF Mono', Monaco, monospace;
+}
+
 .yte__badge {
     align-self: flex-start;
     padding: 2px 8px;

@@ -12,6 +12,7 @@
             { "module": "sg-tool-api",       "path": "/core/sg-tool-api/v0/v0.1/v0.1.0/sg-tool-api.js" },
             { "module": "sg-youtube-upload", "path": "/core/youtube-upload/v0/v0.1/v0.1.0/sg-youtube-upload.js" },
             { "module": "sg-youtube-api",    "path": "/core/youtube-api/v0/v0.1/v0.1.0/sg-youtube-api.js" },
+            { "module": "sg-youtube-analytics", "path": "/core/youtube-analytics/v0/v0.1/v0.1.0/sg-youtube-analytics.js" },
             { "module": "manifest-loader",   "path": "/core/manifest-loader/v0/v0.1/v0.1.0/manifest-loader.js" }
         ],
         "shared": [
@@ -41,10 +42,10 @@
     },
     "api": {
         "version": "0.1.0",
-        "note": "window.__tool live after tool:ready. Uses the broader 'youtube' OAuth scope (full read+edit). Token cached in localStorage 'sg-auth-token-youtube-editor'. All API calls go browser→YouTube; nothing transits an SGraph server.",
+        "note": "window.__tool live after tool:ready. Uses two OAuth scopes: 'youtube' (full read+edit) AND 'yt-analytics.readonly' (analytics). Both must be on the consent screen of your Cloud project. Token cached in localStorage 'sg-auth-token-youtube-editor'. All API calls go browser→YouTube; nothing transits an SGraph server.",
         "events": [
             { "name": "tool:ready",                   "when": "activate() called",                   "detail": "{ instanceId, tool, version }" },
-            { "name": "tool:youtube:connected",       "when": "OAuth grant succeeded or cache hit",  "detail": "{ expiresAt, fromCache?, scope }" },
+            { "name": "tool:youtube:connected",       "when": "OAuth grant succeeded or cache hit",  "detail": "{ expiresAt, fromCache?, scope, hasAnalytics }" },
             { "name": "tool:youtube:disconnected",    "when": "disconnect() called",                 "detail": "{}" },
             { "name": "tool:youtube:channel-loaded",  "when": "getMyChannel() fetched",              "detail": "{ channel }" },
             { "name": "tool:youtube:videos-loaded",   "when": "list page returned",                  "detail": "{ items, totalResults, page }" },
@@ -60,6 +61,9 @@
             { "name": "tool:youtube:playlist-expanded","when": "listPlaylistItems returned",          "detail": "{ playlistId, items }" },
             { "name": "tool:youtube:playlists-changed","when": "addToPlaylist / removeFromPlaylist",  "detail": "{ videoId, playlistId, action }" },
             { "name": "tool:youtube:handoff-received","when": "blob received from another tool",      "detail": "{ sourceTool, filename, suggestedTitle, byteSize }" },
+            { "name": "tool:youtube:analytics-channel","when": "channel analytics summary returned",  "detail": "{ views, estimatedMinutesWatched, subscribersGained, ... }" },
+            { "name": "tool:youtube:analytics-video", "when": "per-video analytics summary returned", "detail": "{ videoId, views, estimatedMinutesWatched, ... }" },
+            { "name": "tool:youtube:analytics-retention","when": "retention curve returned",          "detail": "{ videoId, points }" },
             { "name": "tool:error",                   "when": "any pipeline error",                  "detail": "{ step, message }" }
         ],
         "skills": {

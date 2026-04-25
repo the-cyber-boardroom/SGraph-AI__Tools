@@ -69,6 +69,41 @@
             <div id="pl-list"   class="yte__playlists-list"></div>
         </div>
 
+        <hr class="yte__sep">
+
+        <div class="yte__analytics">
+            <div class="yte__analytics-head">
+                <label class="yte__label" style="margin:0;">📈 Analytics</label>
+                <select id="an-window" class="yte__input yte__input--mini" aria-label="Analytics window">
+                    <option value="7">Last 7 days</option>
+                    <option value="28" selected>Last 28 days</option>
+                    <option value="90">Last 90 days</option>
+                    <option value="365">Last 365 days</option>
+                </select>
+                <button type="button" id="an-refresh" class="yte__btn yte__btn--ghost yte__btn--mini">Refresh</button>
+            </div>
+
+            <div id="an-status" class="yte__analytics-status">Loading…</div>
+
+            <div id="an-tiles" class="yte__analytics-tiles" hidden>
+                <div class="yte__tile"><div id="an-views"  class="yte__tile-val">—</div><div class="yte__tile-label">Views</div></div>
+                <div class="yte__tile"><div id="an-watch"  class="yte__tile-val">—</div><div class="yte__tile-label">Watch hrs</div></div>
+                <div class="yte__tile"><div id="an-avgdur" class="yte__tile-val">—</div><div class="yte__tile-label">Avg view</div></div>
+                <div class="yte__tile"><div id="an-avgpct" class="yte__tile-val">—</div><div class="yte__tile-label">Avg %</div></div>
+                <div class="yte__tile"><div id="an-subs"   class="yte__tile-val">—</div><div class="yte__tile-label">Subs gained</div></div>
+                <div class="yte__tile"><div id="an-likes"  class="yte__tile-val">—</div><div class="yte__tile-label">Likes</div></div>
+            </div>
+
+            <div id="an-retention" class="yte__retention" hidden>
+                <div class="yte__retention-head">
+                    <span class="yte__retention-title">Audience retention</span>
+                    <span id="an-retention-status" class="yte__retention-status"></span>
+                </div>
+                <svg id="an-retention-svg" class="yte__retention-svg" viewBox="0 0 400 80" preserveAspectRatio="none"></svg>
+                <div class="yte__retention-axis"><span>0% elapsed</span><span>100% elapsed</span></div>
+            </div>
+        </div>
+
         <hr class="yte__sep" id="danger-sep" hidden>
 
         <div id="danger-zone" class="yte__danger" hidden>

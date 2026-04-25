@@ -84,19 +84,36 @@ export class YouTubeApi {
      * @returns {Promise<YouTubeChannel>}
      */
     async getMyChannel() {
-        const url = `${BASE}/channels?mine=true&part=snippet,statistics,contentDetails`;
+        const url = `${BASE}/channels?mine=true&part=snippet,statistics,contentDetails,brandingSettings,topicDetails,status`;
         const j = await this._json(await fetch(url, { headers: this._auth }));
         const c = j.items?.[0];
         if (!c) throw new Error('No channel found for the signed-in account');
+
         const thumbs = c.snippet?.thumbnails || {};
+        const branding = c.brandingSettings || {};
+        const topicCats = c.topicDetails?.topicCategories || [];
+
         return {
             id:                c.id,
             title:             c.snippet?.title || '',
             description:       c.snippet?.description || '',
             customUrl:         c.snippet?.customUrl || '',
             thumbnailUrl:      (thumbs.medium || thumbs.high || thumbs.default || {}).url || '',
+            bannerUrl:         branding.image?.bannerExternalUrl || '',
+            country:           c.snippet?.country || '',
+            defaultLanguage:   c.snippet?.defaultLanguage || '',
+            publishedAt:       c.snippet?.publishedAt || '',
+            keywords:          branding.channel?.keywords || '',
+            topicCategories:   topicCats,                  // Wikipedia URLs
+            topicLabels:       topicCats.map(_topicLabel), // human-readable last segment
             uploadsPlaylistId: c.contentDetails?.relatedPlaylists?.uploads || '',
             statistics:        c.statistics || {},
+            hiddenSubscribers: !!c.statistics?.hiddenSubscriberCount,
+            madeForKids:       !!c.status?.madeForKids,
+            channelUrl:        c.snippet?.customUrl
+                                   ? `https://www.youtube.com/${c.snippet.customUrl}`
+                                   : `https://www.youtube.com/channel/${c.id}`,
+            studioUrl:         `https://studio.youtube.com/channel/${c.id}`,
         };
     }
 
@@ -364,4 +381,12 @@ export class YouTubeApi {
         });
         if (r.status !== 204) await this._check(r);
     }
+}
+
+/** Topic URL → human label. e.g. ".../Software_engineering" → "Software engineering". */
+function _topicLabel(url) {
+    try {
+        const last = decodeURIComponent(String(url).split('/').pop() || '');
+        return last.replace(/_/g, ' ');
+    } catch { return ''; }
 }

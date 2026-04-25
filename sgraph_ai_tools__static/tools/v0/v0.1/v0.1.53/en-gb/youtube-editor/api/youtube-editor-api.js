@@ -56,6 +56,11 @@ async function removeFromPlaylist({ playlistItemId, playlistId, videoId }) {
     return { ok: true };
 }
 
+async function getChannelAnalyticsSummary(params = {}) { return await P.getChannelAnalyticsSummary({ ...params, emit }); }
+async function getVideoAnalyticsSummary({ videoId, days })   { return await P.getVideoAnalyticsSummary(videoId, { days, emit }); }
+async function getVideoRetention({ videoId })                { return await P.getVideoRetention(videoId, { emit }); }
+async function getVideoDailyTrend({ videoId, days })         { return await P.getVideoDailyTrend(videoId, { days, emit }); }
+
 function getStatus() {
     return {
         connected:      state.connected,
@@ -90,6 +95,10 @@ api
     .register('findVideoPlaylists', findVideoPlaylists, { async: true })
     .register('addToPlaylist',      addToPlaylist,      { async: true, events: [SGA_YT.PLAYLISTS_CHANGED, SGA_YT.ERROR] })
     .register('removeFromPlaylist', removeFromPlaylist, { async: true, events: [SGA_YT.PLAYLISTS_CHANGED, SGA_YT.ERROR] })
+    .register('getChannelAnalyticsSummary', getChannelAnalyticsSummary, { async: true, events: [SGA_YT.ANALYTICS_CHANNEL] })
+    .register('getVideoAnalyticsSummary',   getVideoAnalyticsSummary,   { async: true, events: [SGA_YT.ANALYTICS_VIDEO] })
+    .register('getVideoRetention',          getVideoRetention,          { async: true, events: [SGA_YT.ANALYTICS_RETENTION] })
+    .register('getVideoDailyTrend',         getVideoDailyTrend,         { async: true })
     .register('getStatus',     getStatus,     { async: false })
     .register('health',        health,        { async: false });
 

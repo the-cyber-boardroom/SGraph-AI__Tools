@@ -1,0 +1,10 @@
+{
+    "name": "sg-youtube-analytics",
+    "version": "0.1.0",
+    "layer": "core",
+    "description": "YouTube Analytics API v2 client. Channel + per-video metrics + audience retention curve. Requires the yt-analytics.readonly scope.",
+    "exports": ["YouTubeAnalytics", "YOUTUBE_ANALYTICS_SCOPE"],
+    "dependencies": [],
+    "author": "SGraph Tools Team",
+    "license": "CC-BY-4.0"
+}
