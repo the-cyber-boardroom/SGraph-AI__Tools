@@ -76,6 +76,14 @@ export function buildApiMethods({ state, getComposer, setComposer, hostEl }) {
         return { clipId, timelineStart };
     }
 
+    function splitClip(params = {}) {
+        const { clipId, atTime } = params;
+        if (!clipId) throw badArg('clipId required');
+        if (!Number.isFinite(atTime)) throw badArg('atTime must be a number');
+        const { newClipId } = state.splitClip({ clipId, atTime });
+        return { newClipId };
+    }
+
     function getProject() { return state.getProject(); }
 
     function setProject(params = {}) {
@@ -106,5 +114,5 @@ export function buildApiMethods({ state, getComposer, setComposer, hostEl }) {
         };
     }
 
-    return { loadAsset, addClip, trimClip, removeClip, moveClip, getProject, setProject, exportMp4 };
+    return { loadAsset, addClip, trimClip, removeClip, moveClip, splitClip, getProject, setProject, exportMp4 };
 }

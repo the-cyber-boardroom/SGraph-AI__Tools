@@ -84,22 +84,64 @@
     position: absolute;
     top: 8px;
     bottom: 8px;
-    background: linear-gradient(180deg, #2563eb, #1d4ed8);
-    border: 1px solid #1e40af;
+    border: 1px solid #1e3a8a;
     border-radius: 4px;
     box-sizing: border-box;
     overflow: hidden;
     cursor: grab;
     color: #f8fafc;
+    transition: filter 0.12s;
 }
 
 .clip:active {
     cursor: grabbing;
 }
 
+.clip--shade-0 { background: #1e3a8a; }
+.clip--shade-1 { background: #1e40af; }
+.clip--shade-2 { background: #1d4ed8; }
+.clip--shade-3 { background: #2563eb; }
+
+.clip--shade-0:hover,
+.clip--shade-1:hover,
+.clip--shade-2:hover,
+.clip--shade-3:hover {
+    filter: brightness(1.12);
+}
+
+.clip.is-selected,
 .clip.selected {
-    border-color: #fde047;
-    box-shadow: 0 0 0 2px #fde047 inset;
+    outline: 2px solid var(--sg-accent, #14b8a6);
+    outline-offset: -2px;
+}
+
+.clip__delete {
+    position: absolute;
+    top: 4px;
+    right: 4px;
+    width: 18px;
+    height: 18px;
+    background: rgba(0, 0, 0, 0.55);
+    color: #f8fafc;
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    border-radius: 3px;
+    font-size: 12px;
+    line-height: 1;
+    cursor: pointer;
+    opacity: 0;
+    transition: opacity 0.12s, background 0.12s;
+    padding: 0;
+    z-index: 2;
+}
+
+.clip:hover .clip__delete,
+.clip.is-selected .clip__delete,
+.clip.selected .clip__delete {
+    opacity: 1;
+}
+
+.clip__delete:hover {
+    background: #b91c1c;
 }
 
 .clip-label {

@@ -52,7 +52,14 @@ export class SgTimeline extends HTMLElement {
 
     connectedCallback() {
         if (this.#dispose) return;
-        const getState = () => ({ project: this.#project, pps: this.#pps, fps: this.#fps });
+        const getState = () => ({
+            project: this.#project,
+            pps: this.#pps,
+            fps: this.#fps,
+            playhead: this.#playhead,
+            selectedClipId: this.#selected,
+            host: this,
+        });
         const dispatch = (name, detail) => {
             if (name === SGT_EVENTS.PLAYHEAD_CHANGED && detail && Number.isFinite(detail.time)) {
                 this.#playhead = detail.time;
@@ -64,7 +71,8 @@ export class SgTimeline extends HTMLElement {
             }
             this.dispatchEvent(new CustomEvent(name, { detail, bubbles: true, composed: true }));
         };
-        this.#dispose = attachInteractions(this.#root, getState, dispatch);
+        if (!this.hasAttribute('tabindex')) this.setAttribute('tabindex', '0');
+        this.#dispose = attachInteractions(this.#root, getState, dispatch, this);
         this.#renderAll();
     }
 

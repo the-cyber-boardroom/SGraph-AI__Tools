@@ -3,6 +3,7 @@
 import { snapToFps } from '../../../../../core/video-composer/v0/v0.1/v0.1.0/composer-schema.js';
 import { SGT_EVENTS } from './timeline-events.js';
 import { attachDropAffordance } from './timeline-drop.js';
+import { attachKeyboard } from './timeline-keyboard.js';
 
 /**
  * Look up a clip object by id from the first video track of state.project.
@@ -37,11 +38,12 @@ function assetDuration(state, assetId) {
 /**
  * Attach pointer + drop interactions to the timeline shadow root.
  * @param {ShadowRoot} root
- * @param {() => {project: object|null, pps: number, fps: number}} getState
+ * @param {() => {project: object|null, pps: number, fps: number, playhead?: number, selectedClipId?: string|null, host?: HTMLElement}} getState
  * @param {(name: string, detail: object) => void} dispatch
+ * @param {HTMLElement} [hostEl] Custom-element host (for keyboard scope).
  * @returns {() => void} dispose function
  */
-export function attachInteractions(root, getState, dispatch) {
+export function attachInteractions(root, getState, dispatch, hostEl) {
     const ruler = root.querySelector('.ruler');
     const lane = root.querySelector('.lane');
     if (!ruler || !lane) return () => {};
@@ -59,6 +61,7 @@ export function attachInteractions(root, getState, dispatch) {
     function onLanePointerDown(e) {
         const clipEl = e.target.closest('.clip');
         if (!clipEl) return;
+        if (e.target.closest('.clip__delete')) return;
         const clipId = clipEl.dataset.clipId;
         const role = e.target.dataset.role || 'move';
         const state = getState();
@@ -138,10 +141,19 @@ export function attachInteractions(root, getState, dispatch) {
     }
 
     function onLaneClick(e) {
+        const delEl = e.target.closest && e.target.closest('.clip__delete');
+        if (delEl) {
+            e.stopPropagation();
+            e.preventDefault();
+            const clipId = delEl.dataset.clipId || (delEl.closest('.clip') || {}).dataset?.clipId;
+            if (clipId) dispatch(SGT_EVENTS.CLIP_DELETED, { clipId });
+            return;
+        }
         if (e.target === lane) dispatch(SGT_EVENTS.CLIP_SELECTED, { clipId: null });
     }
 
     const disposeDrop = attachDropAffordance(lane, getState, dispatch, pxToTime);
+    const disposeKeys = attachKeyboard(hostEl, getState, dispatch);
     lane.addEventListener('pointerdown', onLanePointerDown);
     lane.addEventListener('click', onLaneClick);
     ruler.addEventListener('pointerdown', onRulerPointerDown);
@@ -150,6 +162,7 @@ export function attachInteractions(root, getState, dispatch) {
 
     return () => {
         disposeDrop();
+        disposeKeys();
         lane.removeEventListener('pointerdown', onLanePointerDown);
         lane.removeEventListener('click', onLaneClick);
         ruler.removeEventListener('pointerdown', onRulerPointerDown);

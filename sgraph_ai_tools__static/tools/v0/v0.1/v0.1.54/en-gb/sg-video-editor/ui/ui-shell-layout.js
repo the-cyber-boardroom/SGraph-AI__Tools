@@ -57,16 +57,32 @@ export function wireTimelineEvents(timelineEl, api, ctx) {
         const c = ctx.getComposer();
         if (c && typeof c.seek === 'function') c.seek(t);
     }
+    function onDeleted(e) {
+        const d = e.detail || {};
+        if (!d.clipId) return;
+        try { api.removeClip({ clipId: d.clipId }); }
+        catch (err) { emitErr('removeClip', err); }
+    }
+    function onSplit(e) {
+        const d = e.detail || {};
+        if (!d.clipId || !Number.isFinite(d.atTime)) return;
+        try { api.splitClip({ clipId: d.clipId, atTime: d.atTime }); }
+        catch (err) { emitErr('splitClip', err); }
+    }
     timelineEl.addEventListener('sg-timeline:clip-added', onAdded);
     timelineEl.addEventListener('sg-timeline:clip-moved', onMoved);
     timelineEl.addEventListener('sg-timeline:clip-trimmed', onTrimmed);
     timelineEl.addEventListener('sg-timeline:clip-selected', onSelected);
+    timelineEl.addEventListener('sg-timeline:clip-deleted', onDeleted);
+    timelineEl.addEventListener('sg-timeline:clip-split', onSplit);
     timelineEl.addEventListener('sg-timeline:playhead-changed', onPlayhead);
     return () => {
         timelineEl.removeEventListener('sg-timeline:clip-added', onAdded);
         timelineEl.removeEventListener('sg-timeline:clip-moved', onMoved);
         timelineEl.removeEventListener('sg-timeline:clip-trimmed', onTrimmed);
         timelineEl.removeEventListener('sg-timeline:clip-selected', onSelected);
+        timelineEl.removeEventListener('sg-timeline:clip-deleted', onDeleted);
+        timelineEl.removeEventListener('sg-timeline:clip-split', onSplit);
         timelineEl.removeEventListener('sg-timeline:playhead-changed', onPlayhead);
     };
 }
