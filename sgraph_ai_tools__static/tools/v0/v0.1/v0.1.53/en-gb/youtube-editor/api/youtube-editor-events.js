@@ -18,5 +18,9 @@ export const SGA_YT = Object.freeze({
     UPLOAD_START:     'tool:youtube:upload:start',
     UPLOAD_PROGRESS:  'tool:youtube:upload:progress',
     UPLOAD_COMPLETE:  'tool:youtube:upload:complete',
+    PLAYLISTS_LOADED: 'tool:youtube:playlists-loaded',
+    PLAYLIST_EXPANDED:'tool:youtube:playlist-expanded',
+    PLAYLISTS_CHANGED:'tool:youtube:playlists-changed',
+    HANDOFF_RECEIVED: 'tool:youtube:handoff-received',
     ERROR:            'tool:error',
 });

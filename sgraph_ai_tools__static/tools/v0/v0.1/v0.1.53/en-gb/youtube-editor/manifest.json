@@ -21,6 +21,7 @@
             { "module": "sg-youtube-upload-cmp",     "path": "/components/video/upload/sg-youtube-upload/v0/v0.1/v0.1.0/sg-youtube-upload.js" },
             { "module": "sg-youtube-videos",         "path": "/components/video/manage/sg-youtube-videos/v0/v0.1/v0.1.0/sg-youtube-videos.js" },
             { "module": "sg-youtube-video-editor",   "path": "/components/video/manage/sg-youtube-video-editor/v0/v0.1/v0.1.0/sg-youtube-video-editor.js" },
+            { "module": "sg-youtube-playlists",      "path": "/components/video/manage/sg-youtube-playlists/v0/v0.1/v0.1.0/sg-youtube-playlists.js" },
             { "module": "sg-tool-api-explorer",      "path": "/components/tool-api/sg-tool-api-explorer/v0/v0.1/v0.1.0/sg-tool-api-explorer.js" },
             { "module": "sg-tool-api-console",       "path": "/components/tool-api/sg-tool-api-console/v0/v0.1/v0.1.0/sg-tool-api-console.js" },
             { "module": "sg-tool-api-manifest",      "path": "/components/tool-api/sg-tool-api-manifest/v0/v0.1/v0.1.0/sg-tool-api-manifest.js" }
@@ -34,6 +35,7 @@
             { "phase": 2, "type": "js",  "path": "/components/video/upload/sg-youtube-upload/v0/v0.1/v0.1.0/sg-youtube-upload.js" },
             { "phase": 2, "type": "js",  "path": "/components/video/manage/sg-youtube-videos/v0/v0.1/v0.1.0/sg-youtube-videos.js" },
             { "phase": 2, "type": "js",  "path": "/components/video/manage/sg-youtube-video-editor/v0/v0.1/v0.1.0/sg-youtube-video-editor.js" },
+            { "phase": 2, "type": "js",  "path": "/components/video/manage/sg-youtube-playlists/v0/v0.1/v0.1.0/sg-youtube-playlists.js" },
             { "phase": 3, "type": "js",  "entry": true, "path": "./api/youtube-editor-api.js" }
         ]
     },
@@ -54,6 +56,10 @@
             { "name": "tool:youtube:upload:start",    "when": "uploadVideo started",                 "detail": "{ fileName, fileSize, metadata }" },
             { "name": "tool:youtube:upload:progress", "when": "PUT progress event",                  "detail": "{ loaded, total, percent }" },
             { "name": "tool:youtube:upload:complete", "when": "upload finished",                     "detail": "{ id, url, snippet, status }" },
+            { "name": "tool:youtube:playlists-loaded","when": "listMyPlaylists returned",             "detail": "{ items, totalResults }" },
+            { "name": "tool:youtube:playlist-expanded","when": "listPlaylistItems returned",          "detail": "{ playlistId, items }" },
+            { "name": "tool:youtube:playlists-changed","when": "addToPlaylist / removeFromPlaylist",  "detail": "{ videoId, playlistId, action }" },
+            { "name": "tool:youtube:handoff-received","when": "blob received from another tool",      "detail": "{ sourceTool, filename, suggestedTitle, byteSize }" },
             { "name": "tool:error",                   "when": "any pipeline error",                  "detail": "{ step, message }" }
         ],
         "skills": {

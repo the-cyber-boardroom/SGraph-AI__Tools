@@ -7,7 +7,7 @@
     "dependencies": ["sg-component", "sg-tokens", "core/youtube-api"],
     "tagName": "sg-youtube-video-editor",
     "attributes": ["allow-delete"],
-    "events": ["video-loaded", "video-saved", "video-deleted", "video-thumbnail-set", "video-error"],
+    "events": ["video-loaded", "video-saved", "video-deleted", "video-thumbnail-set", "video-playlists-changed", "video-error"],
     "author": "SGraph Tools Team",
     "license": "CC-BY-4.0"
 }

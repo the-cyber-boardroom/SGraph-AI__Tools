@@ -223,6 +223,131 @@ export class YouTubeApi {
         return j.items?.[0] || j;
     }
 
+    // ── Playlists ─────────────────────────────────────────────────────────────
+
+    /**
+     * List the authenticated user's playlists. 1 unit per page (max 50).
+     * @param {{ pageSize?: number, pageToken?: string }} [opts]
+     * @returns {Promise<{ items: Array, nextPageToken: string|null, totalResults: number }>}
+     */
+    async listMyPlaylists({ pageSize = 50, pageToken } = {}) {
+        const params = new URLSearchParams({
+            mine:       'true',
+            part:       'snippet,contentDetails',
+            maxResults: String(Math.min(50, Math.max(1, pageSize))),
+        });
+        if (pageToken) params.set('pageToken', pageToken);
+        const j = await this._json(await fetch(`${BASE}/playlists?${params}`, { headers: this._auth }));
+        const items = (j.items || []).map(p => ({
+            id:           p.id,
+            title:        p.snippet?.title || '',
+            description:  p.snippet?.description || '',
+            publishedAt:  p.snippet?.publishedAt || '',
+            thumbnailUrl: (p.snippet?.thumbnails?.medium || p.snippet?.thumbnails?.default || {}).url || '',
+            itemCount:    p.contentDetails?.itemCount ?? 0,
+        }));
+        return { items, nextPageToken: j.nextPageToken || null, totalResults: j.pageInfo?.totalResults ?? items.length };
+    }
+
+    /**
+     * List items in a specific playlist. 1 unit per page.
+     * @param {string} playlistId
+     * @param {{ pageSize?: number, pageToken?: string }} [opts]
+     */
+    async listPlaylistItems(playlistId, { pageSize = 50, pageToken } = {}) {
+        if (!playlistId) throw new Error('listPlaylistItems: playlistId required');
+        const params = new URLSearchParams({
+            playlistId,
+            part:       'snippet,contentDetails',
+            maxResults: String(Math.min(50, Math.max(1, pageSize))),
+        });
+        if (pageToken) params.set('pageToken', pageToken);
+        const j = await this._json(await fetch(`${BASE}/playlistItems?${params}`, { headers: this._auth }));
+        const items = (j.items || []).map(it => {
+            const s = it.snippet || {};
+            const t = s.thumbnails || {};
+            return {
+                playlistItemId: it.id,                              // needed for removal
+                videoId:        it.contentDetails?.videoId || s.resourceId?.videoId,
+                title:          s.title || '',
+                description:    s.description || '',
+                publishedAt:    it.contentDetails?.videoPublishedAt || s.publishedAt || '',
+                thumbnailUrl:   (t.medium || t.default || {}).url || '',
+                position:       s.position ?? null,
+            };
+        });
+        return { items, nextPageToken: j.nextPageToken || null, totalResults: j.pageInfo?.totalResults ?? items.length };
+    }
+
+    /**
+     * For a given videoId, return which of the supplied playlists contain it.
+     * Cost: 1 unit per playlist queried (one playlistItems.list call each,
+     * filtered by videoId — YouTube does not expose a "playlists for video"
+     * endpoint, so we fan out per playlist).
+     *
+     * @param {string} videoId
+     * @param {string[]} playlistIds
+     * @returns {Promise<{ playlistId: string, playlistItemId: string }[]>}
+     *          One entry per playlist that contains the video. The
+     *          playlistItemId is needed to remove the video later.
+     */
+    async findVideoPlaylists(videoId, playlistIds = []) {
+        if (!videoId) throw new Error('findVideoPlaylists: videoId required');
+        const checks = await Promise.all(playlistIds.map(async pid => {
+            const params = new URLSearchParams({
+                playlistId: pid,
+                videoId,
+                part:       'id',
+                maxResults: '1',
+            });
+            try {
+                const j = await this._json(await fetch(`${BASE}/playlistItems?${params}`, { headers: this._auth }));
+                const item = j.items?.[0];
+                return item ? { playlistId: pid, playlistItemId: item.id } : null;
+            } catch {
+                return null;   // non-fatal — a 403 on one playlist shouldn't kill the whole check
+            }
+        }));
+        return checks.filter(Boolean);
+    }
+
+    /**
+     * Add a video to a playlist. 50 units.
+     * @param {string} playlistId
+     * @param {string} videoId
+     * @param {{ position?: number }} [opts]
+     * @returns {Promise<{ playlistItemId: string }>}
+     */
+    async addToPlaylist(playlistId, videoId, { position } = {}) {
+        if (!playlistId || !videoId) throw new Error('addToPlaylist: playlistId + videoId required');
+        const body = {
+            snippet: {
+                playlistId,
+                resourceId: { kind: 'youtube#video', videoId },
+                ...(position !== undefined ? { position } : {}),
+            },
+        };
+        const j = await this._json(await fetch(`${BASE}/playlistItems?part=snippet`, {
+            method:  'POST',
+            headers: { ...this._auth, 'Content-Type': 'application/json' },
+            body:    JSON.stringify(body),
+        }));
+        return { playlistItemId: j.id };
+    }
+
+    /**
+     * Remove a video from a playlist by playlistItemId. 50 units.
+     * @param {string} playlistItemId
+     */
+    async removeFromPlaylist(playlistItemId) {
+        if (!playlistItemId) throw new Error('removeFromPlaylist: playlistItemId required');
+        const r = await fetch(`${BASE}/playlistItems?id=${encodeURIComponent(playlistItemId)}`, {
+            method:  'DELETE',
+            headers: this._auth,
+        });
+        if (r.status !== 204) await this._check(r);
+    }
+
     // ── Delete video (irreversible) ───────────────────────────────────────────
 
     /**

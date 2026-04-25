@@ -42,7 +42,16 @@ class SgYouTubeVideoEditor extends SgComponent {
         this._video    = null;        // raw video resource from getVideos()
         this._original = null;        // pristine snapshot for Reset
         this._thumbBlob = null;
-        this._dangerEl.hidden = !this.hasAttribute('allow-delete');
+        this._previewLoaded = false;
+
+        // Playlist picker state
+        this._playlists      = [];     // [{id, title, itemCount}]
+        this._membership     = new Map();   // playlistId → playlistItemId (for videos in)
+        this._playlistsLoaded = false;
+
+        const showDelete = this.hasAttribute('allow-delete');
+        this._dangerEl.hidden = !showDelete;
+        if (this._dangerSep) this._dangerSep.hidden = !showDelete;
 
         // Replay any setVideoSummary / loadVideo calls that arrived before
         // bindElements() ran (the lifecycle is async — callers may set state
@@ -78,9 +87,16 @@ class SgYouTubeVideoEditor extends SgComponent {
         this._thumbNameEl  = this.$('#thumb-name');
         this._thumbUploadBtn = this.$('#thumb-upload-btn');
         this._dangerEl     = this.$('#danger-zone');
+        this._dangerSep    = this.$('#danger-sep');
         this._confirmInput = this.$('#confirm-input');
         this._deleteBtn    = this.$('#delete-btn');
         this._errorEl      = this.$('#error');
+        this._previewToggle = this.$('#preview-toggle');
+        this._previewWrap   = this.$('#preview-wrap');
+        this._previewIframe = this.$('#preview-iframe');
+        this._plStatus      = this.$('#pl-status');
+        this._plList        = this.$('#pl-list');
+        this._plRefreshBtn  = this.$('#pl-refresh');
     }
 
     setupEventListeners() {
@@ -91,6 +107,8 @@ class SgYouTubeVideoEditor extends SgComponent {
         this.addTrackedListener(this._thumbUploadBtn, 'click', () => this.uploadThumbnail());
         this.addTrackedListener(this._confirmInput,   'input', this._onConfirmInput);
         this.addTrackedListener(this._deleteBtn,      'click', () => this.deleteVideo());
+        this.addTrackedListener(this._previewToggle, 'click', this._onPreviewToggle);
+        this.addTrackedListener(this._plRefreshBtn,  'click', () => this._loadPlaylists(true));
     }
 
     // ── Public API ──────────────────────────────────────────────────────────────
@@ -140,6 +158,8 @@ class SgYouTubeVideoEditor extends SgComponent {
             this._populate(video);
             this._setStatus('');
             this.emit('video-loaded', { video });
+            // Kick off playlists load — non-blocking; failures are surfaced inline.
+            this._loadPlaylists().catch(() => {});
         } catch (err) {
             this._setError('load', err.message);
         }
@@ -233,6 +253,7 @@ class SgYouTubeVideoEditor extends SgComponent {
         this._watchLinkEl.hidden = false;
         this._watchLinkEl.href   = `https://www.youtube.com/watch?v=${v.id}`;
         this._watchLinkEl.textContent = `Open on YouTube ↗`;
+        if (this._previewToggle) this._previewToggle.hidden = false;
 
         const thumbUrl = (s.thumbnails?.medium || s.thumbnails?.default || {}).url;
         if (thumbUrl) this._thumbEl.src = thumbUrl;
@@ -300,6 +321,95 @@ class SgYouTubeVideoEditor extends SgComponent {
     _setStatus(msg) {
         this._statusEl.textContent = msg;
         this._statusEl.style.display = msg ? '' : 'none';
+    }
+
+    // ── Preview iframe toggle ───────────────────────────────────────────────
+
+    _onPreviewToggle() {
+        if (!this._video) return;
+        const opening = this._previewWrap.hidden;
+        if (opening && !this._previewLoaded) {
+            this._previewIframe.src = `https://www.youtube.com/embed/${this._video.id}`;
+            this._previewLoaded = true;
+        }
+        this._previewWrap.hidden = !opening;
+        this._previewToggle.textContent = opening ? '✕ Hide preview' : '▶ Preview';
+    }
+
+    // ── Playlist picker ─────────────────────────────────────────────────────
+
+    /** @param {boolean} force  reload playlists list even if already cached */
+    async _loadPlaylists(force = false) {
+        if (!this._api || !this._video) return;
+        this._plStatus.textContent = 'Loading playlists…';
+        this._plStatus.style.display = '';
+        try {
+            if (force || !this._playlistsLoaded) {
+                const { items } = await this._api.listMyPlaylists({ pageSize: 50 });
+                this._playlists = items;
+                this._playlistsLoaded = true;
+            }
+            const ids = this._playlists.map(p => p.id);
+            const memberships = await this._api.findVideoPlaylists(this._video.id, ids);
+            this._membership = new Map(memberships.map(m => [m.playlistId, m.playlistItemId]));
+            this._renderPlaylists();
+            this._plStatus.style.display = 'none';
+        } catch (err) {
+            this._plStatus.textContent = `Could not load playlists: ${err.message}`;
+        }
+    }
+
+    _renderPlaylists() {
+        if (!this._plList) return;
+        this._plList.innerHTML = '';
+        if (this._playlists.length === 0) {
+            this._plStatus.textContent = 'You have no playlists yet.';
+            this._plStatus.style.display = '';
+            return;
+        }
+        for (const pl of this._playlists) {
+            const inIt = this._membership.has(pl.id);
+            const row = document.createElement('label');
+            row.className = 'yte__pl-row';
+            row.innerHTML = `
+                <input type="checkbox" class="yte__pl-check" ${inIt ? 'checked' : ''}>
+                <div class="yte__pl-meta">
+                    <div class="yte__pl-title"></div>
+                    <div class="yte__pl-count">${pl.itemCount} videos</div>
+                </div>
+            `;
+            row.querySelector('.yte__pl-title').textContent = pl.title || '(untitled)';
+            const checkbox = row.querySelector('input[type="checkbox"]');
+            checkbox.addEventListener('change', () => this._togglePlaylist(pl, row, checkbox));
+            this._plList.appendChild(row);
+        }
+    }
+
+    async _togglePlaylist(pl, row, checkbox) {
+        if (!this._api || !this._video) return;
+        const wantIn = checkbox.checked;
+        const existingItemId = this._membership.get(pl.id);
+        row.classList.add('is-busy');
+        try {
+            if (wantIn && !existingItemId) {
+                const { playlistItemId } = await this._api.addToPlaylist(pl.id, this._video.id);
+                this._membership.set(pl.id, playlistItemId);
+            } else if (!wantIn && existingItemId) {
+                await this._api.removeFromPlaylist(existingItemId);
+                this._membership.delete(pl.id);
+            }
+            this.emit('video-playlists-changed', {
+                videoId:     this._video.id,
+                playlistIds: [...this._membership.keys()],
+            });
+        } catch (err) {
+            // Roll the checkbox back on failure
+            checkbox.checked = !wantIn;
+            this._plStatus.style.display = '';
+            this._plStatus.textContent = `Playlist update failed: ${err.message}`;
+        } finally {
+            row.classList.remove('is-busy');
+        }
     }
 
     _setError(step, message) {
