@@ -78,7 +78,13 @@ export class SgTimeline extends HTMLElement {
         this.#dispose = attachInteractions(this.#root, getState, dispatch, this);
         this.#zoom = attachZoom({
             root: this.#root,
-            getState: () => ({ project: this.#project, pps: this.#pps, selectedClipId: this.#selected }),
+            getState: () => ({
+                project: this.#project,
+                pps: this.#pps,
+                fps: this.#fps,
+                playhead: this.#playhead,
+                selectedClipId: this.#selected,
+            }),
             setPixelsPerSecond: (pps) => this.setPixelsPerSecond(pps),
             getLane: () => this.#lane,
             dispatch,
@@ -118,6 +124,7 @@ export class SgTimeline extends HTMLElement {
         if (!Number.isFinite(t)) return;
         this.#playhead = t;
         updatePlayhead(this.#playheadEl, this.#playhead, this.#pps);
+        if (this.#zoom) this.#zoom.refresh();
     }
 
     /** @param {string|null} clipId */
