@@ -60,6 +60,7 @@
             "removeTrack":     { "description": "Remove a track and all its clips by trackId. Throws Error{code:'invalid-arg'} if it would leave zero video tracks." },
             "moveClipToTrack": { "description": "Move a clip to another track at the same timelineStart. Throws Error{code:'overlap'} if it would collide on the target track." },
             "reorderTracks":   { "description": "Reorder video tracks by id (bottom-up). trackIds must contain every existing video-track id exactly once." },
+            "setTrackMuted":   { "description": "Set or clear a track's mute flag. Top-most active unmuted clip drives audio." },
             "exportMp4":    { "description": "Render the project to an MP4 Blob via the composer; returns blob+meta." }
         },
         "events": [
@@ -74,6 +75,10 @@
             { "name": "sg-timeline:undo-requested",  "when": "user clicks the timeline Undo button",    "detail": "{}" },
             { "name": "sg-timeline:redo-requested",  "when": "user clicks the timeline Redo button",    "detail": "{}" },
             { "name": "sg-timeline:playhead-changed","when": "user scrubs the timeline ruler",          "detail": "{ time }" },
+            { "name": "sg-timeline:track-add-requested",    "when": "user clicks the +Track toolbar button",                "detail": "{ kind }" },
+            { "name": "sg-timeline:track-remove-requested", "when": "user clicks the × button on a lane header",            "detail": "{ trackId }" },
+            { "name": "sg-timeline:track-mute-requested",   "when": "user clicks the M toggle on a lane header",            "detail": "{ trackId, muted }" },
+            { "name": "sg-timeline:clip-track-changed",     "when": "user drags a clip to a different lane and drops",      "detail": "{ clipId, fromTrackId, toTrackId, timelineStart }" },
             { "name": "tool:error",                  "when": "any pipeline error",                      "detail": "{ step, message }" }
         ],
         "skills": {

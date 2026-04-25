@@ -1,13 +1,14 @@
-// timeline-render.js — pure render functions for sg-timeline (v0.1.0)
+// timeline-render.js — render orchestrator for sg-timeline (v0.1.0)
 
 import {
-    clipDuration,
     getProjectDuration,
     getVideoTracks,
 } from '../../../../../core/video-composer/v0/v0.1/v0.1.0/composer-schema.js';
-import { clipAsset, clipLabel } from './timeline-clip-label.js';
+import { renderLaneClips } from './timeline-lane-render.js';
+import { renderTrackHeader } from './timeline-track-headers.js';
 
 const TICK_TARGET_PX = 80;
+export const LANE_HEIGHT = 80;
 
 /**
  * Pick a tick interval (seconds) for the given pps.
@@ -21,11 +22,7 @@ function pickTickInterval(pps) {
     return candidates[candidates.length - 1];
 }
 
-/**
- * Format seconds as mm:ss or m:ss.s.
- * @param {number} t
- * @returns {string}
- */
+/** Format seconds as mm:ss or m:ss.s. */
 function fmtTime(t) {
     if (t < 60) return t.toFixed(t < 10 ? 1 : 0) + 's';
     const m = Math.floor(t / 60);
@@ -33,25 +30,14 @@ function fmtTime(t) {
     return `${m}:${String(s).padStart(2, '0')}`;
 }
 
-/**
- * Compute the rendered surface width in px from project + pps.
- * @param {object} project
- * @param {number} pps
- * @returns {number}
- */
+/** Compute the rendered surface width in px from project + pps. */
 export function computeSurfaceWidth(project, pps) {
     const dur = project ? getProjectDuration(project) : 0;
     const minSec = Math.max(dur + 5, 30);
     return Math.ceil(minSec * pps);
 }
 
-/**
- * Render ruler ticks.
- * @param {HTMLElement} rulerEl
- * @param {number} widthPx
- * @param {number} pps
- * @returns {void}
- */
+/** Render ruler ticks. */
 export function renderRuler(rulerEl, widthPx, pps) {
     rulerEl.innerHTML = '';
     rulerEl.style.width = widthPx + 'px';
@@ -72,89 +58,50 @@ export function renderRuler(rulerEl, widthPx, pps) {
 }
 
 /**
- * Render the lane container width.
- * @param {HTMLElement} laneEl
- * @param {number} widthPx
- * @returns {void}
- */
-export function renderTrack(laneEl, widthPx) {
-    laneEl.style.width = widthPx + 'px';
-}
-
-
-/**
- * Render clip rectangles for the first video track.
- * @param {HTMLElement} laneEl
+ * Render the lanes container: one .lane-row per video track, in REVERSE
+ * array order so the highest array index (top z-order) is at the top of the UI.
+ * Each row has a track-header (sticky-left) and a .lane (clip canvas).
+ *
+ * @param {HTMLElement} lanesEl
  * @param {object|null} project
+ * @param {number} widthPx
  * @param {number} pps
  * @param {string|null} selectedClipId
  * @returns {void}
  */
-export function renderClips(laneEl, project, pps, selectedClipId) {
-    laneEl.innerHTML = '';
-    if (!project) return;
-    const track = getVideoTracks(project)[0];
-    if (!track) return;
-    for (let i = 0; i < track.clips.length; i += 1) {
-        const clip = track.clips[i];
-        const dur = clipDuration(clip);
-        const el = document.createElement('div');
-        const shade = `clip--shade-${i % 6}`;
-        const sel = clip.id === selectedClipId ? ' is-selected selected' : '';
-        el.className = `clip ${shade}${sel}`;
-        el.dataset.clipId = clip.id || '';
-        const assetForClip = clipAsset(clip, project);
-        if (assetForClip && assetForClip.assetType) el.dataset.assetType = assetForClip.assetType;
-        el.style.left = (clip.timelineStart * pps) + 'px';
-        el.style.width = Math.max(2, dur * pps) + 'px';
-        if (clip.color && typeof clip.color === 'string') el.style.background = clip.color;
-        const label = document.createElement('div');
-        label.className = 'clip-label';
-        label.textContent = clipLabel(clip, project);
-        el.appendChild(label);
-        const durEl = document.createElement('div');
-        durEl.className = 'clip-duration';
-        durEl.textContent = dur.toFixed(2) + 's';
-        el.appendChild(durEl);
-        const lh = document.createElement('div');
-        lh.className = 'clip-handle left';
-        lh.dataset.role = 'trim-left';
-        el.appendChild(lh);
-        const rh = document.createElement('div');
-        rh.className = 'clip-handle right';
-        rh.dataset.role = 'trim-right';
-        el.appendChild(rh);
-        const del = document.createElement('button');
-        del.type = 'button';
-        del.className = 'clip__delete';
-        del.dataset.role = 'delete';
-        del.dataset.clipId = clip.id || '';
-        del.setAttribute('aria-label', 'Delete clip');
-        del.title = 'Delete clip';
-        del.textContent = '×';
-        el.appendChild(del);
-        laneEl.appendChild(el);
+export function renderLanes(lanesEl, project, widthPx, pps, selectedClipId) {
+    lanesEl.innerHTML = '';
+    lanesEl.style.width = widthPx + 'px';
+    const tracks = project ? getVideoTracks(project) : [];
+    if (!tracks.length) return;
+    const total = tracks.length;
+    for (let i = tracks.length - 1; i >= 0; i--) {
+        const track = tracks[i];
+        const row = document.createElement('div');
+        row.className = 'lane-row';
+        row.dataset.trackId = track.id || '';
+        row.style.height = LANE_HEIGHT + 'px';
+
+        const lane = document.createElement('div');
+        lane.className = 'lane';
+        lane.dataset.trackId = track.id || '';
+        lane.style.width = widthPx + 'px';
+        renderLaneClips(lane, track, project, pps, selectedClipId);
+        row.appendChild(lane);
+
+        const header = renderTrackHeader(track, i, total);
+        row.appendChild(header);
+
+        lanesEl.appendChild(row);
     }
 }
 
-/**
- * Render the playhead element (position only).
- * @param {HTMLElement} playheadEl
- * @param {number} time
- * @param {number} pps
- * @returns {void}
- */
+/** Render the playhead element (position only). */
 export function renderPlayhead(playheadEl, time, pps) {
     playheadEl.style.left = (time * pps) + 'px';
 }
 
-/**
- * Update playhead position only.
- * @param {HTMLElement} playheadEl
- * @param {number} time
- * @param {number} pps
- * @returns {void}
- */
+/** Update playhead position only. */
 export function updatePlayhead(playheadEl, time, pps) {
     playheadEl.style.left = (time * pps) + 'px';
 }

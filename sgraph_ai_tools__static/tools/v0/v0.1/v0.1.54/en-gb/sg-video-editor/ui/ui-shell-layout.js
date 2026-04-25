@@ -70,6 +70,31 @@ export function wireTimelineEvents(timelineEl, api, ctx) {
         Promise.resolve(api.addClip({ trackId: d.trackId || 't-video-1', assetId: d.assetId, timelineStart: d.timelineStart }))
             .catch(err => emitErr('addClip', err));
     }
+    function onTrackAdd() {
+        Promise.resolve(api.addTrack({})).catch(err => emitErr('addTrack', err));
+    }
+    function onTrackRemove(e) {
+        const d = e.detail || {};
+        if (!d.trackId) return;
+        Promise.resolve(api.removeTrack({ trackId: d.trackId })).catch(err => emitErr('removeTrack', err));
+    }
+    function onTrackMute(e) {
+        const d = e.detail || {};
+        if (!d.trackId || typeof d.muted !== 'boolean') return;
+        Promise.resolve(api.setTrackMuted({ trackId: d.trackId, muted: d.muted }))
+            .catch(err => emitErr('setTrackMuted', err));
+    }
+    function onClipTrackChange(e) {
+        const d = e.detail || {};
+        if (!d.clipId || !d.toTrackId) return;
+        Promise.resolve(api.moveClipToTrack({ clipId: d.clipId, toTrackId: d.toTrackId }))
+            .then(() => {
+                if (Number.isFinite(d.timelineStart)) {
+                    return api.moveClip({ clipId: d.clipId, timelineStart: d.timelineStart });
+                }
+            })
+            .catch(err => emitErr('moveClipToTrack', err));
+    }
     function onMoved(e) {
         const d = e.detail || {};
         Promise.resolve(api.moveClip({ clipId: d.clipId, timelineStart: d.timelineStart }))
@@ -121,6 +146,10 @@ export function wireTimelineEvents(timelineEl, api, ctx) {
     timelineEl.addEventListener('sg-timeline:undo-requested', onUndo);
     timelineEl.addEventListener('sg-timeline:redo-requested', onRedo);
     timelineEl.addEventListener('sg-timeline:playhead-changed', onPlayhead);
+    timelineEl.addEventListener('sg-timeline:track-add-requested', onTrackAdd);
+    timelineEl.addEventListener('sg-timeline:track-remove-requested', onTrackRemove);
+    timelineEl.addEventListener('sg-timeline:track-mute-requested', onTrackMute);
+    timelineEl.addEventListener('sg-timeline:clip-track-changed', onClipTrackChange);
     return () => {
         timelineEl.removeEventListener('sg-timeline:clip-added', onAdded);
         timelineEl.removeEventListener('sg-timeline:clip-moved', onMoved);
@@ -132,5 +161,9 @@ export function wireTimelineEvents(timelineEl, api, ctx) {
         timelineEl.removeEventListener('sg-timeline:undo-requested', onUndo);
         timelineEl.removeEventListener('sg-timeline:redo-requested', onRedo);
         timelineEl.removeEventListener('sg-timeline:playhead-changed', onPlayhead);
+        timelineEl.removeEventListener('sg-timeline:track-add-requested', onTrackAdd);
+        timelineEl.removeEventListener('sg-timeline:track-remove-requested', onTrackRemove);
+        timelineEl.removeEventListener('sg-timeline:track-mute-requested', onTrackMute);
+        timelineEl.removeEventListener('sg-timeline:clip-track-changed', onClipTrackChange);
     };
 }

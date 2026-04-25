@@ -171,5 +171,6 @@ export function buildApiMethods({ state, getComposer, setComposer, hostEl }) {
         removeTrack: trackMethods.removeTrack,
         moveClipToTrack: trackMethods.moveClipToTrack,
         reorderTracks: trackMethods.reorderTracks,
+        setTrackMuted: trackMethods.setTrackMuted,
     };
 }

@@ -1,11 +1,10 @@
-// sg-timeline.js — interactive timeline component (v0.1.0)
+// sg-timeline.js — interactive multi-lane timeline component (v0.1.0)
 
 import { SGT_EVENTS } from './timeline-events.js';
 import {
     computeSurfaceWidth,
     renderRuler,
-    renderTrack,
-    renderClips,
+    renderLanes,
     renderPlayhead,
     updatePlayhead,
 } from './timeline-render.js';
@@ -27,7 +26,7 @@ export class SgTimeline extends HTMLElement {
     #dispose = null;
     #root = null;
     #ruler = null;
-    #lane = null;
+    #lanes = null;
     #playheadEl = null;
     #surface = null;
     #zoom = null;
@@ -41,7 +40,7 @@ export class SgTimeline extends HTMLElement {
             <div class="root">
                 <div class="surface">
                     <div class="ruler"></div>
-                    <div class="lane"></div>
+                    <div class="lanes"></div>
                     <div class="playhead"></div>
                 </div>
             </div>
@@ -49,7 +48,7 @@ export class SgTimeline extends HTMLElement {
         this.#root = sr;
         this.#surface = sr.querySelector('.surface');
         this.#ruler = sr.querySelector('.ruler');
-        this.#lane = sr.querySelector('.lane');
+        this.#lanes = sr.querySelector('.lanes');
         this.#playheadEl = sr.querySelector('.playhead');
     }
 
@@ -87,7 +86,7 @@ export class SgTimeline extends HTMLElement {
                 selectedClipId: this.#selected,
             }),
             setPixelsPerSecond: (pps) => this.setPixelsPerSecond(pps),
-            getLane: () => this.#lane,
+            getLane: () => this.#lanes,
             dispatch,
             getHistoryFlags: () => this.#historyFlags,
         });
@@ -130,7 +129,7 @@ export class SgTimeline extends HTMLElement {
     /** @param {string|null} clipId */
     setSelectedClip(clipId) {
         this.#selected = clipId || null;
-        renderClips(this.#lane, this.#project, this.#pps, this.#selected);
+        this.#renderAll();
         if (this.#zoom) this.#zoom.refresh();
     }
 
@@ -142,18 +141,13 @@ export class SgTimeline extends HTMLElement {
         if (this.#zoom) this.#zoom.refresh();
     }
 
-    /**
-     * Auto-fit pixelsPerSecond so the entire project fits the visible width.
-     * No-op when no project, zero duration, or lane not yet visible.
-     * @returns {void}
-     */
+    /** Auto-fit pixelsPerSecond so the entire project fits the visible width. */
     fitToView() {
         if (this.#zoom) this.#zoom.fit();
     }
 
     /**
-     * Update the Undo/Redo toolbar enable state. Shells call this whenever
-     * the host's history capability changes.
+     * Update the Undo/Redo toolbar enable state.
      * @param {{canUndo?: boolean, canRedo?: boolean}} flags
      */
     setHistoryFlags(flags) {
@@ -168,8 +162,7 @@ export class SgTimeline extends HTMLElement {
         const widthPx = computeSurfaceWidth(this.#project, this.#pps);
         this.#surface.style.width = widthPx + 'px';
         renderRuler(this.#ruler, widthPx, this.#pps);
-        renderTrack(this.#lane, widthPx);
-        renderClips(this.#lane, this.#project, this.#pps, this.#selected);
+        renderLanes(this.#lanes, this.#project, widthPx, this.#pps, this.#selected);
         renderPlayhead(this.#playheadEl, this.#playhead, this.#pps);
     }
 }
