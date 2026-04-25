@@ -76,8 +76,8 @@ export async function mergeAsShorts(screenStream, cameraStream, options = {}) {
     const CAM_Y = TITLE_Y + TITLE_H + GAP;
     const cFit  = _fitInto(cNatW, cNatH, VID_W, CAM_H);
 
-    // Footer sits just below camera
-    const FOOTER_Y = CAM_Y + CAM_H + GAP;
+    // Footer centred in the remaining space below camera
+    const FOOTER_Y = CAM_Y + CAM_H + Math.round((H - CAM_Y - CAM_H - FOOTER_H) / 2);
     // Remaining canvas (FOOTER_Y + FOOTER_H → H) is the bottom safe zone
 
     // Precompute adaptive font size — title text never changes during recording
