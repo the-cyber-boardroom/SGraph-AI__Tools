@@ -2,8 +2,7 @@
 
 import { snapToFps } from '../../../../../core/video-composer/v0/v0.1/v0.1.0/composer-schema.js';
 import { SGT_EVENTS } from './timeline-events.js';
-
-const ASSET_MIME = 'application/x-sg-asset';
+import { attachDropAffordance } from './timeline-drop.js';
 
 /**
  * Look up a clip object by id from the first video track of state.project.
@@ -67,12 +66,11 @@ export function attachInteractions(root, getState, dispatch) {
         if (!clip) return;
         e.preventDefault();
         clipEl.setPointerCapture && clipEl.setPointerCapture(e.pointerId);
-        const startX = e.clientX;
         drag = {
             kind: role,
             clipId,
             clipEl,
-            startX,
+            startX: e.clientX,
             origStart: clip.timelineStart,
             origIn: clip.inPoint,
             origOut: clip.outPoint,
@@ -94,7 +92,7 @@ export function attachInteractions(root, getState, dispatch) {
             drag.clipEl.style.left = (newStart * pps) + 'px';
             drag.pendingStart = newStart;
         } else if (drag.kind === 'trim-left') {
-            let newIn = Math.max(0, Math.min(drag.origOut - 1 / (fps || 30), drag.origIn + dt));
+            const newIn = Math.max(0, Math.min(drag.origOut - 1 / (fps || 30), drag.origIn + dt));
             const newStart = Math.max(0, drag.origStart + (newIn - drag.origIn));
             const width = (drag.origOut - newIn) * pps;
             drag.clipEl.style.left = (newStart * pps) + 'px';
@@ -102,8 +100,7 @@ export function attachInteractions(root, getState, dispatch) {
             drag.pendingIn = newIn;
             drag.pendingStart = newStart;
         } else if (drag.kind === 'trim-right') {
-            const maxOut = drag.assetDur;
-            let newOut = Math.max(drag.origIn + 1 / (fps || 30), Math.min(maxOut, drag.origOut + dt));
+            const newOut = Math.max(drag.origIn + 1 / (fps || 30), Math.min(drag.assetDur, drag.origOut + dt));
             const width = (newOut - drag.origIn) * pps;
             drag.clipEl.style.width = Math.max(2, width) + 'px';
             drag.pendingOut = newOut;
@@ -131,10 +128,7 @@ export function attachInteractions(root, getState, dispatch) {
         if (e.target !== ruler && !e.target.classList.contains('tick') && !e.target.classList.contains('tick-label')) return;
         const t = pxToTime(e.clientX, ruler);
         dispatch(SGT_EVENTS.PLAYHEAD_CHANGED, { time: t });
-        const onMove = (ev) => {
-            const tt = pxToTime(ev.clientX, ruler);
-            dispatch(SGT_EVENTS.PLAYHEAD_CHANGED, { time: tt });
-        };
+        const onMove = (ev) => dispatch(SGT_EVENTS.PLAYHEAD_CHANGED, { time: pxToTime(ev.clientX, ruler) });
         const onUp = () => {
             window.removeEventListener('pointermove', onMove);
             window.removeEventListener('pointerup', onUp);
@@ -147,39 +141,17 @@ export function attachInteractions(root, getState, dispatch) {
         if (e.target === lane) dispatch(SGT_EVENTS.CLIP_SELECTED, { clipId: null });
     }
 
-    function onDragOver(e) {
-        if (Array.from(e.dataTransfer.types || []).includes(ASSET_MIME)) {
-            e.preventDefault();
-            lane.classList.add('drop-target');
-        }
-    }
-
-    function onDragLeave() { lane.classList.remove('drop-target'); }
-
-    function onDrop(e) {
-        const assetId = e.dataTransfer.getData(ASSET_MIME);
-        lane.classList.remove('drop-target');
-        if (!assetId) return;
-        e.preventDefault();
-        const t = pxToTime(e.clientX, lane);
-        dispatch(SGT_EVENTS.CLIP_ADDED, { assetId, timelineStart: t });
-    }
-
+    const disposeDrop = attachDropAffordance(lane, getState, dispatch, pxToTime);
     lane.addEventListener('pointerdown', onLanePointerDown);
     lane.addEventListener('click', onLaneClick);
-    lane.addEventListener('dragover', onDragOver);
-    lane.addEventListener('dragleave', onDragLeave);
-    lane.addEventListener('drop', onDrop);
     ruler.addEventListener('pointerdown', onRulerPointerDown);
     window.addEventListener('pointermove', onPointerMove);
     window.addEventListener('pointerup', onPointerUp);
 
     return () => {
+        disposeDrop();
         lane.removeEventListener('pointerdown', onLanePointerDown);
         lane.removeEventListener('click', onLaneClick);
-        lane.removeEventListener('dragover', onDragOver);
-        lane.removeEventListener('dragleave', onDragLeave);
-        lane.removeEventListener('drop', onDrop);
         ruler.removeEventListener('pointerdown', onRulerPointerDown);
         window.removeEventListener('pointermove', onPointerMove);
         window.removeEventListener('pointerup', onPointerUp);
