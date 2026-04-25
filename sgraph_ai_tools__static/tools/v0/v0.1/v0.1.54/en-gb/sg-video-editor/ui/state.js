@@ -98,8 +98,9 @@ export function createState(initialProject) {
         },
 
         addClip(params) {
-            snapshot();
+            const snap = deepClone(project);
             const id = addClipOp(project, params, genId);
+            history.pushSnapshot(snap);
             withOp({ op: 'addClip', clipId: id, trackId: params.trackId, assetId: params.assetId });
             emit();
             return id;
@@ -113,15 +114,17 @@ export function createState(initialProject) {
         },
 
         trimClip(params) {
-            snapshot();
+            const snap = deepClone(project);
             const { inPoint, outPoint } = trimClipOp(project, params);
+            history.pushSnapshot(snap);
             withOp({ op: 'trimClip', clipId: params.clipId, inPoint, outPoint });
             emit();
         },
 
         moveClip(params) {
-            snapshot();
+            const snap = deepClone(project);
             const { timelineStart } = moveClipOp(project, params);
+            history.pushSnapshot(snap);
             withOp({ op: 'moveClip', clipId: params.clipId, timelineStart });
             emit();
         },

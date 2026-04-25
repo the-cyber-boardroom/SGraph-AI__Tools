@@ -1,6 +1,7 @@
 /** state-clip-ops.js — pure clip-mutation operations on a project. */
 
 import { snapToFps } from '/core/video-composer/v0/v0.1/v0.1.0/composer-schema.js';
+import { assertNoOverlap } from './state-overlap.js';
 
 function badArg(msg) { return Object.assign(new Error(msg), { code: 'invalid-arg' }); }
 
@@ -47,6 +48,7 @@ export function addClipOp(project, params, genId) {
     if (outP <= inP) throw badArg('outPoint must be > inPoint');
     const tStart = snapToFps(Number.isFinite(timelineStart) ? timelineStart : trackEnd(track), fps);
     const id = clipId || genId('c');
+    assertNoOverlap(track, tStart, tStart + (outP - inP), id);
     track.clips.push({ id, assetId, timelineStart: tStart, inPoint: inP, outPoint: outP });
     return id;
 }
@@ -63,6 +65,7 @@ export function trimClipOp(project, { clipId, inPoint, outPoint }) {
     const inP = snapToFps(Math.max(0, Number.isFinite(inPoint) ? inPoint : clip.inPoint), fps);
     const outP = snapToFps(Math.min(maxOut, Number.isFinite(outPoint) ? outPoint : clip.outPoint), fps);
     if (outP <= inP) throw badArg('outPoint must be > inPoint');
+    assertNoOverlap(loc.track, clip.timelineStart, clip.timelineStart + (outP - inP), clipId);
     clip.inPoint = inP;
     clip.outPoint = outP;
     return { inPoint: inP, outPoint: outP };
@@ -73,8 +76,10 @@ export function moveClipOp(project, { clipId, timelineStart }) {
     const loc = findClipLocation(project, clipId);
     if (!loc) throw badArg(`unknown clipId: ${clipId}`);
     const fps = project.project.fps;
+    const clip = loc.track.clips[loc.index];
     const t = snapToFps(Math.max(0, Number(timelineStart) || 0), fps);
-    loc.track.clips[loc.index].timelineStart = t;
+    assertNoOverlap(loc.track, t, t + (clip.outPoint - clip.inPoint), clipId);
+    clip.timelineStart = t;
     return { timelineStart: t };
 }
 
