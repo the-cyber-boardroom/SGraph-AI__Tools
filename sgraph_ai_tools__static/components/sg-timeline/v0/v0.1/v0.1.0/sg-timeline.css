@@ -51,7 +51,23 @@
 }
 
 .zoom-toolbar .split-button {
-    margin-left: 0.4rem;
+    margin-left: 0;
+}
+
+.zoom-toolbar .toolbar-sep {
+    display: inline-block;
+    width: 1px;
+    height: 16px;
+    margin: 0 0.35rem;
+    background: rgba(255, 255, 255, 0.18);
+    flex: 0 0 auto;
+}
+
+.zoom-toolbar .history-buttons {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
+    flex: 0 0 auto;
 }
 
 .zoom-toolbar .zoom-label {
