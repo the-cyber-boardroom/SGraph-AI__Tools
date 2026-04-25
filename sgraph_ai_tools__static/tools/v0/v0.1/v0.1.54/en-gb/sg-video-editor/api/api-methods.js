@@ -1,6 +1,7 @@
 /** api-methods.js — bind state to SgToolApi method implementations. */
 
 import { exportComposerProject } from '/core/video-composer/v0/v0.1/v0.1.0/sg-video-composer.js';
+import { buildTrackMethods } from './api-track-methods.js';
 
 /** Probe a video File for duration/dimensions via a hidden <video> element. */
 async function probeVideoFile(file) {
@@ -159,10 +160,16 @@ export function buildApiMethods({ state, getComposer, setComposer, hostEl }) {
         };
     }
 
+    const trackMethods = buildTrackMethods({ state });
+
     return {
         loadAsset, addClip, trimClip, removeClip, moveClip, splitClip,
         setClipColor, getProject, setProject,
         undo, redo, canUndo, canRedo,
         exportMp4,
+        addTrack: trackMethods.addTrack,
+        removeTrack: trackMethods.removeTrack,
+        moveClipToTrack: trackMethods.moveClipToTrack,
+        reorderTracks: trackMethods.reorderTracks,
     };
 }

@@ -1,58 +1,19 @@
 /** state.js — pure project state container; no DOM. */
 
-import { validateProject, getVideoTracks } from '/core/video-composer/v0/v0.1/v0.1.0/composer-schema.js';
+import { getVideoTracks } from '/core/video-composer/v0/v0.1/v0.1.0/composer-schema.js';
 import { splitClipOp } from './state-split.js';
 import {
     addAssetOp, addClipOp, trimClipOp, moveClipOp, removeClipOp, setClipColorOp,
 } from './state-clip-ops.js';
+import {
+    addTrackOp, removeTrackOp, moveClipToTrackOp, reorderTracksOp,
+} from './state-track-ops.js';
 import { createHistory } from './state-history.js';
+import {
+    createInitialProject, deepClone, validateWrapped, genId,
+} from './state-init.js';
 
-const SCHEMA_VERSION = '0.1.0';
-const DEFAULT_FPS = 30;
-const DEFAULT_W = 1280;
-const DEFAULT_H = 720;
-
-/** Generate a short prefixed id. */
-function genId(prefix) {
-    const rand = (typeof crypto !== 'undefined' && crypto.randomUUID)
-        ? crypto.randomUUID().slice(0, 8)
-        : Math.random().toString(16).slice(2, 10);
-    return `${prefix}_${rand}`;
-}
-
-/** Build a fresh project wrapper matching the documented schema. */
-export function createInitialProject(opts = {}) {
-    return {
-        schemaVersion: SCHEMA_VERSION,
-        project: {
-            id: genId('p'),
-            name: opts.name || 'Untitled',
-            fps: DEFAULT_FPS,
-            width: DEFAULT_W,
-            height: DEFAULT_H,
-            createdAt: Date.now(),
-        },
-        assets: [],
-        tracks: [{ id: 't-video-1', kind: 'video', index: 0, muted: false, clips: [] }],
-        operations: [],
-    };
-}
-
-function deepClone(obj) {
-    if (typeof structuredClone === 'function') return structuredClone(obj);
-    return JSON.parse(JSON.stringify(obj));
-}
-
-function badArg(msg) { return Object.assign(new Error(msg), { code: 'invalid-arg' }); }
-
-/** Validate the inner composer-shaped projection of the wrapped state. */
-function validateWrapped(p) {
-    if (!p || typeof p !== 'object') throw badArg('project must be an object');
-    if (!p.project || typeof p.project !== 'object') throw badArg('project.project must be an object');
-    if (!Array.isArray(p.tracks)) throw badArg('project.tracks must be an array');
-    validateProject({ width: p.project.width, height: p.project.height, tracks: p.tracks });
-    return p;
-}
+export { createInitialProject };
 
 /**
  * Create a state container with mutation helpers; emits 'change' on every
@@ -70,7 +31,6 @@ export function createState(initialProject) {
         target.dispatchEvent(new CustomEvent('change', { detail: { project: deepClone(project) } }));
     }
     function withOp(op) { project.operations.push({ ...op, t: Date.now() }); }
-    /** Capture pre-mutation project (clears redo). */
     function snapshot() { history.pushSnapshot(project); }
 
     return {
@@ -88,7 +48,9 @@ export function createState(initialProject) {
         getAssetRegistry() { return assetRegistry; },
 
         addAsset(params) {
-            if (!(params && params.blob instanceof Blob)) throw badArg('blob must be a Blob');
+            if (!(params && params.blob instanceof Blob)) {
+                throw Object.assign(new Error('blob must be a Blob'), { code: 'invalid-arg' });
+            }
             snapshot();
             const { assetId, assetType } = addAssetOp(project, params);
             assetRegistry.set(assetId, params.blob);
@@ -144,6 +106,42 @@ export function createState(initialProject) {
             emit();
         },
 
+        addTrack(params = {}) {
+            const snap = deepClone(project);
+            const { trackId } = addTrackOp(project, params);
+            history.pushSnapshot(snap);
+            withOp({ op: 'addTrack', trackId, kind: params.kind || 'video' });
+            emit();
+            return { trackId };
+        },
+
+        removeTrack(params) {
+            const snap = deepClone(project);
+            const { trackId } = removeTrackOp(project, params);
+            history.pushSnapshot(snap);
+            withOp({ op: 'removeTrack', trackId });
+            emit();
+            return { trackId };
+        },
+
+        moveClipToTrack(params) {
+            const snap = deepClone(project);
+            const r = moveClipToTrackOp(project, params);
+            history.pushSnapshot(snap);
+            withOp({ op: 'moveClipToTrack', clipId: r.clipId, fromTrackId: r.fromTrackId, toTrackId: r.toTrackId });
+            emit();
+            return r;
+        },
+
+        reorderTracks(params) {
+            const snap = deepClone(project);
+            const r = reorderTracksOp(project, params);
+            history.pushSnapshot(snap);
+            withOp({ op: 'reorderTracks', trackIds: r.trackIds });
+            emit();
+            return r;
+        },
+
         undo() {
             const next = history.undo(project);
             if (!next) return false;
@@ -159,7 +157,6 @@ export function createState(initialProject) {
         canUndo() { return history.canUndo(); },
         canRedo() { return history.canRedo(); },
 
-        /** Project the wrapped state into a composer-shaped project. */
         toComposerProject() {
             return {
                 width: project.project.width,

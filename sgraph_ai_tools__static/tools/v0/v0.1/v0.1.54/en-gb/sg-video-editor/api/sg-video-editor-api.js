@@ -56,6 +56,10 @@ export async function init(manifest) {
             .register('redo',       methods.redo,       { async: false, sanitiseParams: passthrough })
             .register('canUndo',    methods.canUndo,    { async: false, sanitiseParams: passthrough })
             .register('canRedo',    methods.canRedo,    { async: false, sanitiseParams: passthrough })
+            .register('addTrack',        methods.addTrack,        { async: false, sanitiseParams: passthrough })
+            .register('removeTrack',     methods.removeTrack,     { async: false, sanitiseParams: passthrough })
+            .register('moveClipToTrack', methods.moveClipToTrack, { async: false, sanitiseParams: passthrough })
+            .register('reorderTracks',   methods.reorderTracks,   { async: false, sanitiseParams: passthrough })
             .register('exportMp4',  methods.exportMp4,  { async: true,  sanitiseParams: passthrough });
 
         api.activate();
