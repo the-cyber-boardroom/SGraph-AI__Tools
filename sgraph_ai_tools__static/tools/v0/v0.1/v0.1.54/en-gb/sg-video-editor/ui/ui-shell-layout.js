@@ -6,17 +6,19 @@
  */
 export function buildLayoutDescriptor() {
     return {
-        type: 'row', id: 'root', sizes: [0.22, 0.78],
+        type: 'row', id: 'root', sizes: [0.20, 0.58, 0.22],
         children: [
             { type: 'stack', id: 's-assets', activeTab: 0,
               tabs: [{ type: 'tab', id: 't-assets', title: 'Assets', tag: 'div', locked: true, closable: false }] },
-            { type: 'column', id: 'col-right', sizes: [0.7, 0.3],
+            { type: 'column', id: 'col-centre', sizes: [0.7, 0.3],
               children: [
                   { type: 'stack', id: 's-preview', activeTab: 0,
                     tabs: [{ type: 'tab', id: 't-preview', title: 'Preview', tag: 'div', locked: true, closable: false }] },
                   { type: 'stack', id: 's-timeline', activeTab: 0,
                     tabs: [{ type: 'tab', id: 't-timeline', title: 'Timeline', tag: 'div', locked: true, closable: false }] },
               ] },
+            { type: 'stack', id: 's-json', activeTab: 0,
+              tabs: [{ type: 'tab', id: 't-json', title: 'JSON', tag: 'div', locked: true, closable: false }] },
         ],
     };
 }
@@ -25,6 +27,34 @@ function emitErr(step, err) {
     document.dispatchEvent(new CustomEvent('tool:error', {
         detail: { step, message: err && err.message ? err.message : String(err) },
     }));
+}
+
+/**
+ * Resolve the four panel host elements + tag the slots with classes;
+ * inject inner custom elements for preview + timeline.
+ * @param {HTMLElement} layout
+ * @returns {{ assetsPanel: HTMLElement|null, previewPanel: HTMLElement|null, timelinePanel: HTMLElement|null, jsonPanel: HTMLElement|null, previewEl: HTMLElement|null, timelineEl: HTMLElement|null }}
+ */
+export function resolvePanels(layout) {
+    const assetsPanel = layout.getPanelElement('t-assets');
+    const previewPanel = layout.getPanelElement('t-preview');
+    const timelinePanel = layout.getPanelElement('t-timeline');
+    const jsonPanel = layout.getPanelElement('t-json');
+    let previewEl = null;
+    let timelineEl = null;
+    if (assetsPanel) assetsPanel.className = 'sgve-panel-slot';
+    if (previewPanel) {
+        previewPanel.className = 'sgve-panel-slot sgve-preview';
+        previewPanel.innerHTML = '<sg-preview-canvas></sg-preview-canvas>';
+        previewEl = previewPanel.querySelector('sg-preview-canvas');
+    }
+    if (timelinePanel) {
+        timelinePanel.className = 'sgve-panel-slot sgve-timeline';
+        timelinePanel.innerHTML = '<sg-timeline></sg-timeline>';
+        timelineEl = timelinePanel.querySelector('sg-timeline');
+    }
+    if (jsonPanel) jsonPanel.className = 'sgve-panel-slot sgve-json';
+    return { assetsPanel, previewPanel, timelinePanel, jsonPanel, previewEl, timelineEl };
 }
 
 /**
@@ -69,12 +99,19 @@ export function wireTimelineEvents(timelineEl, api, ctx) {
         try { api.splitClip({ clipId: d.clipId, atTime: d.atTime }); }
         catch (err) { emitErr('splitClip', err); }
     }
+    function onColor(e) {
+        const d = e.detail || {};
+        if (!d.clipId) return;
+        try { api.setClipColor({ clipId: d.clipId, color: d.color == null ? null : d.color }); }
+        catch (err) { emitErr('setClipColor', err); }
+    }
     timelineEl.addEventListener('sg-timeline:clip-added', onAdded);
     timelineEl.addEventListener('sg-timeline:clip-moved', onMoved);
     timelineEl.addEventListener('sg-timeline:clip-trimmed', onTrimmed);
     timelineEl.addEventListener('sg-timeline:clip-selected', onSelected);
     timelineEl.addEventListener('sg-timeline:clip-deleted', onDeleted);
     timelineEl.addEventListener('sg-timeline:clip-split', onSplit);
+    timelineEl.addEventListener('sg-timeline:clip-color-requested', onColor);
     timelineEl.addEventListener('sg-timeline:playhead-changed', onPlayhead);
     return () => {
         timelineEl.removeEventListener('sg-timeline:clip-added', onAdded);
@@ -83,6 +120,7 @@ export function wireTimelineEvents(timelineEl, api, ctx) {
         timelineEl.removeEventListener('sg-timeline:clip-selected', onSelected);
         timelineEl.removeEventListener('sg-timeline:clip-deleted', onDeleted);
         timelineEl.removeEventListener('sg-timeline:clip-split', onSplit);
+        timelineEl.removeEventListener('sg-timeline:clip-color-requested', onColor);
         timelineEl.removeEventListener('sg-timeline:playhead-changed', onPlayhead);
     };
 }

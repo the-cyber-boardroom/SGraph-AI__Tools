@@ -19,6 +19,7 @@
             { "module": "sg-layout",            "path": "/core/sg-layout/v0.1.0/sg-layout.js" },
             { "module": "sg-timeline",          "path": "/components/sg-timeline/v0/v0.1/v0.1.0/sg-timeline.js" },
             { "module": "sg-preview-canvas",    "path": "/components/sg-preview-canvas/v0/v0.1/v0.1.0/sg-preview-canvas.js" },
+            { "module": "sg-json-viewer",       "path": "/components/sg-json-viewer/v0/v0.1/v0.1.0/sg-json-viewer.js" },
             { "module": "sg-markdown",          "path": "/core/markdown/v1/v1.0/v1.0.0/sg-markdown.js" },
             { "module": "sg-tool-api-explorer", "path": "/components/tool-api/sg-tool-api-explorer/v0/v0.1/v0.1.0/sg-tool-api-explorer.js" },
             { "module": "sg-tool-api-console",  "path": "/components/tool-api/sg-tool-api-console/v0/v0.1/v0.1.0/sg-tool-api-console.js" },
@@ -31,6 +32,7 @@
             { "phase": 2, "type": "js",  "path": "/core/sg-layout/v0.1.0/sg-layout.js" },
             { "phase": 2, "type": "js",  "path": "/components/sg-timeline/v0/v0.1/v0.1.0/sg-timeline.js" },
             { "phase": 2, "type": "js",  "path": "/components/sg-preview-canvas/v0/v0.1/v0.1.0/sg-preview-canvas.js" },
+            { "phase": 2, "type": "js",  "path": "/components/sg-json-viewer/v0/v0.1/v0.1.0/sg-json-viewer.js" },
             { "phase": 2, "type": "js",  "path": "/components/tool-api/sg-tool-api-explorer/v0/v0.1/v0.1.0/sg-tool-api-explorer.js" },
             { "phase": 2, "type": "js",  "path": "/components/tool-api/sg-tool-api-console/v0/v0.1/v0.1.0/sg-tool-api-console.js" },
             { "phase": 2, "type": "js",  "path": "/components/tool-api/sg-tool-api-manifest/v0/v0.1/v0.1.0/sg-tool-api-manifest.js" },
@@ -47,6 +49,7 @@
             "removeClip":   { "description": "Remove a clip by id from whichever track contains it." },
             "moveClip":     { "description": "Set timelineStart of a clip; snaps to fps." },
             "splitClip":    { "description": "Split a clip at a timeline-time, producing two clips that share the asset." },
+            "setClipColor": { "description": "Set or clear (color=null) a clip's optional color override; inline style overrides the auto-shade." },
             "getProject":   { "description": "Return a defensive deep clone of the current project state." },
             "setProject":   { "description": "Replace the current project state (validated via composer-schema)." },
             "exportMp4":    { "description": "Render the project to an MP4 Blob via the composer; returns blob+meta." }
@@ -59,6 +62,7 @@
             { "name": "sg-timeline:clip-selected",   "when": "user clicks a clip",                      "detail": "{ clipId }" },
             { "name": "sg-timeline:clip-deleted",    "when": "user clicks the clip x or presses Del",   "detail": "{ clipId }" },
             { "name": "sg-timeline:clip-split",      "when": "user presses S with a clip selected",     "detail": "{ clipId, atTime }" },
+            { "name": "sg-timeline:clip-color-requested", "when": "user picks a colour for the selected clip in the timeline toolbar", "detail": "{ clipId, color }" },
             { "name": "sg-timeline:playhead-changed","when": "user scrubs the timeline ruler",          "detail": "{ time }" },
             { "name": "tool:error",                  "when": "any pipeline error",                      "detail": "{ step, message }" }
         ],

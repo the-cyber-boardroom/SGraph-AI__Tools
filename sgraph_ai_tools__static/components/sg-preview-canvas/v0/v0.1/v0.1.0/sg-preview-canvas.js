@@ -15,7 +15,7 @@ export class SgPreviewCanvas extends HTMLElement {
     #composer = null;
     #unwire = null;
     #onPlayhead = null;
-    #onEnded = null;
+    #onState = null;
     #duration = 0;
 
     constructor() {
@@ -82,13 +82,11 @@ export class SgPreviewCanvas extends HTMLElement {
         this.#onPlayhead = (e) => {
             const t = (e && e.detail && Number.isFinite(e.detail.time)) ? e.detail.time : 0;
             this.#updateTime(t, this.#duration);
-            this.#updatePlayIcon();
         };
-        this.#onEnded = () => {
-            this.#updatePlayIcon();
-        };
+        this.#onState = () => { this.#updatePlayIcon(); };
         this.#canvas.addEventListener('composer:playhead-changed', this.#onPlayhead);
-        this.#canvas.addEventListener('composer:ended', this.#onEnded);
+        this.#canvas.addEventListener('composer:state-changed', this.#onState);
+        this.#canvas.addEventListener('composer:ended', this.#onState);
         this.#setEnabled(true);
         this.#updatePlayIcon();
     }
@@ -103,9 +101,10 @@ export class SgPreviewCanvas extends HTMLElement {
             this.#canvas.removeEventListener('composer:playhead-changed', this.#onPlayhead);
             this.#onPlayhead = null;
         }
-        if (this.#onEnded) {
-            this.#canvas.removeEventListener('composer:ended', this.#onEnded);
-            this.#onEnded = null;
+        if (this.#onState) {
+            this.#canvas.removeEventListener('composer:state-changed', this.#onState);
+            this.#canvas.removeEventListener('composer:ended', this.#onState);
+            this.#onState = null;
         }
         this.#composer = null;
         this.#duration = 0;

@@ -84,6 +84,13 @@ export function buildApiMethods({ state, getComposer, setComposer, hostEl }) {
         return { newClipId };
     }
 
+    function setClipColor(params = {}) {
+        const { clipId, color } = params;
+        if (!clipId) throw badArg('clipId required');
+        state.setClipColor({ clipId, color: color == null ? null : color });
+        return { clipId, color: color == null ? null : color };
+    }
+
     function getProject() { return state.getProject(); }
 
     function setProject(params = {}) {
@@ -114,5 +121,8 @@ export function buildApiMethods({ state, getComposer, setComposer, hostEl }) {
         };
     }
 
-    return { loadAsset, addClip, trimClip, removeClip, moveClip, splitClip, getProject, setProject, exportMp4 };
+    return {
+        loadAsset, addClip, trimClip, removeClip, moveClip, splitClip,
+        setClipColor, getProject, setProject, exportMp4,
+    };
 }

@@ -1,8 +1,9 @@
 // timeline-zoom.js — zoom toolbar (- / + / Fit) for sg-timeline (v0.1.0)
 
 import { getProjectDuration } from '../../../../../core/video-composer/v0/v0.1/v0.1.0/composer-schema.js';
+import { mountColorPicker } from './timeline-color-picker.js';
 
-const MIN_PPS = 5;
+const MIN_PPS = 1;
 const MAX_PPS = 480;
 const FIT_PADDING_PX = 8;
 
@@ -72,9 +73,10 @@ function updateLabel(label, pps) {
  *
  * @param {{
  *   root: HTMLElement|ShadowRoot,
- *   getState: () => { project: object|null, pps: number },
+ *   getState: () => { project: object|null, pps: number, selectedClipId?: string|null },
  *   setPixelsPerSecond: (pps: number) => void,
  *   getLane: () => HTMLElement|null,
+ *   dispatch?: (name: string, detail: object) => void,
  * }} cfg
  * @returns {{ dispose: () => void, refresh: () => void, fit: () => void }}
  */
@@ -102,10 +104,14 @@ export function attachZoom(cfg) {
         onZoomIn: () => applyPps(cfg.getState().pps * 2),
         onFit: fit,
     });
+    const picker = cfg.dispatch
+        ? mountColorPicker({ host: bar, getState: cfg.getState, dispatch: cfg.dispatch })
+        : null;
+    if (picker) bar.appendChild(picker.root);
     container.insertBefore(bar, scrollEl);
     updateLabel(label, cfg.getState().pps);
 
-    function refresh() { updateLabel(label, cfg.getState().pps); }
-    function dispose() { if (bar.parentNode) bar.parentNode.removeChild(bar); }
+    function refresh() { updateLabel(label, cfg.getState().pps); if (picker) picker.refresh(); }
+    function dispose() { if (picker) picker.dispose(); if (bar.parentNode) bar.parentNode.removeChild(bar); }
     return { dispose, refresh, fit };
 }
