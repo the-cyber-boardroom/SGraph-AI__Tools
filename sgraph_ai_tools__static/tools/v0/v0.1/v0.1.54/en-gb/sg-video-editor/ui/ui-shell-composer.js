@@ -21,12 +21,16 @@ export function emitErr(step, err) {
 /**
  * Rebuild the composer for the current state. Detaches the old composer
  * from the preview element first; no-ops if there are no clips or no preview.
+ * After attaching the new composer, seeks to `playheadHint` (default 0) so
+ * the canvas paints the current frame immediately rather than waiting for
+ * the user to press play (the scheduler only paints inside the tick loop).
  *
  * @param {{
  *   state: object,
  *   previewEl: HTMLElement|null,
  *   getComposer: () => object|null,
  *   setComposer: (c: object|null) => void,
+ *   playheadHint?: number,
  * }} cfg
  * @returns {void}
  */
@@ -49,5 +53,7 @@ export function rebuildComposer(cfg) {
         });
         cfg.previewEl.attachComposer(c);
         cfg.setComposer(c);
+        const t = Number.isFinite(cfg.playheadHint) ? cfg.playheadHint : 0;
+        try { if (typeof c.seek === 'function') c.seek(t); } catch (_) {}
     } catch (err) { emitErr('composer', err); }
 }
