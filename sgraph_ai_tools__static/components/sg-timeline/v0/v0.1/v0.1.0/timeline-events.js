@@ -12,4 +12,8 @@ export const SGT_EVENTS = Object.freeze({
     CLIP_UNDO_REQUESTED: 'sg-timeline:undo-requested',
     CLIP_REDO_REQUESTED: 'sg-timeline:redo-requested',
     PLAYHEAD_CHANGED: 'sg-timeline:playhead-changed',
+    TRACK_ADD_REQUESTED: 'sg-timeline:track-add-requested',
+    TRACK_REMOVE_REQUESTED: 'sg-timeline:track-remove-requested',
+    TRACK_MUTE_REQUESTED: 'sg-timeline:track-mute-requested',
+    CLIP_TRACK_CHANGED: 'sg-timeline:clip-track-changed',
 });

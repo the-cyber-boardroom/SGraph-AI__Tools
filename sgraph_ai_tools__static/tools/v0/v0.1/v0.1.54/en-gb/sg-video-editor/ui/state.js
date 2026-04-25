@@ -6,7 +6,7 @@ import {
     addAssetOp, addClipOp, trimClipOp, moveClipOp, removeClipOp, setClipColorOp,
 } from './state-clip-ops.js';
 import {
-    addTrackOp, removeTrackOp, moveClipToTrackOp, reorderTracksOp,
+    addTrackOp, removeTrackOp, moveClipToTrackOp, reorderTracksOp, setTrackMutedOp,
 } from './state-track-ops.js';
 import { createHistory } from './state-history.js';
 import {
@@ -133,6 +133,14 @@ export function createState(initialProject) {
             return r;
         },
 
+        setTrackMuted(params) {
+            const snap = deepClone(project);
+            const r = setTrackMutedOp(project, params);
+            history.pushSnapshot(snap);
+            withOp({ op: 'setTrackMuted', trackId: r.trackId, muted: r.muted });
+            emit();
+            return r;
+        },
         reorderTracks(params) {
             const snap = deepClone(project);
             const r = reorderTracksOp(project, params);

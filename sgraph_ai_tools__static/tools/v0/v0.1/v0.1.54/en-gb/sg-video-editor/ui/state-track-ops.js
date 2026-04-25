@@ -88,6 +88,19 @@ export function moveClipToTrackOp(project, { clipId, toTrackId }) {
 }
 
 /**
+ * Set or clear a track's mute flag. Throws if trackId is unknown.
+ * @param {object} project
+ * @param {{ trackId: string, muted: boolean }} params
+ * @returns {{ trackId: string, muted: boolean }}
+ */
+export function setTrackMutedOp(project, { trackId, muted }) {
+    const track = project.tracks.find(t => t && t.id === trackId);
+    if (!track) throw badArg(`unknown trackId: ${trackId}`);
+    track.muted = !!muted;
+    return { trackId, muted: !!muted };
+}
+
+/**
  * Reorder the project's video tracks (bottom-up) to match `trackIds`.
  * The set of ids must match exactly the existing video-track ids.
  * @param {object} project

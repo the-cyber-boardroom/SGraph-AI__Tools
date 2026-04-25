@@ -36,5 +36,13 @@ export function buildTrackMethods({ state }) {
         return { trackIds: r.trackIds };
     }
 
-    return { addTrack, removeTrack, moveClipToTrack, reorderTracks };
+    function setTrackMuted(params = {}) {
+        const { trackId, muted } = params;
+        if (!trackId) throw badArg('trackId required');
+        if (typeof muted !== 'boolean') throw badArg('muted must be boolean');
+        const r = state.setTrackMuted({ trackId, muted });
+        return { trackId: r.trackId, muted: r.muted };
+    }
+
+    return { addTrack, removeTrack, moveClipToTrack, reorderTracks, setTrackMuted };
 }

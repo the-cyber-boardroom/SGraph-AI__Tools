@@ -5,6 +5,7 @@ import { mountColorPicker } from './timeline-color-picker.js';
 import { mountSplitButton } from './timeline-split-button.js';
 import { buildToolbar, findScrollViewport, updateLabel } from './timeline-toolbar-dom.js';
 import { mountHistoryButtons, buildToolbarSeparator } from './timeline-history-buttons.js';
+import { mountAddTrackButton } from './timeline-track-buttons.js';
 import { SGT_EVENTS } from './timeline-events.js';
 
 const MIN_PPS = 1;
@@ -91,6 +92,11 @@ export function attachZoom(cfg) {
         : null;
     if (split) bar.appendChild(split.root);
     if (split) bar.appendChild(buildToolbarSeparator());
+    const addTrack = cfg.dispatch
+        ? mountAddTrackButton({ dispatch: cfg.dispatch })
+        : null;
+    if (addTrack) bar.appendChild(addTrack.root);
+    if (addTrack) bar.appendChild(buildToolbarSeparator());
     const picker = cfg.dispatch
         ? mountColorPicker({ host: bar, getState: cfg.getState, dispatch: cfg.dispatch })
         : null;
@@ -117,6 +123,7 @@ export function attachZoom(cfg) {
             hostEl.removeEventListener(SGT_EVENTS.CLIP_SELECTED, onHostEvt);
         }
         if (split) split.dispose();
+        if (addTrack) addTrack.dispose();
         if (picker) picker.dispose();
         if (history) history.dispose();
         if (bar.parentNode) bar.parentNode.removeChild(bar);
