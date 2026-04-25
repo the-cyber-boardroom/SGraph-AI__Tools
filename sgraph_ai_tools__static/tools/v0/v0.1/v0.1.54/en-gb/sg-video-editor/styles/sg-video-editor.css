@@ -104,9 +104,12 @@
 }
 
 .sgve-asset-row {
-    display: flex;
-    flex-direction: column;
-    gap: 0.1rem;
+    display: grid;
+    grid-template-columns: 48px 1fr;
+    grid-template-rows: auto auto;
+    column-gap: 0.5rem;
+    row-gap: 0.1rem;
+    align-items: center;
     padding: 0.4rem 0.5rem;
     border: 1px solid var(--sg-border, #1f2937);
     border-radius: 4px;
@@ -115,6 +118,32 @@
 }
 
 .sgve-asset-row:active { cursor: grabbing; }
+
+.sgve-asset-thumb {
+    grid-row: span 2;
+    width: 48px;
+    height: 27px;
+    background: #000;
+    border-radius: 2px;
+    overflow: hidden;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.sgve-asset-thumb img {
+    max-width: 100%;
+    max-height: 100%;
+    object-fit: contain;
+    display: block;
+}
+
+.sgve-asset-thumb[data-kind="video"]::after {
+    content: 'vid';
+    font-size: 0.6rem;
+    color: var(--sg-text-muted, #94a3b8);
+    letter-spacing: 0.05em;
+}
 
 .sgve-asset-meta {
     font-size: 0.75rem;

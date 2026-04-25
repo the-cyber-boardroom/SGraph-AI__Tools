@@ -8,8 +8,11 @@ import {
     getProjectDuration,
     getVideoTracks,
     findActiveClip,
+    getAssetById,
+    isImageAsset,
 } from './composer-schema.js';
 import { createScheduler } from './composer-scheduler.js';
+import { createImageRegistry } from './composer-images.js';
 
 /**
  * Create a playback handle for a project.
@@ -25,6 +28,8 @@ export function createPlayback({ project, assets, canvas, fps }) {
 
     for (const clip of (videoTrack?.clips ?? [])) {
         if (videos.has(clip.assetId)) continue;
+        const asset = getAssetById(project, clip.assetId);
+        if (isImageAsset(asset)) continue;
         const blob = assets.get(clip.assetId);
         if (!blob) continue;
         const url = URL.createObjectURL(blob);
@@ -36,6 +41,8 @@ export function createPlayback({ project, assets, canvas, fps }) {
         videos.set(clip.assetId, v);
         urls.set(clip.assetId, url);
     }
+
+    const imageReg = createImageRegistry(project.assets || [], assets);
 
     let playhead = 0;
     let playing = false;
@@ -51,7 +58,9 @@ export function createPlayback({ project, assets, canvas, fps }) {
         setTime: (t) => { playhead = t; },
         getDuration: () => duration,
         getTrack: () => videoTrack,
+        getProject: () => project,
         getVideos: () => videos,
+        getImage: (id) => imageReg.getImage(id),
         ctx, canvas, emit,
     });
 
@@ -81,7 +90,8 @@ export function createPlayback({ project, assets, canvas, fps }) {
         const snapped = snapToFps(Math.max(0, Math.min(t, duration || 0)), fps);
         playhead = snapped;
         const clip = videoTrack ? findActiveClip(videoTrack, snapped) : null;
-        if (clip) {
+        const asset = clip ? getAssetById(project, clip.assetId) : null;
+        if (clip && !isImageAsset(asset)) {
             const v = videos.get(clip.assetId);
             if (v) {
                 const local = clip.inPoint + (snapped - clip.timelineStart);
@@ -108,6 +118,7 @@ export function createPlayback({ project, assets, canvas, fps }) {
         for (const url of urls.values()) URL.revokeObjectURL(url);
         videos.clear();
         urls.clear();
+        imageReg.destroy();
     }
 
     return {

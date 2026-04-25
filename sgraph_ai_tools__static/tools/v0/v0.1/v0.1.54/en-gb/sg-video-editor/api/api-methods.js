@@ -22,7 +22,26 @@ async function probeVideoFile(file) {
     });
 }
 
+/** Probe an image File for naturalWidth/naturalHeight via a hidden <img>. */
+async function probeImageFile(file) {
+    return new Promise((resolve, reject) => {
+        const url = URL.createObjectURL(file);
+        const img = new Image();
+        const cleanup = () => { try { URL.revokeObjectURL(url); } catch (_) {} };
+        img.onload = () => {
+            const out = { width: img.naturalWidth, height: img.naturalHeight };
+            cleanup();
+            resolve(out);
+        };
+        img.onerror = () => { cleanup(); reject(new Error('failed to load image metadata')); };
+        img.src = url;
+    });
+}
+
 function badArg(msg) { return Object.assign(new Error(msg), { code: 'invalid-arg' }); }
+function unsupportedMime(mime) {
+    return Object.assign(new Error(`unsupported mime: ${mime || 'unknown'}`), { code: 'unsupported-mime' });
+}
 
 /** Build the 8 API methods bound to the given state container. */
 export function buildApiMethods({ state, getComposer, setComposer, hostEl }) {
@@ -31,19 +50,25 @@ export function buildApiMethods({ state, getComposer, setComposer, hostEl }) {
     async function loadAsset(params = {}) {
         const file = params && params.file;
         if (!(file instanceof Blob)) throw badArg('file must be a File/Blob');
-        const { duration, width, height } = await probeVideoFile(file);
+        const mime = file.type || '';
         const assetId = `a_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 8)}`;
-        state.addAsset({
-            assetId,
-            name: file.name || 'asset',
-            mime: file.type || 'video/mp4',
-            duration,
-            width,
-            height,
-            bytes: file.size,
-            blob: file,
-        });
-        return { assetId, duration, width, height, bytes: file.size };
+        if (mime.startsWith('image/')) {
+            const { width, height } = await probeImageFile(file);
+            state.addAsset({
+                assetId, name: file.name || 'asset', mime,
+                width, height, bytes: file.size, blob: file, assetType: 'image',
+            });
+            return { assetId, assetType: 'image', width, height, bytes: file.size };
+        }
+        if (mime.startsWith('video/') || !mime) {
+            const { duration, width, height } = await probeVideoFile(file);
+            state.addAsset({
+                assetId, name: file.name || 'asset', mime: mime || 'video/mp4',
+                duration, width, height, bytes: file.size, blob: file, assetType: 'video',
+            });
+            return { assetId, assetType: 'video', duration, width, height, bytes: file.size };
+        }
+        throw unsupportedMime(mime);
     }
 
     function addClip(params = {}) {

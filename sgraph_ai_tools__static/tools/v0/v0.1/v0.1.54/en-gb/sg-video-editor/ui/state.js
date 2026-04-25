@@ -80,13 +80,18 @@ export function createState(initialProject) {
 
         getAssetRegistry() { return assetRegistry; },
 
-        addAsset({ assetId, name, mime, duration, width, height, bytes, blob }) {
+        addAsset({ assetId, name, mime, duration, width, height, bytes, blob, assetType }) {
             if (!assetId || typeof assetId !== 'string') throw badArg('assetId required');
             if (!(blob instanceof Blob)) throw badArg('blob must be a Blob');
-            if (!Number.isFinite(duration) || duration <= 0) throw badArg('duration must be > 0');
-            project.assets.push({ id: assetId, name, mime, duration, width, height, bytes });
+            const kind = assetType === 'image' ? 'image' : 'video';
+            if (kind === 'video' && (!Number.isFinite(duration) || duration <= 0)) {
+                throw badArg('duration must be > 0');
+            }
+            const entry = { id: assetId, name, mime, width, height, bytes, assetType: kind };
+            if (Number.isFinite(duration)) entry.duration = duration;
+            project.assets.push(entry);
             assetRegistry.set(assetId, blob);
-            withOp({ op: 'addAsset', assetId });
+            withOp({ op: 'addAsset', assetId, assetType: kind });
             emit();
             return assetId;
         },

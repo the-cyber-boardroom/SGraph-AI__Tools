@@ -1,7 +1,10 @@
-// timeline-zoom.js — zoom toolbar (- / + / Fit) for sg-timeline (v0.1.0)
+// timeline-zoom.js — zoom toolbar (- / + / Fit / Split) for sg-timeline (v0.1.0)
 
 import { getProjectDuration } from '../../../../../core/video-composer/v0/v0.1/v0.1.0/composer-schema.js';
 import { mountColorPicker } from './timeline-color-picker.js';
+import { mountSplitButton } from './timeline-split-button.js';
+import { buildToolbar, findScrollViewport, updateLabel } from './timeline-toolbar-dom.js';
+import { SGT_EVENTS } from './timeline-events.js';
 
 const MIN_PPS = 1;
 const MAX_PPS = 480;
@@ -20,7 +23,7 @@ function clampPps(pps) {
 /**
  * Compute the fit-to-view pps for the current project + visible width.
  * @param {object|null} project
- * @param {number} visibleWidth Lane clientWidth.
+ * @param {number} visibleWidth Scroll-viewport clientWidth.
  * @returns {number} 0 if not computable (no project / no width).
  */
 export function computeFitPps(project, visibleWidth) {
@@ -33,47 +36,12 @@ export function computeFitPps(project, visibleWidth) {
 }
 
 /**
- * Build the toolbar DOM (returns the container; caller decides where to mount).
- * @param {{ onZoomOut: () => void, onZoomIn: () => void, onFit: () => void }} handlers
- * @returns {{ root: HTMLElement, label: HTMLElement }}
- */
-function buildToolbar(handlers) {
-    const root = document.createElement('div');
-    root.className = 'zoom-toolbar';
-    const mkBtn = (text, title, fn) => {
-        const b = document.createElement('button');
-        b.type = 'button';
-        b.textContent = text;
-        b.title = title;
-        b.addEventListener('click', (e) => { e.preventDefault(); fn(); });
-        return b;
-    };
-    root.appendChild(mkBtn('-', 'Zoom out', handlers.onZoomOut));
-    root.appendChild(mkBtn('+', 'Zoom in', handlers.onZoomIn));
-    root.appendChild(mkBtn('Fit', 'Fit project to view', handlers.onFit));
-    const label = document.createElement('span');
-    label.className = 'zoom-label';
-    root.appendChild(label);
-    return { root, label };
-}
-
-/**
- * Update the read-only zoom label.
- * @param {HTMLElement} label
- * @param {number} pps
- * @returns {void}
- */
-function updateLabel(label, pps) {
-    label.textContent = `${Math.round(pps)} px/s`;
-}
-
-/**
  * Attach the zoom toolbar to the timeline root. Inserts the toolbar element as
  * the first child of the root container so it sits above the ruler.
  *
  * @param {{
  *   root: HTMLElement|ShadowRoot,
- *   getState: () => { project: object|null, pps: number, selectedClipId?: string|null },
+ *   getState: () => { project: object|null, pps: number, fps?: number, playhead?: number, selectedClipId?: string|null },
  *   setPixelsPerSecond: (pps: number) => void,
  *   getLane: () => HTMLElement|null,
  *   dispatch?: (name: string, detail: object) => void,
@@ -93,7 +61,9 @@ export function attachZoom(cfg) {
 
     function fit() {
         const lane = cfg.getLane();
-        const width = lane ? lane.clientWidth : 0;
+        if (!lane) return;
+        const viewport = findScrollViewport(lane);
+        const width = viewport ? viewport.clientWidth : 0;
         const next = computeFitPps(cfg.getState().project, width);
         if (!next) return;
         applyPps(next);
@@ -104,6 +74,10 @@ export function attachZoom(cfg) {
         onZoomIn: () => applyPps(cfg.getState().pps * 2),
         onFit: fit,
     });
+    const split = cfg.dispatch
+        ? mountSplitButton({ getState: cfg.getState, dispatch: cfg.dispatch })
+        : null;
+    if (split) bar.appendChild(split.root);
     const picker = cfg.dispatch
         ? mountColorPicker({ host: bar, getState: cfg.getState, dispatch: cfg.dispatch })
         : null;
@@ -111,7 +85,26 @@ export function attachZoom(cfg) {
     container.insertBefore(bar, scrollEl);
     updateLabel(label, cfg.getState().pps);
 
-    function refresh() { updateLabel(label, cfg.getState().pps); if (picker) picker.refresh(); }
-    function dispose() { if (picker) picker.dispose(); if (bar.parentNode) bar.parentNode.removeChild(bar); }
+    const hostEl = cfg.root && cfg.root.host ? cfg.root.host : null;
+    const onHostEvt = () => { if (split) split.refresh(); };
+    if (hostEl && split) {
+        hostEl.addEventListener(SGT_EVENTS.PLAYHEAD_CHANGED, onHostEvt);
+        hostEl.addEventListener(SGT_EVENTS.CLIP_SELECTED, onHostEvt);
+    }
+
+    function refresh() {
+        updateLabel(label, cfg.getState().pps);
+        if (picker) picker.refresh();
+        if (split) split.refresh();
+    }
+    function dispose() {
+        if (hostEl && split) {
+            hostEl.removeEventListener(SGT_EVENTS.PLAYHEAD_CHANGED, onHostEvt);
+            hostEl.removeEventListener(SGT_EVENTS.CLIP_SELECTED, onHostEvt);
+        }
+        if (split) split.dispose();
+        if (picker) picker.dispose();
+        if (bar.parentNode) bar.parentNode.removeChild(bar);
+    }
     return { dispose, refresh, fit };
 }

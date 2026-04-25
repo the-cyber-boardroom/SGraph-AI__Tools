@@ -81,6 +81,7 @@ export function mountColorPicker(cfg) {
     btn.type = 'button';
     btn.className = 'color-picker__btn';
     btn.title = 'Clip colour';
+    btn.setAttribute('aria-label', 'Choose clip colour');
     const dot = document.createElement('span');
     dot.className = 'color-picker__dot';
     btn.appendChild(dot);

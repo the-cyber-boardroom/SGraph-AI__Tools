@@ -29,6 +29,8 @@ export function findTrack(p, trackId) { return p.tracks.find(t => t.id === track
 /** Find an asset by id. */
 export function findAsset(p, assetId) { return p.assets.find(a => a.id === assetId) || null; }
 
+const DEFAULT_IMAGE_DURATION_SEC = 5;
+
 /** Append a new clip referencing an existing asset. Returns its id. */
 export function addClipOp(project, params, genId) {
     const { trackId, assetId, timelineStart, inPoint, outPoint, clipId } = params;
@@ -37,8 +39,11 @@ export function addClipOp(project, params, genId) {
     const asset = findAsset(project, assetId);
     if (!asset) throw badArg(`unknown assetId: ${assetId}`);
     const fps = project.project.fps;
-    const inP = snapToFps(Number.isFinite(inPoint) ? inPoint : 0, fps);
-    const outP = snapToFps(Number.isFinite(outPoint) ? outPoint : asset.duration, fps);
+    const isImage = asset.assetType === 'image';
+    const defaultIn = 0;
+    const defaultOut = isImage ? DEFAULT_IMAGE_DURATION_SEC : asset.duration;
+    const inP = snapToFps(Number.isFinite(inPoint) ? inPoint : defaultIn, fps);
+    const outP = snapToFps(Number.isFinite(outPoint) ? outPoint : defaultOut, fps);
     if (outP <= inP) throw badArg('outPoint must be > inPoint');
     const tStart = snapToFps(Number.isFinite(timelineStart) ? timelineStart : trackEnd(track), fps);
     const id = clipId || genId('c');
@@ -53,7 +58,8 @@ export function trimClipOp(project, { clipId, inPoint, outPoint }) {
     const clip = loc.track.clips[loc.index];
     const asset = findAsset(project, clip.assetId);
     const fps = project.project.fps;
-    const maxOut = asset ? asset.duration : Infinity;
+    const isImage = asset && asset.assetType === 'image';
+    const maxOut = (asset && Number.isFinite(asset.duration) && !isImage) ? asset.duration : Infinity;
     const inP = snapToFps(Math.max(0, Number.isFinite(inPoint) ? inPoint : clip.inPoint), fps);
     const outP = snapToFps(Math.min(maxOut, Number.isFinite(outPoint) ? outPoint : clip.outPoint), fps);
     if (outP <= inP) throw badArg('outPoint must be > inPoint');

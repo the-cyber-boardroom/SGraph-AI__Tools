@@ -77,6 +77,26 @@ export function findActiveClip(track, timelineTime) {
 }
 
 /**
+ * Look up an asset by id within a project.
+ * @param {{ assets?: Array<{ id: string }> }} project
+ * @param {string} assetId
+ * @returns {object|undefined}
+ */
+export function getAssetById(project, assetId) {
+    if (!project || !Array.isArray(project.assets)) return undefined;
+    return project.assets.find(a => a && a.id === assetId);
+}
+
+/**
+ * Determine whether an asset entry represents an image.
+ * @param {{ assetType?: string }|null|undefined} asset
+ * @returns {boolean}
+ */
+export function isImageAsset(asset) {
+    return asset?.assetType === 'image';
+}
+
+/**
  * Filter project tracks to only video tracks.
  * @param {{ tracks: Array<{ kind: string }> }} project
  * @returns {Array<object>}
