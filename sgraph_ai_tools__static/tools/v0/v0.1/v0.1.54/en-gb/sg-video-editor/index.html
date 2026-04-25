@@ -6,6 +6,8 @@
     <title>SG Video Editor — tools.sgraph.ai</title>
     <meta name="description" content="Multi-clip video editor with timeline, preview, and MP4 export. Browser-only.">
 
+    <link rel="stylesheet" href="/core/sg-layout/v0.1.0/sg-layout.css">
+
     <script type="module" src="https://dev.sgraph.ai/_common/js/components/sg-site-header/v1/v1.0/v1.0.6/sg-site-header.js"></script>
     <script type="module">
         import { loadManifest } from '/core/manifest-loader/v0/v0.1/v0.1.0/manifest-loader.js';
@@ -20,13 +22,19 @@
             overflow: hidden;
         }
         body { display: flex; flex-direction: column; }
+        sg-site-header { flex-shrink: 0; }
+        #sg-video-editor-root { flex: 1; min-height: 0; display: flex; flex-direction: column; overflow: hidden; }
     </style>
 </head>
 <body>
-    <sg-site-header site="Tools">
+    <sg-site-header
+        site="Tools"
+        active-nav="Tools"
+        home-url="/en-gb/"
+        nav-items='[{"label":"How it Works","href":"https://sgraph.ai/en-gb/how-it-works/"},{"label":"Vaults","href":"https://sgraph.ai/en-gb/vaults/"},{"label":"Security","href":"https://sgraph.ai/en-gb/security/"},{"label":"Tools","href":"/en-gb/"},{"label":"Pricing","href":"https://sgraph.ai/en-gb/pricing/"}]'>
         <div slot="locale" id="locale-picker"></div>
     </sg-site-header>
 
-    <div id="sg-video-editor-root" style="flex:1;overflow:hidden;display:flex;flex-direction:column;"></div>
+    <div id="sg-video-editor-root"></div>
 </body>
 </html>

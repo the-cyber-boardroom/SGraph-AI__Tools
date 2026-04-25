@@ -97,11 +97,11 @@ export function createState(initialProject) {
 
         getAssetRegistry() { return assetRegistry; },
 
-        addAsset({ assetId, name, mime, duration, width, height, blob }) {
+        addAsset({ assetId, name, mime, duration, width, height, bytes, blob }) {
             if (!assetId || typeof assetId !== 'string') throw badArg('assetId required');
             if (!(blob instanceof Blob)) throw badArg('blob must be a Blob');
             if (!Number.isFinite(duration) || duration <= 0) throw badArg('duration must be > 0');
-            project.assets.push({ id: assetId, name, mime, duration, width, height });
+            project.assets.push({ id: assetId, name, mime, duration, width, height, bytes });
             assetRegistry.set(assetId, blob);
             withOp({ op: 'addAsset', assetId });
             emit();
