@@ -2,7 +2,7 @@
 
 import { getProjectDuration } from '../../../../../core/video-composer/v0/v0.1/v0.1.0/composer-schema.js';
 
-const MIN_PPS = 5;
+const MIN_PPS = 1;
 const MAX_PPS = 480;
 const FIT_PADDING_PX = 8;
 

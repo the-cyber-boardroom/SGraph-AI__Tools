@@ -51,8 +51,10 @@ export function wireTransport(els, composer) {
     const onBack = () => composer.seek(0);
     const onFwd = () => composer.seek(composer.getDuration());
     const onPlay = () => {
-        if (composer.isPlaying()) composer.pause();
+        const wasPlaying = composer.isPlaying();
+        if (wasPlaying) composer.pause();
         else composer.play();
+        els.play.textContent = wasPlaying ? '▶' : '⏸';
     };
     els.back.addEventListener('click', onBack);
     els.fwd.addEventListener('click', onFwd);
