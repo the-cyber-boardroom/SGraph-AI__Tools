@@ -1,9 +1,5 @@
 // timeline-drop.js — drag/drop affordances for sg-timeline lanes (v0.1.0)
 
-import {
-    getTrackDuration,
-    getVideoTracks,
-} from '../../../../../core/video-composer/v0/v0.1/v0.1.0/composer-schema.js';
 import { SGT_EVENTS } from './timeline-events.js';
 import { findLaneAtY } from './timeline-lane-finder.js';
 
@@ -12,20 +8,6 @@ const ASSET_MIME = 'application/x-sg-asset';
 /** Whether a DataTransfer carries the SG asset MIME. */
 function hasAssetMime(dt) {
     return !!dt && Array.from(dt.types || []).includes(ASSET_MIME);
-}
-
-/**
- * Compute the X position (px) at which a new clip would be appended on a given track.
- * @param {object|null} project
- * @param {string|null} trackId
- * @param {number} pps
- * @returns {number}
- */
-function endOfTrackPx(project, trackId, pps) {
-    if (!project || !trackId) return 0;
-    const track = getVideoTracks(project).find(t => t && t.id === trackId);
-    const dur = track ? getTrackDuration(track) : 0;
-    return dur * (pps || 0);
 }
 
 /** Find or create the absolutely-positioned drop indicator inside a lane. */
@@ -51,9 +33,9 @@ function hideAll(lanesEl) {
 }
 
 /**
- * Attach drag-over / drop affordances + emit clip-added on drop. Highlights
- * the per-lane element under the pointer; on drop the event detail carries
- * the lane's `data-track-id` so the shell knows which track to add to.
+ * Attach drag-over / drop affordances + emit clip-added on drop. The drop
+ * indicator follows the pointer X (snapped to fps) and the drop dispatches
+ * the same pointer-derived `timelineStart` so the visual cue matches reality.
  *
  * @param {HTMLElement} lanesEl Container of all .lane elements.
  * @param {() => {project: object|null, pps: number, fps: number}} getState
@@ -64,13 +46,18 @@ function hideAll(lanesEl) {
 export function attachDropAffordance(lanesEl, getState, dispatch, pxToTime) {
     let depth = 0;
 
-    function showOn(lane) {
+    function pointerPx(lane, clientX) {
+        const t = pxToTime(clientX, lane);
+        const { pps } = getState();
+        return Math.max(0, t * (pps || 0));
+    }
+
+    function showOn(lane, clientX) {
         hideAll(lanesEl);
         lane.classList.add('drop-target');
         lane.classList.add('is-drop-active');
         const ind = ensureDropIndicator(lane);
-        const { project, pps } = getState();
-        ind.style.left = endOfTrackPx(project, lane.dataset.trackId, pps) + 'px';
+        ind.style.left = pointerPx(lane, clientX) + 'px';
         ind.classList.add('is-visible');
     }
 
@@ -79,7 +66,7 @@ export function attachDropAffordance(lanesEl, getState, dispatch, pxToTime) {
         e.preventDefault();
         depth += 1;
         const lane = findLaneAtY(lanesEl, e.clientY);
-        if (lane) showOn(lane);
+        if (lane) showOn(lane, e.clientX);
     }
 
     function onDragOver(e) {
@@ -88,7 +75,7 @@ export function attachDropAffordance(lanesEl, getState, dispatch, pxToTime) {
         if (e.dataTransfer) e.dataTransfer.dropEffect = 'copy';
         if (depth === 0) depth = 1;
         const lane = findLaneAtY(lanesEl, e.clientY);
-        if (lane) showOn(lane);
+        if (lane) showOn(lane, e.clientX);
     }
 
     function onDragLeave(e) {

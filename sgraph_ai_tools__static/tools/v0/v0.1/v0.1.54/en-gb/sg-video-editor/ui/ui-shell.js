@@ -47,10 +47,17 @@ export function mountShell({ host, state, api, getComposer, setComposer }) {
     let onCanvasPlayhead = null, devPanel = null, jsonPane = null, overlayWire = null;
 
     function schedulePushActive() {
-        if (!overlayWire || activePending) return;
+        if (!overlayWire) return;
+        if (typeof overlayWire.pushActive === 'function') overlayWire.pushActive();
+        if (activePending) return;
         activePending = setTimeout(() => { activePending = null; overlayWire.pushActive(); }, 100);
     }
-    function rebuild() { rebuildComposer({ state, previewEl, getComposer, setComposer }); }
+    function rebuild() {
+        rebuildComposer({
+            state, previewEl, getComposer, setComposer,
+            playheadHint: ctx.currentPlayhead,
+        });
+    }
     function syncHistoryFlags() {
         if (timelineEl && typeof timelineEl.setHistoryFlags === 'function') {
             timelineEl.setHistoryFlags({ canUndo: state.canUndo(), canRedo: state.canRedo() });
