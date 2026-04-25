@@ -1,6 +1,8 @@
 /** state-clip-ops.js — pure clip-mutation operations on a project. */
 
-import { snapToFps } from '/core/video-composer/v0/v0.1/v0.1.0/composer-schema.js';
+import {
+    snapToFps, clampTransform, clampCrop,
+} from '/core/video-composer/v0/v0.1/v0.1.0/composer-schema.js';
 import { assertNoOverlap } from './state-overlap.js';
 
 function badArg(msg) { return Object.assign(new Error(msg), { code: 'invalid-arg' }); }
@@ -92,6 +94,30 @@ export function setClipColorOp(project, { clipId, color }) {
     if (color == null || color === '') delete clip.color;
     else clip.color = color;
     return { clipId, color: color == null ? null : color };
+}
+
+/** Apply or clear a clip's per-frame transform (x/y centre + scale; 0..1). */
+export function setClipTransformOp(project, { clipId, transform }) {
+    const loc = findClipLocation(project, clipId);
+    if (!loc) throw badArg(`unknown clipId: ${clipId}`);
+    const clip = loc.track.clips[loc.index];
+    if (transform == null) { delete clip.transform; return { clipId, transform: null }; }
+    if (typeof transform !== 'object') throw badArg('transform must be an object or null');
+    const next = clampTransform(transform);
+    clip.transform = next;
+    return { clipId, transform: { ...next } };
+}
+
+/** Apply or clear a clip's per-frame source crop (x/y/w/h; 0..1). */
+export function setClipCropOp(project, { clipId, crop }) {
+    const loc = findClipLocation(project, clipId);
+    if (!loc) throw badArg(`unknown clipId: ${clipId}`);
+    const clip = loc.track.clips[loc.index];
+    if (crop == null) { delete clip.crop; return { clipId, crop: null }; }
+    if (typeof crop !== 'object') throw badArg('crop must be an object or null');
+    const next = clampCrop(crop);
+    clip.crop = next;
+    return { clipId, crop: { ...next } };
 }
 
 /** Remove a clip by id. */

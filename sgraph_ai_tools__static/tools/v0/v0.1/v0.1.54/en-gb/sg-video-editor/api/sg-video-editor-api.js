@@ -50,6 +50,8 @@ export async function init(manifest) {
             .register('moveClip',   methods.moveClip,   { async: false, sanitiseParams: passthrough })
             .register('splitClip',    methods.splitClip,    { async: false, sanitiseParams: passthrough })
             .register('setClipColor', methods.setClipColor, { async: false, sanitiseParams: passthrough })
+            .register('setClipTransform', methods.setClipTransform, { async: false, sanitiseParams: passthrough })
+            .register('setClipCrop',      methods.setClipCrop,      { async: false, sanitiseParams: passthrough })
             .register('getProject', methods.getProject, { async: false, sanitiseParams: passthrough })
             .register('setProject', methods.setProject, { async: false, sanitiseParams: projectSanitiser })
             .register('undo',       methods.undo,       { async: false, sanitiseParams: passthrough })

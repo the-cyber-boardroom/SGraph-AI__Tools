@@ -2,42 +2,7 @@
 
 import { exportComposerProject } from '/core/video-composer/v0/v0.1/v0.1.0/sg-video-composer.js';
 import { buildTrackMethods } from './api-track-methods.js';
-
-/** Probe a video File for duration/dimensions via a hidden <video> element. */
-async function probeVideoFile(file) {
-    return new Promise((resolve, reject) => {
-        const url = URL.createObjectURL(file);
-        const v = document.createElement('video');
-        v.preload = 'metadata';
-        v.muted = true;
-        const cleanup = () => { URL.revokeObjectURL(url); v.src = ''; };
-        const onLoaded = () => {
-            const out = { duration: v.duration, width: v.videoWidth, height: v.videoHeight };
-            cleanup();
-            resolve(out);
-        };
-        const onError = () => { cleanup(); reject(new Error('failed to load video metadata')); };
-        v.addEventListener('loadedmetadata', onLoaded, { once: true });
-        v.addEventListener('error', onError, { once: true });
-        v.src = url;
-    });
-}
-
-/** Probe an image File for naturalWidth/naturalHeight via a hidden <img>. */
-async function probeImageFile(file) {
-    return new Promise((resolve, reject) => {
-        const url = URL.createObjectURL(file);
-        const img = new Image();
-        const cleanup = () => { try { URL.revokeObjectURL(url); } catch (_) {} };
-        img.onload = () => {
-            const out = { width: img.naturalWidth, height: img.naturalHeight };
-            cleanup();
-            resolve(out);
-        };
-        img.onerror = () => { cleanup(); reject(new Error('failed to load image metadata')); };
-        img.src = url;
-    });
-}
+import { probeVideoFile, probeImageFile } from './api-probe.js';
 
 function badArg(msg) { return Object.assign(new Error(msg), { code: 'invalid-arg' }); }
 function unsupportedMime(mime) {
@@ -117,6 +82,20 @@ export function buildApiMethods({ state, getComposer, setComposer, hostEl }) {
         return { clipId, color: color == null ? null : color };
     }
 
+    function setClipTransform(params = {}) {
+        const { clipId, transform } = params;
+        if (!clipId) throw badArg('clipId required');
+        const r = state.setClipTransform({ clipId, transform: transform == null ? null : transform });
+        return { clipId: r.clipId, transform: r.transform };
+    }
+
+    function setClipCrop(params = {}) {
+        const { clipId, crop } = params;
+        if (!clipId) throw badArg('clipId required');
+        const r = state.setClipCrop({ clipId, crop: crop == null ? null : crop });
+        return { clipId: r.clipId, crop: r.crop };
+    }
+
     function getProject() { return state.getProject(); }
 
     function setProject(params = {}) {
@@ -164,7 +143,8 @@ export function buildApiMethods({ state, getComposer, setComposer, hostEl }) {
 
     return {
         loadAsset, addClip, trimClip, removeClip, moveClip, splitClip,
-        setClipColor, getProject, setProject,
+        setClipColor, setClipTransform, setClipCrop,
+        getProject, setProject,
         undo, redo, canUndo, canRedo,
         exportMp4,
         addTrack: trackMethods.addTrack,
