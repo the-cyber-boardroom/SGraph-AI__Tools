@@ -81,6 +81,7 @@ class SgYouTubeVideoEditor extends SgComponent {
         this._headIdEl     = this.$('#head-id');
         this._watchLinkEl  = this.$('#watch-link');
         this._studioLinkEl = this.$('#studio-link');
+        this._downloadLinkEl = this.$('#download-link');
         this._thumbEl      = this.$('#thumb');
         this._privacyBadge = this.$('#privacy-badge');
         this._titleInput   = this.$('#title-input');
@@ -286,6 +287,10 @@ class SgYouTubeVideoEditor extends SgComponent {
             this._studioLinkEl.hidden = false;
             this._studioLinkEl.href   = `https://studio.youtube.com/video/${v.id}/edit`;
             this._studioLinkEl.textContent = 'Open in Studio ↗';
+        }
+        if (this._downloadLinkEl) {
+            this._downloadLinkEl.hidden = false;
+            this._downloadLinkEl.href   = `https://studio.youtube.com/video/${v.id}/edit`;
         }
         if (this._previewToggle) this._previewToggle.hidden = false;
 
