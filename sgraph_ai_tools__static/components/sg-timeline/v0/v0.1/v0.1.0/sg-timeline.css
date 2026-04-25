@@ -86,6 +86,7 @@
     background: #1f2937;
     border-bottom: 1px solid #374151;
     cursor: pointer;
+    margin-left: 96px;
 }
 
 .tick {
@@ -124,7 +125,9 @@
 
 .lane {
     position: absolute;
-    inset: 0;
+    top: 0;
+    bottom: 0;
+    left: 96px;
     background: #0b1220;
 }
 
