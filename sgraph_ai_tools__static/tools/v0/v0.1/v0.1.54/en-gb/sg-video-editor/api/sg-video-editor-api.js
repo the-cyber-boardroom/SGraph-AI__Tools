@@ -62,6 +62,7 @@ export async function init(manifest) {
             .register('removeTrack',     methods.removeTrack,     { async: false, sanitiseParams: passthrough })
             .register('moveClipToTrack', methods.moveClipToTrack, { async: false, sanitiseParams: passthrough })
             .register('reorderTracks',   methods.reorderTracks,   { async: false, sanitiseParams: passthrough })
+            .register('setTrackMuted',   methods.setTrackMuted,   { async: false, sanitiseParams: passthrough })
             .register('exportMp4',  methods.exportMp4,  { async: true,  sanitiseParams: passthrough });
 
         api.activate();
