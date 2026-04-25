@@ -1,0 +1,32 @@
+<!DOCTYPE html>
+<html lang="en-GB">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SG Video Editor — tools.sgraph.ai</title>
+    <meta name="description" content="Multi-clip video editor with timeline, preview, and MP4 export. Browser-only.">
+
+    <script type="module" src="https://dev.sgraph.ai/_common/js/components/sg-site-header/v1/v1.0/v1.0.6/sg-site-header.js"></script>
+    <script type="module">
+        import { loadManifest } from '/core/manifest-loader/v0/v0.1/v0.1.0/manifest-loader.js';
+        await loadManifest('./manifest.json');
+    </script>
+
+    <style>
+        html, body {
+            margin: 0; padding: 0; height: 100%;
+            background: #0a0a18; color: #e2e8f0;
+            font-family: system-ui, sans-serif;
+            overflow: hidden;
+        }
+        body { display: flex; flex-direction: column; }
+    </style>
+</head>
+<body>
+    <sg-site-header site="Tools">
+        <div slot="locale" id="locale-picker"></div>
+    </sg-site-header>
+
+    <div id="sg-video-editor-root" style="flex:1;overflow:hidden;display:flex;flex-direction:column;"></div>
+</body>
+</html>
