@@ -1,6 +1,7 @@
-// sg-preview-canvas.js — canvas + transport bar component (v0.1.0)
+// sg-preview-canvas.js — canvas + transport bar + transform/crop overlay (v0.1.0)
 
 import { buildTransport, wireTransport, fmtMmss } from './preview-transport.js';
+import { mountOverlay } from './preview-overlay.js';
 
 const CSS_HREF = new URL('./sg-preview-canvas.css', import.meta.url).href;
 const DEFAULT_W = 1280;
@@ -11,12 +12,16 @@ export class SgPreviewCanvas extends HTMLElement {
 
     #canvas = null;
     #transportEl = null;
+    #holderEl = null;
     #els = null;
     #composer = null;
     #unwire = null;
     #onPlayhead = null;
     #onState = null;
     #duration = 0;
+    #overlay = null;
+    #editorMode = 'select';
+    #activeClip = null;
 
     constructor() {
         super();
@@ -32,6 +37,7 @@ export class SgPreviewCanvas extends HTMLElement {
         `;
         this.#canvas = sr.querySelector('canvas');
         this.#transportEl = sr.querySelector('.transport');
+        this.#holderEl = sr.querySelector('.canvas-holder');
         const w = parseInt(this.getAttribute('width') || '', 10);
         const h = parseInt(this.getAttribute('height') || '', 10);
         this.setSize(Number.isFinite(w) && w > 0 ? w : DEFAULT_W,
@@ -41,6 +47,17 @@ export class SgPreviewCanvas extends HTMLElement {
         this.#setEnabled(false);
     }
 
+    connectedCallback() {
+        if (this.#overlay) return;
+        this.#overlay = mountOverlay({
+            parent: this.#holderEl,
+            host: this,
+            getCanvas: () => this.#canvas,
+            getMode: () => this.#editorMode,
+            getActive: () => this.#activeClip,
+        });
+    }
+
     attributeChangedCallback(name, _old, val) {
         const n = parseInt(val, 10);
         if (!Number.isFinite(n) || n <= 0) return;
@@ -48,7 +65,10 @@ export class SgPreviewCanvas extends HTMLElement {
         else if (name === 'height') this.setSize(this.#canvas.width, n);
     }
 
-    disconnectedCallback() { this.detachComposer(); }
+    disconnectedCallback() {
+        this.detachComposer();
+        if (this.#overlay) { try { this.#overlay.destroy(); } catch (_) {} this.#overlay = null; }
+    }
 
     /**
      * Get the inner canvas element.
@@ -65,11 +85,46 @@ export class SgPreviewCanvas extends HTMLElement {
     setSize(w, h) {
         if (Number.isFinite(w) && w > 0) this.#canvas.width = w;
         if (Number.isFinite(h) && h > 0) this.#canvas.height = h;
+        if (this.#overlay) this.#overlay.refresh();
+    }
+
+    /** Alias of `setSize` for caller clarity. */
+    setCanvasSize(w, h) { this.setSize(w, h); }
+
+    /**
+     * Switch the on-canvas overlay mode.
+     * @param {'select'|'move'|'crop'} mode
+     */
+    setEditorMode(mode) {
+        const next = (mode === 'move' || mode === 'crop') ? mode : 'select';
+        this.#editorMode = next;
+        if (this.#overlay) this.#overlay.refresh();
+    }
+
+    /**
+     * Set (or clear) the clip whose handles the overlay should render.
+     * @param {{clipId: string, transform?: object, crop?: object, srcWidth: number, srcHeight: number}|null} info
+     */
+    setActiveClip(info) {
+        if (!info || !info.clipId
+                  || !Number.isFinite(info.srcWidth) || !Number.isFinite(info.srcHeight)
+                  || info.srcWidth <= 0 || info.srcHeight <= 0) {
+            this.#activeClip = null;
+        } else {
+            this.#activeClip = {
+                clipId: info.clipId,
+                transform: info.transform || null,
+                crop: info.crop || null,
+                srcWidth: info.srcWidth,
+                srcHeight: info.srcHeight,
+            };
+        }
+        if (this.#overlay) this.#overlay.refresh();
     }
 
     /**
      * Attach a composer handle (from createComposer).
-     * @param {{play:Function,pause:Function,seek:Function,getCurrentTime:Function,getDuration:Function,isPlaying:Function,destroy:Function}} composer
+     * @param {object} composer
      * @returns {void}
      */
     attachComposer(composer) {
