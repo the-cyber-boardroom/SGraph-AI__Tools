@@ -1,0 +1,62 @@
+{
+    "id": "sg-video-editor",
+    "name": "SG Video Editor",
+    "slug": "sg-video-editor",
+    "description": "Multi-clip video editor with timeline, preview, and MP4 export.",
+    "icon": "▣",
+    "version": "0.1.0",
+    "status": "alpha",
+    "category": "Media",
+    "keywords": ["video", "editor", "timeline", "mp4", "export", "browser"],
+    "dependencies": {
+        "core": [
+            { "module": "sg-tool-api",        "path": "/core/sg-tool-api/v0/v0.1/v0.1.0/sg-tool-api.js" },
+            { "module": "sg-video-composer",  "path": "/core/video-composer/v0/v0.1/v0.1.0/sg-video-composer.js" },
+            { "module": "manifest-loader",    "path": "/core/manifest-loader/v0/v0.1/v0.1.0/manifest-loader.js" }
+        ],
+        "shared": [
+            { "module": "sg-site-header",     "path": "/components/site-header/v1/v1.0/v1.0.0/sg-site-header.js" },
+            { "module": "sg-timeline",        "path": "/components/sg-timeline/v0/v0.1/v0.1.0/sg-timeline.js" },
+            { "module": "sg-preview-canvas",  "path": "/components/sg-preview-canvas/v0/v0.1/v0.1.0/sg-preview-canvas.js" }
+        ],
+        "loader": [
+            { "phase": 1, "type": "css", "path": "./styles/sg-video-editor.css" },
+            { "phase": 2, "type": "js",  "path": "/components/sg-timeline/v0/v0.1/v0.1.0/sg-timeline.js" },
+            { "phase": 2, "type": "js",  "path": "/components/sg-preview-canvas/v0/v0.1/v0.1.0/sg-preview-canvas.js" },
+            { "phase": 3, "type": "js",  "entry": true, "path": "./api/sg-video-editor-api.js" }
+        ]
+    },
+    "api": {
+        "version": "0.1.0",
+        "note": "window.__tool live after tool:ready. Holds project state in-memory; assets stored as Blobs in an internal AssetRegistry. No network calls, no localStorage. Composer + MediaRecorder do MP4 export client-side.",
+        "actions": {
+            "loadAsset":    { "description": "Probe a File for duration/dimensions, register it as an asset, return assetId." },
+            "addClip":      { "description": "Append a clip referencing an asset to a track at a given timeline start." },
+            "trimClip":     { "description": "Update inPoint/outPoint of a clip; clamps to asset duration and snaps to fps." },
+            "removeClip":   { "description": "Remove a clip by id from whichever track contains it." },
+            "moveClip":     { "description": "Set timelineStart of a clip; snaps to fps." },
+            "getProject":   { "description": "Return a defensive deep clone of the current project state." },
+            "setProject":   { "description": "Replace the current project state (validated via composer-schema)." },
+            "exportMp4":    { "description": "Render the project to an MP4 Blob via the composer; returns blob+meta." }
+        },
+        "events": [
+            { "name": "tool:ready",                  "when": "activate() called",                       "detail": "{ instanceId, tool, version }" },
+            { "name": "sg-timeline:clip-added",      "when": "user drops a clip onto the timeline",     "detail": "{ trackId, assetId, timelineStart }" },
+            { "name": "sg-timeline:clip-moved",      "when": "user drags a clip on the timeline",       "detail": "{ clipId, timelineStart }" },
+            { "name": "sg-timeline:clip-trimmed",    "when": "user drags a clip edge",                  "detail": "{ clipId, inPoint, outPoint }" },
+            { "name": "sg-timeline:clip-selected",   "when": "user clicks a clip",                      "detail": "{ clipId }" },
+            { "name": "sg-timeline:playhead-changed","when": "user scrubs the timeline ruler",          "detail": "{ time }" },
+            { "name": "tool:error",                  "when": "any pipeline error",                      "detail": "{ step, message }" }
+        ],
+        "skills": {
+            "human":   "./skills/SKILL__human.md",
+            "browser": "./skills/SKILL__browser.md",
+            "api":     "./skills/SKILL__api.md"
+        }
+    },
+    "skills": {
+        "human":   "./skills/SKILL__human.md",
+        "browser": "./skills/SKILL__browser.md",
+        "api":     "./skills/SKILL__api.md"
+    }
+}
