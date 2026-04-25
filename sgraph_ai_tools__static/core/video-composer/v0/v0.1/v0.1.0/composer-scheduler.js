@@ -80,7 +80,6 @@ export function renderActiveClip(cfg) {
 export function createScheduler(cfg) {
     let raf = 0;
     let lastWall = 0;
-    let lastEmittedSec = -1;
 
     function paintAt(t) {
         const track = cfg.getTrack();
@@ -118,18 +117,13 @@ export function createScheduler(cfg) {
             return;
         }
         cfg.setTime(t);
-        const sec = Math.floor(t);
-        if (sec !== lastEmittedSec) {
-            lastEmittedSec = sec;
-            cfg.emit('composer:playhead-changed', { time: t });
-        }
+        cfg.emit('composer:playhead-changed', { time: t });
         raf = requestAnimationFrame(tick);
     }
 
     function start() {
         if (raf) return;
         lastWall = 0;
-        lastEmittedSec = -1;
         raf = requestAnimationFrame(tick);
     }
     function stop() {

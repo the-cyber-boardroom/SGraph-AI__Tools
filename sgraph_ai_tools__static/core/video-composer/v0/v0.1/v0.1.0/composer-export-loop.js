@@ -85,7 +85,9 @@ export function createExportLoop(cfg) {
         const local = activeVideo.currentTime;
         const tl = activeClip.timelineStart + (local - activeClip.inPoint);
         progress(tl, 'recording');
-        if (local >= activeClip.outPoint - 1e-3 || tl >= total - 1e-3) { clipEnd(); return; }
+        // 50ms tolerance covers fps-rounding so we don't wait for an
+        // exact match that may never arrive on the last frame.
+        if (local >= activeClip.outPoint - 0.05 || tl >= total - 0.05 || activeVideo.ended) { clipEnd(); return; }
         scheduleVideoFrame();
     }
 
@@ -98,8 +100,17 @@ export function createExportLoop(cfg) {
         }
     }
 
+    function onActiveVideoEnded() {
+        debug('video-ended', { clipId: activeClip && activeClip.id });
+        clipEnd();
+    }
+
     function setActive(clip) {
-        if (activeVideo) { try { activeVideo.pause(); } catch (_) {} audio.disconnect(activeVideo); }
+        if (activeVideo) {
+            try { activeVideo.pause(); } catch (_) {}
+            try { activeVideo.removeEventListener('ended', onActiveVideoEnded); } catch (_) {}
+            audio.disconnect(activeVideo);
+        }
         if (imageRaf) { cancelAnimationFrame(imageRaf); imageRaf = 0; }
         activeClip = clip;
         const asset = clip ? getAssetById(project, clip.assetId) : null;
@@ -114,6 +125,10 @@ export function createExportLoop(cfg) {
         if (!activeVideo) { paintBlack(ctx, canvas); progress(clip ? clip.timelineStart : 0, 'recording'); return; }
         try { activeVideo.currentTime = clip.inPoint; } catch (_) {}
         audio.connect(activeVideo);
+        // Catch the case where outPoint is at/past the source duration — the
+        // browser caps currentTime at video.duration, so the local-time check
+        // in drawVideo can never trigger. The native 'ended' event fires once.
+        activeVideo.addEventListener('ended', onActiveVideoEnded, { once: true });
         activeVideo.play().then(scheduleVideoFrame).catch((e) => {
             debug('video-play-error', { clipId: clip.id, message: e && e.message });
             // Fall back to rAF tick so the recorder still gets canvas frames for this clip.
