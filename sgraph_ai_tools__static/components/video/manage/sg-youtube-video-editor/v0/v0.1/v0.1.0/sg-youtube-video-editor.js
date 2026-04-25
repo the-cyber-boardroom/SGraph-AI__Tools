@@ -43,6 +43,20 @@ class SgYouTubeVideoEditor extends SgComponent {
         this._original = null;        // pristine snapshot for Reset
         this._thumbBlob = null;
         this._dangerEl.hidden = !this.hasAttribute('allow-delete');
+
+        // Replay any setVideoSummary / loadVideo calls that arrived before
+        // bindElements() ran (the lifecycle is async — callers may set state
+        // immediately after appendChild).
+        if (this._pendingSummary) {
+            const v = this._pendingSummary;
+            this._pendingSummary = null;
+            this.setVideoSummary(v);
+        }
+        if (this._pendingLoadId) {
+            const id = this._pendingLoadId;
+            this._pendingLoadId = null;
+            this.loadVideo(id);
+        }
     }
 
     bindElements() {
@@ -93,6 +107,11 @@ class SgYouTubeVideoEditor extends SgComponent {
      */
     setVideoSummary(v) {
         if (!v?.id) return;
+        if (!this._headTitleEl) {
+            // bindElements() hasn't run yet — queue for replay in onReady()
+            this._pendingSummary = v;
+            return;
+        }
         this._headTitleEl.textContent = v.title || '';
         this._headIdEl.textContent    = v.id;
         if (v.thumbnailUrl) this._thumbEl.src = v.thumbnailUrl;
@@ -104,8 +123,13 @@ class SgYouTubeVideoEditor extends SgComponent {
 
     /** Fetch and populate the form. */
     async loadVideo(videoId) {
+        if (!videoId) { this._setError('load', 'No video id.'); return; }
+        if (!this._statusEl) {
+            // bindElements() hasn't run yet — queue for replay in onReady()
+            this._pendingLoadId = videoId;
+            return;
+        }
         if (!this._api)  { this._setError('load', 'Not signed in.'); return; }
-        if (!videoId)    { this._setError('load', 'No video id.');   return; }
         this._clearError();
         this._setStatus('Loading…');
         try {
