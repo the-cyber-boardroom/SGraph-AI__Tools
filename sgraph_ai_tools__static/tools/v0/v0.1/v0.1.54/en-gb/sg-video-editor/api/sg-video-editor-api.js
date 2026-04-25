@@ -38,7 +38,7 @@ export async function init(manifest) {
             name: 'sg-video-editor',
             version: { api: '0.1.0', ui: '0.1.0', content: '0.1.0' },
             panelId: 'main',
-            manifest: manifest || './manifest.json',
+            manifest: './manifest.json',
             skills: (manifest && manifest.skills) || {},
         });
 

@@ -67,18 +67,18 @@ export function resolvePanels(layout) {
 export function wireTimelineEvents(timelineEl, api, ctx) {
     function onAdded(e) {
         const d = e.detail || {};
-        try { api.addClip({ trackId: d.trackId || 't-video-1', assetId: d.assetId, timelineStart: d.timelineStart }); }
-        catch (err) { emitErr('addClip', err); }
+        Promise.resolve(api.addClip({ trackId: d.trackId || 't-video-1', assetId: d.assetId, timelineStart: d.timelineStart }))
+            .catch(err => emitErr('addClip', err));
     }
     function onMoved(e) {
         const d = e.detail || {};
-        try { api.moveClip({ clipId: d.clipId, timelineStart: d.timelineStart }); }
-        catch (err) { emitErr('moveClip', err); }
+        Promise.resolve(api.moveClip({ clipId: d.clipId, timelineStart: d.timelineStart }))
+            .catch(err => emitErr('moveClip', err));
     }
     function onTrimmed(e) {
         const d = e.detail || {};
-        try { api.trimClip({ clipId: d.clipId, inPoint: d.inPoint, outPoint: d.outPoint }); }
-        catch (err) { emitErr('trimClip', err); }
+        Promise.resolve(api.trimClip({ clipId: d.clipId, inPoint: d.inPoint, outPoint: d.outPoint }))
+            .catch(err => emitErr('trimClip', err));
     }
     function onSelected(e) { ctx.selectedClipId = (e.detail && e.detail.clipId) || null; }
     function onPlayhead(e) {
@@ -90,26 +90,26 @@ export function wireTimelineEvents(timelineEl, api, ctx) {
     function onDeleted(e) {
         const d = e.detail || {};
         if (!d.clipId) return;
-        try { api.removeClip({ clipId: d.clipId }); }
-        catch (err) { emitErr('removeClip', err); }
+        Promise.resolve(api.removeClip({ clipId: d.clipId }))
+            .catch(err => emitErr('removeClip', err));
     }
     function onSplit(e) {
         const d = e.detail || {};
         if (!d.clipId || !Number.isFinite(d.atTime)) return;
-        try { api.splitClip({ clipId: d.clipId, atTime: d.atTime }); }
-        catch (err) { emitErr('splitClip', err); }
+        Promise.resolve(api.splitClip({ clipId: d.clipId, atTime: d.atTime }))
+            .catch(err => emitErr('splitClip', err));
     }
     function onColor(e) {
         const d = e.detail || {};
         if (!d.clipId) return;
-        try { api.setClipColor({ clipId: d.clipId, color: d.color == null ? null : d.color }); }
-        catch (err) { emitErr('setClipColor', err); }
+        Promise.resolve(api.setClipColor({ clipId: d.clipId, color: d.color == null ? null : d.color }))
+            .catch(err => emitErr('setClipColor', err));
     }
     function onUndo() {
-        try { api.undo(); } catch (err) { emitErr('undo', err); }
+        Promise.resolve(api.undo()).catch(err => emitErr('undo', err));
     }
     function onRedo() {
-        try { api.redo(); } catch (err) { emitErr('redo', err); }
+        Promise.resolve(api.redo()).catch(err => emitErr('redo', err));
     }
     timelineEl.addEventListener('sg-timeline:clip-added', onAdded);
     timelineEl.addEventListener('sg-timeline:clip-moved', onMoved);
