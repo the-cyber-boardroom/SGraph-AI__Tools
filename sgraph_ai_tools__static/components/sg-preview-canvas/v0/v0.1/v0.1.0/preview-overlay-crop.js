@@ -158,10 +158,14 @@ export function mountCropOverlay(cfg) {
         window.removeEventListener('pointerup', onUp);
         window.removeEventListener('pointercancel', onUp);
         drag = null;
+        place(els, cfg.getCanvas(), cfg.getActive());
     }
     const els = buildDom(cfg.layer, onDown);
     return {
-        refresh() { place(els, cfg.getCanvas(), cfg.getActive()); },
+        refresh() {
+            if (drag) return;
+            place(els, cfg.getCanvas(), cfg.getActive());
+        },
         destroy() {
             els.mask.remove(); els.box.remove();
             for (const k of Object.keys(els.handles)) els.handles[k].remove();

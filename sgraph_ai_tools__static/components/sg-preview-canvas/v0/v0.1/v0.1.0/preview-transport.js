@@ -65,3 +65,25 @@ export function wireTransport(els, composer) {
         els.play.removeEventListener('click', onPlay);
     };
 }
+
+/**
+ * Update the time-readout span.
+ * @param {{time: HTMLElement}} els
+ * @param {number} cur
+ * @param {number} dur
+ */
+export function updateTime(els, cur, dur) {
+    if (els && els.time) els.time.textContent = `${fmtMmss(cur)} / ${fmtMmss(dur)}`;
+}
+
+/**
+ * Set enable/disable on the three transport buttons together.
+ * @param {{back: HTMLButtonElement, play: HTMLButtonElement, fwd: HTMLButtonElement}} els
+ * @param {boolean} enabled
+ */
+export function setTransportEnabled(els, enabled) {
+    if (!els) return;
+    els.back.disabled = !enabled;
+    els.play.disabled = !enabled;
+    els.fwd.disabled = !enabled;
+}

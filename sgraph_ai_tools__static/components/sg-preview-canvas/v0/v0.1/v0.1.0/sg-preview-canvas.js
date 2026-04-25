@@ -1,6 +1,6 @@
 // sg-preview-canvas.js — canvas + transport bar + transform/crop overlay (v0.1.0)
 
-import { buildTransport, wireTransport, fmtMmss } from './preview-transport.js';
+import { buildTransport, wireTransport, updateTime, setTransportEnabled } from './preview-transport.js';
 import { mountOverlay } from './preview-overlay.js';
 
 const CSS_HREF = new URL('./sg-preview-canvas.css', import.meta.url).href;
@@ -43,8 +43,8 @@ export class SgPreviewCanvas extends HTMLElement {
         this.setSize(Number.isFinite(w) && w > 0 ? w : DEFAULT_W,
                      Number.isFinite(h) && h > 0 ? h : DEFAULT_H);
         this.#els = buildTransport(this.#transportEl);
-        this.#updateTime(0, 0);
-        this.#setEnabled(false);
+        updateTime(this.#els, 0, 0);
+        setTransportEnabled(this.#els, false);
     }
 
     connectedCallback() {
@@ -133,16 +133,16 @@ export class SgPreviewCanvas extends HTMLElement {
         this.#composer = composer;
         this.#unwire = wireTransport(this.#els, composer);
         this.#duration = composer.getDuration ? composer.getDuration() : 0;
-        this.#updateTime(composer.getCurrentTime ? composer.getCurrentTime() : 0, this.#duration);
+        updateTime(this.#els, composer.getCurrentTime ? composer.getCurrentTime() : 0, this.#duration);
         this.#onPlayhead = (e) => {
             const t = (e && e.detail && Number.isFinite(e.detail.time)) ? e.detail.time : 0;
-            this.#updateTime(t, this.#duration);
+            updateTime(this.#els, t, this.#duration);
         };
         this.#onState = () => { this.#updatePlayIcon(); };
         this.#canvas.addEventListener('composer:playhead-changed', this.#onPlayhead);
         this.#canvas.addEventListener('composer:state-changed', this.#onState);
         this.#canvas.addEventListener('composer:ended', this.#onState);
-        this.#setEnabled(true);
+        setTransportEnabled(this.#els, true);
         this.#updatePlayIcon();
     }
 
@@ -163,25 +163,14 @@ export class SgPreviewCanvas extends HTMLElement {
         }
         this.#composer = null;
         this.#duration = 0;
-        this.#updateTime(0, 0);
-        this.#setEnabled(false);
+        updateTime(this.#els, 0, 0);
+        setTransportEnabled(this.#els, false);
         if (this.#els) this.#els.play.textContent = '▶';
-    }
-
-    #updateTime(cur, dur) {
-        if (this.#els) this.#els.time.textContent = `${fmtMmss(cur)} / ${fmtMmss(dur)}`;
     }
 
     #updatePlayIcon() {
         if (!this.#composer || !this.#els) return;
         this.#els.play.textContent = this.#composer.isPlaying() ? '⏸' : '▶';
-    }
-
-    #setEnabled(enabled) {
-        if (!this.#els) return;
-        this.#els.back.disabled = !enabled;
-        this.#els.play.disabled = !enabled;
-        this.#els.fwd.disabled = !enabled;
     }
 }
 
