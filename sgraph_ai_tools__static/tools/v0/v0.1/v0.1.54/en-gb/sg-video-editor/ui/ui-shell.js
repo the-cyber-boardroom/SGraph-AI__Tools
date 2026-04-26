@@ -97,6 +97,8 @@ export function mountShell({ host, state, api, getComposer, setComposer }) {
         assetPanel = mountAssetPanel({
             host: assetsPanel,
             state,
+            api,
+            getPlayhead: () => ctx.currentPlayhead,
             onFilesPicked: async (files) => {
                 for (const file of files) {
                     try { await api.loadAsset({ file }); }

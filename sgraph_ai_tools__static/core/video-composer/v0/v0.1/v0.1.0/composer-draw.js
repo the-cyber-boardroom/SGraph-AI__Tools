@@ -122,6 +122,58 @@ export function paintImage(ctx, canvas, img, transform, crop) {
 }
 
 /**
+ * Paint a shape clip (currently rectangles only) honouring per-clip transform.
+ * Reuses `computeClipDestRect` with the shape's intrinsic w/h so position +
+ * scale behave identically to asset clips. Crop is intentionally ignored —
+ * shapes already define their bounds via fill colour.
+ *
+ * @param {CanvasRenderingContext2D} ctx
+ * @param {HTMLCanvasElement} canvas
+ * @param {{shape: {type: string, fill: string, w: number, h: number}}} clip
+ * @param {{x: number, y: number, scale: number}} [transform]
+ * @returns {void}
+ */
+export function paintShape(ctx, canvas, clip, transform) {
+    const shape = clip && clip.shape;
+    if (!shape || !shape.w || !shape.h) return;
+    const r = computeClipDestRect(canvas.width, canvas.height, shape.w, shape.h, transform, undefined);
+    if (shape.type !== 'rect') return;
+    try {
+        ctx.save();
+        ctx.fillStyle = shape.fill || '#000000';
+        ctx.fillRect(r.dx, r.dy, r.drawW, r.drawH);
+        ctx.restore();
+    } catch (_) { /* ignore — invalid colour or context lost */ }
+}
+
+/**
+ * Paint a single-line text clip centred inside its `(text.w, text.h)` rect,
+ * honouring per-clip transform. The font size scales with the rect so text
+ * grows / shrinks when the user resizes via the move overlay.
+ *
+ * @param {CanvasRenderingContext2D} ctx
+ * @param {HTMLCanvasElement} canvas
+ * @param {{text: {content: string, color: string, fontSize: number, fontFamily?: string, w: number, h: number}}} clip
+ * @param {{x: number, y: number, scale: number}} [transform]
+ * @returns {void}
+ */
+export function paintText(ctx, canvas, clip, transform) {
+    const text = clip && clip.text;
+    if (!text || !text.w || !text.h) return;
+    const r = computeClipDestRect(canvas.width, canvas.height, text.w, text.h, transform, undefined);
+    try {
+        ctx.save();
+        const px = Math.max(1, (text.fontSize || 64) * (r.drawW / text.w));
+        ctx.fillStyle = text.color || '#ffffff';
+        ctx.font = `${px}px ${text.fontFamily || 'system-ui, sans-serif'}`;
+        ctx.textBaseline = 'middle';
+        ctx.textAlign = 'center';
+        ctx.fillText(String(text.content || ''), r.dx + r.drawW / 2, r.dy + r.drawH / 2);
+        ctx.restore();
+    } catch (_) { /* ignore — invalid font / colour */ }
+}
+
+/**
  * Pause every video element except `keep`.
  * @param {Map<string, HTMLVideoElement>} videos
  * @param {HTMLVideoElement|null} keep

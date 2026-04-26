@@ -9,6 +9,13 @@ export {
     clampTransform, clampCrop,
 } from './composer-clip-fields.js';
 
+export {
+    isAssetClip, isShapeClip, isTextClip,
+    getClipKind, getClipIntrinsicDims,
+    defaultShape, defaultText, defaultClipDuration,
+    clampShape, clampText,
+} from './composer-clip-kinds.js';
+
 /**
  * Snap a time to the nearest frame boundary.
  * @param {number} t Time in seconds.
@@ -139,7 +146,10 @@ export function findTopmostActiveAudioClip(project, t) {
     for (let i = videoTracks.length - 1; i >= 0; i--) {
         const track = videoTracks[i];
         const clip = findActiveClip(track, t);
-        if (clip) return track.muted ? null : { track, clip };
+        // Shape/text clips have no audio — fall through to the next layer so
+        // a graphic on top doesn't silence the video below.
+        if (!clip || clip.kind === 'shape' || clip.kind === 'text') continue;
+        return track.muted ? null : { track, clip };
     }
     return null;
 }
@@ -160,7 +170,18 @@ export function validateProject(project) {
         if (!Array.isArray(track.clips)) throw new Error('track.clips must be an array');
         for (const clip of track.clips) {
             if (!clip || typeof clip !== 'object') throw new Error('clip must be an object');
-            if (typeof clip.assetId !== 'string') throw new Error('clip.assetId must be a string');
+            const hasAsset = typeof clip.assetId === 'string';
+            const isShape = clip.kind === 'shape';
+            const isText  = clip.kind === 'text';
+            if (!hasAsset && !isShape && !isText) {
+                throw new Error('clip must have assetId or kind=shape|text');
+            }
+            if (isShape && (!clip.shape || typeof clip.shape !== 'object')) {
+                throw new Error('shape clip must carry a shape object');
+            }
+            if (isText && (!clip.text || typeof clip.text !== 'object')) {
+                throw new Error('text clip must carry a text object');
+            }
             if (!Number.isFinite(clip.timelineStart)) throw new Error('clip.timelineStart must be a number');
             if (!Number.isFinite(clip.inPoint)) throw new Error('clip.inPoint must be a number');
             if (!Number.isFinite(clip.outPoint)) throw new Error('clip.outPoint must be a number');

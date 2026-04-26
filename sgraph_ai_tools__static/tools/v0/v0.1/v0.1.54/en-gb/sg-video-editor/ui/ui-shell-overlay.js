@@ -2,9 +2,9 @@
 
 import {
     findActiveClipsPerTrack,
-    getAssetById,
     getClipTransform,
     getClipCrop,
+    getClipIntrinsicDims,
 } from '/core/video-composer/v0/v0.1/v0.1.0/composer-schema.js';
 
 function emitErr(step, err) {
@@ -33,16 +33,14 @@ export function resolveActiveClip(flatProject, selectedClipId, playhead) {
         if (clip && clip.id === selectedClipId) { active = clip; break; }
     }
     if (!active) return null;
-    const asset = getAssetById(flatProject, active.assetId);
-    const w = asset && Number.isFinite(asset.width) ? asset.width : 0;
-    const h = asset && Number.isFinite(asset.height) ? asset.height : 0;
-    if (!w || !h) return null;
+    const dims = getClipIntrinsicDims(active, flatProject);
+    if (!dims || !dims.w || !dims.h) return null;
     return {
         clipId: active.id,
         transform: getClipTransform(active),
         crop: getClipCrop(active),
-        srcWidth: w,
-        srcHeight: h,
+        srcWidth: dims.w,
+        srcHeight: dims.h,
     };
 }
 

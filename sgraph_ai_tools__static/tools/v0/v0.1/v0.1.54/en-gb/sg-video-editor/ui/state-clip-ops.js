@@ -2,6 +2,8 @@
 
 import {
     snapToFps, clampTransform, clampCrop,
+    clampShape, clampText, defaultClipDuration,
+    isShapeClip, isTextClip,
 } from '/core/video-composer/v0/v0.1/v0.1.0/composer-schema.js';
 import { assertNoOverlap } from './state-overlap.js';
 
@@ -118,6 +120,62 @@ export function setClipCropOp(project, { clipId, crop }) {
     const next = clampCrop(crop);
     clip.crop = next;
     return { clipId, crop: { ...next } };
+}
+
+/** Append a shape clip (no asset). Returns its id. */
+export function addShapeClipOp(project, params, genId) {
+    const { trackId, timelineStart, duration, clipId, shape } = params;
+    const track = findTrack(project, trackId);
+    if (!track) throw badArg(`unknown trackId: ${trackId}`);
+    const fps = project.project.fps;
+    const dur = (Number.isFinite(duration) && duration > 0) ? duration : defaultClipDuration();
+    const tStart = snapToFps(Number.isFinite(timelineStart) ? timelineStart : trackEnd(track), fps);
+    const id = clipId || genId('s');
+    assertNoOverlap(track, tStart, tStart + dur, id);
+    track.clips.push({
+        id, kind: 'shape', shape: clampShape(shape),
+        timelineStart: tStart, inPoint: 0, outPoint: dur,
+    });
+    return id;
+}
+
+/** Append a text clip (no asset). Returns its id. */
+export function addTextClipOp(project, params, genId) {
+    const { trackId, timelineStart, duration, clipId, text } = params;
+    const track = findTrack(project, trackId);
+    if (!track) throw badArg(`unknown trackId: ${trackId}`);
+    const fps = project.project.fps;
+    const dur = (Number.isFinite(duration) && duration > 0) ? duration : defaultClipDuration();
+    const tStart = snapToFps(Number.isFinite(timelineStart) ? timelineStart : trackEnd(track), fps);
+    const id = clipId || genId('t');
+    assertNoOverlap(track, tStart, tStart + dur, id);
+    track.clips.push({
+        id, kind: 'text', text: clampText(text),
+        timelineStart: tStart, inPoint: 0, outPoint: dur,
+    });
+    return id;
+}
+
+/** Patch a shape clip's shape config (any subset of {fill, w, h, type}). */
+export function setShapePropsOp(project, { clipId, shape }) {
+    const loc = findClipLocation(project, clipId);
+    if (!loc) throw badArg(`unknown clipId: ${clipId}`);
+    const clip = loc.track.clips[loc.index];
+    if (!isShapeClip(clip)) throw badArg(`clip ${clipId} is not a shape clip`);
+    if (!shape || typeof shape !== 'object') throw badArg('shape must be an object');
+    clip.shape = clampShape({ ...clip.shape, ...shape });
+    return { clipId, shape: { ...clip.shape } };
+}
+
+/** Patch a text clip's text config (any subset of {content, color, fontSize, fontFamily, w, h}). */
+export function setTextPropsOp(project, { clipId, text }) {
+    const loc = findClipLocation(project, clipId);
+    if (!loc) throw badArg(`unknown clipId: ${clipId}`);
+    const clip = loc.track.clips[loc.index];
+    if (!isTextClip(clip)) throw badArg(`clip ${clipId} is not a text clip`);
+    if (!text || typeof text !== 'object') throw badArg('text must be an object');
+    clip.text = clampText({ ...clip.text, ...text });
+    return { clipId, text: { ...clip.text } };
 }
 
 /** Remove a clip by id. */
