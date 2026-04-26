@@ -126,7 +126,7 @@ Returns: `{ trackId, muted }`.
 
 ### setTrackLocked
 
-Set or clear a track's lock flag. Locked tracks reject `addClip` / `addShapeClip` / `addTextClip` / `moveClip` / `trimClip` / `removeClip` / `removeTrack` and any cross-track move INTO or FROM the locked lane (`Error{code:'locked'}`). The lock-toggle itself, mute, rename, and colour overrides are NOT gated.
+Set or clear a track's lock flag. Locked tracks reject `addClip` / `addShapeClip` / `addTextClip` / `moveClip` / `trimClip` / `removeClip` / `splitClip` / `removeTrack` / `pasteClip` and any cross-track move INTO or FROM the locked lane (`Error{code:'locked'}`). The lock-toggle itself, mute, rename, and colour overrides are NOT gated.
 
 | Param | Type | Required |
 |---|---|---|

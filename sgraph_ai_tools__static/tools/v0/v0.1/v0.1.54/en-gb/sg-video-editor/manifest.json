@@ -48,7 +48,7 @@
             "trimClip":     { "description": "Update inPoint/outPoint of a clip; clamps to asset duration and snaps to fps. Throws Error{code:'overlap'} if the new position would overlap another clip on the same track." },
             "removeClip":   { "description": "Remove a clip by id from whichever track contains it." },
             "moveClip":     { "description": "Set timelineStart of a clip; snaps to fps. Throws Error{code:'overlap'} if the new position would overlap another clip on the same track. Pass `snap: true` to auto-snap-abut to the nearest neighbour edge on overlap (used by drag-on-timeline)." },
-            "splitClip":    { "description": "Split a clip at a timeline-time, producing two clips that share the asset." },
+            "splitClip":    { "description": "Split a clip at a timeline-time, producing two clips that share the asset. Throws Error{code:'locked'} if the clip's track is locked (matches the rest of the content-mutation gate)." },
             "setClipColor": { "description": "Set or clear (color=null) a clip's optional color override; inline style overrides the auto-shade." },
             "setClipTransform": { "description": "Set or clear (transform=null) a clip's per-frame transform {x: 0..1, y: 0..1, scale: 0.05..8} (centre-x/y in canvas, scale multiplies aspect-fit size). Clamped on input." },
             "setClipCrop":      { "description": "Set or clear (crop=null) a clip's per-frame source crop {x: 0..1, y: 0..1, w: 0..1, h: 0..1} (sub-rect of source frame). Clamped on input." },
