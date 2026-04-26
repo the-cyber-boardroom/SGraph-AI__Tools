@@ -12,7 +12,8 @@
 
 /** @returns {Promise<{pass: boolean, detail: string}>} */
 export async function runOauthAuthorizeProbe() {
-  const url = 'https://www.linkedin.com/oauth/v2/authorization?response_type=code&client_id=probe&redirect_uri=https%3A%2F%2Ftools.sgraph.ai%2F&scope=r_liteprofile&state=phase0';
+  const scope = encodeURIComponent('openid profile email w_member_social');
+  const url = `https://www.linkedin.com/oauth/v2/authorization?response_type=code&client_id=probe&redirect_uri=https%3A%2F%2Fdev.tools.sgraph.ai%2Fen-gb%2Flinkedin-publisher%2Foauth-callback.html&scope=${scope}&state=phase0`;
   try {
     const res = await fetch(url, { method: 'GET', mode: 'cors' });
     return {

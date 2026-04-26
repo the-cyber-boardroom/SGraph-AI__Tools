@@ -9,7 +9,7 @@
  * @returns {Promise<{pass: boolean, detail: string}>}
  */
 export async function runApiCorsProbe() {
-  const url = 'https://api.linkedin.com/rest/posts?q=author&author=urn%3Ali%3Aorganization%3A1&count=1';
+  const url = 'https://api.linkedin.com/rest/posts?q=author&author=urn%3Ali%3Aperson%3Aprobe&count=1';
   try {
     const res = await fetch(url, {
       method: 'GET',
