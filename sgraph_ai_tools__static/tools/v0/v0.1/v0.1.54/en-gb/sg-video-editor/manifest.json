@@ -52,6 +52,7 @@
             "setClipColor": { "description": "Set or clear (color=null) a clip's optional color override; inline style overrides the auto-shade." },
             "setClipTransform": { "description": "Set or clear (transform=null) a clip's per-frame transform {x: 0..1, y: 0..1, scale: 0.05..8} (centre-x/y in canvas, scale multiplies aspect-fit size). Clamped on input." },
             "setClipCrop":      { "description": "Set or clear (crop=null) a clip's per-frame source crop {x: 0..1, y: 0..1, w: 0..1, h: 0..1} (sub-rect of source frame). Clamped on input." },
+            "renameProject": { "description": "Rename the project (project.name). Whitespace is trimmed; empty input falls back to 'Untitled'. Used as the localStorage key by manual save." },
             "getProject":   { "description": "Return a defensive deep clone of the current project state." },
             "setProject":   { "description": "Replace the current project state (validated via composer-schema)." },
             "undo":         { "description": "Undo the most recent mutation (snapshot stack, max 50). Returns { undid, canUndo, canRedo }." },

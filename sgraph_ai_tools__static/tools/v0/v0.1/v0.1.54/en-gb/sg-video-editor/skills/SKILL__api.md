@@ -177,6 +177,21 @@ Synchronous check.
 
 Returns: `{ hasClipboard: boolean }`.
 
+### renameProject
+
+Rename the project. The new name is stored in `project.project.name` and is used as the localStorage key root by the manual save / autosave layer.
+
+| Param | Type | Required | Notes |
+|---|---|---|---|
+| `name` | string | yes | Whitespace is trimmed; empty result falls back to `'Untitled'` |
+
+Returns: `{ name }` (the applied value, post-trim and post-fallback). Errors: `invalid-arg` if `name` is not a string.
+
+```js
+window.__tool.renameProject({ name: 'My Promo' }); // → { name: 'My Promo' }
+window.__tool.renameProject({ name: '   '   });    // → { name: 'Untitled' }
+```
+
 ### getProject
 
 Return a defensive deep clone of the wrapped project state. Synchronous.

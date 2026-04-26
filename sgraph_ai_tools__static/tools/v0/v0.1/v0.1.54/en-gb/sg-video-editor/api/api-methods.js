@@ -187,6 +187,13 @@ export function buildApiMethods({ state, getComposer, setComposer, hostEl }) {
 
     function hasClipboard() { return { hasClipboard: state.hasClipboard() }; }
 
+    function renameProject(params = {}) {
+        const { name } = params || {};
+        if (typeof name !== 'string') throw badArg('name must be a string');
+        const r = state.renameProject({ name });
+        return { name: r.name };
+    }
+
     function getProject() { return state.getProject(); }
 
     function setProject(params = {}) {
@@ -237,6 +244,7 @@ export function buildApiMethods({ state, getComposer, setComposer, hostEl }) {
         setClipColor, setClipTransform, setClipCrop,
         addShapeClip, addTextClip, setShapeProps, setTextProps,
         copyClip, pasteClip, hasClipboard,
+        renameProject,
         getProject, setProject,
         undo, redo, canUndo, canRedo,
         exportMp4, refreshPreview,

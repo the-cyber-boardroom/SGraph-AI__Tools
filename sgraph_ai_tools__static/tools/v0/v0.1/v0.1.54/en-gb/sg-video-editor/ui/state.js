@@ -12,6 +12,7 @@ import {
     addTrackOp, removeTrackOp, moveClipToTrackOp, reorderTracksOp, setTrackMutedOp,
     setTrackLockedOp, renameTrackOp,
 } from './state-track-ops.js';
+import { renameProjectOp } from './state-project-ops.js';
 import { createHistory } from './state-history.js';
 import {
     createInitialProject, deepClone, validateWrapped, genId,
@@ -210,6 +211,13 @@ export function createState(initialProject) {
             const r = renameTrackOp(project, params);
             history.pushSnapshot(snap);
             withOp({ op: 'renameTrack', trackId: r.trackId, name: r.name });
+            emit(); return r;
+        },
+        renameProject(params) {
+            const snap = deepClone(project);
+            const r = renameProjectOp(project, params);
+            history.pushSnapshot(snap);
+            withOp({ op: 'renameProject', name: r.name });
             emit(); return r;
         },
         copyClip(params) {
