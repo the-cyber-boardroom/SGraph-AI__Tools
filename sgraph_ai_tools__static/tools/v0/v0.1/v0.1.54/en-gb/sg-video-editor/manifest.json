@@ -41,7 +41,7 @@
     },
     "api": {
         "version": "0.1.0",
-        "note": "window.__tool live after tool:ready. Holds project state in-memory; assets stored as Blobs in an internal AssetRegistry. No network calls, no localStorage. Composer + MediaRecorder do MP4 export client-side.",
+        "note": "window.__tool live after tool:ready. Holds project state in-memory; assets stored as Blobs in an internal AssetRegistry. Project JSON persists to localStorage (sgve:project:<slug> + sgve:projects-index + sgve:autosave:current); asset blobs persist to IndexedDB (database `sgve`, store `assets`, keyed by asset id) — Round-9-J. Composer + MediaRecorder do MP4 export client-side.",
         "actions": {
             "loadAsset":    { "description": "Probe a video or image file and register it in the asset registry." },
             "addClip":      { "description": "Append a clip referencing an asset to a track at a given timeline start. Throws Error{code:'overlap'} if the new position would overlap another clip on the same track. Pass `snap: true` to auto-snap-abut to the nearest neighbour edge on overlap (used by drag-drop)." },
@@ -71,15 +71,17 @@
             "hasClipboard":    { "description": "Report whether copyClip has populated the clipboard. Returns { hasClipboard: boolean }." },
             "exportMp4":    { "description": "Render the project to an MP4 Blob via the composer; returns blob+meta." },
             "refreshPreview": { "description": "Force the preview canvas to repaint at the current playhead. Escape hatch when the canvas gets out of sync (e.g. after a transform tweak); cheap (just calls the composer's paintAt). Returns { ok: boolean } where ok is false if no composer is currently attached. The transport-bar redraw button (↻) calls this same chokepoint." },
-            "saveProject":        { "description": "Save the current project to localStorage under the slugified name (default: project.project.name). Strips Blob refs from assets — only metadata persists. Refuses with Error{code:'too-large'} if the JSON exceeds ~4 MB. Updates `sgve:projects-index` and clears the autosave slot. Emits a tool:toast with the saved name." },
-            "loadProject":        { "description": "Load a saved project by slug. Replaces the in-memory project (history snapshot pushed so undo works). Asset entries arrive flagged `__missingBlob: true` because Blobs do not survive serialisation — caller must re-upload. Emits `project:replaced` on the state target." },
+            "saveProject":        { "description": "ASYNC (Round-9-J). Save the current project to localStorage under the slugified name (default: project.project.name) AND persist every asset blob to IndexedDB (database `sgve`, store `assets`, keyed by asset id) so reloads can hydrate pixels. Refuses with Error{code:'too-large'} if the JSON exceeds ~1 MB (blob-stripped JSON is small; the cap catches pathological growth). Updates `sgve:projects-index`, clears the autosave slot, and prunes orphan blobs from IDB. Emits a tool:toast with the saved name." },
+            "loadProject":        { "description": "ASYNC (Round-9-J). Load a saved project by slug, replace the in-memory project (history snapshot pushed; load is undoable), then hydrate each asset blob from IndexedDB. Assets whose blob is still missing after hydration keep `__missingBlob: true` so the asset panel renders the 'missing — re-upload' placeholder. Emits `project:replaced` on the state target. Returns `{ slug, ok, hydrated, missing }`." },
             "listSavedProjects":  { "description": "Return `{ projects: [{slug, name, savedAt, byteSize}] }` from `sgve:projects-index`, sorted newest-first." },
-            "deleteSavedProject": { "description": "Remove a saved project + its index entry. Idempotent." },
+            "deleteSavedProject": { "description": "ASYNC (Round-9-J). Remove a saved project + its index entry, then prune any IndexedDB blob no longer referenced by ANY remaining saved project + the autosave slot + the live in-memory project. Idempotent." },
             "hasUnsavedChanges":  { "description": "Cheap dirty check based on a stored hash of the project JSON (length + first 256 chars). Returns `{ hasUnsavedChanges: boolean }`. Used by the beforeunload guard + the New / Load confirm prompts." },
-            "autosave":           { "description": "Write the current project to `sgve:autosave:current` (separate slot from named saves). Same lossy serialisation. Marks the project as saved (so hasUnsavedChanges flips false). Returns `{ ok, savedAt }`." },
-            "getAutosave":        { "description": "Read the autosave slot. Returns `{ savedAt, project }` (project tagged `__missingBlob` on assets) or `null`." },
+            "autosave":           { "description": "ASYNC (Round-9-J). Write the current project to `sgve:autosave:current` (separate slot from named saves) AND persist asset blobs to IndexedDB. Marks the project as saved (so hasUnsavedChanges flips false). Returns `{ ok, savedAt }`." },
+            "getAutosave":        { "description": "Read the autosave slot. Returns `{ savedAt, project }` (project tagged `__missingBlob` on assets — call hydrateAssets after restore to fill pixels) or `null`." },
             "discardAutosave":    { "description": "Delete the autosave slot. Called after a successful manual save or user-discard." },
-            "isAutosaveNewer":    { "description": "Compare an autosave's savedAt against the latest named-save in the index. Returns `{ newer: boolean }`." }
+            "isAutosaveNewer":    { "description": "Compare an autosave's savedAt against the latest named-save in the index. Returns `{ newer: boolean }`." },
+            "hydrateAssets":      { "description": "ASYNC (Round-9-J). Pull each asset blob from IndexedDB into the in-memory asset registry. Used by the autosave-restore flow after `setProject({ project: slot.project })`. Clears the `__missingBlob` flag on every successfully-hydrated asset. Returns `{ hydrated, missing }`." },
+            "getStorageUsage":    { "description": "ASYNC (Round-9-J). Report the size of persisted asset blobs in IndexedDB and the project-JSON byte total in localStorage. Returns `{ totalBytes, assetBytes, assetCount, projectJsonBytes }`. Cheap enough for the live 'Storage: …' readout in the Properties pane." }
         },
         "events": [
             { "name": "tool:ready",                  "when": "activate() called",                       "detail": "{ instanceId, tool, version }" },
