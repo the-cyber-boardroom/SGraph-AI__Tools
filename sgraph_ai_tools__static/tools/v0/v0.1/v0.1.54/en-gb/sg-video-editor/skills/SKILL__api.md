@@ -223,6 +223,18 @@ const url = URL.createObjectURL(blob);
 
 If the browser cannot capture MP4 directly, the composer records WebM and re-muxes via `core/video.convertToMp4` (FFmpeg WASM, ~30 MB lazy-loaded).
 
+### refreshPreview
+
+Force the preview canvas to repaint at the current playhead. Escape hatch for the rare case where the canvas image gets out of sync with project state. Cheap — just calls the composer's `paintAt` (no decode, no rebuild).
+
+Takes no params. Returns `{ ok: boolean }` where `ok` is `false` if no composer is currently attached (e.g. project is empty).
+
+```js
+window.__tool.refreshPreview(); // → { ok: true }
+```
+
+The transport-bar redraw button (↻ next to fast-forward) calls this same chokepoint via the composer's new `refresh()` method — clicking it programmatically equals calling `refreshPreview()`.
+
 ## Project schema
 
 `getProject()` / `setProject({ project })` use the **wrapped** shape:

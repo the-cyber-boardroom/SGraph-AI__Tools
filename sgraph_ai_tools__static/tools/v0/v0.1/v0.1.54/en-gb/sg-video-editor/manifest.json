@@ -68,7 +68,8 @@
             "copyClip":        { "description": "Copy a clip to the in-memory clipboard (single slot). Strips id and timelineStart from the payload — those are picked at paste time. Returns { hasClipboard: true }." },
             "pasteClip":       { "description": "Paste the clipboard payload onto a target track at a given time. Honours snap / maxSnapDistance like addClip. Throws Error{code:'invalid-arg'} if the clipboard is empty or the source asset has been removed; Error{code:'locked'} if the target track is locked." },
             "hasClipboard":    { "description": "Report whether copyClip has populated the clipboard. Returns { hasClipboard: boolean }." },
-            "exportMp4":    { "description": "Render the project to an MP4 Blob via the composer; returns blob+meta." }
+            "exportMp4":    { "description": "Render the project to an MP4 Blob via the composer; returns blob+meta." },
+            "refreshPreview": { "description": "Force the preview canvas to repaint at the current playhead. Escape hatch when the canvas gets out of sync (e.g. after a transform tweak); cheap (just calls the composer's paintAt). Returns { ok: boolean } where ok is false if no composer is currently attached. The transport-bar redraw button (↻) calls this same chokepoint." }
         },
         "events": [
             { "name": "tool:ready",                  "when": "activate() called",                       "detail": "{ instanceId, tool, version }" },

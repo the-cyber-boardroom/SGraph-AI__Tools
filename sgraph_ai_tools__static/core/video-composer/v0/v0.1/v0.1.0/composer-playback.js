@@ -15,6 +15,35 @@ import { createScheduler } from './composer-scheduler.js';
 import { createImageRegistry } from './composer-images.js';
 
 /**
+ * Wait until a video element has at least HAVE_CURRENT_DATA (readyState >= 2)
+ * and its first frame is paintable, then invoke `cb`. Listens for `seeked`
+ * AND `loadeddata` (whichever fires first wins via `{ once: true }` on each
+ * plus a guard flag) — a freshly-attached video where `currentTime` is set
+ * before metadata loads may NOT fire `seeked` (no real seek when the value
+ * doesn't change), so the `seeked`-only path used to leave the canvas black
+ * until the user pressed play (which forces `v.play()` and a real load).
+ * @param {HTMLVideoElement} video
+ * @param {() => void} cb
+ * @returns {void}
+ */
+function waitForVideoFrame(video, cb) {
+    if (!video) { cb(); return; }
+    if (video.readyState >= 2) { cb(); return; }
+    let done = false;
+    function run() {
+        if (done) return;
+        done = true;
+        try { video.removeEventListener('seeked', run); } catch (_) {}
+        try { video.removeEventListener('loadeddata', run); } catch (_) {}
+        try { video.removeEventListener('canplay', run); } catch (_) {}
+        cb();
+    }
+    video.addEventListener('seeked', run, { once: true });
+    video.addEventListener('loadeddata', run, { once: true });
+    video.addEventListener('canplay', run, { once: true });
+}
+
+/**
  * Build a Map<assetId, HTMLVideoElement> covering every video clip on every
  * `kind: 'video'` track. Object URLs are returned in `urls` so callers can
  * revoke them on destroy.
@@ -48,7 +77,7 @@ function buildAllTrackVideos(project, assets) {
 /**
  * Create a playback handle for a project.
  * @param {{ project: object, assets: Map<string, Blob>, canvas: HTMLCanvasElement, fps: number }} opts
- * @returns {{ play: Function, pause: Function, seek: Function, getCurrentTime: Function, getDuration: Function, isPlaying: Function, destroy: Function }}
+ * @returns {{ play: Function, pause: Function, seek: Function, refresh: Function, updateProject: Function, getCurrentTime: Function, getDuration: Function, isPlaying: Function, destroy: Function }}
  */
 export function createPlayback({ project, assets, canvas, fps }) {
     const ctx = canvas.getContext('2d');
@@ -130,11 +159,16 @@ export function createPlayback({ project, assets, canvas, fps }) {
             try { v.currentTime = Math.max(0, local); } catch (_) {}
             if (v.readyState < 2) waitVideo = v;
         }
-        if (waitVideo) waitVideo.addEventListener('seeked', () => sched.paintAt(snapped), { once: true });
+        if (waitVideo) waitForVideoFrame(waitVideo, () => sched.paintAt(snapped));
         else if (waitImage) waitImage.addEventListener('load', () => sched.paintAt(snapped), { once: true });
         else sched.paintAt(snapped);
         emit('composer:playhead-changed', { time: snapped });
     }
+
+    /** Force a synchronous repaint at the current playhead. Useful after a
+     *  project mutation (clip add/remove/move/etc.) to flush a stale frame
+     *  without needing a play→pause cycle. Cheap: just calls `paintAt`. */
+    function refresh() { sched.paintAt(playhead); }
 
     function destroy() {
         playing = false;
@@ -154,6 +188,7 @@ export function createPlayback({ project, assets, canvas, fps }) {
         play,
         pause,
         seek,
+        refresh,
         updateProject,
         getCurrentTime: () => playhead,
         getDuration: () => duration,
