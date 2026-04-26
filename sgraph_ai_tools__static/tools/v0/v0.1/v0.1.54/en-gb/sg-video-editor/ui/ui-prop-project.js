@@ -1,9 +1,11 @@
 /** ui-prop-project.js — "Project" section rendered into the Properties pane
- *  when nothing is selected. Currently shows the editable project name; future
- *  settings (fps, output resolution, …) plug in as additional rows below.
+ *  when nothing is selected. Shows the editable project name + Save / Load
+ *  controls. Future per-project settings (fps, output resolution, …) plug in
+ *  as additional rows below the name field.
  */
 
 import { section, row, readOnly, inlineRenameInput } from './ui-prop-fields.js';
+import { mountSaveLoadControls } from './ui-save-load.js';
 
 function emitErr(step, err) {
     document.dispatchEvent(new CustomEvent('tool:error', {
@@ -14,10 +16,17 @@ function emitErr(step, err) {
 /**
  * Render the Project section into `root`.
  *
- * @param {{ root: HTMLElement, project: object, api: object }} cfg
+ * Mounts the Save / Load controls inside the same section so persistence is
+ * always one click away from where the user names the project. The save/load
+ * controls live in `ui-save-load.js`; this file just stitches them in.
+ *
+ * @param {{ root: HTMLElement, project: object, api: object, getProject?: () => object }} cfg
  *   `project` is the wrapped project ({ schemaVersion, project, assets, … }).
+ *   `getProject` is optional but preferred — without it, the save/load
+ *   controls fall back to a closure over the rendered project, which can go
+ *   stale across re-renders.
  */
-export function renderProjectSection({ root, project, api }) {
+export function renderProjectSection({ root, project, api, getProject }) {
     const meta = (project && project.project) || {};
     const sec = section('Project');
     // Editable name field: Enter / blur commits, Escape cancels.
@@ -36,4 +45,14 @@ export function renderProjectSection({ root, project, api }) {
         sec.appendChild(row('Output', readOnly(`${meta.width} × ${meta.height}`)));
     }
     root.appendChild(sec);
+
+    // Save / Load controls. Mounted into a dedicated section so future
+    // settings can sit between Name and Save without re-flowing the layout.
+    const saveSec = section('Save / Load');
+    root.appendChild(saveSec);
+    mountSaveLoadControls({
+        host: saveSec,
+        api,
+        getProject: getProject || (() => project),
+    });
 }

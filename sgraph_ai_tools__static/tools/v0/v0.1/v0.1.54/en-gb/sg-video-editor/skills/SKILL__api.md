@@ -238,6 +238,82 @@ const url = URL.createObjectURL(blob);
 
 If the browser cannot capture MP4 directly, the composer records WebM and re-muxes via `core/video.convertToMp4` (FFmpeg WASM, ~30 MB lazy-loaded).
 
+### saveProject
+
+Save the current project to `localStorage` under the slugified name. Strips Blob refs from `assets[]` — only metadata is stored. Refuses with `Error{code:'too-large'}` if the resulting JSON exceeds ~4 MB. Clears the autosave slot on success. Emits `tool:toast`.
+
+| Param | Type | Required | Notes |
+|---|---|---|---|
+| `name` | string | no | Defaults to `project.project.name`. Whitespace trimmed. |
+
+Returns: `{ slug, name, savedAt, byteSize }`.
+
+### loadProject
+
+Load a saved project by slug. Replaces the in-memory project (history snapshot pushed; the load is undoable). Asset metadata persists; Blobs are gone, so each asset is tagged `__missingBlob: true` for the asset panel to render a "missing — re-upload" placeholder. Emits `project:replaced` on the internal state target.
+
+| Param | Type | Required |
+|---|---|---|
+| `slug` | string | yes |
+
+Returns: `{ slug, ok: true }`. Errors: `invalid-arg` for missing / unknown slug.
+
+### listSavedProjects
+
+Return the saved-projects index, newest first.
+
+Returns: `{ projects: Array<{ slug, name, savedAt, byteSize }> }`.
+
+### deleteSavedProject
+
+Remove a saved project + index entry. Idempotent.
+
+| Param | Type | Required |
+|---|---|---|
+| `slug` | string | yes |
+
+Returns: `{ slug, ok: true }`.
+
+### hasUnsavedChanges
+
+Cheap dirty check based on a stored hash of the project JSON (length + first 256 chars).
+
+Returns: `{ hasUnsavedChanges: boolean }`.
+
+### autosave
+
+Write the current project to `sgve:autosave:current` (separate from named saves so it never overwrites them). Marks the project as "saved" so subsequent `hasUnsavedChanges()` returns `false`.
+
+Returns: `{ ok: true, savedAt }` or `{ ok: false, error }` if the write failed.
+
+### getAutosave
+
+Returns: `{ savedAt, project } | null`. Project asset entries arrive tagged `__missingBlob: true`.
+
+### discardAutosave
+
+Delete the autosave slot. Returns: `{ ok: true }`.
+
+### isAutosaveNewer
+
+Compare an autosave's `savedAt` against the most recent named save.
+
+| Param | Type | Required |
+|---|---|---|
+| `savedAt` | number | yes — epoch ms |
+
+Returns: `{ newer: boolean }`.
+
+## Storage layout
+
+| Key | Shape |
+|---|---|
+| `sgve:projects-index` | `Array<{ slug, name, savedAt, byteSize }>` |
+| `sgve:project:<slug>` | JSON-stringified wrapped project (no Blob refs) |
+| `sgve:autosave:current` | `{ savedAt: number, project: <wrapped project> }` |
+
+Assets are stored as metadata only (`id`, `name`, `mime`, `assetType`, `duration`, `width`, `height`, `bytes`). Blob/File/objectUrl fields are stripped before serialisation.
+
 ### refreshPreview
 
 Force the preview canvas to repaint at the current playhead. Escape hatch for the rare case where the canvas image gets out of sync with project state. Cheap — just calls the composer's `paintAt` (no decode, no rebuild).

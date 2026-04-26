@@ -239,7 +239,10 @@ export function mountPropertiesPanel({ host, state, api, getSelectedClipId }) {
         root.replaceChildren();
         if (!found) {
             // Nothing selected — show the Project section + a hint.
-            renderProjectSection({ root, project, api });
+            renderProjectSection({
+                root, project, api,
+                getProject: () => state.getProject(),
+            });
             renderEmptyHint(root);
             return;
         }

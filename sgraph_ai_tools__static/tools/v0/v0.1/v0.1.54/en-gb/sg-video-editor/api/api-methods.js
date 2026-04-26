@@ -2,6 +2,7 @@
 
 import { exportComposerProject } from '/core/video-composer/v0/v0.1/v0.1.0/sg-video-composer.js';
 import { buildTrackMethods } from './api-track-methods.js';
+import { buildStorageMethods } from './api-storage-methods.js';
 import { probeVideoFile, probeImageFile } from './api-probe.js';
 
 function badArg(msg) { return Object.assign(new Error(msg), { code: 'invalid-arg' }); }
@@ -238,6 +239,7 @@ export function buildApiMethods({ state, getComposer, setComposer, hostEl }) {
     }
 
     const trackMethods = buildTrackMethods({ state });
+    const storageMethods = buildStorageMethods({ state });
 
     return {
         loadAsset, removeAsset, addClip, trimClip, removeClip, moveClip, splitClip,
@@ -255,5 +257,14 @@ export function buildApiMethods({ state, getComposer, setComposer, hostEl }) {
         setTrackMuted: trackMethods.setTrackMuted,
         setTrackLocked: trackMethods.setTrackLocked,
         renameTrack: trackMethods.renameTrack,
+        saveProject:        storageMethods.saveProject,
+        loadProject:        storageMethods.loadProject,
+        listSavedProjects:  storageMethods.listSavedProjects,
+        deleteSavedProject: storageMethods.deleteSavedProject,
+        hasUnsavedChanges:  storageMethods.hasUnsavedChanges,
+        autosave:           storageMethods.autosave,
+        getAutosave:        storageMethods.getAutosave,
+        discardAutosave:    storageMethods.discardAutosave,
+        isAutosaveNewer:    storageMethods.isAutosaveNewer,
     };
 }
