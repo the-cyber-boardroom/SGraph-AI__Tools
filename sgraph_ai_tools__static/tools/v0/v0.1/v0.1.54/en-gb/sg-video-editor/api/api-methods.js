@@ -45,6 +45,34 @@ export function buildApiMethods({ state, getComposer, setComposer, hostEl }) {
         return { clipId: id };
     }
 
+    function addShapeClip(params = {}) {
+        const { trackId, timelineStart, duration, clipId, shape } = params;
+        if (!trackId) throw badArg('trackId required');
+        const id = state.addShapeClip({ trackId, timelineStart, duration, clipId, shape });
+        return { clipId: id };
+    }
+
+    function addTextClip(params = {}) {
+        const { trackId, timelineStart, duration, clipId, text } = params;
+        if (!trackId) throw badArg('trackId required');
+        const id = state.addTextClip({ trackId, timelineStart, duration, clipId, text });
+        return { clipId: id };
+    }
+
+    function setShapeProps(params = {}) {
+        const { clipId, shape, transient } = params;
+        if (!clipId) throw badArg('clipId required');
+        const r = state.setShapeProps({ clipId, shape, transient: !!transient });
+        return { clipId: r.clipId, shape: r.shape };
+    }
+
+    function setTextProps(params = {}) {
+        const { clipId, text, transient } = params;
+        if (!clipId) throw badArg('clipId required');
+        const r = state.setTextProps({ clipId, text, transient: !!transient });
+        return { clipId: r.clipId, text: r.text };
+    }
+
     function trimClip(params = {}) {
         const { clipId, inPoint, outPoint } = params;
         if (!clipId) throw badArg('clipId required');
@@ -152,6 +180,7 @@ export function buildApiMethods({ state, getComposer, setComposer, hostEl }) {
     return {
         loadAsset, addClip, trimClip, removeClip, moveClip, splitClip,
         setClipColor, setClipTransform, setClipCrop,
+        addShapeClip, addTextClip, setShapeProps, setTextProps,
         getProject, setProject,
         undo, redo, canUndo, canRedo,
         exportMp4,

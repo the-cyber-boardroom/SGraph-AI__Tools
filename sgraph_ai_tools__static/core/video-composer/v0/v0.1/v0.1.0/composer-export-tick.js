@@ -11,10 +11,12 @@ import {
     findTopmostActiveAudioClip,
     getAssetById,
     isImageAsset,
+    isShapeClip,
+    isTextClip,
     getClipTransform,
     getClipCrop,
 } from './composer-schema.js';
-import { paintBlack, paintImage, paintVideo, pauseUnused } from './composer-draw.js';
+import { paintBlack, paintImage, paintVideo, paintShape, paintText, pauseUnused } from './composer-draw.js';
 import { debug } from './composer-export-debug.js';
 
 /**
@@ -54,6 +56,8 @@ export function paintExportFrame(cfg) {
     for (const { clip } of perTrack) {
         if (!clip) continue;
         const tf = getClipTransform(clip);
+        if (isShapeClip(clip)) { paintShape(ctx, canvas, clip, tf); continue; }
+        if (isTextClip(clip))  { paintText (ctx, canvas, clip, tf); continue; }
         const cr = getClipCrop(clip);
         const asset = getAssetById(project, clip.assetId);
         if (isImageAsset(asset)) {

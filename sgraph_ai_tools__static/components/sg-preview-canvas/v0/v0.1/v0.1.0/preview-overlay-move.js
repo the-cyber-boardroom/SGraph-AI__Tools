@@ -83,6 +83,16 @@ function computeNextTransform(role, start, dxCv, dyCv, canvasW, canvasH) {
                 : (role === 'n' || role === 's') ? syRatio
                 : Math.max(sxRatio, syRatio);
     t.scale = start.transform.scale * ratio;
+    // Re-centre so the diagonally-opposite anchor stays put after the uniform
+    // scale change. New rect dims = old * ratio; with the anchor at fraction
+    // `(1-sx, 1-sy)` of the rect, the new centre sits at
+    // `anchor + drawW_new * (sx - 0.5)` along each axis.
+    const newDrawW = start.drawW * ratio;
+    const newDrawH = start.drawH * ratio;
+    const newCx = anchorX + newDrawW * (sx - 0.5);
+    const newCy = anchorY + newDrawH * (sy - 0.5);
+    t.x = clamp(newCx / canvasW, 0, 1);
+    t.y = clamp(newCy / canvasH, 0, 1);
     return clampTransform(t);
 }
 

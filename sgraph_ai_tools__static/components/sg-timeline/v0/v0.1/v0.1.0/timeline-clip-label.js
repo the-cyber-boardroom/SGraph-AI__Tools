@@ -15,12 +15,24 @@ export function clipAsset(clip, project) {
 }
 
 /**
- * Resolve a clip's display label, prefixed with [img] for image clips.
+ * Resolve a clip's display label.
+ *  - asset clips: prefixed with `[img]` when the asset is an image
+ *  - shape clips: `[shape] rect (#hex)`
+ *  - text clips:  `[text] "content"`
  * @param {object} clip
  * @param {object|null} project
  * @returns {string}
  */
 export function clipLabel(clip, project) {
+    if (clip && clip.kind === 'shape' && clip.shape) {
+        const t = clip.shape.type || 'rect';
+        const f = clip.shape.fill || '';
+        return `[shape] ${t}${f ? ` ${f}` : ''}`;
+    }
+    if (clip && clip.kind === 'text' && clip.text) {
+        const c = (clip.text.content || '').slice(0, 24);
+        return `[text] "${c}"`;
+    }
     const a = clipAsset(clip, project);
     const base = (a && a.name) ? a.name : clip.assetId;
     return (a && a.assetType === 'image') ? `[img] ${base}` : base;

@@ -5,6 +5,7 @@ import { splitClipOp } from './state-split.js';
 import {
     addAssetOp, addClipOp, trimClipOp, moveClipOp, removeClipOp,
     setClipColorOp, setClipTransformOp, setClipCropOp,
+    addShapeClipOp, addTextClipOp, setShapePropsOp, setTextPropsOp,
 } from './state-clip-ops.js';
 import {
     addTrackOp, removeTrackOp, moveClipToTrackOp, reorderTracksOp, setTrackMutedOp,
@@ -65,6 +66,36 @@ export function createState(initialProject) {
             history.pushSnapshot(snap);
             withOp({ op: 'addClip', clipId: id, trackId: params.trackId, assetId: params.assetId });
             emit(); return id;
+        },
+        addShapeClip(params) {
+            const snap = deepClone(project);
+            const id = addShapeClipOp(project, params, genId);
+            history.pushSnapshot(snap);
+            withOp({ op: 'addShapeClip', clipId: id, trackId: params.trackId });
+            emit(); return id;
+        },
+        addTextClip(params) {
+            const snap = deepClone(project);
+            const id = addTextClipOp(project, params, genId);
+            history.pushSnapshot(snap);
+            withOp({ op: 'addTextClip', clipId: id, trackId: params.trackId });
+            emit(); return id;
+        },
+        setShapeProps(params) {
+            const transient = !!(params && params.transient);
+            if (!transient) snapshot();
+            const r = setShapePropsOp(project, params);
+            if (!transient) withOp({ op: 'setShapeProps', clipId: r.clipId, shape: r.shape });
+            emit(transient ? { transient: true } : null);
+            return r;
+        },
+        setTextProps(params) {
+            const transient = !!(params && params.transient);
+            if (!transient) snapshot();
+            const r = setTextPropsOp(project, params);
+            if (!transient) withOp({ op: 'setTextProps', clipId: r.clipId, text: r.text });
+            emit(transient ? { transient: true } : null);
+            return r;
         },
         removeClip(params) {
             snapshot();

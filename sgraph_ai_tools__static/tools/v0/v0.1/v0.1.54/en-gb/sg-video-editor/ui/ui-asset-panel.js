@@ -1,6 +1,9 @@
-/** ui-asset-panel.js — left-side asset list with file picker + drop source. */
+/** ui-asset-panel.js — left-side asset list with file picker + drop source.
+ *  Also hosts the "+ Shape" / "+ Text" toolbar so synthetic clips share the
+ *  same authoring surface as imported assets. */
 
 import { buildAssetRow } from './asset-row.js';
+import { mountAddClipButtons } from './ui-add-clip-buttons.js';
 
 const ASSET_MIME = 'application/x-sg-asset';
 
@@ -12,10 +15,10 @@ function isAcceptedFile(f) {
 
 /**
  * Mount the asset panel inside host. The full panel acts as a drop target.
- * @param {{host: HTMLElement, state: object, onFilesPicked: (files: File[]) => void}} opts
+ * @param {{host: HTMLElement, state: object, onFilesPicked: (files: File[]) => void, api?: object, getPlayhead?: () => number}} opts
  * @returns {{refresh: (project: object) => void, destroy: () => void}}
  */
-export function mountAssetPanel({ host, state, onFilesPicked }) {
+export function mountAssetPanel({ host, state, onFilesPicked, api, getPlayhead }) {
     host.innerHTML = `
         <div class="sgve-asset-panel">
             <div class="sgve-asset-dropzone" tabindex="0">
@@ -23,6 +26,7 @@ export function mountAssetPanel({ host, state, onFilesPicked }) {
                 <button type="button" class="sgve-asset-pick">Choose files</button>
                 <input type="file" accept="video/*,image/*" multiple hidden />
             </div>
+            <div class="sgve-add-slot"></div>
             <ul class="sgve-asset-list" role="list"></ul>
         </div>
     `;
@@ -30,6 +34,16 @@ export function mountAssetPanel({ host, state, onFilesPicked }) {
     const pickBtn = root.querySelector('.sgve-asset-pick');
     const input = root.querySelector('input[type=file]');
     const list = root.querySelector('.sgve-asset-list');
+    const addSlot = root.querySelector('.sgve-add-slot');
+    let addToolbar = null;
+    if (api && typeof api.addShapeClip === 'function') {
+        addToolbar = mountAddClipButtons({
+            host: addSlot,
+            getProject: () => state.getProject(),
+            getPlayhead: typeof getPlayhead === 'function' ? getPlayhead : () => 0,
+            api,
+        });
+    }
 
     let dragDepth = 0;
     let activeUrls = [];
@@ -152,6 +166,7 @@ export function mountAssetPanel({ host, state, onFilesPicked }) {
 
     /** Tear down listeners and clear host. */
     function destroy() {
+        if (addToolbar) { try { addToolbar.destroy(); } catch (_) {} }
         clearDragImage();
         revokeActiveUrls();
         state.removeEventListener('change', onStateChange);

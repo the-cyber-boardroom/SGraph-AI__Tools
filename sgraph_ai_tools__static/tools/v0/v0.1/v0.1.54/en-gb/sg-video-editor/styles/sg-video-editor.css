@@ -97,6 +97,104 @@
     min-height: 0;
 }
 
+/* + Shape / + Text toolbar (above the asset list) */
+.sgve-add-row {
+    display: flex;
+    flex-direction: row;
+    gap: 0.5rem;
+    align-items: center;
+    margin: 0.5rem 0;
+}
+.sgve-add-wrap {
+    position: relative;
+    flex: 1 1 0;
+}
+.sgve-add-btn {
+    width: 100%;
+    background: #1e293b;
+    color: #f1f5f9;
+    border: 1px solid rgba(255, 255, 255, 0.18);
+    border-radius: 4px;
+    padding: 0.4rem 0.6rem;
+    font-size: 13px;
+    cursor: pointer;
+    transition: background 0.12s ease, border-color 0.12s ease;
+}
+.sgve-add-btn:hover {
+    background: rgba(20, 184, 166, 0.18);
+    border-color: rgba(20, 184, 166, 0.5);
+}
+.sgve-add-confirm {
+    background: #14b8a6;
+    color: #0f172a;
+    border-color: #14b8a6;
+    font-weight: 600;
+}
+.sgve-add-confirm:hover {
+    background: #2dd4bf;
+}
+.sgve-add-pop {
+    display: none;
+    position: absolute;
+    top: calc(100% + 4px);
+    left: 0;
+    z-index: 50;
+    background: #0f172a;
+    border: 1px solid rgba(20, 184, 166, 0.45);
+    border-radius: 6px;
+    padding: 0.6rem;
+    min-width: 220px;
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.5);
+    flex-direction: column;
+    gap: 0.5rem;
+}
+.sgve-add-pop.is-open {
+    display: flex;
+}
+.sgve-add-palette {
+    display: grid;
+    grid-template-columns: repeat(6, 1fr);
+    gap: 4px;
+}
+.sgve-add-swatch {
+    width: 24px;
+    height: 24px;
+    border: 1px solid rgba(255, 255, 255, 0.25);
+    border-radius: 3px;
+    padding: 0;
+    cursor: pointer;
+}
+.sgve-add-swatch.is-selected {
+    box-shadow: 0 0 0 2px #14b8a6;
+}
+.sgve-add-custom {
+    width: 32px;
+    height: 24px;
+    padding: 0;
+    background: transparent;
+    border: 1px solid rgba(255, 255, 255, 0.25);
+    border-radius: 3px;
+    cursor: pointer;
+}
+.sgve-add-text-input {
+    width: 100%;
+    background: #1e293b;
+    color: #f1f5f9;
+    border: 1px solid rgba(255, 255, 255, 0.18);
+    border-radius: 4px;
+    padding: 0.35rem 0.5rem;
+    font-size: 13px;
+    box-sizing: border-box;
+}
+.sgve-add-size {
+    background: #1e293b;
+    color: #f1f5f9;
+    border: 1px solid rgba(255, 255, 255, 0.18);
+    border-radius: 4px;
+    padding: 0.2rem 0.4rem;
+    font-size: 13px;
+}
+
 .sgve-asset-empty {
     font-size: 0.75rem;
     color: var(--sg-text-muted, #94a3b8);
