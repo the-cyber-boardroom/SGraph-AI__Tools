@@ -2,6 +2,7 @@
 
 import { mountMoveOverlay } from './preview-overlay-move.js';
 import { mountCropOverlay } from './preview-overlay-crop.js';
+import { activeClipCanvasRect, makeMapper } from './preview-overlay-utils.js';
 
 /**
  * Build the overlay DOM (a div absolutely positioned to match the canvas
@@ -22,6 +23,17 @@ export function mountOverlay(cfg) {
     const root = document.createElement('div');
     root.className = 'pco-overlay';
     cfg.parent.appendChild(root);
+
+    // Selection outline — visible whenever a clip is selected (any mode) so
+    // the user can always see WHICH clip is being edited / shown in the
+    // Properties panel. In Move/Crop mode the handles add to the cue; in
+    // Select mode this is the only visual indicator.
+    const selectLayer = document.createElement('div');
+    selectLayer.className = 'pco-layer pco-layer--select';
+    const selectBox = document.createElement('div');
+    selectBox.className = 'pco-select-box';
+    selectLayer.appendChild(selectBox);
+    root.appendChild(selectLayer);
 
     const moveLayer = document.createElement('div');
     moveLayer.className = 'pco-layer pco-layer--move';
@@ -61,14 +73,31 @@ export function mountOverlay(cfg) {
         root.style.height = `${r.height}px`;
     }
 
+    function placeSelect(active) {
+        const canvas = cfg.getCanvas();
+        const rect = canvas && active ? activeClipCanvasRect(canvas, active) : null;
+        if (!rect || !canvas) { selectBox.style.display = 'none'; return; }
+        const m = makeMapper(canvas);
+        const a = m.canvasToOverlay(rect.dx, rect.dy);
+        const b = m.canvasToOverlay(rect.dx + rect.drawW, rect.dy + rect.drawH);
+        selectBox.style.display = 'block';
+        selectBox.style.left = `${a.x}px`;
+        selectBox.style.top = `${a.y}px`;
+        selectBox.style.width = `${b.x - a.x}px`;
+        selectBox.style.height = `${b.y - a.y}px`;
+    }
+
     function refresh() {
         syncSize();
         const mode = cfg.getMode();
         const active = cfg.getActive();
         const showMove = mode === 'move' && !!active;
         const showCrop = mode === 'crop' && !!active;
+        const showSelect = !!active;
+        selectLayer.style.display = showSelect ? 'block' : 'none';
         moveLayer.style.display = showMove ? 'block' : 'none';
         cropLayer.style.display = showCrop ? 'block' : 'none';
+        if (showSelect) placeSelect(active);
         if (showMove) move.refresh();
         if (showCrop) crop.refresh();
     }

@@ -21,6 +21,7 @@ export function buildLayoutDescriptor() {
               tabs: [
                   { type: 'tab', id: 't-properties', title: 'Properties', tag: 'div', locked: true, closable: false },
                   { type: 'tab', id: 't-json',       title: 'JSON',       tag: 'div', locked: true, closable: false },
+                  { type: 'tab', id: 't-messages',   title: 'Messages',   tag: 'div', locked: true, closable: false },
               ] },
         ],
     };
@@ -44,6 +45,7 @@ export function resolvePanels(layout) {
     const timelinePanel = layout.getPanelElement('t-timeline');
     const jsonPanel = layout.getPanelElement('t-json');
     const propertiesPanel = layout.getPanelElement('t-properties');
+    const messagesPanel = layout.getPanelElement('t-messages');
     let previewEl = null;
     let timelineEl = null;
     if (assetsPanel) assetsPanel.className = 'sgve-panel-slot';
@@ -59,7 +61,12 @@ export function resolvePanels(layout) {
     }
     if (jsonPanel) jsonPanel.className = 'sgve-panel-slot sgve-json';
     if (propertiesPanel) propertiesPanel.className = 'sgve-panel-slot sgve-properties';
-    return { assetsPanel, previewPanel, timelinePanel, jsonPanel, propertiesPanel, previewEl, timelineEl };
+    if (messagesPanel) messagesPanel.className = 'sgve-panel-slot sgve-messages';
+    return {
+        assetsPanel, previewPanel, timelinePanel,
+        jsonPanel, propertiesPanel, messagesPanel,
+        previewEl, timelineEl,
+    };
 }
 
 /**

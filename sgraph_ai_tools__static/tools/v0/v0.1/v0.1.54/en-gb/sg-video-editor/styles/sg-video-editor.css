@@ -444,6 +444,97 @@
     background: rgba(220, 38, 38, 0.32);
 }
 
+/* ── Messages panel ───────────────────────────────────────── */
+
+.sgve-msg-host {
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+}
+.sgve-msg-panel {
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+    color: #e5e7eb;
+    font-size: 12px;
+}
+.sgve-msg-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0.45rem 0.6rem;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+    flex: 0 0 auto;
+}
+.sgve-msg-title {
+    font-size: 11px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    color: rgba(255, 255, 255, 0.55);
+}
+.sgve-msg-clear {
+    background: transparent;
+    color: rgba(255, 255, 255, 0.7);
+    border: 1px solid rgba(255, 255, 255, 0.18);
+    border-radius: 3px;
+    padding: 0.15rem 0.45rem;
+    font-size: 11px;
+    cursor: pointer;
+}
+.sgve-msg-clear:hover {
+    background: rgba(20, 184, 166, 0.18);
+    color: #99f6e4;
+    border-color: rgba(20, 184, 166, 0.45);
+}
+.sgve-msg-list {
+    list-style: none;
+    margin: 0;
+    padding: 0.4rem 0.5rem;
+    overflow: auto;
+    flex: 1 1 auto;
+    min-height: 0;
+}
+.sgve-msg-empty {
+    padding: 1rem;
+    color: rgba(255, 255, 255, 0.45);
+    font-style: italic;
+    text-align: center;
+}
+.sgve-msg {
+    display: grid;
+    grid-template-columns: 56px 44px 1fr;
+    gap: 0.4rem;
+    align-items: baseline;
+    padding: 0.25rem 0.1rem;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+    font-size: 11px;
+}
+.sgve-msg-time {
+    color: rgba(255, 255, 255, 0.45);
+    font-family: ui-monospace, monospace;
+}
+.sgve-msg-tag {
+    font-size: 10px;
+    font-weight: 600;
+    letter-spacing: 0.04em;
+    text-align: center;
+    padding: 0.05rem 0.2rem;
+    border-radius: 2px;
+}
+.sgve-msg--info .sgve-msg-tag {
+    color: #99f6e4;
+    background: rgba(20, 184, 166, 0.18);
+}
+.sgve-msg--error .sgve-msg-tag {
+    color: #fecaca;
+    background: rgba(220, 38, 38, 0.22);
+}
+.sgve-msg-text {
+    color: #e5e7eb;
+    word-break: break-word;
+}
+
 /* ── Preview panel ────────────────────────────────────────── */
 
 .sgve-preview {
