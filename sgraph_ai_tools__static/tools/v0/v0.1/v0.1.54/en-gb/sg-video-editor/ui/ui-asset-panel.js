@@ -1,43 +1,32 @@
-/** ui-asset-panel.js — left-side asset list with file picker + drop source. */
+/** ui-asset-panel.js — left-side asset list with file picker + drop source.
+ *  Also hosts the "+ Shape" / "+ Text" toolbar so synthetic clips share the
+ *  same authoring surface as imported assets. */
+
+import { buildAssetRow } from './asset-row.js';
+import { mountAddClipButtons } from './ui-add-clip-buttons.js';
 
 const ASSET_MIME = 'application/x-sg-asset';
 
-/** Minimal HTML escaper. */
-function escape(s) {
-    return String(s == null ? '' : s)
-        .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
-        .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
-}
-
-/** Format seconds as m:ss. */
-function formatDuration(sec) {
-    if (!Number.isFinite(sec) || sec < 0) return '–';
-    const m = Math.floor(sec / 60);
-    const s = Math.floor(sec % 60);
-    return `${m}:${s < 10 ? '0' : ''}${s}`;
-}
-
-/** Format byte size as KB/MB/GB. */
-function formatSize(bytes) {
-    if (!Number.isFinite(bytes) || bytes <= 0) return '0 KB';
-    if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
-    if (bytes < 1024 * 1024 * 1024) return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
-    return `${(bytes / (1024 * 1024 * 1024)).toFixed(2)} GB`;
+/** True when a File is a video or image we can register. */
+function isAcceptedFile(f) {
+    const t = f && (f.type || '');
+    return t.startsWith('video/') || t.startsWith('image/');
 }
 
 /**
  * Mount the asset panel inside host. The full panel acts as a drop target.
- * @param {{host: HTMLElement, state: object, onFilesPicked: (files: File[]) => void}} opts
+ * @param {{host: HTMLElement, state: object, onFilesPicked: (files: File[]) => void, api?: object, getPlayhead?: () => number, getSelectedTrackId?: () => (string|null)}} opts
  * @returns {{refresh: (project: object) => void, destroy: () => void}}
  */
-export function mountAssetPanel({ host, state, onFilesPicked }) {
+export function mountAssetPanel({ host, state, onFilesPicked, api, getPlayhead, getSelectedTrackId }) {
     host.innerHTML = `
         <div class="sgve-asset-panel">
             <div class="sgve-asset-dropzone" tabindex="0">
-                <p>Drop video files here or</p>
+                <p>Drop video or image files here or</p>
                 <button type="button" class="sgve-asset-pick">Choose files</button>
-                <input type="file" accept="video/*" multiple hidden />
+                <input type="file" accept="video/*,image/*" multiple hidden />
             </div>
+            <div class="sgve-add-slot"></div>
             <ul class="sgve-asset-list" role="list"></ul>
         </div>
     `;
@@ -45,40 +34,129 @@ export function mountAssetPanel({ host, state, onFilesPicked }) {
     const pickBtn = root.querySelector('.sgve-asset-pick');
     const input = root.querySelector('input[type=file]');
     const list = root.querySelector('.sgve-asset-list');
+    const addSlot = root.querySelector('.sgve-add-slot');
+    let addToolbar = null;
+    if (api && typeof api.addShapeClip === 'function') {
+        addToolbar = mountAddClipButtons({
+            host: addSlot,
+            getProject: () => state.getProject(),
+            getPlayhead: typeof getPlayhead === 'function' ? getPlayhead : () => 0,
+            getSelectedTrackId: typeof getSelectedTrackId === 'function' ? getSelectedTrackId : () => null,
+            api,
+        });
+    }
 
     let dragDepth = 0;
+    let activeUrls = [];
+    let dragImageEl = null;
+
+    function revokeActiveUrls() {
+        for (const u of activeUrls) { try { URL.revokeObjectURL(u); } catch (_) {} }
+        activeUrls = [];
+    }
 
     function callPicked(files) {
-        const vids = (files || []).filter(f => f && (f.type || '').startsWith('video/'));
-        if (vids.length && typeof onFilesPicked === 'function') onFilesPicked(vids);
+        const ok = (files || []).filter(isAcceptedFile);
+        if (ok.length && typeof onFilesPicked === 'function') onFilesPicked(ok);
+    }
+
+    /** True when the drag carries our internal asset MIME (asset row → timeline)
+     *  rather than external files. Used to suppress the drop-mode affordance on
+     *  the asset panel while dragging an asset OUT to the timeline. */
+    function isInternalAssetDrag(e) {
+        const types = e && e.dataTransfer && e.dataTransfer.types;
+        if (!types) return false;
+        if (typeof types.includes === 'function') return types.includes(ASSET_MIME);
+        for (let i = 0; i < types.length; i++) if (types[i] === ASSET_MIME) return true;
+        return false;
     }
 
     function onPick() { input.click(); }
     function onChange() { callPicked([...input.files]); input.value = ''; }
     function onDragEnter(e) {
+        if (isInternalAssetDrag(e)) return;
         e.preventDefault();
         dragDepth += 1;
         root.classList.add('is-drag-over');
     }
-    function onDragOver(e) { e.preventDefault(); }
+    function onDragOver(e) {
+        if (isInternalAssetDrag(e)) return;
+        e.preventDefault();
+    }
     function onDragLeave(e) {
+        if (isInternalAssetDrag(e)) return;
         dragDepth = Math.max(0, dragDepth - 1);
         if (dragDepth === 0) root.classList.remove('is-drag-over');
-        void e;
     }
     function onDrop(e) {
+        if (isInternalAssetDrag(e)) return;
         e.preventDefault();
         dragDepth = 0;
         root.classList.remove('is-drag-over');
         callPicked([...(e.dataTransfer && e.dataTransfer.files ? e.dataTransfer.files : [])]);
     }
+    function clearDragImage() {
+        if (!dragImageEl) return;
+        try { dragImageEl.remove(); } catch (_) {}
+        dragImageEl = null;
+    }
+    function buildDragImage(label) {
+        const el = document.createElement('div');
+        el.textContent = label;
+        el.style.cssText = [
+            'position:fixed', 'top:-1000px', 'left:-1000px',
+            'padding:6px 10px', 'background:#0f172a', 'color:#e5e7eb',
+            'border:1px solid rgba(20,184,166,0.6)', 'border-radius:4px',
+            'font:12px/1.2 system-ui,sans-serif', 'pointer-events:none',
+            'box-shadow:0 4px 14px rgba(0,0,0,0.5)', 'white-space:nowrap',
+        ].join(';');
+        document.body.appendChild(el);
+        return el;
+    }
+    let dragSourceRow = null;
+    function clearDraggingRow() {
+        if (dragSourceRow) {
+            try { dragSourceRow.classList.remove('is-dragging'); } catch (_) {}
+            dragSourceRow = null;
+        }
+    }
     function onRowDragStart(e) {
+        // Don't initiate drag from the delete affordance.
+        if (e.target.closest('[data-role="remove-asset"]')) { e.preventDefault(); return; }
         const row = e.target.closest('.sgve-asset-row');
         if (!row || !e.dataTransfer) return;
         const id = row.dataset.assetId;
         if (!id) return;
         e.dataTransfer.setData(ASSET_MIME, id);
         e.dataTransfer.effectAllowed = 'copy';
+        clearDragImage();
+        const label = (row.querySelector('.sgve-asset-name')?.textContent || 'asset').trim();
+        dragImageEl = buildDragImage(label);
+        // Anchor the ghost so it sits a small distance below-right of the cursor
+        // rather than at the spot the user clicked on inside the row.
+        try { e.dataTransfer.setDragImage(dragImageEl, -12, -8); } catch (_) {}
+        // Mark the source card as the active drag origin so the user can see
+        // which asset is being dragged. Cleared on dragend (drop or cancel).
+        clearDraggingRow();
+        row.classList.add('is-dragging');
+        dragSourceRow = row;
+    }
+    function onRowDragEnd() { clearDragImage(); clearDraggingRow(); }
+    function onListClick(e) {
+        const del = e.target.closest('[data-role="remove-asset"]');
+        if (!del) return;
+        e.preventDefault();
+        e.stopPropagation();
+        const id = del.dataset.assetId;
+        if (!id) return;
+        if (!api || typeof api.removeAsset !== 'function') return;
+        try { api.removeAsset({ assetId: id }); }
+        catch (err) {
+            const msg = err && err.code === 'asset-in-use'
+                ? 'Asset is in use by a clip — remove the clip first.'
+                : (err && err.message) || 'Remove failed';
+            document.dispatchEvent(new CustomEvent('tool:error', { detail: { step: 'removeAsset', message: msg } }));
+        }
     }
 
     pickBtn.addEventListener('click', onPick);
@@ -88,31 +166,42 @@ export function mountAssetPanel({ host, state, onFilesPicked }) {
     root.addEventListener('dragleave', onDragLeave);
     root.addEventListener('drop', onDrop);
     list.addEventListener('dragstart', onRowDragStart);
+    list.addEventListener('dragend', onRowDragEnd);
+    list.addEventListener('click', onListClick);
 
-    /**
-     * Re-render asset list from a wrapped project shape (state.getProject()).
-     * @param {{assets: Array<object>}} project
-     */
+    /** Re-render asset list from a wrapped project shape (state.getProject()). */
     function refresh(project) {
         const assets = (project && Array.isArray(project.assets)) ? project.assets : [];
+        revokeActiveUrls();
+        list.replaceChildren();
         if (!assets.length) {
-            list.innerHTML = `<li class="sgve-asset-empty">No assets yet.</li>`;
+            const empty = document.createElement('li');
+            empty.className = 'sgve-asset-empty';
+            empty.textContent = 'No assets yet.';
+            list.appendChild(empty);
             return;
         }
-        list.innerHTML = assets.map(a => `
-            <li class="sgve-asset-row" draggable="true" data-asset-id="${escape(a.id)}">
-                <span class="sgve-asset-name">${escape(a.name || a.id)}</span>
-                <span class="sgve-asset-meta">${escape(formatDuration(a.duration))} · ${escape(formatSize(a.bytes ?? 0))}</span>
-            </li>
-        `).join('');
+        const registry = state.getAssetRegistry ? state.getAssetRegistry() : null;
+        for (const a of assets) {
+            const { element, urls } = buildAssetRow(a, registry);
+            activeUrls.push(...urls);
+            list.appendChild(element);
+        }
     }
 
-    function onStateChange() { refresh(state.getProject()); }
+    function onStateChange(e) {
+        if (e && e.detail && e.detail.transient) return;
+        refresh(state.getProject());
+    }
     state.addEventListener('change', onStateChange);
     refresh(state.getProject());
 
     /** Tear down listeners and clear host. */
     function destroy() {
+        if (addToolbar) { try { addToolbar.destroy(); } catch (_) {} }
+        clearDragImage();
+        clearDraggingRow();
+        revokeActiveUrls();
         state.removeEventListener('change', onStateChange);
         pickBtn.removeEventListener('click', onPick);
         input.removeEventListener('change', onChange);
@@ -121,6 +210,8 @@ export function mountAssetPanel({ host, state, onFilesPicked }) {
         root.removeEventListener('dragleave', onDragLeave);
         root.removeEventListener('drop', onDrop);
         list.removeEventListener('dragstart', onRowDragStart);
+        list.removeEventListener('dragend', onRowDragEnd);
+        list.removeEventListener('click', onListClick);
         host.innerHTML = '';
     }
 

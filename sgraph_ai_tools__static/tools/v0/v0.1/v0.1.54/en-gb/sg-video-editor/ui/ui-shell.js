@@ -2,28 +2,20 @@
 
 import { mountAssetPanel } from './ui-asset-panel.js';
 import { mountExportControls } from './ui-export-controls.js';
-import { buildLayoutDescriptor, wireTimelineEvents } from './ui-shell-layout.js';
+import { buildLayoutDescriptor, wireTimelineEvents, resolvePanels } from './ui-shell-layout.js';
 import { mountDevPanel } from './ui-dev-panel.js';
-import { createComposer } from '/core/video-composer/v0/v0.1/v0.1.0/sg-video-composer.js';
+import { mountJsonPane } from './ui-json-pane.js';
+import { mountPropertiesPanel } from './ui-properties-panel.js';
+import { mountMessagesPanel } from './ui-messages-panel.js';
+import { mountShortcutsPanel } from './ui-shortcuts-panel.js';
+import { attachGlobalShortcuts } from './ui-keyboard.js';
+import { attachAutosave } from './ui-autosave.js';
+import { wireOverlay } from './ui-shell-overlay.js';
+import { rebuildComposer, emitErr } from './ui-shell-composer.js';
 import { SGL_EVENTS } from '/core/sg-layout/v0.1.0/sg-layout-events.js';
 
 // Side-effect import — register <sg-layout> custom element before use.
 import '/core/sg-layout/v0.1.0/sg-layout.js';
-
-/** Project has at least one clip on a video track. */
-function hasAnyClip(flat) {
-    if (!flat || !Array.isArray(flat.tracks)) return false;
-    for (const t of flat.tracks) {
-        if (t && t.kind === 'video' && Array.isArray(t.clips) && t.clips.length > 0) return true;
-    }
-    return false;
-}
-
-function emitErr(step, err) {
-    document.dispatchEvent(new CustomEvent('tool:error', {
-        detail: { step, message: err && err.message ? err.message : String(err) },
-    }));
-}
 
 /**
  * Mount the editor shell into a host element.
@@ -37,8 +29,23 @@ export function mountShell({ host, state, api, getComposer, setComposer }) {
 
     const topbar = document.createElement('header');
     topbar.className = 'sgve-topbar';
-    topbar.innerHTML = `<h2>Video Editor</h2><div class="sgve-actions" data-slot="export"></div>`;
+    topbar.innerHTML = `<h2>Video Editor</h2><div class="sgve-toast" data-slot="toast" hidden></div><div class="sgve-actions" data-slot="export"></div>`;
     host.appendChild(topbar);
+
+    const toastEl = topbar.querySelector('[data-slot="toast"]');
+    let toastTimer = null;
+    function showToast(message, kind) {
+        if (!toastEl) return;
+        toastEl.textContent = message;
+        toastEl.dataset.kind = kind || 'info';
+        toastEl.hidden = false;
+        if (toastTimer) clearTimeout(toastTimer);
+        toastTimer = setTimeout(() => { toastEl.hidden = true; toastTimer = null; }, 3500);
+    }
+    function onToolToast(e) { showToast(e?.detail?.message || '', e?.detail?.kind); }
+    function onToolError(e) { showToast(e?.detail?.message || 'Error', 'error'); }
+    document.addEventListener('tool:toast', onToolToast);
+    document.addEventListener('tool:error', onToolError);
 
     const layoutWrap = document.createElement('div');
     layoutWrap.style.cssText = 'flex:1;min-height:0;overflow:hidden;';
@@ -52,66 +59,110 @@ export function mountShell({ host, state, api, getComposer, setComposer }) {
     layout.setLayout(buildLayoutDescriptor());
 
     const exportSlot = topbar.querySelector('[data-slot="export"]');
-    const ctx = { selectedClipId: null, currentPlayhead: 0, getComposer };
+    const ctx = {
+        selectedClipId: null,
+        selectedTrackId: null,
+        currentPlayhead: 0,
+        getComposer,
+        getProject: () => state.getProject(),
+    };
 
-    let assetPanel = null;
-    let exportCtl = null;
-    let unwireTimeline = null;
-    let previewEl = null;
-    let timelineEl = null;
-    let pending = null;
-    let onCanvasPlayhead = null;
-    let devPanel = null;
+    let assetPanel = null, exportCtl = null, unwireTimeline = null;
+    let previewEl = null, timelineEl = null;
+    let pending = null, activePending = null;
+    let onCanvasPlayhead = null, devPanel = null, jsonPane = null, propertiesPane = null, messagesPane = null, overlayWire = null;
+    let shortcutsPane = null, keyboardWire = null;
+    /** Autosave handle — debounced writes + on-init restore prompt. */
+    let autosaveHandle = null;
 
-    function rebuildComposer() {
-        const existing = getComposer();
-        if (existing) {
-            try { previewEl && previewEl.detachComposer(); } catch (_) {}
-            try { existing.destroy(); } catch (_) {}
-            setComposer(null);
-        }
-        const flat = state.toComposerProject();
-        if (!hasAnyClip(flat) || !previewEl) return;
-        const fps = Number.isFinite(flat.fps) ? flat.fps : 30;
+    /** beforeunload guard: prompt the browser's native confirm if the project
+     *  is dirty (per the hash-based `hasUnsavedChanges()` check, which is the
+     *  canonical "did the saved JSON drift from in-memory" comparison).
+     *
+     *  Round-9-K Item 2: the previous implementation also tripped on
+     *  `lastMutationAt > autosave.lastFlushAt` to catch the autosave debounce
+     *  window. That secondary check fires even after a successful MANUAL
+     *  save (manual-save bumps `lastSavedHash` but never touches
+     *  `autosave.lastFlushAt`), which is why every reload-after-save
+     *  triggered the browser's "Reload site?" popup. The hash check alone
+     *  is sufficient: both manual save + autosave call `state.markSaved(json)`
+     *  with the bytes that hit storage, so `hasUnsavedChanges()` is the
+     *  authoritative source of truth. If the user mutates during the autosave
+     *  debounce window the hash will differ from the last saved baseline and
+     *  the guard fires for the right reason. */
+    function onBeforeUnload(e) {
         try {
-            const c = createComposer({ project: flat, assets: state.getAssetRegistry(), canvas: previewEl.getCanvas(), fps });
-            previewEl.attachComposer(c);
-            setComposer(c);
-        } catch (err) { emitErr('composer', err); }
+            if (!state || typeof state.hasUnsavedChanges !== 'function') return;
+            if (!state.hasUnsavedChanges()) return;
+            e.preventDefault();
+            e.returnValue = '';
+        } catch (_) { /* never block unload on a guard error */ }
+    }
+    window.addEventListener('beforeunload', onBeforeUnload);
+
+    function schedulePushActive() {
+        if (!overlayWire) return;
+        if (typeof overlayWire.pushActive === 'function') overlayWire.pushActive();
+        if (activePending) return;
+        activePending = setTimeout(() => { activePending = null; overlayWire.pushActive(); }, 100);
+    }
+    function refreshProperties() {
+        if (propertiesPane && typeof propertiesPane.refresh === 'function') propertiesPane.refresh();
+    }
+    function rebuild() {
+        rebuildComposer({
+            state, previewEl, getComposer, setComposer,
+            playheadHint: ctx.currentPlayhead,
+        });
+    }
+    function syncHistoryFlags() {
+        if (timelineEl && typeof timelineEl.setHistoryFlags === 'function') {
+            timelineEl.setHistoryFlags({ canUndo: state.canUndo(), canRedo: state.canRedo() });
+        }
+    }
+    function syncClipboardFlags() {
+        if (timelineEl && typeof timelineEl.setClipboardFlags === 'function') {
+            timelineEl.setClipboardFlags({ canPaste: !!state.hasClipboard() });
+        }
+    }
+    function onClipboardChange() { syncClipboardFlags(); }
+    /** Mid-drag transform/crop: refresh the composer's live project + overlay
+     *  in-place (no destroy/recreate, no debounce) so the canvas reflects every
+     *  pointer tick without recording a history entry. */
+    function handleTransientChange() {
+        const flat = state.toComposerProject();
+        const c = getComposer();
+        if (c && typeof c.updateProject === 'function') c.updateProject(flat);
+        if (overlayWire) overlayWire.pushActive();
     }
 
-    function handleChange() {
+    function handleChange(e) {
+        if (e && e.detail && e.detail.transient) { handleTransientChange(); return; }
         if (pending) clearTimeout(pending);
         pending = setTimeout(() => {
             pending = null;
             const flat = state.toComposerProject();
             if (timelineEl) timelineEl.setProject(flat);
             if (assetPanel) assetPanel.refresh(state.getProject());
-            rebuildComposer();
+            syncHistoryFlags();
+            rebuild();
+            if (overlayWire) overlayWire.pushActive();
         }, 100);
     }
 
     async function mountInto() {
         await ready;
-        const assetsPanel = layout.getPanelElement('t-assets');
-        const previewPanel = layout.getPanelElement('t-preview');
-        const timelinePanel = layout.getPanelElement('t-timeline');
-
-        if (assetsPanel) assetsPanel.className = 'sgve-panel-slot';
-        if (previewPanel) {
-            previewPanel.className = 'sgve-panel-slot sgve-preview';
-            previewPanel.innerHTML = '<sg-preview-canvas></sg-preview-canvas>';
-            previewEl = previewPanel.querySelector('sg-preview-canvas');
-        }
-        if (timelinePanel) {
-            timelinePanel.className = 'sgve-panel-slot sgve-timeline';
-            timelinePanel.innerHTML = '<sg-timeline></sg-timeline>';
-            timelineEl = timelinePanel.querySelector('sg-timeline');
-        }
+        const slots = resolvePanels(layout);
+        const { assetsPanel, jsonPanel, propertiesPanel, messagesPanel } = slots;
+        previewEl = slots.previewEl;
+        timelineEl = slots.timelineEl;
 
         assetPanel = mountAssetPanel({
             host: assetsPanel,
             state,
+            api,
+            getPlayhead: () => ctx.currentPlayhead,
+            getSelectedTrackId: () => ctx.selectedTrackId,
             onFilesPicked: async (files) => {
                 for (const file of files) {
                     try { await api.loadAsset({ file }); }
@@ -119,7 +170,6 @@ export function mountShell({ host, state, api, getComposer, setComposer }) {
                 }
             },
         });
-
         exportCtl = mountExportControls({
             host: exportSlot,
             onExport: ({ onProgress } = {}) => api.exportMp4({ preferMp4: true, onProgress }),
@@ -127,17 +177,63 @@ export function mountShell({ host, state, api, getComposer, setComposer }) {
 
         if (timelineEl) unwireTimeline = wireTimelineEvents(timelineEl, api, ctx);
 
+        overlayWire = wireOverlay({
+            previewEl, api,
+            getProject: () => state.toComposerProject(),
+            getSelectedClipId: () => ctx.selectedClipId,
+            getPlayhead: () => ctx.currentPlayhead,
+            setSelectedClip: (id) => {
+                if (timelineEl && typeof timelineEl.setSelectedClip === 'function') {
+                    timelineEl.setSelectedClip(id);
+                }
+            },
+        });
+
+        if (timelineEl) {
+            timelineEl.addEventListener('sg-timeline:clip-selected', schedulePushActive);
+            timelineEl.addEventListener('sg-timeline:playhead-changed', schedulePushActive);
+            timelineEl.addEventListener('sg-timeline:clip-selected', refreshProperties);
+        }
+
         onCanvasPlayhead = (e) => {
             const t = e && e.detail && Number.isFinite(e.detail.time) ? e.detail.time : 0;
             if (timelineEl) timelineEl.setPlayheadTime(t);
+            ctx.currentPlayhead = t;
+            schedulePushActive();
         };
         if (previewEl) previewEl.getCanvas().addEventListener('composer:playhead-changed', onCanvasPlayhead);
 
         if (timelineEl) timelineEl.setProject(state.toComposerProject());
         assetPanel.refresh(state.getProject());
-        rebuildComposer();
+        if (jsonPanel) jsonPane = mountJsonPane({ host: jsonPanel, state });
+        if (propertiesPanel) propertiesPane = mountPropertiesPanel({
+            host: propertiesPanel, state, api,
+            getSelectedClipId: () => ctx.selectedClipId,
+        });
+        if (messagesPanel) messagesPane = mountMessagesPanel({ host: messagesPanel });
+        if (slots.shortcutsPanel) shortcutsPane = mountShortcutsPanel({ host: slots.shortcutsPanel });
+        keyboardWire = attachGlobalShortcuts({
+            api,
+            getSelectedClipId: () => ctx.selectedClipId,
+            getSelectedTrackId: () => ctx.selectedTrackId,
+            getPlayhead: () => ctx.currentPlayhead,
+            getComposer,
+        });
+        syncHistoryFlags();
+        syncClipboardFlags();
+        rebuild();
         state.addEventListener('change', handleChange);
-
+        state.addEventListener('clipboard', onClipboardChange);
+        // Autosave: debounced writes + on-init restore prompt. Wired AFTER
+        // change listeners so the prompt-driven setProject (if accepted)
+        // flows through the normal handleChange pipeline.
+        autosaveHandle = attachAutosave({ state, api });
+        // Defer the restore prompt to the next tick so the layout has
+        // finished mounting — confirm() blocks the main thread and an
+        // un-painted UI behind it is jarring.
+        setTimeout(() => {
+            try { autosaveHandle && autosaveHandle.promptRestore(); } catch (_) {}
+        }, 0);
         devPanel = mountDevPanel({ host, manifestUrl: './manifest.json' });
     }
 
@@ -146,8 +242,20 @@ export function mountShell({ host, state, api, getComposer, setComposer }) {
     /** Tear down everything mounted by the shell. */
     function destroy() {
         if (pending) { clearTimeout(pending); pending = null; }
+        if (activePending) { clearTimeout(activePending); activePending = null; }
+        if (toastTimer) { clearTimeout(toastTimer); toastTimer = null; }
+        try { window.removeEventListener('beforeunload', onBeforeUnload); } catch (_) {}
+        try { document.removeEventListener('tool:toast', onToolToast); } catch (_) {}
+        try { document.removeEventListener('tool:error', onToolError); } catch (_) {}
         try { state.removeEventListener('change', handleChange); } catch (_) {}
+        try { state.removeEventListener('clipboard', onClipboardChange); } catch (_) {}
         if (unwireTimeline) { try { unwireTimeline(); } catch (_) {} }
+        if (timelineEl) {
+            try { timelineEl.removeEventListener('sg-timeline:clip-selected', schedulePushActive); } catch (_) {}
+            try { timelineEl.removeEventListener('sg-timeline:playhead-changed', schedulePushActive); } catch (_) {}
+            try { timelineEl.removeEventListener('sg-timeline:clip-selected', refreshProperties); } catch (_) {}
+        }
+        if (overlayWire) { try { overlayWire.destroy(); } catch (_) {} overlayWire = null; }
         if (previewEl && onCanvasPlayhead) {
             try { previewEl.getCanvas().removeEventListener('composer:playhead-changed', onCanvasPlayhead); } catch (_) {}
         }
@@ -159,6 +267,12 @@ export function mountShell({ host, state, api, getComposer, setComposer }) {
         }
         try { exportCtl && exportCtl.destroy(); } catch (_) {}
         try { assetPanel && assetPanel.destroy(); } catch (_) {}
+        try { jsonPane && jsonPane.destroy(); } catch (_) {}
+        try { propertiesPane && propertiesPane.destroy(); } catch (_) {}
+        try { messagesPane && messagesPane.destroy(); } catch (_) {}
+        try { shortcutsPane && shortcutsPane.destroy(); } catch (_) {}
+        try { keyboardWire && keyboardWire.destroy(); } catch (_) {}
+        try { autosaveHandle && autosaveHandle.destroy(); } catch (_) {} autosaveHandle = null;
         try { devPanel && devPanel.destroy(); } catch (_) {}
         host.innerHTML = '';
     }

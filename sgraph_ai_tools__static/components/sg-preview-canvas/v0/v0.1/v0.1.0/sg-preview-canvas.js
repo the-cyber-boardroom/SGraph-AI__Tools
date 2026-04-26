@@ -1,6 +1,13 @@
-// sg-preview-canvas.js — canvas + transport bar component (v0.1.0)
+// sg-preview-canvas.js — canvas + transport bar + transform/crop overlay (v0.1.0)
 
-import { buildTransport, wireTransport, fmtMmss } from './preview-transport.js';
+import {
+    buildTransport,
+    updateTime,
+    setTransportEnabled,
+    mountTransportModeButtons,
+} from './preview-transport.js';
+import { mountOverlay } from './preview-overlay.js';
+import { bindComposer } from './preview-composer-bind.js';
 
 const CSS_HREF = new URL('./sg-preview-canvas.css', import.meta.url).href;
 const DEFAULT_W = 1280;
@@ -11,12 +18,14 @@ export class SgPreviewCanvas extends HTMLElement {
 
     #canvas = null;
     #transportEl = null;
+    #holderEl = null;
     #els = null;
-    #composer = null;
-    #unwire = null;
-    #onPlayhead = null;
-    #onEnded = null;
-    #duration = 0;
+    #binding = null;
+    #overlay = null;
+    #editorMode = 'select';
+    #activeClip = null;
+    #modeBtns = null;
+    #onCanvasClick = null;
 
     constructor() {
         super();
@@ -32,13 +41,45 @@ export class SgPreviewCanvas extends HTMLElement {
         `;
         this.#canvas = sr.querySelector('canvas');
         this.#transportEl = sr.querySelector('.transport');
+        this.#holderEl = sr.querySelector('.canvas-holder');
         const w = parseInt(this.getAttribute('width') || '', 10);
         const h = parseInt(this.getAttribute('height') || '', 10);
         this.setSize(Number.isFinite(w) && w > 0 ? w : DEFAULT_W,
                      Number.isFinite(h) && h > 0 ? h : DEFAULT_H);
         this.#els = buildTransport(this.#transportEl);
-        this.#updateTime(0, 0);
-        this.#setEnabled(false);
+        updateTime(this.#els, 0, 0);
+        setTransportEnabled(this.#els, false);
+        this.#modeBtns = mountTransportModeButtons(this.#transportEl, {
+            getMode: () => this.#editorMode,
+            dispatch: (name, detail) => this.dispatchEvent(
+                new CustomEvent(name, { detail, bubbles: true, composed: true })),
+        });
+    }
+
+    connectedCallback() {
+        if (this.#overlay) return;
+        this.#overlay = mountOverlay({
+            parent: this.#holderEl,
+            host: this,
+            getCanvas: () => this.#canvas,
+            getMode: () => this.#editorMode,
+            getActive: () => this.#activeClip,
+        });
+        // Click-to-select on the canvas. The overlay layer has pointer-events:
+        // none, so clicks fall through to the canvas in any mode; consumers
+        // gate on `mode === 'select'` themselves.
+        this.#onCanvasClick = (e) => {
+            const c = this.#canvas;
+            const rect = c.getBoundingClientRect();
+            if (rect.width <= 0 || rect.height <= 0) return;
+            const cx = (e.clientX - rect.left) * (c.width / rect.width);
+            const cy = (e.clientY - rect.top)  * (c.height / rect.height);
+            this.dispatchEvent(new CustomEvent('sg-preview:canvas-clicked', {
+                detail: { canvasX: cx, canvasY: cy, mode: this.#editorMode },
+                bubbles: true, composed: true,
+            }));
+        };
+        this.#canvas.addEventListener('click', this.#onCanvasClick);
     }
 
     attributeChangedCallback(name, _old, val) {
@@ -48,7 +89,15 @@ export class SgPreviewCanvas extends HTMLElement {
         else if (name === 'height') this.setSize(this.#canvas.width, n);
     }
 
-    disconnectedCallback() { this.detachComposer(); }
+    disconnectedCallback() {
+        this.detachComposer();
+        if (this.#overlay) { try { this.#overlay.destroy(); } catch (_) {} this.#overlay = null; }
+        if (this.#modeBtns) { try { this.#modeBtns.dispose(); } catch (_) {} this.#modeBtns = null; }
+        if (this.#onCanvasClick) {
+            try { this.#canvas.removeEventListener('click', this.#onCanvasClick); } catch (_) {}
+            this.#onCanvasClick = null;
+        }
+    }
 
     /**
      * Get the inner canvas element.
@@ -60,74 +109,65 @@ export class SgPreviewCanvas extends HTMLElement {
      * Set canvas pixel dimensions.
      * @param {number} w
      * @param {number} h
-     * @returns {void}
      */
     setSize(w, h) {
         if (Number.isFinite(w) && w > 0) this.#canvas.width = w;
         if (Number.isFinite(h) && h > 0) this.#canvas.height = h;
+        if (this.#overlay) this.#overlay.refresh();
+    }
+
+    /** Alias of `setSize` for caller clarity. */
+    setCanvasSize(w, h) { this.setSize(w, h); }
+
+    /**
+     * Switch the on-canvas overlay mode.
+     * @param {'select'|'move'|'crop'} mode
+     */
+    setEditorMode(mode) {
+        const next = (mode === 'move' || mode === 'crop') ? mode : 'select';
+        this.#editorMode = next;
+        if (this.#modeBtns) this.#modeBtns.refresh();
+        if (this.#overlay) this.#overlay.refresh();
+    }
+
+    /**
+     * Read the current overlay mode.
+     * @returns {'select'|'move'|'crop'}
+     */
+    getEditorMode() { return this.#editorMode; }
+
+    /**
+     * Set (or clear) the clip whose handles the overlay should render.
+     * @param {{clipId: string, kind?: string, transform?: object, crop?: object, srcWidth: number, srcHeight: number}|null} info
+     */
+    setActiveClip(info) {
+        const ok = info && info.clipId
+            && Number.isFinite(info.srcWidth) && info.srcWidth > 0
+            && Number.isFinite(info.srcHeight) && info.srcHeight > 0;
+        this.#activeClip = ok ? {
+            clipId: info.clipId,
+            kind: info.kind || 'asset',
+            transform: info.transform || null,
+            crop: info.crop || null,
+            srcWidth: info.srcWidth,
+            srcHeight: info.srcHeight,
+        } : null;
+        if (this.#overlay) this.#overlay.refresh();
     }
 
     /**
      * Attach a composer handle (from createComposer).
-     * @param {{play:Function,pause:Function,seek:Function,getCurrentTime:Function,getDuration:Function,isPlaying:Function,destroy:Function}} composer
-     * @returns {void}
+     * @param {object} composer
      */
     attachComposer(composer) {
         this.detachComposer();
         if (!composer) return;
-        this.#composer = composer;
-        this.#unwire = wireTransport(this.#els, composer);
-        this.#duration = composer.getDuration ? composer.getDuration() : 0;
-        this.#updateTime(composer.getCurrentTime ? composer.getCurrentTime() : 0, this.#duration);
-        this.#onPlayhead = (e) => {
-            const t = (e && e.detail && Number.isFinite(e.detail.time)) ? e.detail.time : 0;
-            this.#updateTime(t, this.#duration);
-            this.#updatePlayIcon();
-        };
-        this.#onEnded = () => {
-            this.#updatePlayIcon();
-        };
-        this.#canvas.addEventListener('composer:playhead-changed', this.#onPlayhead);
-        this.#canvas.addEventListener('composer:ended', this.#onEnded);
-        this.#setEnabled(true);
-        this.#updatePlayIcon();
+        this.#binding = bindComposer({ composer, els: this.#els, canvas: this.#canvas });
     }
 
-    /**
-     * Detach the current composer handle.
-     * @returns {void}
-     */
+    /** Detach the current composer handle. */
     detachComposer() {
-        if (this.#unwire) { this.#unwire(); this.#unwire = null; }
-        if (this.#onPlayhead) {
-            this.#canvas.removeEventListener('composer:playhead-changed', this.#onPlayhead);
-            this.#onPlayhead = null;
-        }
-        if (this.#onEnded) {
-            this.#canvas.removeEventListener('composer:ended', this.#onEnded);
-            this.#onEnded = null;
-        }
-        this.#composer = null;
-        this.#duration = 0;
-        this.#updateTime(0, 0);
-        this.#setEnabled(false);
-        if (this.#els) this.#els.play.textContent = '▶';
-    }
-
-    #updateTime(cur, dur) {
-        if (this.#els) this.#els.time.textContent = `${fmtMmss(cur)} / ${fmtMmss(dur)}`;
-    }
-
-    #updatePlayIcon() {
-        if (!this.#composer || !this.#els) return;
-        this.#els.play.textContent = this.#composer.isPlaying() ? '⏸' : '▶';
-    }
-
-    #setEnabled(enabled) {
-        if (!this.#els) return;
-        this.#els.back.disabled = !enabled;
-        this.#els.play.disabled = !enabled;
-        this.#els.fwd.disabled = !enabled;
+        if (this.#binding) { try { this.#binding.detach(); } catch (_) {} this.#binding = null; }
     }
 }
 

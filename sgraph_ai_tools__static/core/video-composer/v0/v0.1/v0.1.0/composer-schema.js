@@ -3,6 +3,19 @@
  * @module video-composer/composer-schema
  */
 
+export {
+    defaultTransform, defaultCrop,
+    getClipTransform, getClipCrop,
+    clampTransform, clampCrop,
+} from './composer-clip-fields.js';
+
+export {
+    isAssetClip, isShapeClip, isTextClip,
+    getClipKind, getClipIntrinsicDims,
+    defaultShape, defaultText, defaultClipDuration,
+    clampShape, clampText,
+} from './composer-clip-kinds.js';
+
 /**
  * Snap a time to the nearest frame boundary.
  * @param {number} t Time in seconds.
@@ -77,6 +90,26 @@ export function findActiveClip(track, timelineTime) {
 }
 
 /**
+ * Look up an asset by id within a project.
+ * @param {{ assets?: Array<{ id: string }> }} project
+ * @param {string} assetId
+ * @returns {object|undefined}
+ */
+export function getAssetById(project, assetId) {
+    if (!project || !Array.isArray(project.assets)) return undefined;
+    return project.assets.find(a => a && a.id === assetId);
+}
+
+/**
+ * Determine whether an asset entry represents an image.
+ * @param {{ assetType?: string }|null|undefined} asset
+ * @returns {boolean}
+ */
+export function isImageAsset(asset) {
+    return asset?.assetType === 'image';
+}
+
+/**
  * Filter project tracks to only video tracks.
  * @param {{ tracks: Array<{ kind: string }> }} project
  * @returns {Array<object>}
@@ -84,6 +117,41 @@ export function findActiveClip(track, timelineTime) {
 export function getVideoTracks(project) {
     if (!project || !Array.isArray(project.tracks)) return [];
     return project.tracks.filter(t => t && t.kind === 'video');
+}
+
+/**
+ * For a given timeline-time, list the active clip on each video track.
+ * Returns one entry per `kind === 'video'` track in array order (bottom-up).
+ * @param {{ tracks: Array<object> }} project
+ * @param {number} t
+ * @returns {Array<{ track: object, clip: object|null }>}
+ */
+export function findActiveClipsPerTrack(project, t) {
+    return getVideoTracks(project).map(track => ({
+        track,
+        clip: findActiveClip(track, t),
+    }));
+}
+
+/**
+ * Determine which clip drives audio at timeline-time `t`. Top-most active
+ * (highest array index) wins; if the topmost track is muted, audio is silent
+ * (returns null). If the topmost track has no active clip, fall back down.
+ * @param {{ tracks: Array<object> }} project
+ * @param {number} t
+ * @returns {{ track: object, clip: object }|null}
+ */
+export function findTopmostActiveAudioClip(project, t) {
+    const videoTracks = getVideoTracks(project);
+    for (let i = videoTracks.length - 1; i >= 0; i--) {
+        const track = videoTracks[i];
+        const clip = findActiveClip(track, t);
+        // Shape/text clips have no audio — fall through to the next layer so
+        // a graphic on top doesn't silence the video below.
+        if (!clip || clip.kind === 'shape' || clip.kind === 'text') continue;
+        return track.muted ? null : { track, clip };
+    }
+    return null;
 }
 
 /**
@@ -102,7 +170,18 @@ export function validateProject(project) {
         if (!Array.isArray(track.clips)) throw new Error('track.clips must be an array');
         for (const clip of track.clips) {
             if (!clip || typeof clip !== 'object') throw new Error('clip must be an object');
-            if (typeof clip.assetId !== 'string') throw new Error('clip.assetId must be a string');
+            const hasAsset = typeof clip.assetId === 'string';
+            const isShape = clip.kind === 'shape';
+            const isText  = clip.kind === 'text';
+            if (!hasAsset && !isShape && !isText) {
+                throw new Error('clip must have assetId or kind=shape|text');
+            }
+            if (isShape && (!clip.shape || typeof clip.shape !== 'object')) {
+                throw new Error('shape clip must carry a shape object');
+            }
+            if (isText && (!clip.text || typeof clip.text !== 'object')) {
+                throw new Error('text clip must carry a text object');
+            }
             if (!Number.isFinite(clip.timelineStart)) throw new Error('clip.timelineStart must be a number');
             if (!Number.isFinite(clip.inPoint)) throw new Error('clip.inPoint must be a number');
             if (!Number.isFinite(clip.outPoint)) throw new Error('clip.outPoint must be a number');

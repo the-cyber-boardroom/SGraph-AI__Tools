@@ -1,57 +1,106 @@
 /** api-methods.js — bind state to SgToolApi method implementations. */
 
 import { exportComposerProject } from '/core/video-composer/v0/v0.1/v0.1.0/sg-video-composer.js';
-
-/** Probe a video File for duration/dimensions via a hidden <video> element. */
-async function probeVideoFile(file) {
-    return new Promise((resolve, reject) => {
-        const url = URL.createObjectURL(file);
-        const v = document.createElement('video');
-        v.preload = 'metadata';
-        v.muted = true;
-        const cleanup = () => { URL.revokeObjectURL(url); v.src = ''; };
-        const onLoaded = () => {
-            const out = { duration: v.duration, width: v.videoWidth, height: v.videoHeight };
-            cleanup();
-            resolve(out);
-        };
-        const onError = () => { cleanup(); reject(new Error('failed to load video metadata')); };
-        v.addEventListener('loadedmetadata', onLoaded, { once: true });
-        v.addEventListener('error', onError, { once: true });
-        v.src = url;
-    });
-}
+import { buildTrackMethods } from './api-track-methods.js';
+import { buildStorageMethods } from './api-storage-methods.js';
+import { probeVideoFile, probeImageFile } from './api-probe.js';
 
 function badArg(msg) { return Object.assign(new Error(msg), { code: 'invalid-arg' }); }
+function unsupportedMime(mime) {
+    return Object.assign(new Error(`unsupported mime: ${mime || 'unknown'}`), { code: 'unsupported-mime' });
+}
 
 /** Build the 8 API methods bound to the given state container. */
 export function buildApiMethods({ state, getComposer, setComposer, hostEl }) {
-    void getComposer; void setComposer; void hostEl;
+    void setComposer; void hostEl;
+
+    /** Force the preview canvas to repaint at the current playhead. Useful as
+     *  an escape hatch when the on-canvas image gets out of sync with state
+     *  (the composer's frame cache normally invalidates on project change,
+     *  but this gives callers a manual flush). No-op if no composer attached. */
+    function refreshPreview() {
+        const c = getComposer && getComposer();
+        if (c && typeof c.refresh === 'function') c.refresh();
+        return { ok: !!c };
+    }
 
     async function loadAsset(params = {}) {
         const file = params && params.file;
         if (!(file instanceof Blob)) throw badArg('file must be a File/Blob');
-        const { duration, width, height } = await probeVideoFile(file);
+        const mime = file.type || '';
         const assetId = `a_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 8)}`;
-        state.addAsset({
-            assetId,
-            name: file.name || 'asset',
-            mime: file.type || 'video/mp4',
-            duration,
-            width,
-            height,
-            bytes: file.size,
-            blob: file,
-        });
-        return { assetId, duration, width, height, bytes: file.size };
+        if (mime.startsWith('image/')) {
+            const { width, height } = await probeImageFile(file);
+            state.addAsset({
+                assetId, name: file.name || 'asset', mime,
+                width, height, bytes: file.size, blob: file, assetType: 'image',
+            });
+            return { assetId, assetType: 'image', width, height, bytes: file.size };
+        }
+        if (mime.startsWith('video/') || !mime) {
+            const { duration, width, height } = await probeVideoFile(file);
+            state.addAsset({
+                assetId, name: file.name || 'asset', mime: mime || 'video/mp4',
+                duration, width, height, bytes: file.size, blob: file, assetType: 'video',
+            });
+            return { assetId, assetType: 'video', duration, width, height, bytes: file.size };
+        }
+        throw unsupportedMime(mime);
     }
 
     function addClip(params = {}) {
-        const { trackId, assetId, timelineStart, inPoint, outPoint, clipId } = params;
+        const { trackId, assetId, timelineStart, inPoint, outPoint, clipId, snap, maxSnapDistance } = params;
         if (!trackId) throw badArg('trackId required');
         if (!assetId) throw badArg('assetId required');
-        const id = state.addClip({ trackId, assetId, timelineStart, inPoint, outPoint, clipId });
+        const id = state.addClip({
+            trackId, assetId, timelineStart, inPoint, outPoint, clipId,
+            snap: !!snap,
+            maxSnapDistance: Number.isFinite(maxSnapDistance) ? maxSnapDistance : undefined,
+        });
         return { clipId: id };
+    }
+
+    function addShapeClip(params = {}) {
+        const { trackId, timelineStart, duration, clipId, shape, snap, maxSnapDistance } = params;
+        if (!trackId) throw badArg('trackId required');
+        const id = state.addShapeClip({
+            trackId, timelineStart, duration, clipId, shape,
+            snap: !!snap,
+            maxSnapDistance: Number.isFinite(maxSnapDistance) ? maxSnapDistance : undefined,
+        });
+        return { clipId: id };
+    }
+
+    function addTextClip(params = {}) {
+        const { trackId, timelineStart, duration, clipId, text, snap, maxSnapDistance } = params;
+        if (!trackId) throw badArg('trackId required');
+        const id = state.addTextClip({
+            trackId, timelineStart, duration, clipId, text,
+            snap: !!snap,
+            maxSnapDistance: Number.isFinite(maxSnapDistance) ? maxSnapDistance : undefined,
+        });
+        return { clipId: id };
+    }
+
+    function removeAsset(params = {}) {
+        const { assetId } = params;
+        if (!assetId) throw badArg('assetId required');
+        const r = state.removeAsset({ assetId });
+        return { assetId: r.assetId };
+    }
+
+    function setShapeProps(params = {}) {
+        const { clipId, shape, transform, transient } = params;
+        if (!clipId) throw badArg('clipId required');
+        const r = state.setShapeProps({ clipId, shape, transform, transient: !!transient });
+        return { clipId: r.clipId, shape: r.shape, transform: r.transform };
+    }
+
+    function setTextProps(params = {}) {
+        const { clipId, text, transform, transient } = params;
+        if (!clipId) throw badArg('clipId required');
+        const r = state.setTextProps({ clipId, text, transform, transient: !!transient });
+        return { clipId: r.clipId, text: r.text, transform: r.transform };
     }
 
     function trimClip(params = {}) {
@@ -69,11 +118,81 @@ export function buildApiMethods({ state, getComposer, setComposer, hostEl }) {
     }
 
     function moveClip(params = {}) {
-        const { clipId, timelineStart } = params;
+        const { clipId, timelineStart, snap, maxSnapDistance } = params;
         if (!clipId) throw badArg('clipId required');
         if (!Number.isFinite(timelineStart)) throw badArg('timelineStart must be a number');
-        state.moveClip({ clipId, timelineStart });
+        state.moveClip({
+            clipId, timelineStart,
+            snap: !!snap,
+            maxSnapDistance: Number.isFinite(maxSnapDistance) ? maxSnapDistance : undefined,
+        });
         return { clipId, timelineStart };
+    }
+
+    function splitClip(params = {}) {
+        const { clipId, atTime } = params;
+        if (!clipId) throw badArg('clipId required');
+        if (!Number.isFinite(atTime)) throw badArg('atTime must be a number');
+        const { newClipId } = state.splitClip({ clipId, atTime });
+        return { newClipId };
+    }
+
+    function setClipColor(params = {}) {
+        const { clipId, color } = params;
+        if (!clipId) throw badArg('clipId required');
+        state.setClipColor({ clipId, color: color == null ? null : color });
+        return { clipId, color: color == null ? null : color };
+    }
+
+    function setClipTransform(params = {}) {
+        const { clipId, transform, transient } = params;
+        if (!clipId) throw badArg('clipId required');
+        const r = state.setClipTransform({
+            clipId,
+            transform: transform == null ? null : transform,
+            transient: !!transient,
+        });
+        return { clipId: r.clipId, transform: r.transform };
+    }
+
+    function setClipCrop(params = {}) {
+        const { clipId, crop, transient } = params;
+        if (!clipId) throw badArg('clipId required');
+        const r = state.setClipCrop({
+            clipId,
+            crop: crop == null ? null : crop,
+            transient: !!transient,
+        });
+        return { clipId: r.clipId, crop: r.crop };
+    }
+
+    function copyClip(params = {}) {
+        const { clipId } = params;
+        if (!clipId) throw badArg('clipId required');
+        const r = state.copyClip({ clipId });
+        return { hasClipboard: !!(r && r.hasClipboard) };
+    }
+
+    function pasteClip(params = {}) {
+        const { targetTrackId, timelineStart, snap, maxSnapDistance } = params || {};
+        if (!state.hasClipboard()) throw badArg('clipboard is empty');
+        if (!targetTrackId) throw badArg('targetTrackId required');
+        if (!Number.isFinite(timelineStart)) throw badArg('timelineStart must be a finite number');
+        const r = state.pasteClip({
+            targetTrackId, timelineStart,
+            snap: !!snap,
+            maxSnapDistance: Number.isFinite(maxSnapDistance) ? maxSnapDistance : undefined,
+        });
+        return r ? { clipId: r.clipId, trackId: r.trackId, timelineStart: r.timelineStart } : null;
+    }
+
+    function hasClipboard() { return { hasClipboard: state.hasClipboard() }; }
+
+    function renameProject(params = {}) {
+        const { name } = params || {};
+        if (typeof name !== 'string') throw badArg('name must be a string');
+        const r = state.renameProject({ name });
+        return { name: r.name };
     }
 
     function getProject() { return state.getProject(); }
@@ -83,6 +202,19 @@ export function buildApiMethods({ state, getComposer, setComposer, hostEl }) {
         state.setProject(params.project);
         return { ok: true };
     }
+
+    function undo() {
+        const did = state.undo();
+        return { undid: did, canUndo: state.canUndo(), canRedo: state.canRedo() };
+    }
+
+    function redo() {
+        const did = state.redo();
+        return { redid: did, canUndo: state.canUndo(), canRedo: state.canRedo() };
+    }
+
+    function canUndo() { return { canUndo: state.canUndo() }; }
+    function canRedo() { return { canRedo: state.canRedo() }; }
 
     async function exportMp4(params = {}) {
         const { preferMp4 = true, bitsPerSecond, onProgress } = params || {};
@@ -106,5 +238,37 @@ export function buildApiMethods({ state, getComposer, setComposer, hostEl }) {
         };
     }
 
-    return { loadAsset, addClip, trimClip, removeClip, moveClip, getProject, setProject, exportMp4 };
+    const trackMethods = buildTrackMethods({ state });
+    const storageMethods = buildStorageMethods({ state });
+
+    return {
+        loadAsset, removeAsset, addClip, trimClip, removeClip, moveClip, splitClip,
+        setClipColor, setClipTransform, setClipCrop,
+        addShapeClip, addTextClip, setShapeProps, setTextProps,
+        copyClip, pasteClip, hasClipboard,
+        renameProject,
+        getProject, setProject,
+        undo, redo, canUndo, canRedo,
+        exportMp4, refreshPreview,
+        addTrack: trackMethods.addTrack,
+        removeTrack: trackMethods.removeTrack,
+        moveClipToTrack: trackMethods.moveClipToTrack,
+        reorderTracks: trackMethods.reorderTracks,
+        setTrackMuted: trackMethods.setTrackMuted,
+        setTrackLocked: trackMethods.setTrackLocked,
+        renameTrack: trackMethods.renameTrack,
+        setTrackColor: trackMethods.setTrackColor,
+        saveProject:        storageMethods.saveProject,
+        loadProject:        storageMethods.loadProject,
+        listSavedProjects:  storageMethods.listSavedProjects,
+        deleteSavedProject: storageMethods.deleteSavedProject,
+        hasUnsavedChanges:  storageMethods.hasUnsavedChanges,
+        autosave:           storageMethods.autosave,
+        getAutosave:        storageMethods.getAutosave,
+        discardAutosave:    storageMethods.discardAutosave,
+        isAutosaveNewer:    storageMethods.isAutosaveNewer,
+        // Round-9-J — IDB blob storage helpers.
+        hydrateAssets:      storageMethods.hydrateAssets,
+        getStorageUsage:    storageMethods.getStorageUsage,
+    };
 }

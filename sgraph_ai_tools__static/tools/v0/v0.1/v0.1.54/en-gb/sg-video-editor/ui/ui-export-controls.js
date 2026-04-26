@@ -1,81 +1,120 @@
-/** ui-export-controls.js — export button + status + download trigger. */
+/** ui-export-controls.js — export button orchestrator.
+ *
+ * Round-9-I (Tasks 4 + 5). The export button has three states:
+ *
+ *   idle       → "Export MP4" button, click triggers an export.
+ *   exporting  → "Exporting NN%" — disabled, fixed-width, L→R progress
+ *                fill (Task 4). The width is pinned in JS at mount so
+ *                "Export MP4" → "Exporting 100%" never reflows.
+ *   done       → idle button is replaced by Download + Drag-out + a
+ *                Re-export link (Task 5). Drag-out advertises both the
+ *                SG-native MIME (`application/x-sg-asset`, JSON
+ *                descriptor) AND a real File via DataTransferItemList,
+ *                so the user can drop onto another SG tool, the
+ *                desktop, or any plain file dropzone.
+ *
+ * The orchestrator owns the state machine and the host swap; the button
+ * (idle/exporting) lives in ui-export-progress.js, the post-export
+ * action row lives in ui-export-actions.js. Splitting kept this file
+ * under 150 LOC.
+ */
 
-const ROOT_STYLE = 'display:inline-flex;align-items:center;gap:.5rem;';
-const BTN_STYLE = 'padding:.4rem .9rem;border:1px solid #1f2937;border-radius:4px;'
-    + 'background:#1e293b;color:inherit;font:inherit;cursor:pointer;';
-const STATUS_STYLE = 'font-size:.8rem;color:#94a3b8;';
-
-/** Trigger a programmatic download of a Blob with a given filename. */
-function downloadBlob(blob, filename) {
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = filename;
-    a.style.display = 'none';
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-    setTimeout(() => URL.revokeObjectURL(url), 4000);
-}
-
-/** Pick file extension from a mime type. */
-function extFor(mime) {
-    if (!mime) return 'mp4';
-    if (mime.includes('mp4')) return 'mp4';
-    if (mime.includes('webm')) return 'webm';
-    return 'mp4';
-}
+import { mountExportButton } from './ui-export-progress.js';
+import { mountExportActions, extFor } from './ui-export-actions.js';
 
 /**
- * Mount the export controls inside host.
- * @param {{host: HTMLElement, onExport: (opts: {onProgress?: Function}) => Promise<{blob: Blob, mimeType: string, sizeBytes: number, durationMs: number}>}} opts
- * @returns {{destroy: () => void}}
+ * Mount the export controls inside `host`. Returns a destroy handle.
+ *
+ * @param {{
+ *   host: HTMLElement,
+ *   onExport: (opts: {onProgress?: (info: {ratio: number}) => void})
+ *     => Promise<{ blob: Blob, mimeType: string, sizeBytes: number, durationMs: number }>,
+ * }} opts
+ * @returns {{ destroy: () => void }}
  */
 export function mountExportControls({ host, onExport }) {
-    host.innerHTML = `
-        <div class="sgve-export" style="${ROOT_STYLE}">
-            <button type="button" class="sgve-export-btn" style="${BTN_STYLE}">Export MP4</button>
-            <span class="sgve-export-status" style="${STATUS_STYLE}" hidden></span>
-        </div>
-    `;
-    const root = host.firstElementChild;
-    const btn = root.querySelector('.sgve-export-btn');
-    const status = root.querySelector('.sgve-export-status');
+    let phase = 'idle'; // 'idle' | 'exporting' | 'done'
+    let actions = null;
+    let lastBlob = null;
+    let lastMime = null;
+    let lastFilename = null;
+    let buttonHandle = null;
 
-    function setStatus(text, visible = true) {
-        status.textContent = text || '';
-        status.hidden = !visible;
+    /** Slot for the idle/exporting button. Cleared and re-mounted whenever
+     *  we transition out of idle/exporting back into one of those states. */
+    function mountButton() {
+        if (buttonHandle) {
+            try { buttonHandle.destroy(); } catch (_) {}
+            buttonHandle = null;
+        }
+        host.innerHTML = '';
+        buttonHandle = mountExportButton({ host });
+        buttonHandle.button.addEventListener('click', onClickExport);
     }
 
-    async function onClick() {
+    function setIdle() {
+        phase = 'idle';
+        if (actions) { try { actions.destroy(); } catch (_) {} actions = null; }
+        mountButton();
+        buttonHandle.setLabel('Export MP4');
+        buttonHandle.setBusy(false);
+        buttonHandle.setStatus('', false);
+    }
+
+    function setExporting(ratio = 0) {
+        phase = 'exporting';
+        if (!buttonHandle) mountButton();
+        const pct = Math.round(Math.max(0, Math.min(1, ratio)) * 100);
+        buttonHandle.setLabel(`Exporting ${pct}%`);
+        buttonHandle.setProgress(ratio);
+        buttonHandle.setBusy(true);
+    }
+
+    function setDone(blob, mime, filename) {
+        phase = 'done';
+        lastBlob = blob;
+        lastMime = mime;
+        lastFilename = filename;
+        if (buttonHandle) { try { buttonHandle.destroy(); } catch (_) {} buttonHandle = null; }
+        host.innerHTML = '';
+        actions = mountExportActions({
+            host, blob, mimeType: mime, filename,
+            onReexport: () => setIdle(),
+        });
+    }
+
+    async function onClickExport() {
+        if (phase !== 'idle') return;
         if (typeof onExport !== 'function') return;
-        btn.disabled = true;
-        setStatus('Exporting…');
+        setExporting(0);
         try {
             const onProgress = (info) => {
                 const r = info && Number.isFinite(info.ratio) ? info.ratio : null;
-                if (r != null) setStatus(`Exporting ${Math.round(r * 100)}%`);
+                if (r != null && phase === 'exporting') setExporting(r);
             };
             const result = await onExport({ onProgress });
             const blob = result && result.blob;
             if (!(blob instanceof Blob)) throw new Error('export returned no blob');
             const mime = (result && result.mimeType) || blob.type || 'video/mp4';
             const filename = `sg-video-editor-${Date.now()}.${extFor(mime)}`;
-            downloadBlob(blob, filename);
-            setStatus('Done');
+            setDone(blob, mime, filename);
         } catch (err) {
             const msg = err && err.message ? err.message : String(err);
-            setStatus(`Error: ${msg}`);
-        } finally {
-            btn.disabled = false;
+            // Bounce back to idle but show the error in the status caption
+            // so the user knows what happened (state-machine spec doesn't
+            // need a fourth state for a one-shot transient error).
+            setIdle();
+            if (buttonHandle) buttonHandle.setStatus(`Error: ${msg}`, true);
         }
     }
 
-    btn.addEventListener('click', onClick);
+    setIdle();
 
     /** Tear down listeners and clear host. */
     function destroy() {
-        btn.removeEventListener('click', onClick);
+        if (actions) { try { actions.destroy(); } catch (_) {} actions = null; }
+        if (buttonHandle) { try { buttonHandle.destroy(); } catch (_) {} buttonHandle = null; }
+        lastBlob = null; lastMime = null; lastFilename = null;
         host.innerHTML = '';
     }
 

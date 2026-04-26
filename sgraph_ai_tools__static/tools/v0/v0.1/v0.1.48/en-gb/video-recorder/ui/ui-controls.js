@@ -151,6 +151,13 @@ export function initControls(container, state, config, api, emit) {
                             <button class="ctrl-toggle" data-value="5000000">5 Mbps</button>
                         </div>
                     </div>
+                    <div class="ctrl-row" id="row-layout" style="display:none">
+                        <label class="ctrl-label">Layout <span style="font-size:0.8em;color:#64748b">(screen+camera only)</span></label>
+                        <div class="ctrl-toggle-group" id="layout-group">
+                            <button class="ctrl-toggle" data-value="landscape">Landscape</button>
+                            <button class="ctrl-toggle" data-value="shorts">Vertical (Shorts 9:16)</button>
+                        </div>
+                    </div>
                 </div>
             </details>
         </section>
@@ -166,6 +173,8 @@ export function initControls(container, state, config, api, emit) {
     const vizStyleSelect = container.querySelector('#viz-style-select');
     const recModeGroup   = container.querySelector('#rec-mode-group');
     const qualityGroup   = container.querySelector('#quality-group');
+    const layoutRow      = container.querySelector('#row-layout');
+    const layoutGroup    = container.querySelector('#layout-group');
     const btnPreview     = container.querySelector('#btn-preview');
     const btnRecord      = container.querySelector('#btn-record');
     const btnStop        = container.querySelector('#btn-stop');
@@ -194,6 +203,20 @@ export function initControls(container, state, config, api, emit) {
 
         vizStyleRow.style.display  = camViz === 'viz' ? '' : 'none';
         btnPreview.style.display   = camViz === 'camera' ? '' : 'none';
+
+        // Layout toggle: only meaningful when both screen and camera are active
+        const isScreenAndCamera = useScreen && camViz === 'camera';
+        layoutRow.style.display = isScreenAndCamera ? '' : 'none';
+        if (!isScreenAndCamera && config.layout !== 'landscape') {
+            _setLayout('landscape');
+        }
+    }
+
+    function _setLayout(value) {
+        config.layout = value;
+        layoutGroup.querySelectorAll('.ctrl-toggle').forEach(btn => {
+            btn.classList.toggle('ctrl-toggle--active', btn.dataset.value === value);
+        });
     }
 
     vizStyleSelect.value = config.vizMode;
@@ -221,6 +244,15 @@ export function initControls(container, state, config, api, emit) {
     vizStyleSelect.addEventListener('change', () => {
         config.vizMode = vizStyleSelect.value;
     });
+
+    // ── Layout toggle (screen+camera only) ────────────────────────────────────
+
+    layoutGroup.addEventListener('click', (e) => {
+        const btn = e.target.closest('.ctrl-toggle');
+        if (!btn) return;
+        _setLayout(btn.dataset.value);
+    });
+    _setLayout(config.layout);
 
     // ── Recording name ────────────────────────────────────────────────────────
 

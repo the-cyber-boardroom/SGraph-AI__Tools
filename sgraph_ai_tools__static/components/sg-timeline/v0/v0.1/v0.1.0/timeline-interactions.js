@@ -3,48 +3,24 @@
 import { snapToFps } from '../../../../../core/video-composer/v0/v0.1/v0.1.0/composer-schema.js';
 import { SGT_EVENTS } from './timeline-events.js';
 import { attachDropAffordance } from './timeline-drop.js';
-
-/**
- * Look up a clip object by id from the first video track of state.project.
- * @param {object} state
- * @param {string} clipId
- * @returns {object|null}
- */
-function findClip(state, clipId) {
-    const project = state.project;
-    if (!project || !Array.isArray(project.tracks)) return null;
-    for (const t of project.tracks) {
-        if (t && t.kind === 'video' && Array.isArray(t.clips)) {
-            for (const c of t.clips) if (c && c.id === clipId) return c;
-        }
-    }
-    return null;
-}
-
-/**
- * Asset duration lookup (project.assets keyed by id or array).
- * @param {object} state
- * @param {string} assetId
- * @returns {number}
- */
-function assetDuration(state, assetId) {
-    const a = state.project && state.project.assets;
-    if (!a) return Infinity;
-    const rec = Array.isArray(a) ? a.find(x => x && x.id === assetId) : a[assetId];
-    return (rec && Number.isFinite(rec.duration)) ? rec.duration : Infinity;
-}
+import { attachKeyboard } from './timeline-keyboard.js';
+import { showDragFeedback, endDragFeedback } from './timeline-feedback.js';
+import { attachHeaderButtons } from './timeline-track-headers.js';
+import { findLaneAtY } from './timeline-lane-finder.js';
+import { computeDragPreview, findClipAndTrack, assetDuration } from './timeline-clip-drag.js';
 
 /**
  * Attach pointer + drop interactions to the timeline shadow root.
  * @param {ShadowRoot} root
- * @param {() => {project: object|null, pps: number, fps: number}} getState
+ * @param {() => {project: object|null, pps: number, fps: number, playhead?: number, selectedClipId?: string|null, host?: HTMLElement}} getState
  * @param {(name: string, detail: object) => void} dispatch
+ * @param {HTMLElement} [hostEl] Custom-element host (for keyboard scope).
  * @returns {() => void} dispose function
  */
-export function attachInteractions(root, getState, dispatch) {
+export function attachInteractions(root, getState, dispatch, hostEl) {
     const ruler = root.querySelector('.ruler');
-    const lane = root.querySelector('.lane');
-    if (!ruler || !lane) return () => {};
+    const lanes = root.querySelector('.lanes');
+    if (!ruler || !lanes) return () => {};
 
     let drag = null;
 
@@ -56,54 +32,79 @@ export function attachInteractions(root, getState, dispatch) {
         return snapToFps(t, fps || 30);
     }
 
-    function onLanePointerDown(e) {
+    function onLanesPointerDown(e) {
         const clipEl = e.target.closest('.clip');
         if (!clipEl) return;
+        if (e.target.closest('.clip__delete')) return;
         const clipId = clipEl.dataset.clipId;
         const role = e.target.dataset.role || 'move';
         const state = getState();
-        const clip = findClip(state, clipId);
-        if (!clip) return;
+        const found = findClipAndTrack(state, clipId);
+        if (!found) return;
+        const sourceLane = clipEl.closest('.lane');
+        if (!sourceLane) return;
         e.preventDefault();
         clipEl.setPointerCapture && clipEl.setPointerCapture(e.pointerId);
+        // Cmd/Ctrl + drag on a clip body = copy gesture. Modifier on a trim
+        // handle is ignored (resize is a non-copy operation).
+        const isCopy = role === 'move' && !!(e.metaKey || e.ctrlKey);
         drag = {
             kind: role,
             clipId,
             clipEl,
+            sourceLane,
+            currentLane: sourceLane,
+            fromTrackId: found.track.id,
             startX: e.clientX,
-            origStart: clip.timelineStart,
-            origIn: clip.inPoint,
-            origOut: clip.outPoint,
-            assetDur: assetDuration(state, clip.assetId),
+            origStart: found.clip.timelineStart,
+            origIn: found.clip.inPoint,
+            origOut: found.clip.outPoint,
+            assetDur: assetDuration(state, found.clip.assetId),
             pointerId: e.pointerId,
             moved: false,
+            isCopy,
         };
         dispatch(SGT_EVENTS.CLIP_SELECTED, { clipId });
+    }
+
+    function clearLaneHighlights() {
+        const ls = lanes.querySelectorAll('.lane.is-cross-target');
+        for (const l of ls) l.classList.remove('is-cross-target');
+    }
+
+    /** Re-resolve the live lane element for `trackId`. The shadow DOM may
+     *  rebuild lanes during a drag (e.g. on selection change), which would
+     *  orphan our captured `sourceLane`/`currentLane` refs and silently hide
+     *  the ghost + label overlay. */
+    function liveLaneForTrack(trackId) {
+        if (!trackId) return null;
+        return lanes.querySelector(`.lane[data-track-id="${trackId}"]`);
     }
 
     function onPointerMove(e) {
         if (!drag) return;
         const { pps, fps } = getState();
         const dx = e.clientX - drag.startX;
-        const dt = snapToFps(dx / pps, fps || 30);
         if (Math.abs(dx) > 2) drag.moved = true;
+        const preview = computeDragPreview(drag, dx, pps, fps);
         if (drag.kind === 'move') {
-            const newStart = Math.max(0, drag.origStart + dt);
-            drag.clipEl.style.left = (newStart * pps) + 'px';
-            drag.pendingStart = newStart;
-        } else if (drag.kind === 'trim-left') {
-            const newIn = Math.max(0, Math.min(drag.origOut - 1 / (fps || 30), drag.origIn + dt));
-            const newStart = Math.max(0, drag.origStart + (newIn - drag.origIn));
-            const width = (drag.origOut - newIn) * pps;
-            drag.clipEl.style.left = (newStart * pps) + 'px';
-            drag.clipEl.style.width = Math.max(2, width) + 'px';
-            drag.pendingIn = newIn;
-            drag.pendingStart = newStart;
-        } else if (drag.kind === 'trim-right') {
-            const newOut = Math.max(drag.origIn + 1 / (fps || 30), Math.min(drag.assetDur, drag.origOut + dt));
-            const width = (newOut - drag.origIn) * pps;
-            drag.clipEl.style.width = Math.max(2, width) + 'px';
-            drag.pendingOut = newOut;
+            const targetLane = findLaneAtY(lanes, e.clientY);
+            if (targetLane && targetLane !== drag.currentLane) {
+                if (drag.currentLane) endDragFeedback(drag.currentLane, null);
+                clearLaneHighlights();
+                if (targetLane !== drag.sourceLane) targetLane.classList.add('is-cross-target');
+                drag.currentLane = targetLane;
+            }
+            drag.toTrackId = targetLane ? targetLane.dataset.trackId : drag.fromTrackId;
+        } else {
+            // For trim gestures, re-resolve the source lane each frame so the
+            // overlay survives any lane rebuild that happened during the drag.
+            const live = liveLaneForTrack(drag.fromTrackId);
+            if (live && live !== drag.currentLane) drag.currentLane = live;
+        }
+        if (preview && drag.moved) {
+            const ghostHost = drag.currentLane || drag.sourceLane;
+            showDragFeedback(ghostHost, drag, preview, { clientX: e.clientX, clientY: e.clientY });
         }
     }
 
@@ -111,10 +112,34 @@ export function attachInteractions(root, getState, dispatch) {
         if (!drag) return;
         const d = drag;
         drag = null;
+        clearLaneHighlights();
+        endDragFeedback(d.currentLane || d.sourceLane, d.clipEl);
         if (!d.moved) return;
         if (d.kind === 'move' && Number.isFinite(d.pendingStart)) {
-            dispatch(SGT_EVENTS.CLIP_MOVED, { clipId: d.clipId, timelineStart: d.pendingStart });
-        } else if (d.kind === 'trim-left') {
+            const toTrackId = d.toTrackId || d.fromTrackId;
+            if (d.isCopy) {
+                // Copy gesture: emit a single CLIP_COPIED event. The host owns
+                // the actual clipboard mechanics — we just say "the user
+                // intends to materialise this clip at this position".
+                dispatch(SGT_EVENTS.CLIP_COPIED, {
+                    clipId: d.clipId,
+                    fromTrackId: d.fromTrackId,
+                    toTrackId,
+                    timelineStart: d.pendingStart,
+                });
+                return;
+            }
+            if (toTrackId !== d.fromTrackId) {
+                dispatch(SGT_EVENTS.CLIP_TRACK_CHANGED, {
+                    clipId: d.clipId, fromTrackId: d.fromTrackId, toTrackId,
+                    timelineStart: d.pendingStart,
+                });
+            } else {
+                dispatch(SGT_EVENTS.CLIP_MOVED, { clipId: d.clipId, timelineStart: d.pendingStart });
+            }
+            return;
+        }
+        if (d.kind === 'trim-left') {
             dispatch(SGT_EVENTS.CLIP_TRIMMED, { clipId: d.clipId, inPoint: d.pendingIn, outPoint: d.origOut });
             if (Number.isFinite(d.pendingStart) && d.pendingStart !== d.origStart) {
                 dispatch(SGT_EVENTS.CLIP_MOVED, { clipId: d.clipId, timelineStart: d.pendingStart });
@@ -122,6 +147,14 @@ export function attachInteractions(root, getState, dispatch) {
         } else if (d.kind === 'trim-right') {
             dispatch(SGT_EVENTS.CLIP_TRIMMED, { clipId: d.clipId, inPoint: d.origIn, outPoint: d.pendingOut });
         }
+    }
+
+    function onPointerCancel() {
+        if (!drag) return;
+        const d = drag;
+        drag = null;
+        clearLaneHighlights();
+        endDragFeedback(d.currentLane || d.sourceLane, d.clipEl);
     }
 
     function onRulerPointerDown(e) {
@@ -137,23 +170,40 @@ export function attachInteractions(root, getState, dispatch) {
         window.addEventListener('pointerup', onUp);
     }
 
-    function onLaneClick(e) {
-        if (e.target === lane) dispatch(SGT_EVENTS.CLIP_SELECTED, { clipId: null });
+    function onLanesClick(e) {
+        if (e.target.closest('[data-role="track-mute"]') || e.target.closest('[data-role="track-remove"]')) return;
+        const delEl = e.target.closest && e.target.closest('.clip__delete');
+        if (delEl) {
+            e.stopPropagation();
+            e.preventDefault();
+            const clipId = delEl.dataset.clipId || (delEl.closest('.clip') || {}).dataset?.clipId;
+            if (clipId) dispatch(SGT_EVENTS.CLIP_DELETED, { clipId });
+            return;
+        }
+        if (e.target.classList && e.target.classList.contains('lane')) {
+            dispatch(SGT_EVENTS.CLIP_SELECTED, { clipId: null });
+        }
     }
 
-    const disposeDrop = attachDropAffordance(lane, getState, dispatch, pxToTime);
-    lane.addEventListener('pointerdown', onLanePointerDown);
-    lane.addEventListener('click', onLaneClick);
+    const disposeDrop = attachDropAffordance(lanes, getState, dispatch, pxToTime);
+    const disposeKeys = attachKeyboard(hostEl, getState, dispatch);
+    const disposeHeaders = attachHeaderButtons(lanes, dispatch);
+    lanes.addEventListener('pointerdown', onLanesPointerDown);
+    lanes.addEventListener('click', onLanesClick);
     ruler.addEventListener('pointerdown', onRulerPointerDown);
     window.addEventListener('pointermove', onPointerMove);
     window.addEventListener('pointerup', onPointerUp);
+    window.addEventListener('pointercancel', onPointerCancel);
 
     return () => {
         disposeDrop();
-        lane.removeEventListener('pointerdown', onLanePointerDown);
-        lane.removeEventListener('click', onLaneClick);
+        disposeKeys();
+        disposeHeaders();
+        lanes.removeEventListener('pointerdown', onLanesPointerDown);
+        lanes.removeEventListener('click', onLanesClick);
         ruler.removeEventListener('pointerdown', onRulerPointerDown);
         window.removeEventListener('pointermove', onPointerMove);
         window.removeEventListener('pointerup', onPointerUp);
+        window.removeEventListener('pointercancel', onPointerCancel);
     };
 }

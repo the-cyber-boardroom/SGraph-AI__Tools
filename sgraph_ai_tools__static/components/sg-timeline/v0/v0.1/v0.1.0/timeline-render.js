@@ -1,12 +1,17 @@
-// timeline-render.js — pure render functions for sg-timeline (v0.1.0)
+// timeline-render.js — render orchestrator for sg-timeline (v0.1.0)
 
 import {
-    clipDuration,
     getProjectDuration,
     getVideoTracks,
 } from '../../../../../core/video-composer/v0/v0.1/v0.1.0/composer-schema.js';
+import { renderLaneClips } from './timeline-lane-render.js';
+import { renderTrackHeader } from './timeline-track-headers.js';
 
 const TICK_TARGET_PX = 80;
+/** Height of a single lane row in pixels. Kept in sync with the
+ *  `--sgt-lane-height` CSS custom property in sg-timeline.css. Compact
+ *  default since Round-9-I Task 2 (was 80). */
+export const LANE_HEIGHT = 44;
 
 /**
  * Pick a tick interval (seconds) for the given pps.
@@ -20,11 +25,7 @@ function pickTickInterval(pps) {
     return candidates[candidates.length - 1];
 }
 
-/**
- * Format seconds as mm:ss or m:ss.s.
- * @param {number} t
- * @returns {string}
- */
+/** Format seconds as mm:ss or m:ss.s. */
 function fmtTime(t) {
     if (t < 60) return t.toFixed(t < 10 ? 1 : 0) + 's';
     const m = Math.floor(t / 60);
@@ -32,25 +33,14 @@ function fmtTime(t) {
     return `${m}:${String(s).padStart(2, '0')}`;
 }
 
-/**
- * Compute the rendered surface width in px from project + pps.
- * @param {object} project
- * @param {number} pps
- * @returns {number}
- */
+/** Compute the rendered surface width in px from project + pps. */
 export function computeSurfaceWidth(project, pps) {
     const dur = project ? getProjectDuration(project) : 0;
     const minSec = Math.max(dur + 5, 30);
     return Math.ceil(minSec * pps);
 }
 
-/**
- * Render ruler ticks.
- * @param {HTMLElement} rulerEl
- * @param {number} widthPx
- * @param {number} pps
- * @returns {void}
- */
+/** Render ruler ticks. */
 export function renderRuler(rulerEl, widthPx, pps) {
     rulerEl.innerHTML = '';
     rulerEl.style.width = widthPx + 'px';
@@ -71,88 +61,54 @@ export function renderRuler(rulerEl, widthPx, pps) {
 }
 
 /**
- * Render the lane container width.
- * @param {HTMLElement} laneEl
- * @param {number} widthPx
- * @returns {void}
- */
-export function renderTrack(laneEl, widthPx) {
-    laneEl.style.width = widthPx + 'px';
-}
-
-/**
- * Resolve a clip's display label (asset name or assetId).
- * @param {object} clip
- * @param {object} project
- * @returns {string}
- */
-function clipLabel(clip, project) {
-    const assets = project && project.assets;
-    if (assets && typeof assets === 'object') {
-        const a = Array.isArray(assets) ? assets.find(x => x && x.id === clip.assetId) : assets[clip.assetId];
-        if (a && a.name) return a.name;
-    }
-    return clip.assetId;
-}
-
-/**
- * Render clip rectangles for the first video track.
- * @param {HTMLElement} laneEl
+ * Render the lanes container: one .lane-row per video track, in REVERSE
+ * array order so the highest array index (top z-order) is at the top of the UI.
+ * Each row has a track-header (sticky-left) and a .lane (clip canvas).
+ *
+ * @param {HTMLElement} lanesEl
  * @param {object|null} project
+ * @param {number} widthPx
  * @param {number} pps
  * @param {string|null} selectedClipId
+ * @param {string|null} [selectedTrackId]
  * @returns {void}
  */
-export function renderClips(laneEl, project, pps, selectedClipId) {
-    laneEl.innerHTML = '';
-    if (!project) return;
-    const track = getVideoTracks(project)[0];
-    if (!track) return;
-    for (const clip of track.clips) {
-        const dur = clipDuration(clip);
-        const el = document.createElement('div');
-        el.className = 'clip' + (clip.id === selectedClipId ? ' selected' : '');
-        el.dataset.clipId = clip.id || '';
-        el.style.left = (clip.timelineStart * pps) + 'px';
-        el.style.width = Math.max(2, dur * pps) + 'px';
-        const label = document.createElement('div');
-        label.className = 'clip-label';
-        label.textContent = clipLabel(clip, project);
-        el.appendChild(label);
-        const durEl = document.createElement('div');
-        durEl.className = 'clip-duration';
-        durEl.textContent = dur.toFixed(2) + 's';
-        el.appendChild(durEl);
-        const lh = document.createElement('div');
-        lh.className = 'clip-handle left';
-        lh.dataset.role = 'trim-left';
-        el.appendChild(lh);
-        const rh = document.createElement('div');
-        rh.className = 'clip-handle right';
-        rh.dataset.role = 'trim-right';
-        el.appendChild(rh);
-        laneEl.appendChild(el);
+export function renderLanes(lanesEl, project, widthPx, pps, selectedClipId, selectedTrackId) {
+    lanesEl.innerHTML = '';
+    lanesEl.style.width = widthPx + 'px';
+    const tracks = project ? getVideoTracks(project) : [];
+    if (!tracks.length) return;
+    const total = tracks.length;
+    for (let i = tracks.length - 1; i >= 0; i--) {
+        const track = tracks[i];
+        const row = document.createElement('div');
+        row.className = 'lane-row';
+        row.dataset.trackId = track.id || '';
+        row.style.height = LANE_HEIGHT + 'px';
+        if (selectedTrackId && track.id === selectedTrackId) row.classList.add('lane-row--selected');
+        if (track.locked) row.classList.add('lane-row--locked');
+
+        const lane = document.createElement('div');
+        lane.className = 'lane';
+        lane.dataset.trackId = track.id || '';
+        lane.style.width = widthPx + 'px';
+        if (track.locked) lane.classList.add('lane--locked');
+        renderLaneClips(lane, track, project, pps, selectedClipId);
+        row.appendChild(lane);
+
+        const header = renderTrackHeader(track, i, total, selectedTrackId);
+        row.appendChild(header);
+
+        lanesEl.appendChild(row);
     }
 }
 
-/**
- * Render the playhead element (position only).
- * @param {HTMLElement} playheadEl
- * @param {number} time
- * @param {number} pps
- * @returns {void}
- */
+/** Render the playhead element (position only). */
 export function renderPlayhead(playheadEl, time, pps) {
-    playheadEl.style.left = (time * pps) + 'px';
+    playheadEl.style.left = (96 + time * pps) + 'px';
 }
 
-/**
- * Update playhead position only.
- * @param {HTMLElement} playheadEl
- * @param {number} time
- * @param {number} pps
- * @returns {void}
- */
+/** Update playhead position only. */
 export function updatePlayhead(playheadEl, time, pps) {
-    playheadEl.style.left = (time * pps) + 'px';
+    playheadEl.style.left = (96 + time * pps) + 'px';
 }

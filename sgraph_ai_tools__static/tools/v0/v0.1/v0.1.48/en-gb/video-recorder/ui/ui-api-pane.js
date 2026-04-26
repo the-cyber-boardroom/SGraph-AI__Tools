@@ -7,6 +7,29 @@
  * @module ui-api-pane
  */
 
+const BUILD_CHIP_CSS = `.sgvr-build{margin-left:4px;padding:0.15rem 0.5rem;font:11px/1.2 ui-monospace,SFMono-Regular,monospace;color:rgba(248,250,252,0.85);background:rgba(20,184,166,0.18);border:1px solid rgba(20,184,166,0.45);border-radius:3px;cursor:default;user-select:none}.sgvr-build.is-dev{background:rgba(234,179,8,0.18);border-color:rgba(234,179,8,0.45)}`;
+
+function _buildVersionChip() {
+    if (!document.getElementById('sgvr-build-css')) {
+        const s = document.createElement('style');
+        s.id = 'sgvr-build-css';
+        s.textContent = BUILD_CHIP_CSS;
+        document.head.appendChild(s);
+    }
+    const chip = document.createElement('span');
+    chip.className = 'sgvr-build';
+    const b = window.SGRAPH_BUILD;
+    if (b?.appVersion) {
+        chip.textContent = b.appVersion;
+        chip.title = `appVersion: ${b.appVersion} · uiVersion: ${b.uiVersion || ''} · commit: ${b.commitSha || ''} · build: ${b.buildTime || ''}`;
+    } else {
+        chip.classList.add('is-dev');
+        chip.textContent = 'dev';
+        chip.title = 'Local dev build (no build-info.js)';
+    }
+    return chip;
+}
+
 const TOOL_EVENTS = [
     'tool:ready', 'tool:mode:set',
     'tool:preview:start', 'tool:preview:stop',
@@ -71,6 +94,9 @@ export function initApiPane(container, state, config, api, emit) {
             </div>
         </details>
     `;
+
+    // Inject build-info chip into the summary bar
+    container.querySelector('.api-pane__bar').appendChild(_buildVersionChip());
 
     const logEl      = container.querySelector('#api-log');
     const countEl    = container.querySelector('#api-event-count');

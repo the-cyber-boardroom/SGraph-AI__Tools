@@ -15,6 +15,33 @@ import { DEV_TABS, buildSkillsPanel } from './dev-panel-tabs.js';
 
 const DEV_HEIGHT_DEFAULT = 340;
 
+const VERSION_CHIP_CSS = `.sgve-dev-version{margin-left:auto;padding:0.15rem 0.5rem;font:11px/1.2 ui-monospace,SFMono-Regular,monospace;color:rgba(248,250,252,0.85);background:rgba(20,184,166,0.18);border:1px solid rgba(20,184,166,0.45);border-radius:3px;cursor:default;user-select:none;}.sgve-dev-version.is-dev{background:rgba(234,179,8,0.18);border-color:rgba(234,179,8,0.45);}`;
+
+function _ensureVersionChipCss() {
+    if (document.getElementById('sgve-dev-version-css')) return;
+    const s = document.createElement('style');
+    s.id = 'sgve-dev-version-css';
+    s.textContent = VERSION_CHIP_CSS;
+    document.head.appendChild(s);
+}
+
+function _buildVersionChip() {
+    _ensureVersionChipCss();
+    const chip = document.createElement('span');
+    chip.className = 'sgve-dev-version';
+    const b = window.SGRAPH_BUILD;
+    if (b && b.appVersion) {
+        chip.textContent = b.appVersion;
+        chip.title = `appVersion: ${b.appVersion} · uiVersion: ${b.uiVersion || ''} · build: ${b.buildTime || ''}`;
+    } else {
+        chip.classList.add('is-dev');
+        chip.textContent = 'dev';
+        chip.title = 'Local dev build (no build-info.js)';
+    }
+    chip.addEventListener('click', e => e.stopPropagation());
+    return chip;
+}
+
 function _buildResizeHandle(devPanel, getH, setH) {
     const handle = document.createElement('div');
     handle.style.cssText = 'flex-shrink:0;height:6px;display:none;background:#1a1a3a;cursor:ns-resize;position:relative;transition:background 120ms;';
@@ -136,6 +163,7 @@ export function mountDevPanel({ host, manifestUrl = './manifest.json' }) {
         <span class="ft-deps"   style="color:#64748b;font-size:11px;"></span>
         <span class="ft-arrow"  style="margin-left:auto;color:#64748b;font-size:11px;transition:transform 150ms;">&#9656;</span>
     `;
+    footerInner.appendChild(_buildVersionChip());
     footerBar.appendChild(footerInner);
     host.appendChild(footerBar);
 
