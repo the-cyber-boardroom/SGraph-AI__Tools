@@ -26,6 +26,12 @@ export function renderTrackHeader(track, arrayIndex, totalTracks, selectedTrackI
     if (muted) root.classList.add('track-header--muted');
     if (locked) root.classList.add('track-header--locked');
     if (selected) root.classList.add('track-header--selected');
+    // Round-9-I Task 3: visualise the track colour with a tinted left strip
+    // on the header — the clip rectangles already wear the colour, the
+    // header strip echoes it so muted / empty lanes still read as "track N".
+    if (typeof track.color === 'string' && track.color) {
+        root.style.setProperty('--track-color', track.color);
+    }
 
     const labelWrap = document.createElement('div');
     labelWrap.className = 'track-header__label-wrap';

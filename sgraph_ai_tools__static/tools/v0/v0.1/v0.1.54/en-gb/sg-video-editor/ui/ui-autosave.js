@@ -2,8 +2,8 @@
  *
  * Builds on the storage methods registered on the SgToolApi
  * (`api.autosave`, `api.getAutosave`, `api.discardAutosave`,
- * `api.isAutosaveNewer`, `api.loadProject`). Pure DOM glue — no direct
- * `localStorage` access from this file.
+ * `api.isAutosaveNewer`, `api.loadProject`, `api.hydrateAssets`). Pure
+ * DOM glue — no direct `localStorage` / `IndexedDB` access from this file.
  *
  * Debounce: every non-transient mutation schedules a `flushAutosave()` call
  * after `DEBOUNCE_MS` ms of idle. Mid-drag / transient edits skip the
@@ -11,8 +11,11 @@
  *
  * Restore prompt: on init, if an autosave exists and is newer than every
  * named save, the user is asked once via `confirm()` whether to restore.
- * Restore = `api.loadProject` against the autosave payload (we round-trip
- * via setProject because the autosave isn't a named-save). Discard = clear.
+ * Restore = `api.setProject` with the autosave payload, then
+ * `api.hydrateAssets()` to pull blob pixels back from IDB. Discard = clear.
+ *
+ * Round-9-J: every SgToolApi call goes through `await` because
+ * SgToolApi._invoke is async-by-default.
  */
 
 const DEBOUNCE_MS = 750;
@@ -35,7 +38,8 @@ function timeAgo(ts) {
  *   api: object,
  *   debounceMs?: number,
  * }} cfg
- * @returns {{ flush: () => void, destroy: () => void, lastFlushAt: () => number }}
+ * @returns {{ flush: () => void, destroy: () => void, lastFlushAt: () => number,
+ *            promptRestore: () => Promise<void> }}
  */
 export function attachAutosave({ state, api, debounceMs }) {
     const wait = Number.isFinite(debounceMs) ? debounceMs : DEBOUNCE_MS;
@@ -43,11 +47,11 @@ export function attachAutosave({ state, api, debounceMs }) {
     let lastFlushAt = 0;
     let destroyed = false;
 
-    function flush() {
+    async function flush() {
         if (destroyed) return;
         if (timer) { clearTimeout(timer); timer = null; }
         try {
-            const r = api.autosave();
+            const r = await api.autosave();
             if (r && r.savedAt) lastFlushAt = r.savedAt;
         } catch (_) { /* don't propagate — autosave is best-effort */ }
     }
@@ -58,17 +62,21 @@ export function attachAutosave({ state, api, debounceMs }) {
         // would drown localStorage and produce no useful checkpoint.
         if (e && e.detail && e.detail.transient) return;
         if (timer) clearTimeout(timer);
-        timer = setTimeout(flush, wait);
+        timer = setTimeout(() => {
+            // Best-effort fire-and-forget — flush() returns a Promise but
+            // we don't await it here (we're inside a setTimeout callback).
+            flush();
+        }, wait);
     }
 
     state.addEventListener('change', onChange);
 
     /** On-init restore prompt. Only runs once. */
-    function maybePromptRestore() {
+    async function maybePromptRestore() {
         try {
-            const slot = api.getAutosave();
+            const slot = await api.getAutosave();
             if (!slot || !slot.project) return;
-            const newer = api.isAutosaveNewer({ savedAt: slot.savedAt });
+            const newer = await api.isAutosaveNewer({ savedAt: slot.savedAt });
             const isNewer = !!(newer && (newer.newer === true || newer === true));
             if (!isNewer) return;
             const ago = timeAgo(slot.savedAt);
@@ -76,12 +84,16 @@ export function attachAutosave({ state, api, debounceMs }) {
             if (ok) {
                 // Restore via setProject — the autosave payload IS a wrapped
                 // project (with __missingBlob tags on assets).
-                try { api.setProject({ project: slot.project }); }
+                try { await api.setProject({ project: slot.project }); }
                 catch (_) {}
+                // Round-9-J: hydrate asset blobs from IDB so pixels reappear.
+                // hydrateAssets is best-effort — missing blobs leave the
+                // __missingBlob flag in place for the asset panel.
+                try { await api.hydrateAssets(); } catch (_) {}
                 // Don't discard yet — the user might refresh again before
                 // saving manually; the next mutation will overwrite anyway.
             } else {
-                try { api.discardAutosave(); } catch (_) {}
+                try { await api.discardAutosave(); } catch (_) {}
             }
         } catch (_) { /* never block init on a prompt error */ }
     }

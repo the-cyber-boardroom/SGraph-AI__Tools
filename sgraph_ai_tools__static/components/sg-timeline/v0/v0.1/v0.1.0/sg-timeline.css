@@ -3,20 +3,30 @@
     flex-direction: column;
     position: relative;
     width: 100%;
-    min-height: 148px;
+    height: 100%;
+    /* Compact lanes (Round-9-I Task 2): toolbar (~30px) + ruler (24px) +
+     * one 44px lane fits comfortably in 110px. */
+    min-height: 110px;
     font-family: system-ui, sans-serif;
     color: #e5e7eb;
     background: #111827;
     user-select: none;
     box-sizing: border-box;
+    overflow: hidden;
 }
 
+/* The scroll viewport. Both axes scroll inside the timeline so the surrounding
+ * page never takes the wheel: ruler + track headers stay pinned via
+ * `position: sticky` on their inner elements. overscroll-behavior: contain
+ * stops the browser from chaining a wheel event to the outer page when the
+ * timeline reaches its scroll limit. */
 .root {
     position: relative;
     width: 100%;
     flex: 1 1 auto;
-    overflow-x: auto;
-    overflow-y: hidden;
+    min-height: 0;
+    overflow: auto;
+    overscroll-behavior: contain;
 }
 
 .zoom-toolbar {
@@ -88,7 +98,9 @@
 }
 
 .ruler {
-    position: relative;
+    position: sticky;
+    top: 0;
+    z-index: 6;
     height: 24px;
     background: #1f2937;
     border-bottom: 1px solid #374151;
@@ -122,7 +134,10 @@
 
 .lane-row {
     position: relative;
-    height: 80px;
+    /* Compact lane height (Round-9-I Task 2). The track-header still fits
+     * its label row + the M/lock/× button row at this size; reducing the
+     * label font + clip padding below keeps clip labels readable. */
+    height: var(--sgt-lane-height, 44px);
     border-bottom: 1px solid #1f2937;
 }
 
@@ -202,8 +217,10 @@
 
 .clip {
     position: absolute;
-    top: 8px;
-    bottom: 8px;
+    /* Compact: 4px gutter top/bottom (was 8px) keeps the clip readable in
+     * the smaller lane while still showing lane edges. */
+    top: 4px;
+    bottom: 4px;
     border: 1px solid #1e3a8a;
     border-radius: 4px;
     box-sizing: border-box;
@@ -241,15 +258,15 @@
 
 .clip__delete {
     position: absolute;
-    top: 4px;
-    right: 4px;
-    width: 18px;
-    height: 18px;
+    top: 2px;
+    right: 2px;
+    width: 16px;
+    height: 16px;
     background: rgba(0, 0, 0, 0.55);
     color: #f8fafc;
     border: 1px solid rgba(255, 255, 255, 0.2);
     border-radius: 3px;
-    font-size: 12px;
+    font-size: 11px;
     line-height: 1;
     cursor: pointer;
     opacity: 0;
@@ -270,11 +287,12 @@
 
 .clip-label {
     position: absolute;
-    top: 4px;
-    left: 8px;
-    right: 8px;
+    top: 2px;
+    left: 6px;
+    right: 22px; /* leave room for the hover-× delete button */
     font-size: 11px;
     font-weight: 600;
+    line-height: 1.15;
     pointer-events: none;
     text-overflow: ellipsis;
     overflow: hidden;
@@ -283,9 +301,9 @@
 
 .clip-duration {
     position: absolute;
-    bottom: 4px;
-    left: 8px;
-    font-size: 10px;
+    bottom: 2px;
+    left: 6px;
+    font-size: 9px;
     opacity: 0.85;
     pointer-events: none;
 }
@@ -309,7 +327,8 @@
     width: 2px;
     background: #ef4444;
     pointer-events: none;
-    z-index: 5;
+    /* Above the sticky ruler (z:6) and the sticky track headers (z:7). */
+    z-index: 8;
 }
 
 .sgt-ghost {
@@ -459,17 +478,21 @@
 
 .color-picker__reset:hover { background: rgba(20,184,166,0.18); }
 
-/* === track header strip (sticky-left column inside each lane row) === */
+/* === track header strip (sticky-left column inside each lane row) ===
+ * Only horizontal stickiness — the header rides up/down with its row during
+ * vertical scroll, but stays pinned to the left edge of the scroll viewport
+ * while clips slide horizontally underneath it. (No `top:0`: that would
+ * pop the header up under the ruler on vertical scroll.) */
 .track-header {
     position: sticky;
     left: 0;
-    top: 0;
     width: 96px;
     height: 100%;
     background: rgba(15, 23, 42, 0.92);
     border-right: 1px solid rgba(255, 255, 255, 0.08);
     box-sizing: border-box;
-    padding: 4px 6px;
+    /* Tightened for the 44px compact lane height (Round-9-I Task 2). */
+    padding: 2px 6px;
     display: flex;
     flex-direction: column;
     justify-content: space-between;
@@ -478,6 +501,21 @@
     pointer-events: auto;
     color: #cbd5e1;
     font: 11px/1.2 ui-sans-serif, system-ui, sans-serif;
+}
+
+/* Round-9-I Task 3: 3px left strip drawn from the track's --track-color
+ * custom property (set inline by renderTrackHeader). The strip reads at a
+ * glance even when the lane is empty / muted / locked. The .track-header
+ * is already position: sticky, so ::before positions against it. */
+.track-header::before {
+    content: '';
+    position: absolute;
+    left: 0;
+    top: 0;
+    bottom: 0;
+    width: 3px;
+    background: var(--track-color, transparent);
+    pointer-events: none;
 }
 
 .track-header--muted {
@@ -502,14 +540,14 @@
 .track-header__mute,
 .track-header__remove {
     flex: 0 0 auto;
-    width: 22px;
-    height: 20px;
+    width: 20px;
+    height: 18px;
     padding: 0;
     background: transparent;
     color: inherit;
     border: 1px solid rgba(255, 255, 255, 0.18);
     border-radius: 3px;
-    font: 11px/1 ui-sans-serif, system-ui, sans-serif;
+    font: 10px/1 ui-sans-serif, system-ui, sans-serif;
     cursor: pointer;
 }
 
@@ -536,14 +574,14 @@
 
 .track-header__lock {
     flex: 0 0 auto;
-    width: 22px;
-    height: 20px;
+    width: 20px;
+    height: 18px;
     padding: 0;
     background: transparent;
     color: inherit;
     border: 1px solid rgba(255, 255, 255, 0.18);
     border-radius: 3px;
-    font: 11px/1 ui-sans-serif, system-ui, sans-serif;
+    font: 10px/1 ui-sans-serif, system-ui, sans-serif;
     cursor: pointer;
 }
 .track-header__lock:hover {

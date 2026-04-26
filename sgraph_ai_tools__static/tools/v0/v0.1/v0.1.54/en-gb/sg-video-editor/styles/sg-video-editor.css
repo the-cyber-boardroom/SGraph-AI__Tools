@@ -280,6 +280,20 @@
     color: var(--sg-text-muted, #94a3b8);
 }
 
+/* Round-9-J: asset whose blob hasn't (yet) been hydrated from IndexedDB.
+ * Visible cue so the user knows their pixels are missing — without
+ * crashing the row layout. */
+.sgve-asset-row.is-missing { opacity: 0.7; }
+.sgve-asset-row.is-missing .sgve-asset-thumb {
+    background: repeating-linear-gradient(
+        45deg, #1a1a1a, #1a1a1a 4px,
+        #2a2a2a 4px, #2a2a2a 8px
+    );
+}
+.sgve-asset-row.is-missing .sgve-asset-meta {
+    color: #d97706;
+}
+
 /* ── Generic button (export controls) ────────────────────── */
 
 .sg-video-editor__btn {
@@ -297,6 +311,111 @@
 
 .sg-video-editor__btn:hover { background: var(--sg-bg-hover, #1e293b); }
 .sg-video-editor__btn[disabled] { opacity: 0.5; cursor: not-allowed; }
+
+/* ── Export button (Round-9-I Task 4) ────────────────────────────────
+ * The button widths used to jitter between "Export MP4" (idle) and
+ * "Exporting NN%" (busy). The min-width is pinned in JS at mount time
+ * (measured against "Exporting 100%" + 28px padding), the label is
+ * centred, and a teal L→R fill behind the label visualises progress
+ * via a `--sgve-progress` custom property the JS updates per tick. */
+.sgve-export-btn {
+    position: relative;
+    overflow: hidden;
+    padding: .4rem .9rem;
+    border: 1px solid #1f2937;
+    border-radius: 4px;
+    background: #1e293b;
+    color: inherit;
+    font: inherit;
+    cursor: pointer;
+    text-align: center;
+    /* min-width is set inline by ui-export-progress.js */
+}
+.sgve-export-btn:hover:not([disabled]) {
+    background: #233247;
+    border-color: rgba(20, 184, 166, 0.45);
+}
+.sgve-export-btn[disabled] {
+    cursor: progress;
+    opacity: 1; /* the fill bar carries the activity cue, no need to dim */
+}
+.sgve-export-btn::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    width: var(--sgve-progress, 0%);
+    background: rgba(20, 184, 166, 0.32);
+    transition: width 0.12s linear;
+    pointer-events: none;
+}
+.sgve-export-btn.is-exporting {
+    border-color: rgba(20, 184, 166, 0.55);
+}
+.sgve-export-btn__label {
+    position: relative; /* sit above the ::before fill */
+    display: inline-block;
+    z-index: 1;
+    font-feature-settings: "tnum"; /* tabular numbers — no width jitter */
+}
+.sgve-export-status {
+    font-size: .8rem;
+    color: #94a3b8;
+}
+
+/* ── Post-export action row (Round-9-I Task 5) ───────────────────────
+ * Idle → Exporting collapses back into the same single button; on
+ * `done` the button is removed and replaced by Download + Drag out +
+ * Re-export side-by-side. */
+.sgve-export-actions {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
+}
+.sgve-export-actions button {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
+    padding: .4rem .75rem;
+    border: 1px solid #1f2937;
+    border-radius: 4px;
+    background: #1e293b;
+    color: inherit;
+    font: inherit;
+    cursor: pointer;
+}
+.sgve-export-actions button:hover {
+    background: #233247;
+    border-color: rgba(20, 184, 166, 0.45);
+}
+.sgve-export-download {
+    border-color: rgba(20, 184, 166, 0.55) !important;
+    background: rgba(20, 184, 166, 0.18) !important;
+    color: #ccfbf1 !important;
+}
+.sgve-export-download:hover {
+    background: rgba(20, 184, 166, 0.32) !important;
+}
+.sgve-export-drag {
+    cursor: grab;
+}
+.sgve-export-drag:active,
+.sgve-export-drag.is-dragging {
+    cursor: grabbing;
+    background: rgba(251, 191, 36, 0.18) !important;
+    border-color: rgba(251, 191, 36, 0.55) !important;
+    color: #fde68a !important;
+}
+.sgve-export-reexport {
+    /* link-like, not a primary action */
+    background: transparent !important;
+    border-color: rgba(255, 255, 255, 0.12) !important;
+    color: rgba(255, 255, 255, 0.65) !important;
+    font-size: 12px;
+}
+.sgve-export-reexport:hover {
+    color: #f1f5f9 !important;
+    border-color: rgba(255, 255, 255, 0.32) !important;
+}
 
 /* ── Topbar (export slot) ─────────────────────────────────── */
 

@@ -18,7 +18,11 @@
 const PROJECT_PREFIX = 'sgve:project:';
 const INDEX_KEY = 'sgve:projects-index';
 const AUTOSAVE_KEY = 'sgve:autosave:current';
-const SOFT_BYTE_LIMIT = 4 * 1024 * 1024; // 4 MB; localStorage caps vary 5–10MB
+// Round-9-J: blobs now live in IndexedDB, so the project JSON is just
+// metadata + clip geometry. 1 MB is comfortably above any realistic
+// project (a 100-clip project with 30-char names is ~10 KB) while still
+// catching pathological growth before localStorage chokes.
+const SOFT_BYTE_LIMIT = 1 * 1024 * 1024;
 
 /* ── Utilities ─────────────────────────────────────────────────── */
 

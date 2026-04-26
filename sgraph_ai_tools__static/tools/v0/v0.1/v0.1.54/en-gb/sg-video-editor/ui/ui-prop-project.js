@@ -6,6 +6,7 @@
 
 import { section, row, readOnly, inlineRenameInput } from './ui-prop-fields.js';
 import { mountSaveLoadControls } from './ui-save-load.js';
+import { mountStorageUsage } from './ui-storage-usage.js';
 
 function emitErr(step, err) {
     document.dispatchEvent(new CustomEvent('tool:error', {
@@ -55,4 +56,8 @@ export function renderProjectSection({ root, project, api, getProject }) {
         api,
         getProject: getProject || (() => project),
     });
+    // Round-9-J: Storage usage line — a quick read of IDB + localStorage
+    // total bytes so the user can see how much disk their assets are
+    // chewing without leaving the editor.
+    mountStorageUsage({ host: root, api });
 }

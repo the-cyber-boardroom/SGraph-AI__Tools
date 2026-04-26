@@ -5,14 +5,25 @@ import { clipAsset, clipLabel } from './timeline-clip-label.js';
 
 /**
  * Build a clip rectangle DOM node for one clip in a track.
+ *
+ * Render priority for the background colour (Round-9-I Task 3):
+ *
+ *     clip.color   →   track.color   →   palette[index % 6] (CSS class)
+ *
+ * The first two are inline `background` styles; the third is the existing
+ * `clip--shade-N` auto-shade class. We always set the auto-shade class so
+ * a per-clip "use auto" reset (clip.color = null) falls back without DOM
+ * surgery.
+ *
  * @param {object} clip
- * @param {number} index Clip index within track (drives auto-shade).
+ * @param {number} index Clip index within track (drives auto-shade fallback).
  * @param {object} project
  * @param {number} pps
  * @param {boolean} selected
+ * @param {object|null} [track] Owning track — drives the inherited colour.
  * @returns {HTMLElement}
  */
-function buildClipEl(clip, index, project, pps, selected) {
+function buildClipEl(clip, index, project, pps, selected, track) {
     const dur = clipDuration(clip);
     const el = document.createElement('div');
     const shade = `clip--shade-${index % 6}`;
@@ -23,7 +34,11 @@ function buildClipEl(clip, index, project, pps, selected) {
     if (assetForClip && assetForClip.assetType) el.dataset.assetType = assetForClip.assetType;
     el.style.left = (clip.timelineStart * pps) + 'px';
     el.style.width = Math.max(2, dur * pps) + 'px';
-    if (clip.color && typeof clip.color === 'string') el.style.background = clip.color;
+    if (clip.color && typeof clip.color === 'string') {
+        el.style.background = clip.color;
+    } else if (track && typeof track.color === 'string' && track.color) {
+        el.style.background = track.color;
+    }
     const label = document.createElement('div');
     label.className = 'clip-label';
     label.textContent = clipLabel(clip, project);
@@ -70,6 +85,6 @@ export function renderLaneClips(laneEl, track, project, pps, selectedClipId) {
     for (let i = 0; i < track.clips.length; i += 1) {
         const clip = track.clips[i];
         const sel = clip.id === selectedClipId;
-        laneEl.appendChild(buildClipEl(clip, i, project, pps, sel));
+        laneEl.appendChild(buildClipEl(clip, i, project, pps, sel, track));
     }
 }

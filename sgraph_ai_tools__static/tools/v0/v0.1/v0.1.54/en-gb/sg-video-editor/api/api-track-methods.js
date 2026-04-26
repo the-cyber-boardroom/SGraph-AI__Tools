@@ -1,5 +1,7 @@
 /** api-track-methods.js — addTrack/removeTrack/moveClipToTrack/reorderTracks proxies. */
 
+import { setTrackColorOp } from '../ui/state-track-ops.js';
+
 function badArg(msg) { return Object.assign(new Error(msg), { code: 'invalid-arg' }); }
 
 /**
@@ -72,8 +74,30 @@ export function buildTrackMethods({ state }) {
         return { trackId: r.trackId, name: r.name };
     }
 
+    /**
+     * Set or clear a track's display colour (Round-9-I Task 3). Goes through
+     * `state.getProject()` + `setTrackColorOp` (in-place mutation on the
+     * cloned project) + `state.setProject()` rather than a dedicated state
+     * method so we don't have to touch state.js while the parallel persistence
+     * agent is in flight on that file. Tradeoff is one full validate +
+     * project-level history snapshot per recolour instead of a focused op
+     * — acceptable for an infrequent cosmetic change.
+     *
+     * Locked tracks may still be recoloured (colour is cosmetic, mirrors the
+     * existing rename policy).
+     */
+    function setTrackColor(params = {}) {
+        const { trackId, color } = params;
+        if (!trackId) throw badArg('trackId required');
+        if (color != null && typeof color !== 'string') throw badArg('color must be a string or null');
+        const project = state.getProject();
+        const r = setTrackColorOp(project, { trackId, color });
+        state.setProject(project);
+        return { trackId: r.trackId, color: r.color };
+    }
+
     return {
         addTrack, removeTrack, moveClipToTrack, reorderTracks,
-        setTrackMuted, setTrackLocked, renameTrack,
+        setTrackMuted, setTrackLocked, renameTrack, setTrackColor,
     };
 }

@@ -74,17 +74,24 @@ export async function init(manifest) {
             .register('setTrackMuted',   methods.setTrackMuted,   { async: false, sanitiseParams: passthrough })
             .register('setTrackLocked',  methods.setTrackLocked,  { async: false, sanitiseParams: passthrough })
             .register('renameTrack',     methods.renameTrack,     { async: false, sanitiseParams: passthrough })
+            .register('setTrackColor',   methods.setTrackColor,   { async: false, sanitiseParams: passthrough })
             .register('exportMp4',  methods.exportMp4,  { async: true,  sanitiseParams: passthrough })
             .register('refreshPreview', methods.refreshPreview, { async: false, sanitiseParams: passthrough })
-            .register('saveProject',        methods.saveProject,        { async: false, sanitiseParams: passthrough })
-            .register('loadProject',        methods.loadProject,        { async: false, sanitiseParams: passthrough })
+            // Round-9-J: save / load / autosave / delete now persist asset
+            // blobs to IndexedDB, so they are async. listSavedProjects /
+            // hasUnsavedChanges / getAutosave / discardAutosave /
+            // isAutosaveNewer remain sync (localStorage only).
+            .register('saveProject',        methods.saveProject,        { async: true,  sanitiseParams: passthrough })
+            .register('loadProject',        methods.loadProject,        { async: true,  sanitiseParams: passthrough })
             .register('listSavedProjects',  methods.listSavedProjects,  { async: false, sanitiseParams: passthrough })
-            .register('deleteSavedProject', methods.deleteSavedProject, { async: false, sanitiseParams: passthrough })
+            .register('deleteSavedProject', methods.deleteSavedProject, { async: true,  sanitiseParams: passthrough })
             .register('hasUnsavedChanges',  methods.hasUnsavedChanges,  { async: false, sanitiseParams: passthrough })
-            .register('autosave',           methods.autosave,           { async: false, sanitiseParams: passthrough })
+            .register('autosave',           methods.autosave,           { async: true,  sanitiseParams: passthrough })
             .register('getAutosave',        methods.getAutosave,        { async: false, sanitiseParams: passthrough })
             .register('discardAutosave',    methods.discardAutosave,    { async: false, sanitiseParams: passthrough })
-            .register('isAutosaveNewer',    methods.isAutosaveNewer,    { async: false, sanitiseParams: passthrough });
+            .register('isAutosaveNewer',    methods.isAutosaveNewer,    { async: false, sanitiseParams: passthrough })
+            .register('hydrateAssets',      methods.hydrateAssets,      { async: true,  sanitiseParams: passthrough })
+            .register('getStorageUsage',    methods.getStorageUsage,    { async: true,  sanitiseParams: passthrough });
 
         api.activate();
 

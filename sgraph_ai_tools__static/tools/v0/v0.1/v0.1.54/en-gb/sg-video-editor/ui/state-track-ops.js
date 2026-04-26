@@ -2,6 +2,7 @@
 
 import { snapToFps } from '/core/video-composer/v0/v0.1/v0.1.0/composer-schema.js';
 import { wouldOverlap, snapToClearSlot } from './state-overlap.js';
+import { pickTrackColor } from './state-track-palette.js';
 
 function badArg(msg) { return Object.assign(new Error(msg), { code: 'invalid-arg' }); }
 function overlapErr() {
@@ -68,10 +69,18 @@ export function addTrackOp(project, params = {}) {
     const trackId = nextTrackId(project);
     const track = { id: trackId, kind, muted: false, clips: [] };
     if (typeof params.name === 'string') track.name = params.name;
+    // Round-9-I Task 3: assign the next palette colour. Cycles by the track's
+    // post-insert position in `tracks[]` so adjacent lanes stay distinct.
+    // Caller may override via `params.color` (any string).
     let insertAt = project.tracks.length;
     if (typeof params.insertAboveTrackId === 'string') {
         const i = project.tracks.findIndex(t => t && t.id === params.insertAboveTrackId);
         if (i >= 0) insertAt = i + 1;
+    }
+    if (typeof params.color === 'string' && params.color) {
+        track.color = params.color;
+    } else {
+        track.color = pickTrackColor(insertAt);
     }
     track.index = insertAt;
     project.tracks.splice(insertAt, 0, track);
@@ -190,6 +199,34 @@ export function setTrackLockedOp(project, { trackId, locked }) {
     if (!track) throw badArg(`unknown trackId: ${trackId}`);
     track.locked = !!locked;
     return { trackId, locked: !!locked };
+}
+
+/**
+ * Set or clear a track's display colour (Round-9-I Task 3). Locked tracks
+ * may still be recoloured — colour is cosmetic, not content; mirrors the
+ * existing rename / mute policy.
+ *
+ * Passing `color === null` (or empty string) re-applies the auto palette
+ * pick for the track's current position in `tracks[]` so the user can
+ * "use auto" without computing a colour themselves.
+ *
+ * @param {object} project
+ * @param {{ trackId: string, color: string|null }} params
+ * @returns {{ trackId: string, color: string }}
+ */
+export function setTrackColorOp(project, { trackId, color }) {
+    const track = project.tracks.find(t => t && t.id === trackId);
+    if (!track) throw badArg(`unknown trackId: ${trackId}`);
+    if (color != null && typeof color !== 'string') throw badArg('color must be a string or null');
+    if (color == null || color === '') {
+        // Re-apply default — pick by current position so adjacent lanes
+        // stay distinct.
+        const idx = project.tracks.findIndex(t => t && t.id === trackId);
+        track.color = pickTrackColor(idx >= 0 ? idx : 0);
+    } else {
+        track.color = color;
+    }
+    return { trackId, color: track.color };
 }
 
 /**

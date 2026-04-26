@@ -146,6 +146,25 @@ Set or clear a track's display name. Empty / whitespace-only names clear the ove
 
 Returns: `{ trackId, name }` (`name === null` when cleared).
 
+### setTrackColor
+
+Set or clear a track's display colour (Round-9-I Task 3). Each track carries a `color` field (assigned automatically from a 6-shade contrast palette — indigo / teal / amber / rose / purple / sky — when the track is created). Clips render with priority:
+
+```
+clip.color   →   track.color   →   palette[trackIndex % 6]   (CSS auto-shade)
+```
+
+Pass `color: '#rrggbb'` to override; pass `color: null` (or `''`) to re-apply the palette pick for the track's current position so callers don't have to compute the auto colour themselves. Locked tracks may still be recoloured — colour is cosmetic, mirrors the existing rename / mute policy.
+
+Implementation note: this is the only track API method that goes through `state.getProject() → state-track-ops.setTrackColorOp(project) → state.setProject(project)` rather than a dedicated state container method. Tradeoff is one full validate + project-level history snapshot per recolour instead of a focused op log entry — acceptable for an infrequent cosmetic action; lets the parallel persistence layer's state.js stay untouched.
+
+| Param | Type | Required |
+|---|---|---|
+| `trackId` | string | yes |
+| `color` | string \| null | yes (`null` re-applies the auto palette colour) |
+
+Returns: `{ trackId, color }` (the resolved colour after auto-pick fallback).
+
 ### copyClip
 
 Copy a clip's payload (kind / shape / text / transform / crop / asset reference / inPoint / outPoint / colour) to the in-memory clipboard (single slot). The clip's `id` and `timelineStart` are stripped — they are picked at paste time.
@@ -238,25 +257,25 @@ const url = URL.createObjectURL(blob);
 
 If the browser cannot capture MP4 directly, the composer records WebM and re-muxes via `core/video.convertToMp4` (FFmpeg WASM, ~30 MB lazy-loaded).
 
-### saveProject
+### saveProject — async
 
-Save the current project to `localStorage` under the slugified name. Strips Blob refs from `assets[]` — only metadata is stored. Refuses with `Error{code:'too-large'}` if the resulting JSON exceeds ~4 MB. Clears the autosave slot on success. Emits `tool:toast`.
+**Async** since Round-9-J. Persists every asset blob to IndexedDB FIRST (database `sgve`, store `assets`, keyed by asset id), THEN saves the project JSON to `localStorage` under the slugified name. Strips Blob refs from `assets[]` in the JSON — only metadata is stored there; the heavy bytes live in IDB. Refuses with `Error{code:'too-large'}` if the resulting JSON exceeds ~1 MB (raised cap; blob-stripped JSON should never approach this). Clears the autosave slot on success and prunes orphan IDB blobs (any blob no longer referenced by ANY saved project + autosave + the live registry). Emits `tool:toast`.
 
 | Param | Type | Required | Notes |
 |---|---|---|---|
 | `name` | string | no | Defaults to `project.project.name`. Whitespace trimmed. |
 
-Returns: `{ slug, name, savedAt, byteSize }`.
+Returns: `{ slug, name, savedAt, byteSize }`. Always `await` the result.
 
-### loadProject
+### loadProject — async
 
-Load a saved project by slug. Replaces the in-memory project (history snapshot pushed; the load is undoable). Asset metadata persists; Blobs are gone, so each asset is tagged `__missingBlob: true` for the asset panel to render a "missing — re-upload" placeholder. Emits `project:replaced` on the internal state target.
+**Async** since Round-9-J. Loads a saved project by slug, replaces the in-memory project (history snapshot pushed; the load is undoable), then hydrates each asset's blob from IndexedDB into the in-memory `assetRegistry`. Assets whose blob is still missing in IDB after hydration keep `__missingBlob: true` so the asset panel renders the "missing — re-upload" placeholder. Emits `project:replaced` on the internal state target.
 
 | Param | Type | Required |
 |---|---|---|
 | `slug` | string | yes |
 
-Returns: `{ slug, ok: true }`. Errors: `invalid-arg` for missing / unknown slug.
+Returns: `{ slug, ok: true, hydrated, missing }`. Errors: `invalid-arg` for missing / unknown slug.
 
 ### listSavedProjects
 
@@ -264,9 +283,9 @@ Return the saved-projects index, newest first.
 
 Returns: `{ projects: Array<{ slug, name, savedAt, byteSize }> }`.
 
-### deleteSavedProject
+### deleteSavedProject — async
 
-Remove a saved project + index entry. Idempotent.
+**Async** since Round-9-J. Remove a saved project + index entry, then prune any IndexedDB blob no longer referenced by ANY remaining saved project + autosave + the live in-memory project. Idempotent.
 
 | Param | Type | Required |
 |---|---|---|
@@ -280,15 +299,15 @@ Cheap dirty check based on a stored hash of the project JSON (length + first 256
 
 Returns: `{ hasUnsavedChanges: boolean }`.
 
-### autosave
+### autosave — async
 
-Write the current project to `sgve:autosave:current` (separate from named saves so it never overwrites them). Marks the project as "saved" so subsequent `hasUnsavedChanges()` returns `false`.
+**Async** since Round-9-J. Persist asset blobs to IndexedDB AND write the current project to `sgve:autosave:current` (separate from named saves so it never overwrites them). Marks the project as "saved" so subsequent `hasUnsavedChanges()` returns `false`.
 
 Returns: `{ ok: true, savedAt }` or `{ ok: false, error }` if the write failed.
 
 ### getAutosave
 
-Returns: `{ savedAt, project } | null`. Project asset entries arrive tagged `__missingBlob: true`.
+Returns: `{ savedAt, project } | null`. Project asset entries arrive tagged `__missingBlob: true` until the caller calls `hydrateAssets()`.
 
 ### discardAutosave
 
@@ -304,11 +323,23 @@ Compare an autosave's `savedAt` against the most recent named save.
 
 Returns: `{ newer: boolean }`.
 
+### hydrateAssets — async
+
+**New in Round-9-J.** Pull each asset blob from IndexedDB into the in-memory asset registry for the CURRENT project. Used by the autosave-restore flow after `setProject({ project: slot.project })` (which doesn't go through `loadProject`'s built-in hydration). Clears the `__missingBlob` flag on every successfully-hydrated asset.
+
+Returns: `{ hydrated, missing }`.
+
+### getStorageUsage — async
+
+**New in Round-9-J.** Report the size of persisted asset blobs in IndexedDB and the project-JSON byte total in localStorage. Drives the "Storage: …" line in the Properties pane.
+
+Returns: `{ totalBytes, assetBytes, assetCount, projectJsonBytes }`.
+
 ## Autosave behaviour
 
-Autosave fires `api.autosave()` ~750ms after the last non-transient mutation. Transient mutations (drag scrubs etc) are skipped — they would drown localStorage with no useful checkpoint.
+Autosave fires `api.autosave()` ~750ms after the last non-transient mutation. Transient mutations (drag scrubs etc) are skipped — they would drown localStorage / IndexedDB with no useful checkpoint.
 
-On editor init, if `sgve:autosave:current` exists AND its `savedAt` is newer than the most recent named save in the index, the user is prompted via `confirm()` whether to restore. Restore = `setProject(slot.project)`; Discard = `discardAutosave()`.
+On editor init, if `sgve:autosave:current` exists AND its `savedAt` is newer than the most recent named save in the index, the user is prompted via `confirm()` whether to restore. Restore = `setProject(slot.project)` followed by `hydrateAssets()`; Discard = `discardAutosave()`.
 
 After a successful manual `saveProject`, the autosave slot is cleared — it's no longer relevant.
 
@@ -316,13 +347,23 @@ The `beforeunload` guard considers BOTH `hasUnsavedChanges()` AND the autosave-p
 
 ## Storage layout
 
+### localStorage (project metadata only — small)
+
 | Key | Shape |
 |---|---|
 | `sgve:projects-index` | `Array<{ slug, name, savedAt, byteSize }>` |
 | `sgve:project:<slug>` | JSON-stringified wrapped project (no Blob refs) |
 | `sgve:autosave:current` | `{ savedAt: number, project: <wrapped project> }` |
 
-Assets are stored as metadata only (`id`, `name`, `mime`, `assetType`, `duration`, `width`, `height`, `bytes`). Blob/File/objectUrl fields are stripped before serialisation.
+Asset entries in localStorage are metadata only (`id`, `name`, `mime`, `assetType`, `duration`, `width`, `height`, `bytes`). Blob/File/objectUrl fields are stripped before serialisation.
+
+### IndexedDB (asset blobs — heavy data, Round-9-J)
+
+| Database | Object store | Key path | Entry shape |
+|---|---|---|---|
+| `sgve` | `assets` | `id` | `{ id, blob, name, kind, mimeType, width, height, duration, bytes, savedAt }` |
+
+This split exists because localStorage caps at ~5–10 MB total per origin while videos are tens to hundreds of MB. The lossy localStorage round-trip preserves timeline geometry; the IndexedDB round-trip preserves pixels. Together they give a full-fidelity restore on reload.
 
 ### refreshPreview
 

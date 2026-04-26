@@ -257,6 +257,7 @@ export function buildApiMethods({ state, getComposer, setComposer, hostEl }) {
         setTrackMuted: trackMethods.setTrackMuted,
         setTrackLocked: trackMethods.setTrackLocked,
         renameTrack: trackMethods.renameTrack,
+        setTrackColor: trackMethods.setTrackColor,
         saveProject:        storageMethods.saveProject,
         loadProject:        storageMethods.loadProject,
         listSavedProjects:  storageMethods.listSavedProjects,
@@ -266,5 +267,8 @@ export function buildApiMethods({ state, getComposer, setComposer, hostEl }) {
         getAutosave:        storageMethods.getAutosave,
         discardAutosave:    storageMethods.discardAutosave,
         isAutosaveNewer:    storageMethods.isAutosaveNewer,
+        // Round-9-J — IDB blob storage helpers.
+        hydrateAssets:      storageMethods.hydrateAssets,
+        getStorageUsage:    storageMethods.getStorageUsage,
     };
 }

@@ -40,6 +40,14 @@ export function buildAssetRow(asset, registry) {
     const type = asset.assetType === 'image' ? 'image' : 'video';
     li.dataset.assetType = type;
 
+    // Round-9-J: a restored project may have asset entries flagged
+    // `__missingBlob` while IDB hydration is still in flight (or, for
+    // pre-Round-9-J saves, permanently). Surface a visible hint so the
+    // user understands the placeholder rather than wondering why their
+    // pixels are gone.
+    const isMissing = !!(asset && asset.__missingBlob);
+    if (isMissing) li.classList.add('is-missing');
+
     const urls = [];
     const thumb = document.createElement('span');
     thumb.className = 'sgve-asset-thumb';
@@ -68,7 +76,8 @@ export function buildAssetRow(asset, registry) {
     const meta = document.createElement('span');
     meta.className = 'sgve-asset-meta';
     const durLabel = type === 'image' ? 'image' : formatDuration(asset.duration);
-    meta.textContent = `${durLabel} · ${formatSize(asset.bytes ?? 0)}`;
+    const tail = isMissing ? ' · missing — re-upload' : '';
+    meta.textContent = `${durLabel} · ${formatSize(asset.bytes ?? 0)}${tail}`;
     li.appendChild(meta);
 
     const del = document.createElement('button');
