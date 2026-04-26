@@ -132,6 +132,16 @@ canvas {
     z-index: 3;
 }
 
+.pco-select-box {
+    position: absolute;
+    box-sizing: border-box;
+    border: 1.5px solid #14b8a6;
+    border-radius: 1px;
+    box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.55);
+    pointer-events: none;
+    display: none;
+}
+
 .pco-layer {
     position: absolute;
     inset: 0;

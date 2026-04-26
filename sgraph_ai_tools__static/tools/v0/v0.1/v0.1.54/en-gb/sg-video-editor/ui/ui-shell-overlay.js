@@ -110,7 +110,9 @@ export function wireOverlay(cfg) {
     }
     function pushActive() {
         if (!cfg.previewEl || typeof cfg.previewEl.setActiveClip !== 'function') return;
-        if (editorMode === 'select') { cfg.previewEl.setActiveClip(null); return; }
+        // Keep the active clip set even in Select mode so the preview can
+        // render a selection outline around it. The overlay component
+        // decides what to show per mode.
         const info = resolveActiveClip(cfg.getProject(), cfg.getSelectedClipId(), cfg.getPlayhead());
         cfg.previewEl.setActiveClip(info);
     }

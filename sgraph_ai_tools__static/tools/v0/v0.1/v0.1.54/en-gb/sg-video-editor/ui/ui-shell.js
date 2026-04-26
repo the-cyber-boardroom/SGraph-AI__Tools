@@ -6,6 +6,7 @@ import { buildLayoutDescriptor, wireTimelineEvents, resolvePanels } from './ui-s
 import { mountDevPanel } from './ui-dev-panel.js';
 import { mountJsonPane } from './ui-json-pane.js';
 import { mountPropertiesPanel } from './ui-properties-panel.js';
+import { mountMessagesPanel } from './ui-messages-panel.js';
 import { wireOverlay } from './ui-shell-overlay.js';
 import { rebuildComposer, emitErr } from './ui-shell-composer.js';
 import { SGL_EVENTS } from '/core/sg-layout/v0.1.0/sg-layout-events.js';
@@ -60,7 +61,7 @@ export function mountShell({ host, state, api, getComposer, setComposer }) {
     let assetPanel = null, exportCtl = null, unwireTimeline = null;
     let previewEl = null, timelineEl = null;
     let pending = null, activePending = null;
-    let onCanvasPlayhead = null, devPanel = null, jsonPane = null, propertiesPane = null, overlayWire = null;
+    let onCanvasPlayhead = null, devPanel = null, jsonPane = null, propertiesPane = null, messagesPane = null, overlayWire = null;
 
     function schedulePushActive() {
         if (!overlayWire) return;
@@ -109,7 +110,7 @@ export function mountShell({ host, state, api, getComposer, setComposer }) {
     async function mountInto() {
         await ready;
         const slots = resolvePanels(layout);
-        const { assetsPanel, jsonPanel, propertiesPanel } = slots;
+        const { assetsPanel, jsonPanel, propertiesPanel, messagesPanel } = slots;
         previewEl = slots.previewEl;
         timelineEl = slots.timelineEl;
 
@@ -165,6 +166,7 @@ export function mountShell({ host, state, api, getComposer, setComposer }) {
             host: propertiesPanel, state, api,
             getSelectedClipId: () => ctx.selectedClipId,
         });
+        if (messagesPanel) messagesPane = mountMessagesPanel({ host: messagesPanel });
         syncHistoryFlags();
         rebuild();
         state.addEventListener('change', handleChange);
@@ -201,6 +203,7 @@ export function mountShell({ host, state, api, getComposer, setComposer }) {
         try { assetPanel && assetPanel.destroy(); } catch (_) {}
         try { jsonPane && jsonPane.destroy(); } catch (_) {}
         try { propertiesPane && propertiesPane.destroy(); } catch (_) {}
+        try { messagesPane && messagesPane.destroy(); } catch (_) {}
         try { devPanel && devPanel.destroy(); } catch (_) {}
         host.innerHTML = '';
     }

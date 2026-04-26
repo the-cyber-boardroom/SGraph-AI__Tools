@@ -36,11 +36,21 @@ export function splitClipOp(project, { clipId, atTime }, genId) {
     const newId = genId('c');
     const right = {
         id: newId,
-        assetId: clip.assetId,
         inPoint: newOutPoint,
         outPoint: clip.outPoint,
         timelineStart: t,
     };
+    // Carry over the kind-specific fields so the right half is a valid clip
+    // of the same kind (asset / shape / text).
+    if (clip.kind === 'shape' && clip.shape) {
+        right.kind = 'shape';
+        right.shape = { ...clip.shape };
+    } else if (clip.kind === 'text' && clip.text) {
+        right.kind = 'text';
+        right.text = { ...clip.text };
+    } else {
+        right.assetId = clip.assetId;
+    }
     if (clip.color) right.color = clip.color;
     if (clip.transform) right.transform = { ...clip.transform };
     if (clip.crop) right.crop = { ...clip.crop };
