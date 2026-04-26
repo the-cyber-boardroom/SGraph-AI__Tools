@@ -6,6 +6,11 @@
  *
  * Only deals with DOM + browser dialogs. All persistence calls go through the
  * SgToolApi (`api.saveProject`, `api.loadProject`, …).
+ *
+ * Round-9-J: every call to a SgToolApi method goes through `await` because
+ * SgToolApi._invoke is itself async — callers MUST await even if the
+ * registered impl is synchronous, otherwise we read a Promise as if it were
+ * the raw value (the bug that hid the saved-projects list in Round-9-H).
  */
 
 import { slugify } from './state-storage.js';
@@ -75,23 +80,30 @@ export function mountSaveLoadControls({ host, api, getProject, onLoaded, onNewPr
 
     host.appendChild(wrap);
 
-    function onSaveClick() {
+    /** Resolve the saved-projects list, awaiting the SgToolApi promise. */
+    async function fetchSavedProjects() {
+        try {
+            const r = await api.listSavedProjects();
+            return (r && Array.isArray(r.projects)) ? r.projects : [];
+        } catch (_) { return []; }
+    }
+
+    async function onSaveClick() {
         try {
             const project = getProject();
             const name = (project && project.project && project.project.name) || 'Untitled';
-            // If a saved project with this slug already exists, confirm before overwrite.
-            const existing = (api.listSavedProjects() || {}).projects || [];
+            const existing = await fetchSavedProjects();
             const slug = slugify(name);
             const overwrite = existing.some(p => p && (p.slug === slug || p.name === name));
             if (overwrite) {
                 if (!confirm(`A saved project named "${name}" exists. Overwrite?`)) return;
             }
-            api.saveProject({ name });
-            refresh();
+            await api.saveProject({ name });
+            await refresh();
         } catch (err) { emitErr('saveProject', err); }
     }
 
-    function onSaveAsClick() {
+    async function onSaveAsClick() {
         try {
             const project = getProject();
             const current = (project && project.project && project.project.name) || 'Untitled';
@@ -100,21 +112,21 @@ export function mountSaveLoadControls({ host, api, getProject, onLoaded, onNewPr
             const trimmed = String(next).trim() || 'Untitled';
             // Apply rename to the in-memory project so the display reflects
             // the user's choice. Then save under the new name.
-            try { api.renameProject({ name: trimmed }); }
+            try { await api.renameProject({ name: trimmed }); }
             catch (err) { emitErr('renameProject', err); return; }
-            const existing = (api.listSavedProjects() || {}).projects || [];
+            const existing = await fetchSavedProjects();
             const overwrite = existing.some(p => p && p.name === trimmed);
             if (overwrite) {
                 if (!confirm(`A saved project named "${trimmed}" exists. Overwrite?`)) return;
             }
-            api.saveProject({ name: trimmed });
-            refresh();
+            await api.saveProject({ name: trimmed });
+            await refresh();
         } catch (err) { emitErr('saveProject', err); }
     }
 
-    function onNewClick() {
+    async function onNewClick() {
         try {
-            const r = api.hasUnsavedChanges();
+            const r = await api.hasUnsavedChanges();
             const dirty = !!(r && (r.hasUnsavedChanges === true || r === true));
             if (dirty) {
                 if (!confirm('Discard unsaved changes and start a new project?')) return;
@@ -131,40 +143,38 @@ export function mountSaveLoadControls({ host, api, getProject, onLoaded, onNewPr
                 tracks: [{ id: 't-video-1', kind: 'video', index: 0, muted: false, clips: [] }],
                 operations: [],
             };
-            api.setProject({ project: blank });
-            try { api.discardAutosave(); } catch (_) {}
+            await api.setProject({ project: blank });
+            try { await api.discardAutosave(); } catch (_) {}
             if (typeof onNewProject === 'function') onNewProject();
-            refresh();
+            await refresh();
         } catch (err) { emitErr('newProject', err); }
     }
 
-    function onLoadRowClick(slug) {
+    async function onLoadRowClick(slug) {
         try {
-            const r = api.hasUnsavedChanges();
+            const r = await api.hasUnsavedChanges();
             const dirty = !!(r && (r.hasUnsavedChanges === true || r === true));
             if (dirty) {
                 if (!confirm('Discard unsaved changes and load this project?')) return;
             }
-            api.loadProject({ slug });
-            try { api.discardAutosave(); } catch (_) {}
+            await api.loadProject({ slug });
+            try { await api.discardAutosave(); } catch (_) {}
             if (typeof onLoaded === 'function') onLoaded();
-            refresh();
+            await refresh();
         } catch (err) { emitErr('loadProject', err); }
     }
 
-    function onDeleteRowClick(slug, name) {
+    async function onDeleteRowClick(slug, name) {
         try {
             if (!confirm(`Delete saved project "${name}"? This cannot be undone.`)) return;
-            api.deleteSavedProject({ slug });
-            refresh();
+            await api.deleteSavedProject({ slug });
+            await refresh();
         } catch (err) { emitErr('deleteSavedProject', err); }
     }
 
-    function refresh() {
+    async function refresh() {
         list.replaceChildren();
-        let entries = [];
-        try { entries = (api.listSavedProjects() || {}).projects || []; }
-        catch (_) { entries = []; }
+        const entries = await fetchSavedProjects();
         if (!entries.length) {
             const empty = document.createElement('div');
             empty.className = 'sgve-saveload__empty';

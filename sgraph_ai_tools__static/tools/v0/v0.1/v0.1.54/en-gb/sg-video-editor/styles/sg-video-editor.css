@@ -298,6 +298,56 @@
 .sg-video-editor__btn:hover { background: var(--sg-bg-hover, #1e293b); }
 .sg-video-editor__btn[disabled] { opacity: 0.5; cursor: not-allowed; }
 
+/* ── Export button (Round-9-I Task 4) ────────────────────────────────
+ * The button widths used to jitter between "Export MP4" (idle) and
+ * "Exporting NN%" (busy). The min-width is pinned in JS at mount time
+ * (measured against "Exporting 100%" + 28px padding), the label is
+ * centred, and a teal L→R fill behind the label visualises progress
+ * via a `--sgve-progress` custom property the JS updates per tick. */
+.sgve-export-btn {
+    position: relative;
+    overflow: hidden;
+    padding: .4rem .9rem;
+    border: 1px solid #1f2937;
+    border-radius: 4px;
+    background: #1e293b;
+    color: inherit;
+    font: inherit;
+    cursor: pointer;
+    text-align: center;
+    /* min-width is set inline by ui-export-progress.js */
+}
+.sgve-export-btn:hover:not([disabled]) {
+    background: #233247;
+    border-color: rgba(20, 184, 166, 0.45);
+}
+.sgve-export-btn[disabled] {
+    cursor: progress;
+    opacity: 1; /* the fill bar carries the activity cue, no need to dim */
+}
+.sgve-export-btn::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    width: var(--sgve-progress, 0%);
+    background: rgba(20, 184, 166, 0.32);
+    transition: width 0.12s linear;
+    pointer-events: none;
+}
+.sgve-export-btn.is-exporting {
+    border-color: rgba(20, 184, 166, 0.55);
+}
+.sgve-export-btn__label {
+    position: relative; /* sit above the ::before fill */
+    display: inline-block;
+    z-index: 1;
+    font-feature-settings: "tnum"; /* tabular numbers — no width jitter */
+}
+.sgve-export-status {
+    font-size: .8rem;
+    color: #94a3b8;
+}
+
 /* ── Topbar (export slot) ─────────────────────────────────── */
 
 .sgve-topbar {
