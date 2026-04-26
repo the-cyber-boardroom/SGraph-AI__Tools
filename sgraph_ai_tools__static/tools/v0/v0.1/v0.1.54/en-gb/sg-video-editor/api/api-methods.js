@@ -196,5 +196,7 @@ export function buildApiMethods({ state, getComposer, setComposer, hostEl }) {
         moveClipToTrack: trackMethods.moveClipToTrack,
         reorderTracks: trackMethods.reorderTracks,
         setTrackMuted: trackMethods.setTrackMuted,
+        setTrackLocked: trackMethods.setTrackLocked,
+        renameTrack: trackMethods.renameTrack,
     };
 }

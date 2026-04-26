@@ -7,6 +7,27 @@ function badArg(msg) { return Object.assign(new Error(msg), { code: 'invalid-arg
 function overlapErr() {
     return Object.assign(new Error('Clip would overlap with another clip on the same track'), { code: 'overlap' });
 }
+function lockedErr(trackId) {
+    return Object.assign(
+        new Error(`Track ${trackId} is locked — unlock it to modify`),
+        { code: 'locked', trackId },
+    );
+}
+
+/**
+ * Throw `Error{code:'locked'}` if the named track is locked. Used by clip ops
+ * + cross-track moves to block all content mutations on locked tracks. Mute
+ * + lock-toggle + rename + colour overrides are intentionally NOT gated.
+ *
+ * @param {object} project
+ * @param {string|null|undefined} trackId
+ * @returns {void}
+ */
+export function assertTrackUnlocked(project, trackId) {
+    if (!trackId) return;
+    const track = project.tracks.find(t => t && t.id === trackId);
+    if (track && track.locked) throw lockedErr(trackId);
+}
 
 /** Filter to `kind === 'video'` tracks while preserving array order. */
 function videoTracks(project) {
@@ -68,6 +89,7 @@ export function removeTrackOp(project, { trackId }) {
     const idx = project.tracks.findIndex(t => t && t.id === trackId);
     if (idx < 0) throw badArg(`unknown trackId: ${trackId}`);
     const track = project.tracks[idx];
+    if (track.locked) throw lockedErr(trackId);
     if (track.kind === 'video' && videoTracks(project).length <= 1) {
         throw badArg('cannot remove the last video track');
     }
@@ -98,12 +120,14 @@ export function removeTrackOp(project, { trackId }) {
 export function moveClipToTrackOp(project, { clipId, toTrackId, timelineStart, snap }) {
     const target = project.tracks.find(t => t && t.id === toTrackId);
     if (!target) throw badArg(`unknown trackId: ${toTrackId}`);
+    if (target.locked) throw lockedErr(toTrackId);
     let fromTrack = null; let clipIdx = -1;
     for (const t of project.tracks) {
         const i = t.clips.findIndex(c => c.id === clipId);
         if (i >= 0) { fromTrack = t; clipIdx = i; break; }
     }
     if (!fromTrack) throw badArg(`unknown clipId: ${clipId}`);
+    if (fromTrack.locked && fromTrack.id !== toTrackId) throw lockedErr(fromTrack.id);
     const clip = fromTrack.clips[clipIdx];
     const fps = (project.project && project.project.fps) || 30;
     const dur = clip.outPoint - clip.inPoint;
@@ -141,6 +165,7 @@ export function moveClipToTrackOp(project, { clipId, toTrackId, timelineStart, s
 
 /**
  * Set or clear a track's mute flag. Throws if trackId is unknown.
+ * Lock state does NOT block muting (mute is a transient/preview thing).
  * @param {object} project
  * @param {{ trackId: string, muted: boolean }} params
  * @returns {{ trackId: string, muted: boolean }}
@@ -150,6 +175,38 @@ export function setTrackMutedOp(project, { trackId, muted }) {
     if (!track) throw badArg(`unknown trackId: ${trackId}`);
     track.muted = !!muted;
     return { trackId, muted: !!muted };
+}
+
+/**
+ * Set or clear a track's lock flag. Throws if trackId is unknown.
+ * Toggling the lock flag itself is intentionally NOT gated by the lock — that
+ * would make it impossible to unlock a track once locked.
+ * @param {object} project
+ * @param {{ trackId: string, locked: boolean }} params
+ * @returns {{ trackId: string, locked: boolean }}
+ */
+export function setTrackLockedOp(project, { trackId, locked }) {
+    const track = project.tracks.find(t => t && t.id === trackId);
+    if (!track) throw badArg(`unknown trackId: ${trackId}`);
+    track.locked = !!locked;
+    return { trackId, locked: !!locked };
+}
+
+/**
+ * Rename a track. Empty / whitespace-only names clear the override (UI then
+ * falls back to the default `Track N` label). Locked tracks may still be
+ * renamed — the label is not content.
+ * @param {object} project
+ * @param {{ trackId: string, name: string }} params
+ * @returns {{ trackId: string, name: string|null }}
+ */
+export function renameTrackOp(project, { trackId, name }) {
+    const track = project.tracks.find(t => t && t.id === trackId);
+    if (!track) throw badArg(`unknown trackId: ${trackId}`);
+    const trimmed = (typeof name === 'string') ? name.trim() : '';
+    if (trimmed === '') { delete track.name; return { trackId, name: null }; }
+    track.name = trimmed;
+    return { trackId, name: trimmed };
 }
 
 /**

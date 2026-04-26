@@ -19,10 +19,11 @@ export { SGT_EVENTS };
 
 export class SgTimeline extends HTMLElement {
     #project = null; #pps = DEFAULT_PPS; #fps = DEFAULT_FPS;
-    #playhead = 0; #selected = null; #dispose = null;
+    #playhead = 0; #selected = null; #selectedTrack = null; #dispose = null;
     #root = null; #ruler = null; #lanes = null; #playheadEl = null;
     #surface = null; #zoom = null;
     #historyFlags = { canUndo: false, canRedo: false };
+    #clipboardFlags = { canPaste: false };
 
     constructor() {
         super();
@@ -52,6 +53,7 @@ export class SgTimeline extends HTMLElement {
             fps: this.#fps,
             playhead: this.#playhead,
             selectedClipId: this.#selected,
+            selectedTrackId: this.#selectedTrack,
             host: this,
         });
         const dispatch = (name, detail) => {
@@ -71,6 +73,14 @@ export class SgTimeline extends HTMLElement {
                 // Re-rendering here would orphan the captured clipEl/sourceLane
                 // refs in `drag`, which silently breaks the in-drag feedback
                 // overlay (ghost + label appended to a detached lane).
+            }
+            if (name === SGT_EVENTS.TRACK_SELECTED) {
+                const next = detail ? (detail.trackId || null) : null;
+                if (next !== this.#selectedTrack) {
+                    this.#selectedTrack = next;
+                    this.#renderAll();
+                    if (this.#zoom) this.#zoom.refresh();
+                }
             }
             this.dispatchEvent(new CustomEvent(name, { detail, bubbles: true, composed: true }));
         };
@@ -138,6 +148,24 @@ export class SgTimeline extends HTMLElement {
         }));
     }
 
+    /** Programmatically set the selected track without firing an outbound
+     *  event (used by the host to mirror its own selection state). */
+    setSelectedTrack(trackId) {
+        const next = trackId || null;
+        if (next === this.#selectedTrack) return;
+        this.#selectedTrack = next;
+        this.#renderAll();
+        if (this.#zoom) this.#zoom.refresh();
+    }
+
+    /** Update clipboard-related toolbar enable state (Copy/Paste). */
+    setClipboardFlags(flags) {
+        this.#clipboardFlags = {
+            canPaste: !!(flags && flags.canPaste),
+        };
+        if (this.#zoom) this.#zoom.refresh();
+    }
+
     /** @param {number} pps */
     setPixelsPerSecond(pps) {
         if (!Number.isFinite(pps) || pps <= 0) return;
@@ -173,7 +201,7 @@ export class SgTimeline extends HTMLElement {
         const widthPx = computeSurfaceWidth(this.#project, this.#pps);
         this.#surface.style.width = (widthPx + 96) + 'px';
         renderRuler(this.#ruler, widthPx, this.#pps);
-        renderLanes(this.#lanes, this.#project, widthPx, this.#pps, this.#selected);
+        renderLanes(this.#lanes, this.#project, widthPx, this.#pps, this.#selected, this.#selectedTrack);
         renderPlayhead(this.#playheadEl, this.#playhead, this.#pps);
     }
 }

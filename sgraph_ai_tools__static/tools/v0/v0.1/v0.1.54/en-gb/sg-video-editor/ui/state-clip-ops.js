@@ -6,6 +6,7 @@ import {
     isShapeClip, isTextClip,
 } from '/core/video-composer/v0/v0.1/v0.1.0/composer-schema.js';
 import { assertNoOverlap, snapToClearSlot } from './state-overlap.js';
+import { assertTrackUnlocked } from './state-track-ops.js';
 
 /**
  * Resolve `[proposedStart, proposedEnd)` against existing clips on `track`. If
@@ -60,6 +61,7 @@ export function addClipOp(project, params, genId) {
     const { trackId, assetId, timelineStart, inPoint, outPoint, clipId, snap } = params;
     const track = findTrack(project, trackId);
     if (!track) throw badArg(`unknown trackId: ${trackId}`);
+    assertTrackUnlocked(project, trackId);
     const asset = findAsset(project, assetId);
     if (!asset) throw badArg(`unknown assetId: ${assetId}`);
     const fps = project.project.fps;
@@ -87,6 +89,7 @@ export function addClipOp(project, params, genId) {
 export function trimClipOp(project, { clipId, inPoint, outPoint }) {
     const loc = findClipLocation(project, clipId);
     if (!loc) throw badArg(`unknown clipId: ${clipId}`);
+    assertTrackUnlocked(project, loc.track.id);
     const clip = loc.track.clips[loc.index];
     const asset = findAsset(project, clip.assetId);
     const fps = project.project.fps;
@@ -108,6 +111,7 @@ export function trimClipOp(project, { clipId, inPoint, outPoint }) {
 export function moveClipOp(project, { clipId, timelineStart, snap }) {
     const loc = findClipLocation(project, clipId);
     if (!loc) throw badArg(`unknown clipId: ${clipId}`);
+    assertTrackUnlocked(project, loc.track.id);
     const fps = project.project.fps;
     const clip = loc.track.clips[loc.index];
     let t = snapToFps(Math.max(0, Number(timelineStart) || 0), fps);
@@ -164,6 +168,7 @@ export function addShapeClipOp(project, params, genId) {
     const { trackId, timelineStart, duration, clipId, shape, snap } = params;
     const track = findTrack(project, trackId);
     if (!track) throw badArg(`unknown trackId: ${trackId}`);
+    assertTrackUnlocked(project, trackId);
     const fps = project.project.fps;
     const dur = (Number.isFinite(duration) && duration > 0) ? duration : defaultClipDuration();
     let tStart = snapToFps(Number.isFinite(timelineStart) ? timelineStart : trackEnd(track), fps);
@@ -188,6 +193,7 @@ export function addTextClipOp(project, params, genId) {
     const { trackId, timelineStart, duration, clipId, text, snap } = params;
     const track = findTrack(project, trackId);
     if (!track) throw badArg(`unknown trackId: ${trackId}`);
+    assertTrackUnlocked(project, trackId);
     const fps = project.project.fps;
     const dur = (Number.isFinite(duration) && duration > 0) ? duration : defaultClipDuration();
     let tStart = snapToFps(Number.isFinite(timelineStart) ? timelineStart : trackEnd(track), fps);
@@ -248,6 +254,7 @@ export function setTextPropsOp(project, { clipId, text, transform }) {
 export function removeClipOp(project, { clipId }) {
     const loc = findClipLocation(project, clipId);
     if (!loc) throw badArg(`unknown clipId: ${clipId}`);
+    assertTrackUnlocked(project, loc.track.id);
     loc.track.clips.splice(loc.index, 1);
 }
 

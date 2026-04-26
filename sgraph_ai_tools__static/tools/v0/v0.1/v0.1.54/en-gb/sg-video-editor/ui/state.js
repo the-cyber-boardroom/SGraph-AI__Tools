@@ -10,6 +10,7 @@ import {
 } from './state-clip-ops.js';
 import {
     addTrackOp, removeTrackOp, moveClipToTrackOp, reorderTracksOp, setTrackMutedOp,
+    setTrackLockedOp, renameTrackOp,
 } from './state-track-ops.js';
 import { createHistory } from './state-history.js';
 import {
@@ -193,6 +194,20 @@ export function createState(initialProject) {
             const r = setTrackMutedOp(project, params);
             history.pushSnapshot(snap);
             withOp({ op: 'setTrackMuted', trackId: r.trackId, muted: r.muted });
+            emit(); return r;
+        },
+        setTrackLocked(params) {
+            const snap = deepClone(project);
+            const r = setTrackLockedOp(project, params);
+            history.pushSnapshot(snap);
+            withOp({ op: 'setTrackLocked', trackId: r.trackId, locked: r.locked });
+            emit(); return r;
+        },
+        renameTrack(params) {
+            const snap = deepClone(project);
+            const r = renameTrackOp(project, params);
+            history.pushSnapshot(snap);
+            withOp({ op: 'renameTrack', trackId: r.trackId, name: r.name });
             emit(); return r;
         },
         reorderTracks(params) {

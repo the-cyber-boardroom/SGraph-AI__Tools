@@ -67,9 +67,10 @@ export function renderRuler(rulerEl, widthPx, pps) {
  * @param {number} widthPx
  * @param {number} pps
  * @param {string|null} selectedClipId
+ * @param {string|null} [selectedTrackId]
  * @returns {void}
  */
-export function renderLanes(lanesEl, project, widthPx, pps, selectedClipId) {
+export function renderLanes(lanesEl, project, widthPx, pps, selectedClipId, selectedTrackId) {
     lanesEl.innerHTML = '';
     lanesEl.style.width = widthPx + 'px';
     const tracks = project ? getVideoTracks(project) : [];
@@ -81,15 +82,18 @@ export function renderLanes(lanesEl, project, widthPx, pps, selectedClipId) {
         row.className = 'lane-row';
         row.dataset.trackId = track.id || '';
         row.style.height = LANE_HEIGHT + 'px';
+        if (selectedTrackId && track.id === selectedTrackId) row.classList.add('lane-row--selected');
+        if (track.locked) row.classList.add('lane-row--locked');
 
         const lane = document.createElement('div');
         lane.className = 'lane';
         lane.dataset.trackId = track.id || '';
         lane.style.width = widthPx + 'px';
+        if (track.locked) lane.classList.add('lane--locked');
         renderLaneClips(lane, track, project, pps, selectedClipId);
         row.appendChild(lane);
 
-        const header = renderTrackHeader(track, i, total);
+        const header = renderTrackHeader(track, i, total, selectedTrackId);
         row.appendChild(header);
 
         lanesEl.appendChild(row);

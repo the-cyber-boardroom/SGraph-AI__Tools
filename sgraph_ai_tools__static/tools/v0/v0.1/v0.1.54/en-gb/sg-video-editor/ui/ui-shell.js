@@ -56,7 +56,7 @@ export function mountShell({ host, state, api, getComposer, setComposer }) {
     layout.setLayout(buildLayoutDescriptor());
 
     const exportSlot = topbar.querySelector('[data-slot="export"]');
-    const ctx = { selectedClipId: null, currentPlayhead: 0, getComposer };
+    const ctx = { selectedClipId: null, selectedTrackId: null, currentPlayhead: 0, getComposer };
 
     let assetPanel = null, exportCtl = null, unwireTimeline = null;
     let previewEl = null, timelineEl = null;
