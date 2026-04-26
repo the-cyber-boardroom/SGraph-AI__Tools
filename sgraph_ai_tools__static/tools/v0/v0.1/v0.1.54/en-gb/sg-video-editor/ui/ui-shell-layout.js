@@ -8,8 +8,13 @@ export function buildLayoutDescriptor() {
     return {
         type: 'row', id: 'root', sizes: [0.20, 0.58, 0.22],
         children: [
-            { type: 'stack', id: 's-assets', activeTab: 0,
-              tabs: [{ type: 'tab', id: 't-assets', title: 'Assets', tag: 'div', locked: true, closable: false }] },
+            { type: 'column', id: 'col-left', sizes: [0.7, 0.3],
+              children: [
+                  { type: 'stack', id: 's-assets', activeTab: 0,
+                    tabs: [{ type: 'tab', id: 't-assets', title: 'Assets', tag: 'div', locked: true, closable: false }] },
+                  { type: 'stack', id: 's-shortcuts', activeTab: 0,
+                    tabs: [{ type: 'tab', id: 't-shortcuts', title: 'Shortcuts', tag: 'div', locked: true, closable: false }] },
+              ] },
             { type: 'column', id: 'col-centre', sizes: [0.7, 0.3],
               children: [
                   { type: 'stack', id: 's-preview', activeTab: 0,
@@ -82,6 +87,7 @@ export function resolvePanels(layout) {
     const jsonPanel = layout.getPanelElement('t-json');
     const propertiesPanel = layout.getPanelElement('t-properties');
     const messagesPanel = layout.getPanelElement('t-messages');
+    const shortcutsPanel = layout.getPanelElement('t-shortcuts');
     let previewEl = null;
     let timelineEl = null;
     if (assetsPanel) assetsPanel.className = 'sgve-panel-slot';
@@ -98,9 +104,10 @@ export function resolvePanels(layout) {
     if (jsonPanel) jsonPanel.className = 'sgve-panel-slot sgve-json';
     if (propertiesPanel) propertiesPanel.className = 'sgve-panel-slot sgve-properties';
     if (messagesPanel) messagesPanel.className = 'sgve-panel-slot sgve-messages';
+    if (shortcutsPanel) shortcutsPanel.className = 'sgve-panel-slot sgve-shortcuts';
     return {
         assetsPanel, previewPanel, timelinePanel,
-        jsonPanel, propertiesPanel, messagesPanel,
+        jsonPanel, propertiesPanel, messagesPanel, shortcutsPanel,
         previewEl, timelineEl,
     };
 }

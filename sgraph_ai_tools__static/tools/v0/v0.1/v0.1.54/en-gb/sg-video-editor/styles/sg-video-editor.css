@@ -545,6 +545,86 @@
     word-break: break-word;
 }
 
+/* ── Shortcuts panel ──────────────────────────────────────── */
+
+.sgve-shortcuts {
+    overflow: hidden;
+}
+
+.sgve-sc-panel {
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+    color: #e5e7eb;
+    font-size: 12px;
+    overflow: hidden;
+}
+
+.sgve-sc-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0.45rem 0.6rem;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+    flex: 0 0 auto;
+}
+
+.sgve-sc-title {
+    font-size: 11px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    color: rgba(255, 255, 255, 0.55);
+}
+
+.sgve-sc-list {
+    list-style: none;
+    margin: 0;
+    padding: 0.3rem 0.5rem;
+    overflow: auto;
+    flex: 1 1 auto;
+    min-height: 0;
+}
+
+.sgve-sc-row {
+    display: grid;
+    grid-template-columns: minmax(85px, auto) 1fr;
+    gap: 0.4rem;
+    align-items: center;
+    padding: 0.2rem 0;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.04);
+}
+
+.sgve-sc-row:last-child { border-bottom: none; }
+
+.sgve-sc-keys {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 2px;
+    color: #99f6e4;
+}
+
+.sgve-sc-key {
+    font: 600 10px/1 ui-monospace, SFMono-Regular, monospace;
+    background: rgba(20, 184, 166, 0.12);
+    border: 1px solid rgba(20, 184, 166, 0.35);
+    color: #99f6e4;
+    border-radius: 3px;
+    padding: 2px 5px;
+    white-space: nowrap;
+}
+
+.sgve-sc-glue {
+    font-size: 10px;
+    color: rgba(255, 255, 255, 0.45);
+}
+
+.sgve-sc-desc {
+    color: rgba(255, 255, 255, 0.85);
+    font-size: 11px;
+}
+
 /* ── Preview panel ────────────────────────────────────────── */
 
 .sgve-preview {
