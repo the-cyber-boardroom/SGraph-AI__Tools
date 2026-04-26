@@ -100,13 +100,13 @@ export function wireTimelineEvents(timelineEl, api, ctx) {
     function onClipTrackChange(e) {
         const d = e.detail || {};
         if (!d.clipId || !d.toTrackId) return;
-        Promise.resolve(api.moveClipToTrack({ clipId: d.clipId, toTrackId: d.toTrackId }))
-            .then(() => {
-                if (Number.isFinite(d.timelineStart)) {
-                    // snap: drag-across-tracks should also snap-abut on overlap.
-                    return api.moveClip({ clipId: d.clipId, timelineStart: d.timelineStart, snap: true });
-                }
-            })
+        // Atomically move to the destination track AT the user's chosen
+        // timelineStart, with snap-abut on overlap. This avoids the old
+        // two-step bug where the first call tested overlap against the clip's
+        // stale source position on the destination track.
+        const params = { clipId: d.clipId, toTrackId: d.toTrackId, snap: true };
+        if (Number.isFinite(d.timelineStart)) params.timelineStart = d.timelineStart;
+        Promise.resolve(api.moveClipToTrack(params))
             .catch(err => emitErr('moveClipToTrack', err));
     }
     function onMoved(e) {

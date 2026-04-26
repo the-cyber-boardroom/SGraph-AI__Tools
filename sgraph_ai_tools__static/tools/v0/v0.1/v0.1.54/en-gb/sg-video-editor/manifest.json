@@ -58,9 +58,9 @@
             "redo":         { "description": "Redo the most recently undone mutation. Returns { redid, canUndo, canRedo }." },
             "canUndo":      { "description": "Report whether undo is currently available." },
             "canRedo":      { "description": "Report whether redo is currently available." },
-            "addTrack":        { "description": "Append a new video track at the top of the z-order. Returns { trackId }." },
+            "addTrack":        { "description": "Append a new video track at the top of the z-order. Pass `insertAboveTrackId` to insert directly above an existing track instead. Returns { trackId }." },
             "removeTrack":     { "description": "Remove a track and all its clips by trackId. Throws Error{code:'invalid-arg'} if it would leave zero video tracks." },
-            "moveClipToTrack": { "description": "Move a clip to another track at the same timelineStart. Throws Error{code:'overlap'} if it would collide on the target track." },
+            "moveClipToTrack": { "description": "Atomically move a clip to another track. Pass `timelineStart` to position it at a chosen time on the destination (defaults to the clip's current start). Pass `snap: true` to snap-abut on overlap. Throws Error{code:'overlap'} if the destination position collides and snap can't clear it." },
             "reorderTracks":   { "description": "Reorder video tracks by id (bottom-up). trackIds must contain every existing video-track id exactly once." },
             "setTrackMuted":   { "description": "Set or clear a track's mute flag. Top-most active unmuted clip drives audio." },
             "exportMp4":    { "description": "Render the project to an MP4 Blob via the composer; returns blob+meta." }

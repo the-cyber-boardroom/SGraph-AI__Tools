@@ -181,7 +181,11 @@ export function createState(initialProject) {
             const snap = deepClone(project);
             const r = moveClipToTrackOp(project, params);
             history.pushSnapshot(snap);
-            withOp({ op: 'moveClipToTrack', clipId: r.clipId, fromTrackId: r.fromTrackId, toTrackId: r.toTrackId });
+            withOp({
+                op: 'moveClipToTrack',
+                clipId: r.clipId, fromTrackId: r.fromTrackId, toTrackId: r.toTrackId,
+                timelineStart: r.timelineStart,
+            });
             emit(); return r;
         },
         setTrackMuted(params) {
