@@ -42,13 +42,20 @@ export function computeClipDestRect(canvasW, canvasH, srcWidth, srcHeight, trans
     const sy = c.y * srcHeight;
     const sw = c.w * srcWidth;
     const sh = c.h * srcHeight;
-    const baseScale = Math.min(canvasW / sw, canvasH / sh);
-    const drawW = sw * baseScale * t.scale;
-    const drawH = sh * baseScale * t.scale;
-    const cx = t.x * canvasW;
-    const cy = t.y * canvasH;
-    const dx = cx - drawW / 2;
-    const dy = cy - drawH / 2;
+    // baseScale + full draw rect use the FULL source dims (not the crop) so
+    // that the visible image stays anchored when the user trims the crop.
+    // The dest rect is then the crop sub-rect of where the full source would
+    // render. With a default crop, dx/dy/drawW/drawH match the original
+    // aspect-fit placement exactly.
+    const baseScale = Math.min(canvasW / srcWidth, canvasH / srcHeight);
+    const fullDrawW = srcWidth * baseScale * t.scale;
+    const fullDrawH = srcHeight * baseScale * t.scale;
+    const fullDx = t.x * canvasW - fullDrawW / 2;
+    const fullDy = t.y * canvasH - fullDrawH / 2;
+    const drawW = c.w * fullDrawW;
+    const drawH = c.h * fullDrawH;
+    const dx = fullDx + c.x * fullDrawW;
+    const dy = fullDy + c.y * fullDrawH;
     return { sx, sy, sw, sh, dx, dy, drawW, drawH };
 }
 

@@ -61,21 +61,22 @@ function computeNextTransform(role, start, dxCv, dyCv, canvasW, canvasH) {
         t.y = clamp((start.cyCv + dyCv) / canvasH, 0, 1);
         return clampTransform(t);
     }
-    // Resize from corner/edge — scale relative to the diagonal anchor.
-    const ax = role.includes('w') ? 1 : (role.includes('e') ? 0 : 0.5);
-    const ay = role.includes('n') ? 1 : (role.includes('s') ? 0 : 0.5);
-    const handleX0 = start.dxCv + ax * start.drawW;
-    const handleY0 = start.dyCv + ay * start.drawH;
+    // Resize from corner/edge — the dragged handle moves with the cursor and
+    // the diagonally-opposite anchor stays put. `sx`/`sy` are the handle's
+    // fractional position inside the rect (0=left/top, 1=right/bottom, 0.5=mid);
+    // the anchor sits at `(1-sx, 1-sy)`.
+    const sx = role.includes('w') ? 0 : (role.includes('e') ? 1 : 0.5);
+    const sy = role.includes('n') ? 0 : (role.includes('s') ? 1 : 0.5);
+    const handleX0 = start.dxCv + sx * start.drawW;
+    const handleY0 = start.dyCv + sy * start.drawH;
+    const anchorX  = start.dxCv + (1 - sx) * start.drawW;
+    const anchorY  = start.dyCv + (1 - sy) * start.drawH;
     const newHX = handleX0 + dxCv;
     const newHY = handleY0 + dyCv;
     let newW = start.drawW;
     let newH = start.drawH;
-    if (role === 'e' || role === 'w' || role.length === 2) {
-        newW = Math.abs((newHX - (start.dxCv + (1 - ax) * start.drawW)));
-    }
-    if (role === 'n' || role === 's' || role.length === 2) {
-        newH = Math.abs((newHY - (start.dyCv + (1 - ay) * start.drawH)));
-    }
+    if (role === 'e' || role === 'w' || role.length === 2) newW = Math.abs(newHX - anchorX);
+    if (role === 'n' || role === 's' || role.length === 2) newH = Math.abs(newHY - anchorY);
     const sxRatio = newW / Math.max(1, start.drawW);
     const syRatio = newH / Math.max(1, start.drawH);
     const ratio = (role === 'e' || role === 'w') ? sxRatio
