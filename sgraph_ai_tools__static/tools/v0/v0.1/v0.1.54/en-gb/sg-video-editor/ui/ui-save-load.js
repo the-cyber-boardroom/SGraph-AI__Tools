@@ -21,6 +21,26 @@ function emitErr(step, err) {
     }));
 }
 
+/**
+ * Flush any focused text input (e.g. the inline-rename Name field) by blurring
+ * it. Inputs created via `inlineRenameInput` commit on `blur` — without this
+ * the user's pending rename is still in the DOM input but not yet in the
+ * project model, so a click-Save-without-blur would save under the OLD name
+ * and the toast would announce the OLD name. Blur is synchronous, so the
+ * follow-on `getProject()` reads the updated value.
+ *
+ * Tolerant of `document.activeElement === null` (some shadow-DOM contexts).
+ */
+function flushFocusedInput() {
+    if (typeof document === 'undefined') return;
+    const ae = document.activeElement;
+    if (!ae) return;
+    const tag = ae.tagName;
+    if (tag === 'INPUT' || tag === 'TEXTAREA') {
+        try { ae.blur(); } catch (_) {}
+    }
+}
+
 function timeAgo(ts) {
     if (!Number.isFinite(ts) || ts <= 0) return '—';
     const dMs = Date.now() - ts;
@@ -90,6 +110,11 @@ export function mountSaveLoadControls({ host, api, getProject, onLoaded, onNewPr
 
     async function onSaveClick() {
         try {
+            // Round-9-K Item 1: flush any focused rename input BEFORE reading
+            // the project name. Otherwise a user who types a new name and
+            // clicks Save without first blurring sees a toast with the OLD
+            // name (the inline-rename input only commits on Enter / blur).
+            flushFocusedInput();
             const project = getProject();
             const name = (project && project.project && project.project.name) || 'Untitled';
             const existing = await fetchSavedProjects();
@@ -105,6 +130,7 @@ export function mountSaveLoadControls({ host, api, getProject, onLoaded, onNewPr
 
     async function onSaveAsClick() {
         try {
+            flushFocusedInput();
             const project = getProject();
             const current = (project && project.project && project.project.name) || 'Untitled';
             const next = prompt('Save project as…', current);
