@@ -38,9 +38,12 @@ At significant project milestones, create a new versioned snapshot rather than o
 
 | File | Status | Project version |
 |------|--------|-----------------|
-| `v0.1.0__what-exists-today.md` | **ACTIVE** — updated to v0.1.91 | v0.1.91 |
+| `v0.1.0__what-exists-today.md` | **ACTIVE — index** (cover sheet + cumulative change paragraph) | v0.1.55+ |
+| `v0.1.0__what-exists-today__1__libraries.md` | **ACTIVE — Part 1** (deployment, core, skills, components) | v0.1.55+ |
+| `v0.1.0__what-exists-today__2__tools.md` | **ACTIVE — Part 2** (tools, shared assets, i18n, manifests, scripts, tests) | v0.1.55+ |
+| `v0.1.0__what-exists-today__3__operations.md` | **ACTIVE — Part 3** (CI/CD, SEO, team structure, configuration, sgraph.ai reuse plan) | v0.1.55+ |
 
-> **Note:** The filename `v0.1.0__what-exists-today.md` reflects when this file was created. The content inside was last verified at v0.1.91 (14 Apr 2026). A future snapshot should be created at `v0.1.91__what-exists-today.md` to mark the current verified state.
+> **Note:** The filename `v0.1.0__what-exists-today.md` reflects when this document was first created. On 26 Apr 2026 it was split into three parts because the single file had grown to ~568 lines / ~220 KB; the index file retains the original name + the cumulative "Verified by" change paragraph, while the body now lives in the three sibling parts. A future snapshot at `v0.1.X__what-exists-today.md` (with matching parts) is the right shape for a major-milestone freeze.
 
 ---
 

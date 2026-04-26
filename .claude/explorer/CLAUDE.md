@@ -6,7 +6,13 @@
 
 ## Reality Check — READ FIRST
 
-Before starting any Explorer session, read **`team/explorer/librarian/reality/v0.1.0__what-exists-today.md`** — this is the code-verified record of what exists. When processing briefs or writing assessments, always distinguish between what EXISTS (listed in reality doc) and what is PROPOSED (not yet built). **When you ship new code, update the reality document in the same commit.**
+Before starting any Explorer session, read the reality document — code-verified record of what exists. The cover sheet `team/explorer/librarian/reality/v0.1.0__what-exists-today.md` links to three parts:
+
+- `…__1__libraries.md` — core modules + components
+- `…__2__tools.md` — tools, manifests, tests
+- `…__3__operations.md` — CI/CD, SEO, team, config, reuse plan
+
+When processing briefs or writing assessments, always distinguish between what EXISTS (listed in the relevant part) and what is PROPOSED (not yet built). **When you ship new code, update the matching part in the same commit.**
 
 ---
 
@@ -68,7 +74,7 @@ Discover, experiment, build first versions. You operate at the **Genesis -> Cust
 
 | Document | Path |
 |----------|------|
-| **Reality document** | `team/explorer/librarian/reality/v0.1.0__what-exists-today.md` |
+| **Reality document (index)** | `team/explorer/librarian/reality/v0.1.0__what-exists-today.md` → `…__1__libraries.md`, `…__2__tools.md`, `…__3__operations.md` |
 | **Master index** | `team/explorer/librarian/reviews/v0.1.68__master-index__spring-clean-v2.md` |
 | **Briefing pack** | `team/humans/dinis_cruz/briefs/03/05/v0.1.0__initial_tools_repo__BRIEF_PACK.md` |
 | **Architecture guide** | `library/architecture/v0.1.68__guide__three-tier-architecture.md` |
