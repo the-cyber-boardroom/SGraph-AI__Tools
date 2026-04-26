@@ -25,8 +25,10 @@ export function createState(initialProject) {
     const target = new EventTarget();
     const history = createHistory({ maxEntries: 50 });
 
-    function emit() {
-        target.dispatchEvent(new CustomEvent('change', { detail: { project: deepClone(project) } }));
+    function emit(extra) {
+        const detail = { project: deepClone(project) };
+        if (extra && extra.transient) detail.transient = true;
+        target.dispatchEvent(new CustomEvent('change', { detail }));
     }
     function withOp(op) { project.operations.push({ ...op, t: Date.now() }); }
     function snapshot() { history.pushSnapshot(project); }
@@ -99,16 +101,20 @@ export function createState(initialProject) {
             emit();
         },
         setClipTransform(params) {
-            snapshot();
+            const transient = !!(params && params.transient);
+            if (!transient) snapshot();
             const r = setClipTransformOp(project, params);
-            withOp({ op: 'setClipTransform', clipId: r.clipId, transform: r.transform });
-            emit(); return r;
+            if (!transient) withOp({ op: 'setClipTransform', clipId: r.clipId, transform: r.transform });
+            emit(transient ? { transient: true } : null);
+            return r;
         },
         setClipCrop(params) {
-            snapshot();
+            const transient = !!(params && params.transient);
+            if (!transient) snapshot();
             const r = setClipCropOp(project, params);
-            withOp({ op: 'setClipCrop', clipId: r.clipId, crop: r.crop });
-            emit(); return r;
+            if (!transient) withOp({ op: 'setClipCrop', clipId: r.clipId, crop: r.crop });
+            emit(transient ? { transient: true } : null);
+            return r;
         },
 
         addTrack(params = {}) {

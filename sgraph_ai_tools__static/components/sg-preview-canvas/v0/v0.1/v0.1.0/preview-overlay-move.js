@@ -131,13 +131,19 @@ export function mountMoveOverlay(cfg) {
         const dyCv = dyDisp * drag.m.sy;
         const next = computeNextTransform(drag.role, drag, dxCv, dyCv, drag.canvas.width, drag.canvas.height);
         next.x = round(next.x, 4); next.y = round(next.y, 4); next.scale = round(next.scale, 4);
-        cfg.dispatch('transform-requested', { clipId: drag.active.clipId, transform: next });
+        drag.lastTransform = next;
+        cfg.dispatch('transform-requested', { clipId: drag.active.clipId, transform: next, transient: true });
     }
 
     function onPointerUp() {
         window.removeEventListener('pointermove', onPointerMove);
         window.removeEventListener('pointerup', onPointerUp);
         window.removeEventListener('pointercancel', onPointerUp);
+        if (drag && drag.lastTransform) {
+            cfg.dispatch('transform-requested', {
+                clipId: drag.active.clipId, transform: drag.lastTransform,
+            });
+        }
         drag = null;
         refresh();
     }
@@ -145,7 +151,6 @@ export function mountMoveOverlay(cfg) {
     const els = buildHandles(cfg.layer, onPointerDown);
 
     function refresh() {
-        if (drag) return; // do not jump handles mid-drag
         const canvas = cfg.getCanvas();
         const active = cfg.getActive();
         const rect = canvas && active ? activeClipCanvasRect(canvas, active) : null;

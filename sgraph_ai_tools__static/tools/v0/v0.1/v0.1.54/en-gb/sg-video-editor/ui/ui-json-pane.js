@@ -16,7 +16,10 @@ export function mountJsonPane({ host, state }) {
         catch (_) { viewer.setData(null); }
     }
 
-    function onChange() { refresh(); }
+    function onChange(e) {
+        if (e && e.detail && e.detail.transient) return;
+        refresh();
+    }
 
     state.addEventListener('change', onChange);
     refresh();

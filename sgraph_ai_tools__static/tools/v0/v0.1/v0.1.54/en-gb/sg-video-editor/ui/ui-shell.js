@@ -63,7 +63,18 @@ export function mountShell({ host, state, api, getComposer, setComposer }) {
             timelineEl.setHistoryFlags({ canUndo: state.canUndo(), canRedo: state.canRedo() });
         }
     }
-    function handleChange() {
+    /** Mid-drag transform/crop: refresh the composer's live project + overlay
+     *  in-place (no destroy/recreate, no debounce) so the canvas reflects every
+     *  pointer tick without recording a history entry. */
+    function handleTransientChange() {
+        const flat = state.toComposerProject();
+        const c = getComposer();
+        if (c && typeof c.updateProject === 'function') c.updateProject(flat);
+        if (overlayWire) overlayWire.pushActive();
+    }
+
+    function handleChange(e) {
+        if (e && e.detail && e.detail.transient) { handleTransientChange(); return; }
         if (pending) clearTimeout(pending);
         pending = setTimeout(() => {
             pending = null;

@@ -52,6 +52,7 @@ function buildAllTrackVideos(project, assets) {
  */
 export function createPlayback({ project, assets, canvas, fps }) {
     const ctx = canvas.getContext('2d');
+    let liveProject = project;
     const videoTracks = getVideoTracks(project);
     const duration = getProjectDuration(project);
     const { videos, urls } = buildAllTrackVideos(project, assets);
@@ -70,11 +71,19 @@ export function createPlayback({ project, assets, canvas, fps }) {
         getTime: () => playhead,
         setTime: (t) => { playhead = t; },
         getDuration: () => duration,
-        getProject: () => project,
+        getProject: () => liveProject,
         getVideos: () => videos,
         getImage: (id) => imageReg.getImage(id),
         ctx, canvas, emit,
     });
+
+    /** Swap in a new project shape (same assets/clips, only mutated transform/crop)
+     *  and repaint the current frame. Cheap alternative to destroy+recreate. */
+    function updateProject(next) {
+        if (!next) return;
+        liveProject = next;
+        sched.paintAt(playhead);
+    }
 
     function pauseAllVideos() {
         for (const v of videos.values()) {
@@ -101,13 +110,20 @@ export function createPlayback({ project, assets, canvas, fps }) {
     function seek(t) {
         const snapped = snapToFps(Math.max(0, Math.min(t, duration || 0)), fps);
         playhead = snapped;
-        // Pre-seek every track's active video so the next paint shows the right frame.
+        // Pre-seek every track's active video, and remember any not-yet-loaded
+        // image so we can repaint when its decode lands. Otherwise a freshly
+        // dropped image would paint black (paintAt runs before decode).
         let waitVideo = null;
+        let waitImage = null;
         for (const track of videoTracks) {
             const clip = findActiveClip(track, snapped);
             if (!clip) continue;
             const asset = getAssetById(project, clip.assetId);
-            if (isImageAsset(asset)) continue;
+            if (isImageAsset(asset)) {
+                const img = imageReg.getImage(clip.assetId);
+                if (img && !img.complete) waitImage = img;
+                continue;
+            }
             const v = videos.get(clip.assetId);
             if (!v) continue;
             const local = clip.inPoint + (snapped - clip.timelineStart);
@@ -115,6 +131,7 @@ export function createPlayback({ project, assets, canvas, fps }) {
             if (v.readyState < 2) waitVideo = v;
         }
         if (waitVideo) waitVideo.addEventListener('seeked', () => sched.paintAt(snapped), { once: true });
+        else if (waitImage) waitImage.addEventListener('load', () => sched.paintAt(snapped), { once: true });
         else sched.paintAt(snapped);
         emit('composer:playhead-changed', { time: snapped });
     }
@@ -137,6 +154,7 @@ export function createPlayback({ project, assets, canvas, fps }) {
         play,
         pause,
         seek,
+        updateProject,
         getCurrentTime: () => playhead,
         getDuration: () => duration,
         isPlaying: () => playing,

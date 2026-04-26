@@ -33,6 +33,7 @@ export function mountAssetPanel({ host, state, onFilesPicked }) {
 
     let dragDepth = 0;
     let activeUrls = [];
+    let dragImageEl = null;
 
     function revokeActiveUrls() {
         for (const u of activeUrls) { try { URL.revokeObjectURL(u); } catch (_) {} }
@@ -44,24 +45,58 @@ export function mountAssetPanel({ host, state, onFilesPicked }) {
         if (ok.length && typeof onFilesPicked === 'function') onFilesPicked(ok);
     }
 
+    /** True when the drag carries our internal asset MIME (asset row → timeline)
+     *  rather than external files. Used to suppress the drop-mode affordance on
+     *  the asset panel while dragging an asset OUT to the timeline. */
+    function isInternalAssetDrag(e) {
+        const types = e && e.dataTransfer && e.dataTransfer.types;
+        if (!types) return false;
+        if (typeof types.includes === 'function') return types.includes(ASSET_MIME);
+        for (let i = 0; i < types.length; i++) if (types[i] === ASSET_MIME) return true;
+        return false;
+    }
+
     function onPick() { input.click(); }
     function onChange() { callPicked([...input.files]); input.value = ''; }
     function onDragEnter(e) {
+        if (isInternalAssetDrag(e)) return;
         e.preventDefault();
         dragDepth += 1;
         root.classList.add('is-drag-over');
     }
-    function onDragOver(e) { e.preventDefault(); }
+    function onDragOver(e) {
+        if (isInternalAssetDrag(e)) return;
+        e.preventDefault();
+    }
     function onDragLeave(e) {
+        if (isInternalAssetDrag(e)) return;
         dragDepth = Math.max(0, dragDepth - 1);
         if (dragDepth === 0) root.classList.remove('is-drag-over');
-        void e;
     }
     function onDrop(e) {
+        if (isInternalAssetDrag(e)) return;
         e.preventDefault();
         dragDepth = 0;
         root.classList.remove('is-drag-over');
         callPicked([...(e.dataTransfer && e.dataTransfer.files ? e.dataTransfer.files : [])]);
+    }
+    function clearDragImage() {
+        if (!dragImageEl) return;
+        try { dragImageEl.remove(); } catch (_) {}
+        dragImageEl = null;
+    }
+    function buildDragImage(label) {
+        const el = document.createElement('div');
+        el.textContent = label;
+        el.style.cssText = [
+            'position:fixed', 'top:-1000px', 'left:-1000px',
+            'padding:6px 10px', 'background:#0f172a', 'color:#e5e7eb',
+            'border:1px solid rgba(20,184,166,0.6)', 'border-radius:4px',
+            'font:12px/1.2 system-ui,sans-serif', 'pointer-events:none',
+            'box-shadow:0 4px 14px rgba(0,0,0,0.5)', 'white-space:nowrap',
+        ].join(';');
+        document.body.appendChild(el);
+        return el;
     }
     function onRowDragStart(e) {
         const row = e.target.closest('.sgve-asset-row');
@@ -70,7 +105,14 @@ export function mountAssetPanel({ host, state, onFilesPicked }) {
         if (!id) return;
         e.dataTransfer.setData(ASSET_MIME, id);
         e.dataTransfer.effectAllowed = 'copy';
+        clearDragImage();
+        const label = (row.querySelector('.sgve-asset-name')?.textContent || 'asset').trim();
+        dragImageEl = buildDragImage(label);
+        // Anchor the ghost so it sits a small distance below-right of the cursor
+        // rather than at the spot the user clicked on inside the row.
+        try { e.dataTransfer.setDragImage(dragImageEl, -12, -8); } catch (_) {}
     }
+    function onRowDragEnd() { clearDragImage(); }
 
     pickBtn.addEventListener('click', onPick);
     input.addEventListener('change', onChange);
@@ -79,6 +121,7 @@ export function mountAssetPanel({ host, state, onFilesPicked }) {
     root.addEventListener('dragleave', onDragLeave);
     root.addEventListener('drop', onDrop);
     list.addEventListener('dragstart', onRowDragStart);
+    list.addEventListener('dragend', onRowDragEnd);
 
     /** Re-render asset list from a wrapped project shape (state.getProject()). */
     function refresh(project) {
@@ -100,12 +143,16 @@ export function mountAssetPanel({ host, state, onFilesPicked }) {
         }
     }
 
-    function onStateChange() { refresh(state.getProject()); }
+    function onStateChange(e) {
+        if (e && e.detail && e.detail.transient) return;
+        refresh(state.getProject());
+    }
     state.addEventListener('change', onStateChange);
     refresh(state.getProject());
 
     /** Tear down listeners and clear host. */
     function destroy() {
+        clearDragImage();
         revokeActiveUrls();
         state.removeEventListener('change', onStateChange);
         pickBtn.removeEventListener('click', onPick);
@@ -115,6 +162,7 @@ export function mountAssetPanel({ host, state, onFilesPicked }) {
         root.removeEventListener('dragleave', onDragLeave);
         root.removeEventListener('drop', onDrop);
         list.removeEventListener('dragstart', onRowDragStart);
+        list.removeEventListener('dragend', onRowDragEnd);
         host.innerHTML = '';
     }
 

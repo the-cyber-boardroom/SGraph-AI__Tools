@@ -83,16 +83,24 @@ export function buildApiMethods({ state, getComposer, setComposer, hostEl }) {
     }
 
     function setClipTransform(params = {}) {
-        const { clipId, transform } = params;
+        const { clipId, transform, transient } = params;
         if (!clipId) throw badArg('clipId required');
-        const r = state.setClipTransform({ clipId, transform: transform == null ? null : transform });
+        const r = state.setClipTransform({
+            clipId,
+            transform: transform == null ? null : transform,
+            transient: !!transient,
+        });
         return { clipId: r.clipId, transform: r.transform };
     }
 
     function setClipCrop(params = {}) {
-        const { clipId, crop } = params;
+        const { clipId, crop, transient } = params;
         if (!clipId) throw badArg('clipId required');
-        const r = state.setClipCrop({ clipId, crop: crop == null ? null : crop });
+        const r = state.setClipCrop({
+            clipId,
+            crop: crop == null ? null : crop,
+            transient: !!transient,
+        });
         return { clipId: r.clipId, crop: r.crop };
     }
 

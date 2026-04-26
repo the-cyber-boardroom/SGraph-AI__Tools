@@ -83,14 +83,16 @@ export function wireOverlay(cfg) {
     function onTransform(e) {
         const d = e.detail || {};
         if (!d.clipId || !d.transform) return;
-        Promise.resolve(cfg.api.setClipTransform({ clipId: d.clipId, transform: d.transform }))
-            .catch(err => emitErr('setClipTransform', err));
+        Promise.resolve(cfg.api.setClipTransform({
+            clipId: d.clipId, transform: d.transform, transient: !!d.transient,
+        })).catch(err => emitErr('setClipTransform', err));
     }
     function onCrop(e) {
         const d = e.detail || {};
         if (!d.clipId || !d.crop) return;
-        Promise.resolve(cfg.api.setClipCrop({ clipId: d.clipId, crop: d.crop }))
-            .catch(err => emitErr('setClipCrop', err));
+        Promise.resolve(cfg.api.setClipCrop({
+            clipId: d.clipId, crop: d.crop, transient: !!d.transient,
+        })).catch(err => emitErr('setClipCrop', err));
     }
 
     if (cfg.previewEl) {

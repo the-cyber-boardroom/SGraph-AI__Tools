@@ -151,19 +151,22 @@ export function mountCropOverlay(cfg) {
         const next = computeNextCrop(drag.role, drag, dxCv, dyCv);
         next.x = round(next.x, 4); next.y = round(next.y, 4);
         next.w = round(next.w, 4); next.h = round(next.h, 4);
-        cfg.dispatch('crop-requested', { clipId: drag.active.clipId, crop: next });
+        drag.lastCrop = next;
+        cfg.dispatch('crop-requested', { clipId: drag.active.clipId, crop: next, transient: true });
     }
     function onUp() {
         window.removeEventListener('pointermove', onMove);
         window.removeEventListener('pointerup', onUp);
         window.removeEventListener('pointercancel', onUp);
+        if (drag && drag.lastCrop) {
+            cfg.dispatch('crop-requested', { clipId: drag.active.clipId, crop: drag.lastCrop });
+        }
         drag = null;
         place(els, cfg.getCanvas(), cfg.getActive());
     }
     const els = buildDom(cfg.layer, onDown);
     return {
         refresh() {
-            if (drag) return;
             place(els, cfg.getCanvas(), cfg.getActive());
         },
         destroy() {
