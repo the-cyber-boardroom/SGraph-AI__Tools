@@ -1,6 +1,6 @@
 // preview-overlay-utils.js — geometry helpers shared by the overlay modes (v0.1.0)
 
-import { computeClipDestRect } from '/core/video-composer/v0/v0.1/v0.1.0/composer-draw.js';
+import { computeClipDestRect, computeDirectDestRect } from '/core/video-composer/v0/v0.1/v0.1.0/composer-draw.js';
 import { defaultTransform, defaultCrop } from '/core/video-composer/v0/v0.1/v0.1.0/composer-clip-fields.js';
 
 /**
@@ -52,7 +52,11 @@ export function activeClipCanvasRect(canvas, active) {
     if (!sw || !sh) return null;
     const t = active.transform || defaultTransform();
     const c = active.crop || defaultCrop();
-    const r = computeClipDestRect(canvas.width, canvas.height, sw, sh, t, c);
+    // Shape/text clips use direct (non aspect-fit) draw math so their intrinsic
+    // w/h map 1:1 to canvas pixels at scale=1 — required for non-uniform resize.
+    const fn = (active.kind === 'shape' || active.kind === 'text')
+        ? computeDirectDestRect : computeClipDestRect;
+    const r = fn(canvas.width, canvas.height, sw, sh, t, c);
     return { dx: r.dx, dy: r.dy, drawW: r.drawW, drawH: r.drawH };
 }
 

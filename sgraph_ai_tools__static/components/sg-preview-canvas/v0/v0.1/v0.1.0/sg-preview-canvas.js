@@ -25,6 +25,7 @@ export class SgPreviewCanvas extends HTMLElement {
     #editorMode = 'select';
     #activeClip = null;
     #modeBtns = null;
+    #onCanvasClick = null;
 
     constructor() {
         super();
@@ -64,6 +65,21 @@ export class SgPreviewCanvas extends HTMLElement {
             getMode: () => this.#editorMode,
             getActive: () => this.#activeClip,
         });
+        // Click-to-select on the canvas. The overlay layer has pointer-events:
+        // none, so clicks fall through to the canvas in any mode; consumers
+        // gate on `mode === 'select'` themselves.
+        this.#onCanvasClick = (e) => {
+            const c = this.#canvas;
+            const rect = c.getBoundingClientRect();
+            if (rect.width <= 0 || rect.height <= 0) return;
+            const cx = (e.clientX - rect.left) * (c.width / rect.width);
+            const cy = (e.clientY - rect.top)  * (c.height / rect.height);
+            this.dispatchEvent(new CustomEvent('sg-preview:canvas-clicked', {
+                detail: { canvasX: cx, canvasY: cy, mode: this.#editorMode },
+                bubbles: true, composed: true,
+            }));
+        };
+        this.#canvas.addEventListener('click', this.#onCanvasClick);
     }
 
     attributeChangedCallback(name, _old, val) {
@@ -77,6 +93,10 @@ export class SgPreviewCanvas extends HTMLElement {
         this.detachComposer();
         if (this.#overlay) { try { this.#overlay.destroy(); } catch (_) {} this.#overlay = null; }
         if (this.#modeBtns) { try { this.#modeBtns.dispose(); } catch (_) {} this.#modeBtns = null; }
+        if (this.#onCanvasClick) {
+            try { this.#canvas.removeEventListener('click', this.#onCanvasClick); } catch (_) {}
+            this.#onCanvasClick = null;
+        }
     }
 
     /**

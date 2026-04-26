@@ -38,18 +38,20 @@ function emitToast(message) {
     }));
 }
 
-/** Try the call; on `code: 'overlap'`, add a new top track and retry once. */
-function withOverlapAutoTrack(api, getProject, fn) {
+/** Try the call; on `code: 'overlap'`, add a new top track and retry once.
+ *  Returns a Promise — SgToolApi's invoke wrapper rejects asynchronously, so
+ *  a synchronous try/catch is not enough here. */
+async function withOverlapAutoTrack(api, getProject, fn) {
     try {
-        return fn(findFirstVideoTrackId(getProject()));
+        return await fn(findFirstVideoTrackId(getProject()));
     } catch (err) {
         if (!err || err.code !== 'overlap') throw err;
-        try { api.addTrack({}); }
-        catch (e2) { throw err; /* re-throw the original */ }
+        try { await api.addTrack({}); }
+        catch (_) { throw err; /* re-throw the original */ }
         const trackId = findTopVideoTrackId(getProject());
         if (!trackId) throw err;
         emitToast('Added a new track — current track was occupied at the playhead');
-        return fn(trackId);
+        return await fn(trackId);
     }
 }
 
@@ -142,29 +144,25 @@ export function mountAddClipButtons({ host, getProject, getPlayhead, api }) {
     }
 
     function commitShape() {
-        try {
-            withOverlapAutoTrack(api, getProject, (trackId) => {
-                if (!trackId) throw new Error('No video track available — add one first.');
-                return api.addShapeClip({
-                    trackId,
-                    timelineStart: getPlayhead(),
-                    shape: { type: 'rect', fill: shapeFill },
-                });
+        withOverlapAutoTrack(api, getProject, (trackId) => {
+            if (!trackId) throw new Error('No video track available — add one first.');
+            return api.addShapeClip({
+                trackId,
+                timelineStart: getPlayhead(),
+                shape: { type: 'rect', fill: shapeFill },
             });
-        } catch (err) { emitErr('addShapeClip', err); }
+        }).catch(err => emitErr('addShapeClip', err));
         closeAll();
     }
     function commitText() {
-        try {
-            withOverlapAutoTrack(api, getProject, (trackId) => {
-                if (!trackId) throw new Error('No video track available — add one first.');
-                return api.addTextClip({
-                    trackId,
-                    timelineStart: getPlayhead(),
-                    text: { content: textContent, color: textColor, fontSize: textSize },
-                });
+        withOverlapAutoTrack(api, getProject, (trackId) => {
+            if (!trackId) throw new Error('No video track available — add one first.');
+            return api.addTextClip({
+                trackId,
+                timelineStart: getPlayhead(),
+                text: { content: textContent, color: textColor, fontSize: textSize },
             });
-        } catch (err) { emitErr('addTextClip', err); }
+        }).catch(err => emitErr('addTextClip', err));
         closeAll();
     }
 

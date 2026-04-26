@@ -156,26 +156,42 @@ export function addTextClipOp(project, params, genId) {
     return id;
 }
 
-/** Patch a shape clip's shape config (any subset of {fill, w, h, type}). */
-export function setShapePropsOp(project, { clipId, shape }) {
+/** Patch a shape clip's shape config and/or transform atomically. */
+export function setShapePropsOp(project, { clipId, shape, transform }) {
     const loc = findClipLocation(project, clipId);
     if (!loc) throw badArg(`unknown clipId: ${clipId}`);
     const clip = loc.track.clips[loc.index];
     if (!isShapeClip(clip)) throw badArg(`clip ${clipId} is not a shape clip`);
-    if (!shape || typeof shape !== 'object') throw badArg('shape must be an object');
-    clip.shape = clampShape({ ...clip.shape, ...shape });
-    return { clipId, shape: { ...clip.shape } };
+    if (shape && typeof shape === 'object') {
+        clip.shape = clampShape({ ...clip.shape, ...shape });
+    }
+    if (transform && typeof transform === 'object') {
+        clip.transform = clampTransform({ ...(clip.transform || {}), ...transform });
+    }
+    return {
+        clipId,
+        shape: { ...clip.shape },
+        transform: clip.transform ? { ...clip.transform } : null,
+    };
 }
 
-/** Patch a text clip's text config (any subset of {content, color, fontSize, fontFamily, w, h}). */
-export function setTextPropsOp(project, { clipId, text }) {
+/** Patch a text clip's text config and/or transform atomically. */
+export function setTextPropsOp(project, { clipId, text, transform }) {
     const loc = findClipLocation(project, clipId);
     if (!loc) throw badArg(`unknown clipId: ${clipId}`);
     const clip = loc.track.clips[loc.index];
     if (!isTextClip(clip)) throw badArg(`clip ${clipId} is not a text clip`);
-    if (!text || typeof text !== 'object') throw badArg('text must be an object');
-    clip.text = clampText({ ...clip.text, ...text });
-    return { clipId, text: { ...clip.text } };
+    if (text && typeof text === 'object') {
+        clip.text = clampText({ ...clip.text, ...text });
+    }
+    if (transform && typeof transform === 'object') {
+        clip.transform = clampTransform({ ...(clip.transform || {}), ...transform });
+    }
+    return {
+        clipId,
+        text: { ...clip.text },
+        transform: clip.transform ? { ...clip.transform } : null,
+    };
 }
 
 /** Remove a clip by id. */
@@ -183,6 +199,29 @@ export function removeClipOp(project, { clipId }) {
     const loc = findClipLocation(project, clipId);
     if (!loc) throw badArg(`unknown clipId: ${clipId}`);
     loc.track.clips.splice(loc.index, 1);
+}
+
+/** Remove an asset by id. Refuses (`code: 'asset-in-use'`) if any clip
+ *  references it. Caller is responsible for evicting the Blob from the
+ *  registry once this returns. */
+export function removeAssetOp(project, { assetId }) {
+    if (!assetId) throw badArg('assetId required');
+    if (!Array.isArray(project.assets)) throw badArg('project.assets must be an array');
+    const idx = project.assets.findIndex(a => a && a.id === assetId);
+    if (idx < 0) throw badArg(`unknown assetId: ${assetId}`);
+    for (const t of project.tracks) {
+        if (!t || !Array.isArray(t.clips)) continue;
+        for (const c of t.clips) {
+            if (c && c.assetId === assetId) {
+                throw Object.assign(
+                    new Error(`Asset ${assetId} is in use by clip ${c.id}`),
+                    { code: 'asset-in-use', clipId: c.id },
+                );
+            }
+        }
+    }
+    project.assets.splice(idx, 1);
+    return { assetId };
 }
 
 /** Append an asset entry; caller wires the Blob into its registry. */

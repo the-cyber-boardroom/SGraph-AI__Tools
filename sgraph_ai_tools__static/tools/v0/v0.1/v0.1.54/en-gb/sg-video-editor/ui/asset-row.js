@@ -71,5 +71,15 @@ export function buildAssetRow(asset, registry) {
     meta.textContent = `${durLabel} · ${formatSize(asset.bytes ?? 0)}`;
     li.appendChild(meta);
 
+    const del = document.createElement('button');
+    del.type = 'button';
+    del.className = 'sgve-asset-del';
+    del.dataset.role = 'remove-asset';
+    del.dataset.assetId = asset.id;
+    del.title = 'Remove asset (only if not used by any clip)';
+    del.setAttribute('aria-label', 'Remove asset');
+    del.textContent = '×';
+    li.appendChild(del);
+
     return { element: li, urls };
 }

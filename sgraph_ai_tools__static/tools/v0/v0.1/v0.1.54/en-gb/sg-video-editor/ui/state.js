@@ -6,6 +6,7 @@ import {
     addAssetOp, addClipOp, trimClipOp, moveClipOp, removeClipOp,
     setClipColorOp, setClipTransformOp, setClipCropOp,
     addShapeClipOp, addTextClipOp, setShapePropsOp, setTextPropsOp,
+    removeAssetOp,
 } from './state-clip-ops.js';
 import {
     addTrackOp, removeTrackOp, moveClipToTrackOp, reorderTracksOp, setTrackMutedOp,
@@ -59,6 +60,14 @@ export function createState(initialProject) {
             emit();
             return assetId;
         },
+        removeAsset(params) {
+            snapshot();
+            const r = removeAssetOp(project, params);
+            assetRegistry.delete(r.assetId);
+            withOp({ op: 'removeAsset', assetId: r.assetId });
+            emit();
+            return r;
+        },
 
         addClip(params) {
             const snap = deepClone(project);
@@ -85,7 +94,10 @@ export function createState(initialProject) {
             const transient = !!(params && params.transient);
             if (!transient) snapshot();
             const r = setShapePropsOp(project, params);
-            if (!transient) withOp({ op: 'setShapeProps', clipId: r.clipId, shape: r.shape });
+            if (!transient) withOp({
+                op: 'setShapeProps', clipId: r.clipId,
+                shape: r.shape, transform: r.transform,
+            });
             emit(transient ? { transient: true } : null);
             return r;
         },
@@ -93,7 +105,10 @@ export function createState(initialProject) {
             const transient = !!(params && params.transient);
             if (!transient) snapshot();
             const r = setTextPropsOp(project, params);
-            if (!transient) withOp({ op: 'setTextProps', clipId: r.clipId, text: r.text });
+            if (!transient) withOp({
+                op: 'setTextProps', clipId: r.clipId,
+                text: r.text, transform: r.transform,
+            });
             emit(transient ? { transient: true } : null);
             return r;
         },
