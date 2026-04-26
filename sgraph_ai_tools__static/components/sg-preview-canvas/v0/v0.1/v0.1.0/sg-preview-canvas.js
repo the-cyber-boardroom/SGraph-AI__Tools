@@ -138,7 +138,7 @@ export class SgPreviewCanvas extends HTMLElement {
 
     /**
      * Set (or clear) the clip whose handles the overlay should render.
-     * @param {{clipId: string, transform?: object, crop?: object, srcWidth: number, srcHeight: number}|null} info
+     * @param {{clipId: string, kind?: string, transform?: object, crop?: object, srcWidth: number, srcHeight: number}|null} info
      */
     setActiveClip(info) {
         const ok = info && info.clipId
@@ -146,6 +146,7 @@ export class SgPreviewCanvas extends HTMLElement {
             && Number.isFinite(info.srcHeight) && info.srcHeight > 0;
         this.#activeClip = ok ? {
             clipId: info.clipId,
+            kind: info.kind || 'asset',
             transform: info.transform || null,
             crop: info.crop || null,
             srcWidth: info.srcWidth,
