@@ -337,7 +337,7 @@
 }
 
 .color-picker__btn {
-    display: inline-block;
+    position: relative;
     flex: 0 0 auto;
     width: 22px;
     height: 22px;
@@ -349,7 +349,7 @@
     background-clip: padding-box;
     cursor: pointer;
     box-sizing: border-box;
-    line-height: 0;
+    overflow: hidden;
     vertical-align: middle;
 }
 
@@ -359,13 +359,13 @@
 }
 
 .color-picker__dot {
-    display: block;
-    width: 100%;
-    height: 100%;
+    position: absolute;
+    inset: 0;
     border-radius: 3px;
     background-color: var(--cp-color, transparent);
     background-image: var(--cp-empty, none);
     background-size: 8px 8px;
+    pointer-events: none;
 }
 
 .color-picker__pop {

@@ -83,14 +83,19 @@ function computeNextTransform(role, start, dxCv, dyCv, canvasW, canvasH) {
                 : (role === 'n' || role === 's') ? syRatio
                 : Math.max(sxRatio, syRatio);
     t.scale = start.transform.scale * ratio;
-    // Re-centre so the diagonally-opposite anchor stays put after the uniform
-    // scale change. New rect dims = old * ratio; with the anchor at fraction
-    // `(1-sx, 1-sy)` of the rect, the new centre sits at
-    // `anchor + drawW_new * (sx - 0.5)` along each axis.
-    const newDrawW = start.drawW * ratio;
-    const newDrawH = start.drawH * ratio;
-    const newCx = anchorX + newDrawW * (sx - 0.5);
-    const newCy = anchorY + newDrawH * (sy - 0.5);
+    // Re-centre so the diagonally-opposite anchor stays put. With a non-default
+    // crop the visible rect is a sub-rect of the full source rect, so we
+    // recover the full rect dims (`newDraw / c.w`) and use the anchor's
+    // fractional position on the FULL rect (`c.x + (1-sx) * c.w`).
+    const crop = (start.crop && typeof start.crop === 'object') ? start.crop : null;
+    const cx = (crop && Number.isFinite(crop.x)) ? crop.x : 0;
+    const cy = (crop && Number.isFinite(crop.y)) ? crop.y : 0;
+    const cw = (crop && Number.isFinite(crop.w) && crop.w > 0) ? crop.w : 1;
+    const ch = (crop && Number.isFinite(crop.h) && crop.h > 0) ? crop.h : 1;
+    const newFullDrawW = (start.drawW * ratio) / cw;
+    const newFullDrawH = (start.drawH * ratio) / ch;
+    const newCx = anchorX + newFullDrawW * (0.5 - cx - cw + sx * cw);
+    const newCy = anchorY + newFullDrawH * (0.5 - cy - ch + sy * ch);
     t.x = clamp(newCx / canvasW, 0, 1);
     t.y = clamp(newCy / canvasH, 0, 1);
     return clampTransform(t);
@@ -124,6 +129,7 @@ export function mountMoveOverlay(cfg) {
             role, m, canvas, active,
             startX: e.clientX, startY: e.clientY,
             transform: { ...active.transform },
+            crop: active.crop ? { ...active.crop } : null,
             dxCv: rect.dx, dyCv: rect.dy, drawW: rect.drawW, drawH: rect.drawH,
             cxCv: rect.dx + rect.drawW / 2, cyCv: rect.dy + rect.drawH / 2,
             pointerId: e.pointerId,

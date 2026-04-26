@@ -5,6 +5,7 @@ import { mountExportControls } from './ui-export-controls.js';
 import { buildLayoutDescriptor, wireTimelineEvents, resolvePanels } from './ui-shell-layout.js';
 import { mountDevPanel } from './ui-dev-panel.js';
 import { mountJsonPane } from './ui-json-pane.js';
+import { mountPropertiesPanel } from './ui-properties-panel.js';
 import { wireOverlay } from './ui-shell-overlay.js';
 import { rebuildComposer, emitErr } from './ui-shell-composer.js';
 import { SGL_EVENTS } from '/core/sg-layout/v0.1.0/sg-layout-events.js';
@@ -24,8 +25,23 @@ export function mountShell({ host, state, api, getComposer, setComposer }) {
 
     const topbar = document.createElement('header');
     topbar.className = 'sgve-topbar';
-    topbar.innerHTML = `<h2>Video Editor</h2><div class="sgve-actions" data-slot="export"></div>`;
+    topbar.innerHTML = `<h2>Video Editor</h2><div class="sgve-toast" data-slot="toast" hidden></div><div class="sgve-actions" data-slot="export"></div>`;
     host.appendChild(topbar);
+
+    const toastEl = topbar.querySelector('[data-slot="toast"]');
+    let toastTimer = null;
+    function showToast(message, kind) {
+        if (!toastEl) return;
+        toastEl.textContent = message;
+        toastEl.dataset.kind = kind || 'info';
+        toastEl.hidden = false;
+        if (toastTimer) clearTimeout(toastTimer);
+        toastTimer = setTimeout(() => { toastEl.hidden = true; toastTimer = null; }, 3500);
+    }
+    function onToolToast(e) { showToast(e?.detail?.message || '', e?.detail?.kind); }
+    function onToolError(e) { showToast(e?.detail?.message || 'Error', 'error'); }
+    document.addEventListener('tool:toast', onToolToast);
+    document.addEventListener('tool:error', onToolError);
 
     const layoutWrap = document.createElement('div');
     layoutWrap.style.cssText = 'flex:1;min-height:0;overflow:hidden;';
@@ -44,13 +60,16 @@ export function mountShell({ host, state, api, getComposer, setComposer }) {
     let assetPanel = null, exportCtl = null, unwireTimeline = null;
     let previewEl = null, timelineEl = null;
     let pending = null, activePending = null;
-    let onCanvasPlayhead = null, devPanel = null, jsonPane = null, overlayWire = null;
+    let onCanvasPlayhead = null, devPanel = null, jsonPane = null, propertiesPane = null, overlayWire = null;
 
     function schedulePushActive() {
         if (!overlayWire) return;
         if (typeof overlayWire.pushActive === 'function') overlayWire.pushActive();
         if (activePending) return;
         activePending = setTimeout(() => { activePending = null; overlayWire.pushActive(); }, 100);
+    }
+    function refreshProperties() {
+        if (propertiesPane && typeof propertiesPane.refresh === 'function') propertiesPane.refresh();
     }
     function rebuild() {
         rebuildComposer({
@@ -90,7 +109,7 @@ export function mountShell({ host, state, api, getComposer, setComposer }) {
     async function mountInto() {
         await ready;
         const slots = resolvePanels(layout);
-        const { assetsPanel, jsonPanel } = slots;
+        const { assetsPanel, jsonPanel, propertiesPanel } = slots;
         previewEl = slots.previewEl;
         timelineEl = slots.timelineEl;
 
@@ -123,6 +142,7 @@ export function mountShell({ host, state, api, getComposer, setComposer }) {
         if (timelineEl) {
             timelineEl.addEventListener('sg-timeline:clip-selected', schedulePushActive);
             timelineEl.addEventListener('sg-timeline:playhead-changed', schedulePushActive);
+            timelineEl.addEventListener('sg-timeline:clip-selected', refreshProperties);
         }
 
         onCanvasPlayhead = (e) => {
@@ -136,6 +156,10 @@ export function mountShell({ host, state, api, getComposer, setComposer }) {
         if (timelineEl) timelineEl.setProject(state.toComposerProject());
         assetPanel.refresh(state.getProject());
         if (jsonPanel) jsonPane = mountJsonPane({ host: jsonPanel, state });
+        if (propertiesPanel) propertiesPane = mountPropertiesPanel({
+            host: propertiesPanel, state, api,
+            getSelectedClipId: () => ctx.selectedClipId,
+        });
         syncHistoryFlags();
         rebuild();
         state.addEventListener('change', handleChange);
@@ -148,11 +172,15 @@ export function mountShell({ host, state, api, getComposer, setComposer }) {
     function destroy() {
         if (pending) { clearTimeout(pending); pending = null; }
         if (activePending) { clearTimeout(activePending); activePending = null; }
+        if (toastTimer) { clearTimeout(toastTimer); toastTimer = null; }
+        try { document.removeEventListener('tool:toast', onToolToast); } catch (_) {}
+        try { document.removeEventListener('tool:error', onToolError); } catch (_) {}
         try { state.removeEventListener('change', handleChange); } catch (_) {}
         if (unwireTimeline) { try { unwireTimeline(); } catch (_) {} }
         if (timelineEl) {
             try { timelineEl.removeEventListener('sg-timeline:clip-selected', schedulePushActive); } catch (_) {}
             try { timelineEl.removeEventListener('sg-timeline:playhead-changed', schedulePushActive); } catch (_) {}
+            try { timelineEl.removeEventListener('sg-timeline:clip-selected', refreshProperties); } catch (_) {}
         }
         if (overlayWire) { try { overlayWire.destroy(); } catch (_) {} overlayWire = null; }
         if (previewEl && onCanvasPlayhead) {
@@ -167,6 +195,7 @@ export function mountShell({ host, state, api, getComposer, setComposer }) {
         try { exportCtl && exportCtl.destroy(); } catch (_) {}
         try { assetPanel && assetPanel.destroy(); } catch (_) {}
         try { jsonPane && jsonPane.destroy(); } catch (_) {}
+        try { propertiesPane && propertiesPane.destroy(); } catch (_) {}
         try { devPanel && devPanel.destroy(); } catch (_) {}
         host.innerHTML = '';
     }

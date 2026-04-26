@@ -17,8 +17,11 @@ export function buildLayoutDescriptor() {
                   { type: 'stack', id: 's-timeline', activeTab: 0,
                     tabs: [{ type: 'tab', id: 't-timeline', title: 'Timeline', tag: 'div', locked: true, closable: false }] },
               ] },
-            { type: 'stack', id: 's-json', activeTab: 0,
-              tabs: [{ type: 'tab', id: 't-json', title: 'JSON', tag: 'div', locked: true, closable: false }] },
+            { type: 'stack', id: 's-right', activeTab: 0,
+              tabs: [
+                  { type: 'tab', id: 't-properties', title: 'Properties', tag: 'div', locked: true, closable: false },
+                  { type: 'tab', id: 't-json',       title: 'JSON',       tag: 'div', locked: true, closable: false },
+              ] },
         ],
     };
 }
@@ -40,6 +43,7 @@ export function resolvePanels(layout) {
     const previewPanel = layout.getPanelElement('t-preview');
     const timelinePanel = layout.getPanelElement('t-timeline');
     const jsonPanel = layout.getPanelElement('t-json');
+    const propertiesPanel = layout.getPanelElement('t-properties');
     let previewEl = null;
     let timelineEl = null;
     if (assetsPanel) assetsPanel.className = 'sgve-panel-slot';
@@ -54,7 +58,8 @@ export function resolvePanels(layout) {
         timelineEl = timelinePanel.querySelector('sg-timeline');
     }
     if (jsonPanel) jsonPanel.className = 'sgve-panel-slot sgve-json';
-    return { assetsPanel, previewPanel, timelinePanel, jsonPanel, previewEl, timelineEl };
+    if (propertiesPanel) propertiesPanel.className = 'sgve-panel-slot sgve-properties';
+    return { assetsPanel, previewPanel, timelinePanel, jsonPanel, propertiesPanel, previewEl, timelineEl };
 }
 
 /**
