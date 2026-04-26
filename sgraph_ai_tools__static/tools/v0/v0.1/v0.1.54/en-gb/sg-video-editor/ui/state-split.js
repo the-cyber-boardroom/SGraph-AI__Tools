@@ -1,6 +1,7 @@
 /** state-split.js — pure splitClip operation extracted from state.js. */
 
 import { snapToFps } from '/core/video-composer/v0/v0.1/v0.1.0/composer-schema.js';
+import { assertTrackUnlocked } from './state-track-ops.js';
 
 function badArg(msg) { return Object.assign(new Error(msg), { code: 'invalid-arg' }); }
 
@@ -21,6 +22,10 @@ export function splitClipOp(project, { clipId, atTime }, genId) {
         if (i >= 0) { loc = { track: t, index: i }; break; }
     }
     if (!loc) throw badArg(`unknown clipId: ${clipId}`);
+    // Lock check (sweep introduced in d412dda missed this op — see task 6).
+    // Splitting mutates clip.outPoint AND inserts a new clip on the same
+    // track, so it's a content mutation that must respect the lock flag.
+    assertTrackUnlocked(project, loc.track.id);
     const clip = loc.track.clips[loc.index];
     const fps = project.project.fps;
     const t = snapToFps(Number(atTime), fps);

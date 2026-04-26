@@ -126,7 +126,7 @@ Returns: `{ trackId, muted }`.
 
 ### setTrackLocked
 
-Set or clear a track's lock flag. Locked tracks reject `addClip` / `addShapeClip` / `addTextClip` / `moveClip` / `trimClip` / `removeClip` / `removeTrack` and any cross-track move INTO or FROM the locked lane (`Error{code:'locked'}`). The lock-toggle itself, mute, rename, and colour overrides are NOT gated.
+Set or clear a track's lock flag. Locked tracks reject `addClip` / `addShapeClip` / `addTextClip` / `moveClip` / `trimClip` / `removeClip` / `splitClip` / `removeTrack` / `pasteClip` and any cross-track move INTO or FROM the locked lane (`Error{code:'locked'}`). The lock-toggle itself, mute, rename, and colour overrides are NOT gated.
 
 | Param | Type | Required |
 |---|---|---|
@@ -177,6 +177,21 @@ Synchronous check.
 
 Returns: `{ hasClipboard: boolean }`.
 
+### renameProject
+
+Rename the project. The new name is stored in `project.project.name` and is used as the localStorage key root by the manual save / autosave layer.
+
+| Param | Type | Required | Notes |
+|---|---|---|---|
+| `name` | string | yes | Whitespace is trimmed; empty result falls back to `'Untitled'` |
+
+Returns: `{ name }` (the applied value, post-trim and post-fallback). Errors: `invalid-arg` if `name` is not a string.
+
+```js
+window.__tool.renameProject({ name: 'My Promo' }); // → { name: 'My Promo' }
+window.__tool.renameProject({ name: '   '   });    // → { name: 'Untitled' }
+```
+
 ### getProject
 
 Return a defensive deep clone of the wrapped project state. Synchronous.
@@ -222,6 +237,92 @@ const url = URL.createObjectURL(blob);
 ```
 
 If the browser cannot capture MP4 directly, the composer records WebM and re-muxes via `core/video.convertToMp4` (FFmpeg WASM, ~30 MB lazy-loaded).
+
+### saveProject
+
+Save the current project to `localStorage` under the slugified name. Strips Blob refs from `assets[]` — only metadata is stored. Refuses with `Error{code:'too-large'}` if the resulting JSON exceeds ~4 MB. Clears the autosave slot on success. Emits `tool:toast`.
+
+| Param | Type | Required | Notes |
+|---|---|---|---|
+| `name` | string | no | Defaults to `project.project.name`. Whitespace trimmed. |
+
+Returns: `{ slug, name, savedAt, byteSize }`.
+
+### loadProject
+
+Load a saved project by slug. Replaces the in-memory project (history snapshot pushed; the load is undoable). Asset metadata persists; Blobs are gone, so each asset is tagged `__missingBlob: true` for the asset panel to render a "missing — re-upload" placeholder. Emits `project:replaced` on the internal state target.
+
+| Param | Type | Required |
+|---|---|---|
+| `slug` | string | yes |
+
+Returns: `{ slug, ok: true }`. Errors: `invalid-arg` for missing / unknown slug.
+
+### listSavedProjects
+
+Return the saved-projects index, newest first.
+
+Returns: `{ projects: Array<{ slug, name, savedAt, byteSize }> }`.
+
+### deleteSavedProject
+
+Remove a saved project + index entry. Idempotent.
+
+| Param | Type | Required |
+|---|---|---|
+| `slug` | string | yes |
+
+Returns: `{ slug, ok: true }`.
+
+### hasUnsavedChanges
+
+Cheap dirty check based on a stored hash of the project JSON (length + first 256 chars).
+
+Returns: `{ hasUnsavedChanges: boolean }`.
+
+### autosave
+
+Write the current project to `sgve:autosave:current` (separate from named saves so it never overwrites them). Marks the project as "saved" so subsequent `hasUnsavedChanges()` returns `false`.
+
+Returns: `{ ok: true, savedAt }` or `{ ok: false, error }` if the write failed.
+
+### getAutosave
+
+Returns: `{ savedAt, project } | null`. Project asset entries arrive tagged `__missingBlob: true`.
+
+### discardAutosave
+
+Delete the autosave slot. Returns: `{ ok: true }`.
+
+### isAutosaveNewer
+
+Compare an autosave's `savedAt` against the most recent named save.
+
+| Param | Type | Required |
+|---|---|---|
+| `savedAt` | number | yes — epoch ms |
+
+Returns: `{ newer: boolean }`.
+
+## Autosave behaviour
+
+Autosave fires `api.autosave()` ~750ms after the last non-transient mutation. Transient mutations (drag scrubs etc) are skipped — they would drown localStorage with no useful checkpoint.
+
+On editor init, if `sgve:autosave:current` exists AND its `savedAt` is newer than the most recent named save in the index, the user is prompted via `confirm()` whether to restore. Restore = `setProject(slot.project)`; Discard = `discardAutosave()`.
+
+After a successful manual `saveProject`, the autosave slot is cleared — it's no longer relevant.
+
+The `beforeunload` guard considers BOTH `hasUnsavedChanges()` AND the autosave-pending window: if the most recent mutation hasn't yet been flushed by autosave, the browser still prompts.
+
+## Storage layout
+
+| Key | Shape |
+|---|---|
+| `sgve:projects-index` | `Array<{ slug, name, savedAt, byteSize }>` |
+| `sgve:project:<slug>` | JSON-stringified wrapped project (no Blob refs) |
+| `sgve:autosave:current` | `{ savedAt: number, project: <wrapped project> }` |
+
+Assets are stored as metadata only (`id`, `name`, `mime`, `assetType`, `duration`, `width`, `height`, `bytes`). Blob/File/objectUrl fields are stripped before serialisation.
 
 ### refreshPreview
 

@@ -195,7 +195,35 @@ export function wireTimelineEvents(timelineEl, api, ctx) {
         Promise.resolve(api.trimClip({ clipId: d.clipId, inPoint: d.inPoint, outPoint: d.outPoint }))
             .catch(err => emitErr('trimClip', err));
     }
-    function onSelected(e) { ctx.selectedClipId = (e.detail && e.detail.clipId) || null; }
+    function onSelected(e) {
+        const clipId = (e.detail && e.detail.clipId) || null;
+        ctx.selectedClipId = clipId;
+        // When a clip becomes selected, mirror its parent track into
+        // selectedTrackId so paste / +Shape / +Text default to the same lane
+        // as the source clip. When a clip is deselected (clipId === null), we
+        // intentionally leave selectedTrackId alone — the user might still
+        // want it (e.g. they're about to paste onto the same lane).
+        if (clipId && typeof ctx.getProject === 'function') {
+            try {
+                const proj = ctx.getProject();
+                const tracks = (proj && Array.isArray(proj.tracks)) ? proj.tracks : [];
+                for (const t of tracks) {
+                    if (t && Array.isArray(t.clips) && t.clips.some(c => c && c.id === clipId)) {
+                        if (ctx.selectedTrackId !== t.id) {
+                            ctx.selectedTrackId = t.id;
+                            // Mirror onto the timeline so the header gets the
+                            // selected accent without the user needing to
+                            // separately click the lane label.
+                            if (typeof timelineEl.setSelectedTrack === 'function') {
+                                timelineEl.setSelectedTrack(t.id);
+                            }
+                        }
+                        break;
+                    }
+                }
+            } catch (_) { /* best-effort */ }
+        }
+    }
     function onPlayhead(e) {
         const t = e.detail && Number.isFinite(e.detail.time) ? e.detail.time : 0;
         ctx.currentPlayhead = t;

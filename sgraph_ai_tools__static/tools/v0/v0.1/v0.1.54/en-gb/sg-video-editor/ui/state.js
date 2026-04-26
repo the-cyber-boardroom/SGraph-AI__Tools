@@ -12,7 +12,9 @@ import {
     addTrackOp, removeTrackOp, moveClipToTrackOp, reorderTracksOp, setTrackMutedOp,
     setTrackLockedOp, renameTrackOp,
 } from './state-track-ops.js';
+import { renameProjectOp } from './state-project-ops.js';
 import { createHistory } from './state-history.js';
+import { hashProjectJson, stripAssetsForStorage } from './state-storage.js';
 import {
     createInitialProject, deepClone, validateWrapped, genId,
 } from './state-init.js';
@@ -29,10 +31,21 @@ export function createState(initialProject) {
     const history = createHistory({ maxEntries: 50 });
     /** Clipboard: in-memory only, holds the last copyClip payload. */
     let clipboard = null;
+    /** Hash of the project JSON at the most recent successful save (manual or
+     *  autosave). When `null`, treat the project as unsaved. */
+    let lastSavedHash = null;
+    /** Timestamp of the most recent mutation — used by the beforeunload guard
+     *  to distinguish "autosave hasn't flushed yet" from "no unsaved work". */
+    let lastMutationAt = 0;
+
+    function computeCurrentHash() {
+        return hashProjectJson(JSON.stringify(stripAssetsForStorage(project)));
+    }
 
     function emit(extra) {
         const detail = { project: deepClone(project) };
         if (extra && extra.transient) detail.transient = true;
+        else lastMutationAt = Date.now();
         target.dispatchEvent(new CustomEvent('change', { detail }));
     }
     function withOp(op) { project.operations.push({ ...op, t: Date.now() }); }
@@ -212,6 +225,13 @@ export function createState(initialProject) {
             withOp({ op: 'renameTrack', trackId: r.trackId, name: r.name });
             emit(); return r;
         },
+        renameProject(params) {
+            const snap = deepClone(project);
+            const r = renameProjectOp(project, params);
+            history.pushSnapshot(snap);
+            withOp({ op: 'renameProject', name: r.name });
+            emit(); return r;
+        },
         copyClip(params) {
             const payload = copyClipOp(project, params);
             // Defensive deep clone so mutations to project after copy don't bleed.
@@ -265,6 +285,56 @@ export function createState(initialProject) {
 
         canUndo() { return history.canUndo(); },
         canRedo() { return history.canRedo(); },
+
+        /** Replace the in-memory project with a restored one (e.g. from
+         *  localStorage). Resets the clean / dirty hash to `next`'s shape so
+         *  the just-loaded project is considered fully saved. Pushes a
+         *  history snapshot so the user can undo the restore. Emits
+         *  `project:replaced` followed by a `change`. */
+        replaceProject(next) {
+            const snap = deepClone(project);
+            project = validateWrapped(deepClone(next));
+            history.pushSnapshot(snap);
+            // Mark as clean — caller already loaded from storage; the JSON
+            // round-trip is the canonical "saved" state.
+            lastSavedHash = computeCurrentHash();
+            target.dispatchEvent(new CustomEvent('project:replaced', {
+                detail: { project: deepClone(project) },
+            }));
+            emit();
+        },
+
+        /** Stamp the current project as the saved-baseline for
+         *  `hasUnsavedChanges()`. Called after every successful save. */
+        markSaved() {
+            lastSavedHash = computeCurrentHash();
+        },
+
+        /** Wipe the saved-baseline; subsequent `hasUnsavedChanges()` always
+         *  returns true. Used after a manual edit when no save has happened. */
+        markDirty() {
+            lastSavedHash = null;
+        },
+
+        /** Cheap dirty check based on stored project hash (length + first 256
+         *  chars of JSON). Returns false on a fresh-empty project, true after
+         *  any mutation that hasn't been saved. */
+        hasUnsavedChanges() {
+            if (lastSavedHash == null) {
+                // Pristine baseline: an empty default project counts as
+                // "no unsaved work" until the user makes a change.
+                if (project.assets.length === 0
+                    && project.tracks.every(t => !t || (t.clips && t.clips.length === 0))
+                    && (project.project.name || 'Untitled') === 'Untitled') {
+                    return false;
+                }
+                return true;
+            }
+            return computeCurrentHash() !== lastSavedHash;
+        },
+
+        /** Timestamp of the last non-transient mutation (or 0 if none). */
+        getLastMutationAt() { return lastMutationAt; },
 
         toComposerProject() {
             return {
