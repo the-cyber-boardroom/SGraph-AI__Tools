@@ -1,9 +1,12 @@
-/** ui-export-controls.js — export button + status + download trigger. */
+/** ui-export-controls.js — export button + status + download trigger.
+ *
+ * Round-9-I Task 4: the button is now fixed-width + carries an inline
+ * progress bar. The width-pinning + progress fill machinery lives in
+ * ui-export-progress.js so this file only owns the click handler and
+ * the post-success download trigger.
+ */
 
-const ROOT_STYLE = 'display:inline-flex;align-items:center;gap:.5rem;';
-const BTN_STYLE = 'padding:.4rem .9rem;border:1px solid #1f2937;border-radius:4px;'
-    + 'background:#1e293b;color:inherit;font:inherit;cursor:pointer;';
-const STATUS_STYLE = 'font-size:.8rem;color:#94a3b8;';
+import { mountExportButton } from './ui-export-progress.js';
 
 /** Trigger a programmatic download of a Blob with a given filename. */
 function downloadBlob(blob, filename) {
@@ -32,29 +35,24 @@ function extFor(mime) {
  * @returns {{destroy: () => void}}
  */
 export function mountExportControls({ host, onExport }) {
-    host.innerHTML = `
-        <div class="sgve-export" style="${ROOT_STYLE}">
-            <button type="button" class="sgve-export-btn" style="${BTN_STYLE}">Export MP4</button>
-            <span class="sgve-export-status" style="${STATUS_STYLE}" hidden></span>
-        </div>
-    `;
-    const root = host.firstElementChild;
-    const btn = root.querySelector('.sgve-export-btn');
-    const status = root.querySelector('.sgve-export-status');
+    const handle = mountExportButton({ host });
+    const { button, setLabel, setProgress, setBusy, setStatus } = handle;
 
-    function setStatus(text, visible = true) {
-        status.textContent = text || '';
-        status.hidden = !visible;
+    function showProgress(ratio) {
+        const r = Math.max(0, Math.min(1, Number(ratio) || 0));
+        setLabel(`Exporting ${Math.round(r * 100)}%`);
+        setProgress(r);
     }
 
     async function onClick() {
         if (typeof onExport !== 'function') return;
-        btn.disabled = true;
-        setStatus('Exporting…');
+        setBusy(true);
+        showProgress(0);
+        setStatus('', false);
         try {
             const onProgress = (info) => {
                 const r = info && Number.isFinite(info.ratio) ? info.ratio : null;
-                if (r != null) setStatus(`Exporting ${Math.round(r * 100)}%`);
+                if (r != null) showProgress(r);
             };
             const result = await onExport({ onProgress });
             const blob = result && result.blob;
@@ -62,21 +60,25 @@ export function mountExportControls({ host, onExport }) {
             const mime = (result && result.mimeType) || blob.type || 'video/mp4';
             const filename = `sg-video-editor-${Date.now()}.${extFor(mime)}`;
             downloadBlob(blob, filename);
-            setStatus('Done');
+            setLabel('Export MP4');
+            setProgress(0);
+            setStatus('Done', true);
         } catch (err) {
             const msg = err && err.message ? err.message : String(err);
-            setStatus(`Error: ${msg}`);
+            setLabel('Export MP4');
+            setProgress(0);
+            setStatus(`Error: ${msg}`, true);
         } finally {
-            btn.disabled = false;
+            setBusy(false);
         }
     }
 
-    btn.addEventListener('click', onClick);
+    button.addEventListener('click', onClick);
 
     /** Tear down listeners and clear host. */
     function destroy() {
-        btn.removeEventListener('click', onClick);
-        host.innerHTML = '';
+        button.removeEventListener('click', onClick);
+        try { handle.destroy(); } catch (_) {}
     }
 
     return { destroy };
