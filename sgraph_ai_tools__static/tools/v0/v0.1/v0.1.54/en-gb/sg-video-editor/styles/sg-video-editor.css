@@ -239,6 +239,16 @@
 
 .sgve-asset-row:active { cursor: grabbing; }
 
+/* Source asset card while it is being dragged out of the panel. Mirrors the
+ * timeline clip drag style (`.clip.is-dragging`) so the user sees the same
+ * teal accent + dimmed treatment everywhere a drag is in flight. */
+.sgve-asset-row.is-dragging {
+    opacity: 0.45;
+    outline: 2px solid var(--sg-accent, #4ecdc4);
+    outline-offset: -2px;
+    box-shadow: 0 0 0 1px rgba(78, 205, 196, 0.35);
+}
+
 .sgve-asset-thumb {
     grid-row: span 2;
     width: 48px;

@@ -44,10 +44,11 @@ Append a clip referencing an asset onto a track at a given start time.
 | `inPoint` | number | no | Defaults to `0`; snapped to fps |
 | `outPoint` | number | no | Defaults to asset duration; snapped to fps |
 | `clipId` | string | no | Auto-generated if omitted |
+| `snap` | boolean | no | When true, an overlapping placement is auto-resolved by flush-abutting the nearest neighbour edge (drag-drop UX) |
 
 Returns: `{ clipId: string }`
 
-Errors: `invalid-arg` for missing `trackId`/`assetId`, unknown ids, or `outPoint <= inPoint`.
+Errors: `invalid-arg` for missing `trackId`/`assetId`, unknown ids, or `outPoint <= inPoint`. Throws `Error{code:'overlap'}` if the placement collides on the same track and `snap` couldn't clear it.
 
 ```js
 const { clipId } = window.__tool.addClip({ trackId: 't-video-1', assetId });
@@ -79,12 +80,38 @@ Returns: `{ clipId }`. Errors: `invalid-arg` if unknown.
 
 Set `timelineStart` of a clip. Snaps to fps; clamps to `>= 0`.
 
-| Param | Type | Required |
-|---|---|---|
-| `clipId` | string | yes |
-| `timelineStart` | number | yes (must be finite) |
+| Param | Type | Required | Notes |
+|---|---|---|---|
+| `clipId` | string | yes | |
+| `timelineStart` | number | yes | Must be finite |
+| `snap` | boolean | no | When true, an overlapping placement is auto-resolved by flush-abutting the nearest neighbour edge |
 
-Returns: `{ clipId, timelineStart }`. Errors: `invalid-arg` if unknown clip or non-finite time.
+Returns: `{ clipId, timelineStart }`. Errors: `invalid-arg` if unknown clip or non-finite time. Throws `Error{code:'overlap'}` if the position collides on the same track and `snap` couldn't clear it.
+
+### addTrack
+
+Insert a new video track. Default = appended to the top of the z-order; pass `insertAboveTrackId` to insert directly above an existing track.
+
+| Param | Type | Required | Notes |
+|---|---|---|---|
+| `kind` | string | no | `'video'` only (default) |
+| `name` | string | no | Optional human label |
+| `insertAboveTrackId` | string | no | Insert at `index = pos + 1` of the named track. Unknown id falls back to append. |
+
+Returns: `{ trackId }`.
+
+### moveClipToTrack
+
+Atomically move a clip to another track. When `timelineStart` is supplied, the destination overlap test runs against the user's chosen position rather than the clip's stale source start — used by cross-track drag-drop.
+
+| Param | Type | Required | Notes |
+|---|---|---|---|
+| `clipId` | string | yes | |
+| `toTrackId` | string | yes | |
+| `timelineStart` | number | no | Defaults to the clip's current start; snapped to fps and clamped to ≥ 0 |
+| `snap` | boolean | no | When true, an overlapping destination is auto-resolved by flush-abutting the nearest neighbour edge |
+
+Returns: `{ clipId, fromTrackId, toTrackId, timelineStart }`. Throws `Error{code:'overlap'}` if the destination position collides and `snap` couldn't clear it.
 
 ### getProject
 

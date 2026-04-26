@@ -33,6 +33,42 @@ function emitErr(step, err) {
     }));
 }
 
+function emitToast(message) {
+    document.dispatchEvent(new CustomEvent('tool:toast', {
+        detail: { message, kind: 'info' },
+    }));
+}
+
+/**
+ * Run `fn(trackId)` against `targetTrackId`. On `code:'overlap'` (snap-abut
+ * couldn't clear the position), insert a fresh video track ABOVE the target
+ * and retry once with the new track. The user dropped expecting their chosen
+ * position to land — so we keep `timelineStart` exactly and just give it a
+ * fresh lane.
+ *
+ * Returns the result of `fn` (resolved value).
+ *
+ * @param {object} api
+ * @param {string} targetTrackId
+ * @param {(trackId: string) => any|Promise<any>} fn
+ * @returns {Promise<any>}
+ */
+async function withOverlapAutoTrackAbove(api, targetTrackId, fn) {
+    try {
+        return await fn(targetTrackId);
+    } catch (err) {
+        if (!err || err.code !== 'overlap') throw err;
+        let newTrackId = null;
+        try {
+            const r = await api.addTrack({ insertAboveTrackId: targetTrackId });
+            newTrackId = r && r.trackId;
+        } catch (_) { throw err; /* re-throw original */ }
+        if (!newTrackId) throw err;
+        emitToast('Added a new track above — drop position was fully blocked');
+        return await fn(newTrackId);
+    }
+}
+
 /**
  * Resolve the four panel host elements + tag the slots with classes;
  * inject inner custom elements for preview + timeline.
@@ -80,8 +116,15 @@ export function wireTimelineEvents(timelineEl, api, ctx) {
     function onAdded(e) {
         const d = e.detail || {};
         // snap: drag-drop snap-abuts to the nearest neighbour edge on overlap.
-        Promise.resolve(api.addClip({ trackId: d.trackId || 't-video-1', assetId: d.assetId, timelineStart: d.timelineStart, snap: true }))
-            .catch(err => emitErr('addClip', err));
+        // If snap can't clear the slot on the target track, fall through to
+        // adding a fresh track ABOVE and retrying with the user's chosen start.
+        const targetTrackId = d.trackId || 't-video-1';
+        withOverlapAutoTrackAbove(api, targetTrackId, (trackId) => api.addClip({
+            trackId,
+            assetId: d.assetId,
+            timelineStart: d.timelineStart,
+            snap: true,
+        })).catch(err => emitErr('addClip', err));
     }
     function onTrackAdd() {
         Promise.resolve(api.addTrack({})).catch(err => emitErr('addTrack', err));
@@ -100,14 +143,18 @@ export function wireTimelineEvents(timelineEl, api, ctx) {
     function onClipTrackChange(e) {
         const d = e.detail || {};
         if (!d.clipId || !d.toTrackId) return;
-        Promise.resolve(api.moveClipToTrack({ clipId: d.clipId, toTrackId: d.toTrackId }))
-            .then(() => {
-                if (Number.isFinite(d.timelineStart)) {
-                    // snap: drag-across-tracks should also snap-abut on overlap.
-                    return api.moveClip({ clipId: d.clipId, timelineStart: d.timelineStart, snap: true });
-                }
-            })
-            .catch(err => emitErr('moveClipToTrack', err));
+        // Atomically move to the destination track AT the user's chosen
+        // timelineStart, with snap-abut on overlap. This avoids the old
+        // two-step bug where the first call tested overlap against the clip's
+        // stale source position on the destination track. If snap can't clear,
+        // create a fresh track ABOVE the destination and retry — same UX as
+        // asset-panel drops (issue #2).
+        const baseParams = { clipId: d.clipId, snap: true };
+        if (Number.isFinite(d.timelineStart)) baseParams.timelineStart = d.timelineStart;
+        withOverlapAutoTrackAbove(api, d.toTrackId, (trackId) => api.moveClipToTrack({
+            ...baseParams,
+            toTrackId: trackId,
+        })).catch(err => emitErr('moveClipToTrack', err));
     }
     function onMoved(e) {
         const d = e.detail || {};
