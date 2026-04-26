@@ -280,6 +280,20 @@
     color: var(--sg-text-muted, #94a3b8);
 }
 
+/* Round-9-J: asset whose blob hasn't (yet) been hydrated from IndexedDB.
+ * Visible cue so the user knows their pixels are missing — without
+ * crashing the row layout. */
+.sgve-asset-row.is-missing { opacity: 0.7; }
+.sgve-asset-row.is-missing .sgve-asset-thumb {
+    background: repeating-linear-gradient(
+        45deg, #1a1a1a, #1a1a1a 4px,
+        #2a2a2a 4px, #2a2a2a 8px
+    );
+}
+.sgve-asset-row.is-missing .sgve-asset-meta {
+    color: #d97706;
+}
+
 /* ── Generic button (export controls) ────────────────────── */
 
 .sg-video-editor__btn {
@@ -346,6 +360,61 @@
 .sgve-export-status {
     font-size: .8rem;
     color: #94a3b8;
+}
+
+/* ── Post-export action row (Round-9-I Task 5) ───────────────────────
+ * Idle → Exporting collapses back into the same single button; on
+ * `done` the button is removed and replaced by Download + Drag out +
+ * Re-export side-by-side. */
+.sgve-export-actions {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
+}
+.sgve-export-actions button {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
+    padding: .4rem .75rem;
+    border: 1px solid #1f2937;
+    border-radius: 4px;
+    background: #1e293b;
+    color: inherit;
+    font: inherit;
+    cursor: pointer;
+}
+.sgve-export-actions button:hover {
+    background: #233247;
+    border-color: rgba(20, 184, 166, 0.45);
+}
+.sgve-export-download {
+    border-color: rgba(20, 184, 166, 0.55) !important;
+    background: rgba(20, 184, 166, 0.18) !important;
+    color: #ccfbf1 !important;
+}
+.sgve-export-download:hover {
+    background: rgba(20, 184, 166, 0.32) !important;
+}
+.sgve-export-drag {
+    cursor: grab;
+}
+.sgve-export-drag:active,
+.sgve-export-drag.is-dragging {
+    cursor: grabbing;
+    background: rgba(251, 191, 36, 0.18) !important;
+    border-color: rgba(251, 191, 36, 0.55) !important;
+    color: #fde68a !important;
+}
+.sgve-export-reexport {
+    /* link-like, not a primary action */
+    background: transparent !important;
+    border-color: rgba(255, 255, 255, 0.12) !important;
+    color: rgba(255, 255, 255, 0.65) !important;
+    font-size: 12px;
+}
+.sgve-export-reexport:hover {
+    color: #f1f5f9 !important;
+    border-color: rgba(255, 255, 255, 0.32) !important;
 }
 
 /* ── Topbar (export slot) ─────────────────────────────────── */
