@@ -60,9 +60,17 @@ export class SgTimeline extends HTMLElement {
                 updatePlayhead(this.#playheadEl, this.#playhead, this.#pps);
             }
             if (name === SGT_EVENTS.CLIP_SELECTED) {
-                this.#selected = detail ? detail.clipId : null;
-                this.#renderAll();
-                if (this.#zoom) this.#zoom.refresh();
+                const next = detail ? detail.clipId : null;
+                if (next !== this.#selected) {
+                    this.#selected = next;
+                    this.#renderAll();
+                    if (this.#zoom) this.#zoom.refresh();
+                }
+                // If the clip was already selected (e.g. user pressed on its
+                // trim handle to start a resize gesture), skip the re-render.
+                // Re-rendering here would orphan the captured clipEl/sourceLane
+                // refs in `drag`, which silently breaks the in-drag feedback
+                // overlay (ghost + label appended to a detached lane).
             }
             this.dispatchEvent(new CustomEvent(name, { detail, bubbles: true, composed: true }));
         };

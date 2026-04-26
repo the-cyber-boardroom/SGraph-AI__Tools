@@ -68,6 +68,15 @@ export function attachInteractions(root, getState, dispatch, hostEl) {
         for (const l of ls) l.classList.remove('is-cross-target');
     }
 
+    /** Re-resolve the live lane element for `trackId`. The shadow DOM may
+     *  rebuild lanes during a drag (e.g. on selection change), which would
+     *  orphan our captured `sourceLane`/`currentLane` refs and silently hide
+     *  the ghost + label overlay. */
+    function liveLaneForTrack(trackId) {
+        if (!trackId) return null;
+        return lanes.querySelector(`.lane[data-track-id="${trackId}"]`);
+    }
+
     function onPointerMove(e) {
         if (!drag) return;
         const { pps, fps } = getState();
@@ -83,6 +92,11 @@ export function attachInteractions(root, getState, dispatch, hostEl) {
                 drag.currentLane = targetLane;
             }
             drag.toTrackId = targetLane ? targetLane.dataset.trackId : drag.fromTrackId;
+        } else {
+            // For trim gestures, re-resolve the source lane each frame so the
+            // overlay survives any lane rebuild that happened during the drag.
+            const live = liveLaneForTrack(drag.fromTrackId);
+            if (live && live !== drag.currentLane) drag.currentLane = live;
         }
         if (preview && drag.moved) {
             const ghostHost = drag.currentLane || drag.sourceLane;
