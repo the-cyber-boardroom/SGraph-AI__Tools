@@ -59,6 +59,13 @@ export function buildApiMethods({ state, getComposer, setComposer, hostEl }) {
         return { clipId: id };
     }
 
+    function removeAsset(params = {}) {
+        const { assetId } = params;
+        if (!assetId) throw badArg('assetId required');
+        const r = state.removeAsset({ assetId });
+        return { assetId: r.assetId };
+    }
+
     function setShapeProps(params = {}) {
         const { clipId, shape, transient } = params;
         if (!clipId) throw badArg('clipId required');
@@ -178,7 +185,7 @@ export function buildApiMethods({ state, getComposer, setComposer, hostEl }) {
     const trackMethods = buildTrackMethods({ state });
 
     return {
-        loadAsset, addClip, trimClip, removeClip, moveClip, splitClip,
+        loadAsset, removeAsset, addClip, trimClip, removeClip, moveClip, splitClip,
         setClipColor, setClipTransform, setClipCrop,
         addShapeClip, addTextClip, setShapeProps, setTextProps,
         getProject, setProject,

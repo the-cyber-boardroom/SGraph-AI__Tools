@@ -113,6 +113,8 @@ export function mountAssetPanel({ host, state, onFilesPicked, api, getPlayhead }
         return el;
     }
     function onRowDragStart(e) {
+        // Don't initiate drag from the delete affordance.
+        if (e.target.closest('[data-role="remove-asset"]')) { e.preventDefault(); return; }
         const row = e.target.closest('.sgve-asset-row');
         if (!row || !e.dataTransfer) return;
         const id = row.dataset.assetId;
@@ -127,6 +129,22 @@ export function mountAssetPanel({ host, state, onFilesPicked, api, getPlayhead }
         try { e.dataTransfer.setDragImage(dragImageEl, -12, -8); } catch (_) {}
     }
     function onRowDragEnd() { clearDragImage(); }
+    function onListClick(e) {
+        const del = e.target.closest('[data-role="remove-asset"]');
+        if (!del) return;
+        e.preventDefault();
+        e.stopPropagation();
+        const id = del.dataset.assetId;
+        if (!id) return;
+        if (!api || typeof api.removeAsset !== 'function') return;
+        try { api.removeAsset({ assetId: id }); }
+        catch (err) {
+            const msg = err && err.code === 'asset-in-use'
+                ? 'Asset is in use by a clip — remove the clip first.'
+                : (err && err.message) || 'Remove failed';
+            document.dispatchEvent(new CustomEvent('tool:error', { detail: { step: 'removeAsset', message: msg } }));
+        }
+    }
 
     pickBtn.addEventListener('click', onPick);
     input.addEventListener('change', onChange);
@@ -136,6 +154,7 @@ export function mountAssetPanel({ host, state, onFilesPicked, api, getPlayhead }
     root.addEventListener('drop', onDrop);
     list.addEventListener('dragstart', onRowDragStart);
     list.addEventListener('dragend', onRowDragEnd);
+    list.addEventListener('click', onListClick);
 
     /** Re-render asset list from a wrapped project shape (state.getProject()). */
     function refresh(project) {
@@ -178,6 +197,7 @@ export function mountAssetPanel({ host, state, onFilesPicked, api, getPlayhead }
         root.removeEventListener('drop', onDrop);
         list.removeEventListener('dragstart', onRowDragStart);
         list.removeEventListener('dragend', onRowDragEnd);
+        list.removeEventListener('click', onListClick);
         host.innerHTML = '';
     }
 

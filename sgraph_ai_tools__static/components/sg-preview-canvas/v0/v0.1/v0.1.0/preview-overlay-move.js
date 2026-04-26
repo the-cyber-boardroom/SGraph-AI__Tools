@@ -53,12 +53,33 @@ function placeHandles(els, ovrRect) {
     els.centre.style.top = `${ovrRect.dy + ovrRect.drawH / 2}px`;
 }
 
+/** Read crop fractions from a drag's captured active clip; defaults to full. */
+function dragCrop(start) {
+    const c = (start && start.crop && typeof start.crop === 'object') ? start.crop : null;
+    return {
+        cx: (c && Number.isFinite(c.x)) ? c.x : 0,
+        cy: (c && Number.isFinite(c.y)) ? c.y : 0,
+        cw: (c && Number.isFinite(c.w) && c.w > 0) ? c.w : 1,
+        ch: (c && Number.isFinite(c.h) && c.h > 0) ? c.h : 1,
+    };
+}
+
 /** Compute new transform from a drag. Pure; takes canvas-pixel coords. */
 function computeNextTransform(role, start, dxCv, dyCv, canvasW, canvasH) {
     const t = { ...start.transform };
+    const { cx, cy, cw, ch } = dragCrop(start);
     if (role === 'centre') {
-        t.x = clamp((start.cxCv + dxCv) / canvasW, 0, 1);
-        t.y = clamp((start.cyCv + dyCv) / canvasH, 0, 1);
+        // Centre handle moves the VISIBLE rect's centre; t.x/y are the FULL
+        // image's centre. With a partial crop the two differ — convert via
+        // `fullDrawW = drawW / cw` and the visible-centre's full-rect offset.
+        const newVisCx = start.cxCv + dxCv;
+        const newVisCy = start.cyCv + dyCv;
+        const fullDrawW = start.drawW / cw;
+        const fullDrawH = start.drawH / ch;
+        const newCx = newVisCx + fullDrawW * (0.5 - cx - cw / 2);
+        const newCy = newVisCy + fullDrawH * (0.5 - cy - ch / 2);
+        t.x = clamp(newCx / canvasW, 0, 1);
+        t.y = clamp(newCy / canvasH, 0, 1);
         return clampTransform(t);
     }
     // Resize from corner/edge — the dragged handle moves with the cursor and
@@ -85,13 +106,8 @@ function computeNextTransform(role, start, dxCv, dyCv, canvasW, canvasH) {
     t.scale = start.transform.scale * ratio;
     // Re-centre so the diagonally-opposite anchor stays put. With a non-default
     // crop the visible rect is a sub-rect of the full source rect, so we
-    // recover the full rect dims (`newDraw / c.w`) and use the anchor's
-    // fractional position on the FULL rect (`c.x + (1-sx) * c.w`).
-    const crop = (start.crop && typeof start.crop === 'object') ? start.crop : null;
-    const cx = (crop && Number.isFinite(crop.x)) ? crop.x : 0;
-    const cy = (crop && Number.isFinite(crop.y)) ? crop.y : 0;
-    const cw = (crop && Number.isFinite(crop.w) && crop.w > 0) ? crop.w : 1;
-    const ch = (crop && Number.isFinite(crop.h) && crop.h > 0) ? crop.h : 1;
+    // recover the full rect dims (`newDraw / cw`) and use the anchor's
+    // fractional position on the FULL rect (`cx + (1-sx) * cw`).
     const newFullDrawW = (start.drawW * ratio) / cw;
     const newFullDrawH = (start.drawH * ratio) / ch;
     const newCx = anchorX + newFullDrawW * (0.5 - cx - cw + sx * cw);

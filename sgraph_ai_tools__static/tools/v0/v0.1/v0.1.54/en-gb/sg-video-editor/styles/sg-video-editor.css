@@ -203,7 +203,7 @@
 
 .sgve-asset-row {
     display: grid;
-    grid-template-columns: 48px 1fr;
+    grid-template-columns: 48px 1fr 22px;
     grid-template-rows: auto auto;
     column-gap: 0.5rem;
     row-gap: 0.1rem;
@@ -213,6 +213,28 @@
     border-radius: 4px;
     background: var(--sg-bg-elev, #0f172a);
     cursor: grab;
+}
+
+.sgve-asset-del {
+    grid-column: 3;
+    grid-row: span 2;
+    width: 22px;
+    height: 22px;
+    padding: 0;
+    background: transparent;
+    color: rgba(255, 255, 255, 0.55);
+    border: 1px solid rgba(255, 255, 255, 0.18);
+    border-radius: 3px;
+    cursor: pointer;
+    font-size: 14px;
+    line-height: 1;
+    align-self: center;
+    justify-self: end;
+}
+.sgve-asset-del:hover {
+    background: rgba(220, 38, 38, 0.22);
+    color: #fecaca;
+    border-color: rgba(220, 38, 38, 0.5);
 }
 
 .sgve-asset-row:active { cursor: grabbing; }

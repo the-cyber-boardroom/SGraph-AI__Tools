@@ -185,6 +185,29 @@ export function removeClipOp(project, { clipId }) {
     loc.track.clips.splice(loc.index, 1);
 }
 
+/** Remove an asset by id. Refuses (`code: 'asset-in-use'`) if any clip
+ *  references it. Caller is responsible for evicting the Blob from the
+ *  registry once this returns. */
+export function removeAssetOp(project, { assetId }) {
+    if (!assetId) throw badArg('assetId required');
+    if (!Array.isArray(project.assets)) throw badArg('project.assets must be an array');
+    const idx = project.assets.findIndex(a => a && a.id === assetId);
+    if (idx < 0) throw badArg(`unknown assetId: ${assetId}`);
+    for (const t of project.tracks) {
+        if (!t || !Array.isArray(t.clips)) continue;
+        for (const c of t.clips) {
+            if (c && c.assetId === assetId) {
+                throw Object.assign(
+                    new Error(`Asset ${assetId} is in use by clip ${c.id}`),
+                    { code: 'asset-in-use', clipId: c.id },
+                );
+            }
+        }
+    }
+    project.assets.splice(idx, 1);
+    return { assetId };
+}
+
 /** Append an asset entry; caller wires the Blob into its registry. */
 export function addAssetOp(project, params) {
     const { assetId, name, mime, duration, width, height, bytes, assetType } = params;

@@ -122,21 +122,23 @@ export function paintImage(ctx, canvas, img, transform, crop) {
 }
 
 /**
- * Paint a shape clip (currently rectangles only) honouring per-clip transform.
- * Reuses `computeClipDestRect` with the shape's intrinsic w/h so position +
- * scale behave identically to asset clips. Crop is intentionally ignored —
- * shapes already define their bounds via fill colour.
+ * Paint a shape clip (currently rectangles only) honouring per-clip transform
+ * + crop. Reuses `computeClipDestRect` with the shape's intrinsic w/h, so
+ * applying a crop simply trims the filled rect to the visible sub-area
+ * (the shape itself has no source pixels — `r.dx/dy/drawW/drawH` is the
+ * cropped sub-rect of where the full shape would render).
  *
  * @param {CanvasRenderingContext2D} ctx
  * @param {HTMLCanvasElement} canvas
  * @param {{shape: {type: string, fill: string, w: number, h: number}}} clip
  * @param {{x: number, y: number, scale: number}} [transform]
+ * @param {{x: number, y: number, w: number, h: number}} [crop]
  * @returns {void}
  */
-export function paintShape(ctx, canvas, clip, transform) {
+export function paintShape(ctx, canvas, clip, transform, crop) {
     const shape = clip && clip.shape;
     if (!shape || !shape.w || !shape.h) return;
-    const r = computeClipDestRect(canvas.width, canvas.height, shape.w, shape.h, transform, undefined);
+    const r = computeClipDestRect(canvas.width, canvas.height, shape.w, shape.h, transform, crop);
     if (shape.type !== 'rect') return;
     try {
         ctx.save();
@@ -157,10 +159,10 @@ export function paintShape(ctx, canvas, clip, transform) {
  * @param {{x: number, y: number, scale: number}} [transform]
  * @returns {void}
  */
-export function paintText(ctx, canvas, clip, transform) {
+export function paintText(ctx, canvas, clip, transform, crop) {
     const text = clip && clip.text;
     if (!text || !text.w || !text.h) return;
-    const r = computeClipDestRect(canvas.width, canvas.height, text.w, text.h, transform, undefined);
+    const r = computeClipDestRect(canvas.width, canvas.height, text.w, text.h, transform, crop);
     try {
         ctx.save();
         const px = Math.max(1, (text.fontSize || 64) * (r.drawW / text.w));

@@ -44,6 +44,7 @@ export async function init(manifest) {
 
         api
             .register('loadAsset',  methods.loadAsset,  { async: true,  sanitiseParams: fileSanitiser })
+            .register('removeAsset', methods.removeAsset, { async: false, sanitiseParams: passthrough })
             .register('addClip',    methods.addClip,    { async: false, sanitiseParams: passthrough })
             .register('trimClip',   methods.trimClip,   { async: false, sanitiseParams: passthrough })
             .register('removeClip', methods.removeClip, { async: false, sanitiseParams: passthrough })

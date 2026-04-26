@@ -56,9 +56,9 @@ export function paintExportFrame(cfg) {
     for (const { clip } of perTrack) {
         if (!clip) continue;
         const tf = getClipTransform(clip);
-        if (isShapeClip(clip)) { paintShape(ctx, canvas, clip, tf); continue; }
-        if (isTextClip(clip))  { paintText (ctx, canvas, clip, tf); continue; }
         const cr = getClipCrop(clip);
+        if (isShapeClip(clip)) { paintShape(ctx, canvas, clip, tf, cr); continue; }
+        if (isTextClip(clip))  { paintText (ctx, canvas, clip, tf, cr); continue; }
         const asset = getAssetById(project, clip.assetId);
         if (isImageAsset(asset)) {
             paintImage(ctx, canvas, getImage ? getImage(clip.assetId) : null, tf, cr);

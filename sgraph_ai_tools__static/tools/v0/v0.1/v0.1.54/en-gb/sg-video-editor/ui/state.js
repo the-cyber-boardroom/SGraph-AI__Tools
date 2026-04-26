@@ -6,6 +6,7 @@ import {
     addAssetOp, addClipOp, trimClipOp, moveClipOp, removeClipOp,
     setClipColorOp, setClipTransformOp, setClipCropOp,
     addShapeClipOp, addTextClipOp, setShapePropsOp, setTextPropsOp,
+    removeAssetOp,
 } from './state-clip-ops.js';
 import {
     addTrackOp, removeTrackOp, moveClipToTrackOp, reorderTracksOp, setTrackMutedOp,
@@ -58,6 +59,14 @@ export function createState(initialProject) {
             withOp({ op: 'addAsset', assetId, assetType });
             emit();
             return assetId;
+        },
+        removeAsset(params) {
+            snapshot();
+            const r = removeAssetOp(project, params);
+            assetRegistry.delete(r.assetId);
+            withOp({ op: 'removeAsset', assetId: r.assetId });
+            emit();
+            return r;
         },
 
         addClip(params) {
