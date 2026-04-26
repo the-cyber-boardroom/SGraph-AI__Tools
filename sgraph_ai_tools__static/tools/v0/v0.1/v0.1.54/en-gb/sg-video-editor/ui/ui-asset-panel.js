@@ -112,6 +112,13 @@ export function mountAssetPanel({ host, state, onFilesPicked, api, getPlayhead }
         document.body.appendChild(el);
         return el;
     }
+    let dragSourceRow = null;
+    function clearDraggingRow() {
+        if (dragSourceRow) {
+            try { dragSourceRow.classList.remove('is-dragging'); } catch (_) {}
+            dragSourceRow = null;
+        }
+    }
     function onRowDragStart(e) {
         // Don't initiate drag from the delete affordance.
         if (e.target.closest('[data-role="remove-asset"]')) { e.preventDefault(); return; }
@@ -127,8 +134,13 @@ export function mountAssetPanel({ host, state, onFilesPicked, api, getPlayhead }
         // Anchor the ghost so it sits a small distance below-right of the cursor
         // rather than at the spot the user clicked on inside the row.
         try { e.dataTransfer.setDragImage(dragImageEl, -12, -8); } catch (_) {}
+        // Mark the source card as the active drag origin so the user can see
+        // which asset is being dragged. Cleared on dragend (drop or cancel).
+        clearDraggingRow();
+        row.classList.add('is-dragging');
+        dragSourceRow = row;
     }
-    function onRowDragEnd() { clearDragImage(); }
+    function onRowDragEnd() { clearDragImage(); clearDraggingRow(); }
     function onListClick(e) {
         const del = e.target.closest('[data-role="remove-asset"]');
         if (!del) return;
@@ -187,6 +199,7 @@ export function mountAssetPanel({ host, state, onFilesPicked, api, getPlayhead }
     function destroy() {
         if (addToolbar) { try { addToolbar.destroy(); } catch (_) {} }
         clearDragImage();
+        clearDraggingRow();
         revokeActiveUrls();
         state.removeEventListener('change', onStateChange);
         pickBtn.removeEventListener('click', onPick);
