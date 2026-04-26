@@ -8,8 +8,13 @@ export function buildLayoutDescriptor() {
     return {
         type: 'row', id: 'root', sizes: [0.20, 0.58, 0.22],
         children: [
-            { type: 'stack', id: 's-assets', activeTab: 0,
-              tabs: [{ type: 'tab', id: 't-assets', title: 'Assets', tag: 'div', locked: true, closable: false }] },
+            { type: 'column', id: 'col-left', sizes: [0.7, 0.3],
+              children: [
+                  { type: 'stack', id: 's-assets', activeTab: 0,
+                    tabs: [{ type: 'tab', id: 't-assets', title: 'Assets', tag: 'div', locked: true, closable: false }] },
+                  { type: 'stack', id: 's-shortcuts', activeTab: 0,
+                    tabs: [{ type: 'tab', id: 't-shortcuts', title: 'Shortcuts', tag: 'div', locked: true, closable: false }] },
+              ] },
             { type: 'column', id: 'col-centre', sizes: [0.7, 0.3],
               children: [
                   { type: 'stack', id: 's-preview', activeTab: 0,
@@ -82,6 +87,7 @@ export function resolvePanels(layout) {
     const jsonPanel = layout.getPanelElement('t-json');
     const propertiesPanel = layout.getPanelElement('t-properties');
     const messagesPanel = layout.getPanelElement('t-messages');
+    const shortcutsPanel = layout.getPanelElement('t-shortcuts');
     let previewEl = null;
     let timelineEl = null;
     if (assetsPanel) assetsPanel.className = 'sgve-panel-slot';
@@ -98,9 +104,10 @@ export function resolvePanels(layout) {
     if (jsonPanel) jsonPanel.className = 'sgve-panel-slot sgve-json';
     if (propertiesPanel) propertiesPanel.className = 'sgve-panel-slot sgve-properties';
     if (messagesPanel) messagesPanel.className = 'sgve-panel-slot sgve-messages';
+    if (shortcutsPanel) shortcutsPanel.className = 'sgve-panel-slot sgve-shortcuts';
     return {
         assetsPanel, previewPanel, timelinePanel,
-        jsonPanel, propertiesPanel, messagesPanel,
+        jsonPanel, propertiesPanel, messagesPanel, shortcutsPanel,
         previewEl, timelineEl,
     };
 }
@@ -139,6 +146,27 @@ export function wireTimelineEvents(timelineEl, api, ctx) {
         if (!d.trackId || typeof d.muted !== 'boolean') return;
         Promise.resolve(api.setTrackMuted({ trackId: d.trackId, muted: d.muted }))
             .catch(err => emitErr('setTrackMuted', err));
+    }
+    function onTrackLock(e) {
+        const d = e.detail || {};
+        if (!d.trackId || typeof d.locked !== 'boolean') return;
+        Promise.resolve(api.setTrackLocked({ trackId: d.trackId, locked: d.locked }))
+            .catch(err => emitErr('setTrackLocked', err));
+    }
+    function onTrackRenamed(e) {
+        const d = e.detail || {};
+        if (!d.trackId) return;
+        Promise.resolve(api.renameTrack({ trackId: d.trackId, name: d.name == null ? '' : d.name }))
+            .catch(err => emitErr('renameTrack', err));
+    }
+    function onTrackSelected(e) {
+        const d = e.detail || {};
+        ctx.selectedTrackId = d.trackId || null;
+        // Mirror the selection back into the timeline so visual state is in sync
+        // when this came from a programmatic source.
+        if (typeof timelineEl.setSelectedTrack === 'function') {
+            timelineEl.setSelectedTrack(ctx.selectedTrackId);
+        }
     }
     function onClipTrackChange(e) {
         const d = e.detail || {};
@@ -198,6 +226,46 @@ export function wireTimelineEvents(timelineEl, api, ctx) {
     function onRedo() {
         Promise.resolve(api.redo()).catch(err => emitErr('redo', err));
     }
+    function onClipCopy(e) {
+        const d = e.detail || {};
+        if (!d.clipId) return;
+        // Two paths funnel here: (a) toolbar Copy button (no toTrackId/start),
+        // (b) Cmd+drag (with toTrackId + timelineStart). For (a) we just copy.
+        // For (b) we copy then immediately paste at the drop target.
+        Promise.resolve(api.copyClip({ clipId: d.clipId }))
+            .then(() => {
+                if (d.toTrackId && Number.isFinite(d.timelineStart)) {
+                    return api.pasteClip({
+                        targetTrackId: d.toTrackId,
+                        timelineStart: d.timelineStart,
+                        snap: true,
+                    });
+                }
+                return null;
+            })
+            .catch(err => emitErr('copyClip', err));
+    }
+    function onClipPaste() {
+        // Resolve target track + start at host level: prefer the user's
+        // selected track, otherwise the first video track, else t-video-1.
+        // Time = current playhead. Snap=true (paste is intentional, accept
+        // unlimited cap so it lands somewhere reasonable).
+        const cb = api.hasClipboard ? api.hasClipboard() : null;
+        const has = cb && (cb.hasClipboard === true || cb === true);
+        if (!has) return;
+        const proj = (typeof ctx.getProject === 'function') ? ctx.getProject() : null;
+        let targetTrack = ctx.selectedTrackId || null;
+        if (!targetTrack && proj && Array.isArray(proj.tracks)) {
+            const first = proj.tracks.find(t => t && t.kind === 'video');
+            if (first) targetTrack = first.id;
+        }
+        if (!targetTrack) targetTrack = 't-video-1';
+        Promise.resolve(api.pasteClip({
+            targetTrackId: targetTrack,
+            timelineStart: ctx.currentPlayhead || 0,
+            snap: true,
+        })).catch(err => emitErr('pasteClip', err));
+    }
     timelineEl.addEventListener('sg-timeline:clip-added', onAdded);
     timelineEl.addEventListener('sg-timeline:clip-moved', onMoved);
     timelineEl.addEventListener('sg-timeline:clip-trimmed', onTrimmed);
@@ -207,10 +275,15 @@ export function wireTimelineEvents(timelineEl, api, ctx) {
     timelineEl.addEventListener('sg-timeline:clip-color-requested', onColor);
     timelineEl.addEventListener('sg-timeline:undo-requested', onUndo);
     timelineEl.addEventListener('sg-timeline:redo-requested', onRedo);
+    timelineEl.addEventListener('sg-timeline:clip-copied', onClipCopy);
+    timelineEl.addEventListener('sg-timeline:clip-paste-requested', onClipPaste);
     timelineEl.addEventListener('sg-timeline:playhead-changed', onPlayhead);
     timelineEl.addEventListener('sg-timeline:track-add-requested', onTrackAdd);
     timelineEl.addEventListener('sg-timeline:track-remove-requested', onTrackRemove);
     timelineEl.addEventListener('sg-timeline:track-mute-requested', onTrackMute);
+    timelineEl.addEventListener('sg-timeline:track-lock-requested', onTrackLock);
+    timelineEl.addEventListener('sg-timeline:track-renamed', onTrackRenamed);
+    timelineEl.addEventListener('sg-timeline:track-selected', onTrackSelected);
     timelineEl.addEventListener('sg-timeline:clip-track-changed', onClipTrackChange);
     return () => {
         timelineEl.removeEventListener('sg-timeline:clip-added', onAdded);
@@ -222,10 +295,15 @@ export function wireTimelineEvents(timelineEl, api, ctx) {
         timelineEl.removeEventListener('sg-timeline:clip-color-requested', onColor);
         timelineEl.removeEventListener('sg-timeline:undo-requested', onUndo);
         timelineEl.removeEventListener('sg-timeline:redo-requested', onRedo);
+        timelineEl.removeEventListener('sg-timeline:clip-copied', onClipCopy);
+        timelineEl.removeEventListener('sg-timeline:clip-paste-requested', onClipPaste);
         timelineEl.removeEventListener('sg-timeline:playhead-changed', onPlayhead);
         timelineEl.removeEventListener('sg-timeline:track-add-requested', onTrackAdd);
         timelineEl.removeEventListener('sg-timeline:track-remove-requested', onTrackRemove);
         timelineEl.removeEventListener('sg-timeline:track-mute-requested', onTrackMute);
+        timelineEl.removeEventListener('sg-timeline:track-lock-requested', onTrackLock);
+        timelineEl.removeEventListener('sg-timeline:track-renamed', onTrackRenamed);
+        timelineEl.removeEventListener('sg-timeline:track-selected', onTrackSelected);
         timelineEl.removeEventListener('sg-timeline:clip-track-changed', onClipTrackChange);
     };
 }

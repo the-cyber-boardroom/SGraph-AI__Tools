@@ -38,24 +38,36 @@ export function buildApiMethods({ state, getComposer, setComposer, hostEl }) {
     }
 
     function addClip(params = {}) {
-        const { trackId, assetId, timelineStart, inPoint, outPoint, clipId, snap } = params;
+        const { trackId, assetId, timelineStart, inPoint, outPoint, clipId, snap, maxSnapDistance } = params;
         if (!trackId) throw badArg('trackId required');
         if (!assetId) throw badArg('assetId required');
-        const id = state.addClip({ trackId, assetId, timelineStart, inPoint, outPoint, clipId, snap: !!snap });
+        const id = state.addClip({
+            trackId, assetId, timelineStart, inPoint, outPoint, clipId,
+            snap: !!snap,
+            maxSnapDistance: Number.isFinite(maxSnapDistance) ? maxSnapDistance : undefined,
+        });
         return { clipId: id };
     }
 
     function addShapeClip(params = {}) {
-        const { trackId, timelineStart, duration, clipId, shape, snap } = params;
+        const { trackId, timelineStart, duration, clipId, shape, snap, maxSnapDistance } = params;
         if (!trackId) throw badArg('trackId required');
-        const id = state.addShapeClip({ trackId, timelineStart, duration, clipId, shape, snap: !!snap });
+        const id = state.addShapeClip({
+            trackId, timelineStart, duration, clipId, shape,
+            snap: !!snap,
+            maxSnapDistance: Number.isFinite(maxSnapDistance) ? maxSnapDistance : undefined,
+        });
         return { clipId: id };
     }
 
     function addTextClip(params = {}) {
-        const { trackId, timelineStart, duration, clipId, text, snap } = params;
+        const { trackId, timelineStart, duration, clipId, text, snap, maxSnapDistance } = params;
         if (!trackId) throw badArg('trackId required');
-        const id = state.addTextClip({ trackId, timelineStart, duration, clipId, text, snap: !!snap });
+        const id = state.addTextClip({
+            trackId, timelineStart, duration, clipId, text,
+            snap: !!snap,
+            maxSnapDistance: Number.isFinite(maxSnapDistance) ? maxSnapDistance : undefined,
+        });
         return { clipId: id };
     }
 
@@ -95,10 +107,14 @@ export function buildApiMethods({ state, getComposer, setComposer, hostEl }) {
     }
 
     function moveClip(params = {}) {
-        const { clipId, timelineStart, snap } = params;
+        const { clipId, timelineStart, snap, maxSnapDistance } = params;
         if (!clipId) throw badArg('clipId required');
         if (!Number.isFinite(timelineStart)) throw badArg('timelineStart must be a number');
-        state.moveClip({ clipId, timelineStart, snap: !!snap });
+        state.moveClip({
+            clipId, timelineStart,
+            snap: !!snap,
+            maxSnapDistance: Number.isFinite(maxSnapDistance) ? maxSnapDistance : undefined,
+        });
         return { clipId, timelineStart };
     }
 
@@ -138,6 +154,28 @@ export function buildApiMethods({ state, getComposer, setComposer, hostEl }) {
         });
         return { clipId: r.clipId, crop: r.crop };
     }
+
+    function copyClip(params = {}) {
+        const { clipId } = params;
+        if (!clipId) throw badArg('clipId required');
+        const r = state.copyClip({ clipId });
+        return { hasClipboard: !!(r && r.hasClipboard) };
+    }
+
+    function pasteClip(params = {}) {
+        const { targetTrackId, timelineStart, snap, maxSnapDistance } = params || {};
+        if (!state.hasClipboard()) throw badArg('clipboard is empty');
+        if (!targetTrackId) throw badArg('targetTrackId required');
+        if (!Number.isFinite(timelineStart)) throw badArg('timelineStart must be a finite number');
+        const r = state.pasteClip({
+            targetTrackId, timelineStart,
+            snap: !!snap,
+            maxSnapDistance: Number.isFinite(maxSnapDistance) ? maxSnapDistance : undefined,
+        });
+        return r ? { clipId: r.clipId, trackId: r.trackId, timelineStart: r.timelineStart } : null;
+    }
+
+    function hasClipboard() { return { hasClipboard: state.hasClipboard() }; }
 
     function getProject() { return state.getProject(); }
 
@@ -188,6 +226,7 @@ export function buildApiMethods({ state, getComposer, setComposer, hostEl }) {
         loadAsset, removeAsset, addClip, trimClip, removeClip, moveClip, splitClip,
         setClipColor, setClipTransform, setClipCrop,
         addShapeClip, addTextClip, setShapeProps, setTextProps,
+        copyClip, pasteClip, hasClipboard,
         getProject, setProject,
         undo, redo, canUndo, canRedo,
         exportMp4,
@@ -196,5 +235,7 @@ export function buildApiMethods({ state, getComposer, setComposer, hostEl }) {
         moveClipToTrack: trackMethods.moveClipToTrack,
         reorderTracks: trackMethods.reorderTracks,
         setTrackMuted: trackMethods.setTrackMuted,
+        setTrackLocked: trackMethods.setTrackLocked,
+        renameTrack: trackMethods.renameTrack,
     };
 }

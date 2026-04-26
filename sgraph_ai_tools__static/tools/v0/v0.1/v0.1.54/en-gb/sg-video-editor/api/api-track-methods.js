@@ -56,5 +56,24 @@ export function buildTrackMethods({ state }) {
         return { trackId: r.trackId, muted: r.muted };
     }
 
-    return { addTrack, removeTrack, moveClipToTrack, reorderTracks, setTrackMuted };
+    function setTrackLocked(params = {}) {
+        const { trackId, locked } = params;
+        if (!trackId) throw badArg('trackId required');
+        if (typeof locked !== 'boolean') throw badArg('locked must be boolean');
+        const r = state.setTrackLocked({ trackId, locked });
+        return { trackId: r.trackId, locked: r.locked };
+    }
+
+    function renameTrack(params = {}) {
+        const { trackId, name } = params;
+        if (!trackId) throw badArg('trackId required');
+        if (name != null && typeof name !== 'string') throw badArg('name must be a string');
+        const r = state.renameTrack({ trackId, name: name == null ? '' : name });
+        return { trackId: r.trackId, name: r.name };
+    }
+
+    return {
+        addTrack, removeTrack, moveClipToTrack, reorderTracks,
+        setTrackMuted, setTrackLocked, renameTrack,
+    };
 }

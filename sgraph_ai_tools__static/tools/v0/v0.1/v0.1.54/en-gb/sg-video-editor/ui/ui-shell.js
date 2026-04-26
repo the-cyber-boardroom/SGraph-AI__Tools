@@ -7,6 +7,8 @@ import { mountDevPanel } from './ui-dev-panel.js';
 import { mountJsonPane } from './ui-json-pane.js';
 import { mountPropertiesPanel } from './ui-properties-panel.js';
 import { mountMessagesPanel } from './ui-messages-panel.js';
+import { mountShortcutsPanel } from './ui-shortcuts-panel.js';
+import { attachGlobalShortcuts } from './ui-keyboard.js';
 import { wireOverlay } from './ui-shell-overlay.js';
 import { rebuildComposer, emitErr } from './ui-shell-composer.js';
 import { SGL_EVENTS } from '/core/sg-layout/v0.1.0/sg-layout-events.js';
@@ -56,12 +58,19 @@ export function mountShell({ host, state, api, getComposer, setComposer }) {
     layout.setLayout(buildLayoutDescriptor());
 
     const exportSlot = topbar.querySelector('[data-slot="export"]');
-    const ctx = { selectedClipId: null, currentPlayhead: 0, getComposer };
+    const ctx = {
+        selectedClipId: null,
+        selectedTrackId: null,
+        currentPlayhead: 0,
+        getComposer,
+        getProject: () => state.getProject(),
+    };
 
     let assetPanel = null, exportCtl = null, unwireTimeline = null;
     let previewEl = null, timelineEl = null;
     let pending = null, activePending = null;
     let onCanvasPlayhead = null, devPanel = null, jsonPane = null, propertiesPane = null, messagesPane = null, overlayWire = null;
+    let shortcutsPane = null, keyboardWire = null;
 
     function schedulePushActive() {
         if (!overlayWire) return;
@@ -83,6 +92,12 @@ export function mountShell({ host, state, api, getComposer, setComposer }) {
             timelineEl.setHistoryFlags({ canUndo: state.canUndo(), canRedo: state.canRedo() });
         }
     }
+    function syncClipboardFlags() {
+        if (timelineEl && typeof timelineEl.setClipboardFlags === 'function') {
+            timelineEl.setClipboardFlags({ canPaste: !!state.hasClipboard() });
+        }
+    }
+    function onClipboardChange() { syncClipboardFlags(); }
     /** Mid-drag transform/crop: refresh the composer's live project + overlay
      *  in-place (no destroy/recreate, no debounce) so the canvas reflects every
      *  pointer tick without recording a history entry. */
@@ -119,6 +134,7 @@ export function mountShell({ host, state, api, getComposer, setComposer }) {
             state,
             api,
             getPlayhead: () => ctx.currentPlayhead,
+            getSelectedTrackId: () => ctx.selectedTrackId,
             onFilesPicked: async (files) => {
                 for (const file of files) {
                     try { await api.loadAsset({ file }); }
@@ -167,9 +183,19 @@ export function mountShell({ host, state, api, getComposer, setComposer }) {
             getSelectedClipId: () => ctx.selectedClipId,
         });
         if (messagesPanel) messagesPane = mountMessagesPanel({ host: messagesPanel });
+        if (slots.shortcutsPanel) shortcutsPane = mountShortcutsPanel({ host: slots.shortcutsPanel });
+        keyboardWire = attachGlobalShortcuts({
+            api,
+            getSelectedClipId: () => ctx.selectedClipId,
+            getSelectedTrackId: () => ctx.selectedTrackId,
+            getPlayhead: () => ctx.currentPlayhead,
+            getComposer,
+        });
         syncHistoryFlags();
+        syncClipboardFlags();
         rebuild();
         state.addEventListener('change', handleChange);
+        state.addEventListener('clipboard', onClipboardChange);
         devPanel = mountDevPanel({ host, manifestUrl: './manifest.json' });
     }
 
@@ -183,6 +209,7 @@ export function mountShell({ host, state, api, getComposer, setComposer }) {
         try { document.removeEventListener('tool:toast', onToolToast); } catch (_) {}
         try { document.removeEventListener('tool:error', onToolError); } catch (_) {}
         try { state.removeEventListener('change', handleChange); } catch (_) {}
+        try { state.removeEventListener('clipboard', onClipboardChange); } catch (_) {}
         if (unwireTimeline) { try { unwireTimeline(); } catch (_) {} }
         if (timelineEl) {
             try { timelineEl.removeEventListener('sg-timeline:clip-selected', schedulePushActive); } catch (_) {}
@@ -204,6 +231,8 @@ export function mountShell({ host, state, api, getComposer, setComposer }) {
         try { jsonPane && jsonPane.destroy(); } catch (_) {}
         try { propertiesPane && propertiesPane.destroy(); } catch (_) {}
         try { messagesPane && messagesPane.destroy(); } catch (_) {}
+        try { shortcutsPane && shortcutsPane.destroy(); } catch (_) {}
+        try { keyboardWire && keyboardWire.destroy(); } catch (_) {}
         try { devPanel && devPanel.destroy(); } catch (_) {}
         host.innerHTML = '';
     }

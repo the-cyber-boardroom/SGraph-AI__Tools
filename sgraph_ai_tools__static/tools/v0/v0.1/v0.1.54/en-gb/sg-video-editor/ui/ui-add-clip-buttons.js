@@ -38,12 +38,31 @@ function emitToast(message) {
     }));
 }
 
+/**
+ * Resolve the preferred track for a toolbar add: the user's selected track
+ * (if any) over the first video track. The caller still validates the id
+ * against the live project.
+ *
+ * @param {object|null} project
+ * @param {string|null} selectedTrackId
+ * @returns {string|null}
+ */
+function preferredTrackId(project, selectedTrackId) {
+    if (!project || !Array.isArray(project.tracks)) return null;
+    if (selectedTrackId) {
+        const sel = project.tracks.find(t => t && t.id === selectedTrackId && t.kind === 'video');
+        if (sel) return sel.id;
+    }
+    return findFirstVideoTrackId(project);
+}
+
 /** Try the call; on `code: 'overlap'`, add a new top track and retry once.
  *  Returns a Promise — SgToolApi's invoke wrapper rejects asynchronously, so
  *  a synchronous try/catch is not enough here. */
-async function withOverlapAutoTrack(api, getProject, fn) {
+async function withOverlapAutoTrack(api, getProject, getSelectedTrackId, fn) {
+    const initial = preferredTrackId(getProject(), getSelectedTrackId());
     try {
-        return await fn(findFirstVideoTrackId(getProject()));
+        return await fn(initial);
     } catch (err) {
         if (!err || err.code !== 'overlap') throw err;
         try { await api.addTrack({}); }
@@ -97,11 +116,13 @@ function buildPopover() {
  *   host: HTMLElement,
  *   getProject: () => object|null,
  *   getPlayhead: () => number,
+ *   getSelectedTrackId?: () => (string|null),
  *   api: object,
  * }} cfg
  * @returns {{ destroy: () => void }}
  */
-export function mountAddClipButtons({ host, getProject, getPlayhead, api }) {
+export function mountAddClipButtons({ host, getProject, getPlayhead, api, getSelectedTrackId }) {
+    const selTrack = typeof getSelectedTrackId === 'function' ? getSelectedTrackId : () => null;
     const root = document.createElement('div');
     root.className = 'sgve-add-row';
 
@@ -144,27 +165,32 @@ export function mountAddClipButtons({ host, getProject, getPlayhead, api }) {
     }
 
     function commitShape() {
-        // snap: try snap-abut to the nearest edge first. Only fall through to
-        // withOverlapAutoTrack (which adds a new track) if both sides collide.
-        withOverlapAutoTrack(api, getProject, (trackId) => {
+        // snap with maxSnapDistance: 2s so a playhead-on-clip drop only walks
+        // to the immediate neighbour edge — never 100s+ to find a far slot.
+        // If both immediate sides collide, fall through to withOverlapAutoTrack
+        // (which adds a new track on top). Prefer the user's selected track if
+        // any, otherwise t-video-1.
+        withOverlapAutoTrack(api, getProject, selTrack, (trackId) => {
             if (!trackId) throw new Error('No video track available — add one first.');
             return api.addShapeClip({
                 trackId,
                 timelineStart: getPlayhead(),
                 shape: { type: 'rect', fill: shapeFill },
                 snap: true,
+                maxSnapDistance: 2,
             });
         }).catch(err => emitErr('addShapeClip', err));
         closeAll();
     }
     function commitText() {
-        withOverlapAutoTrack(api, getProject, (trackId) => {
+        withOverlapAutoTrack(api, getProject, selTrack, (trackId) => {
             if (!trackId) throw new Error('No video track available — add one first.');
             return api.addTextClip({
                 trackId,
                 timelineStart: getPlayhead(),
                 text: { content: textContent, color: textColor, fontSize: textSize },
                 snap: true,
+                maxSnapDistance: 2,
             });
         }).catch(err => emitErr('addTextClip', err));
         closeAll();

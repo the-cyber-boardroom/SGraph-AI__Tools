@@ -57,6 +57,9 @@ export async function init(manifest) {
             .register('addTextClip',   methods.addTextClip,   { async: false, sanitiseParams: passthrough })
             .register('setShapeProps', methods.setShapeProps, { async: false, sanitiseParams: passthrough })
             .register('setTextProps',  methods.setTextProps,  { async: false, sanitiseParams: passthrough })
+            .register('copyClip',      methods.copyClip,      { async: false, sanitiseParams: passthrough })
+            .register('pasteClip',     methods.pasteClip,     { async: false, sanitiseParams: passthrough })
+            .register('hasClipboard',  methods.hasClipboard,  { async: false, sanitiseParams: passthrough })
             .register('getProject', methods.getProject, { async: false, sanitiseParams: passthrough })
             .register('setProject', methods.setProject, { async: false, sanitiseParams: projectSanitiser })
             .register('undo',       methods.undo,       { async: false, sanitiseParams: passthrough })
@@ -68,6 +71,8 @@ export async function init(manifest) {
             .register('moveClipToTrack', methods.moveClipToTrack, { async: false, sanitiseParams: passthrough })
             .register('reorderTracks',   methods.reorderTracks,   { async: false, sanitiseParams: passthrough })
             .register('setTrackMuted',   methods.setTrackMuted,   { async: false, sanitiseParams: passthrough })
+            .register('setTrackLocked',  methods.setTrackLocked,  { async: false, sanitiseParams: passthrough })
+            .register('renameTrack',     methods.renameTrack,     { async: false, sanitiseParams: passthrough })
             .register('exportMp4',  methods.exportMp4,  { async: true,  sanitiseParams: passthrough });
 
         api.activate();

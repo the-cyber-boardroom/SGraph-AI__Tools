@@ -105,9 +105,12 @@ export function showDragFeedback(lane, drag, preview, pointer) {
     const { ghost, label } = ensureFeedbackEls(lane);
     drag.clipEl.classList.add('is-dragging');
     placeGhost(ghost, preview.leftPx, preview.widthPx);
+    if (drag.isCopy) ghost.classList.add('is-copy');
+    else ghost.classList.remove('is-copy');
     let text = '';
     if (drag.kind === 'move') {
-        text = `t = ${fmtMmSsMs(preview.time)}`;
+        const prefix = drag.isCopy ? '[copy] ' : '';
+        text = `${prefix}t = ${fmtMmSsMs(preview.time)}`;
     } else if (drag.kind === 'trim-left') {
         const dur = (preview.outPoint != null ? preview.outPoint : drag.origOut) - preview.inPoint;
         text = `in = ${fmtSsMs(preview.inPoint)}  dur = ${fmtSsMs(dur)}`;

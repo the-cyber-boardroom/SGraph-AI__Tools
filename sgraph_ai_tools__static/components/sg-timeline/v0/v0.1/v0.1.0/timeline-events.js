@@ -15,6 +15,11 @@ export const SGT_EVENTS = Object.freeze({
     TRACK_ADD_REQUESTED: 'sg-timeline:track-add-requested',
     TRACK_REMOVE_REQUESTED: 'sg-timeline:track-remove-requested',
     TRACK_MUTE_REQUESTED: 'sg-timeline:track-mute-requested',
+    TRACK_LOCK_REQUESTED: 'sg-timeline:track-lock-requested',
+    TRACK_RENAMED: 'sg-timeline:track-renamed',
+    TRACK_SELECTED: 'sg-timeline:track-selected',
     CLIP_TRACK_CHANGED: 'sg-timeline:clip-track-changed',
     EDITOR_MODE_REQUESTED: 'sg-timeline:editor-mode-requested',
+    CLIP_COPIED: 'sg-timeline:clip-copied',
+    CLIP_PASTE_REQUESTED: 'sg-timeline:clip-paste-requested',
 });
