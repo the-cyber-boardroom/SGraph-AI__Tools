@@ -67,17 +67,17 @@ export function buildApiMethods({ state, getComposer, setComposer, hostEl }) {
     }
 
     function setShapeProps(params = {}) {
-        const { clipId, shape, transient } = params;
+        const { clipId, shape, transform, transient } = params;
         if (!clipId) throw badArg('clipId required');
-        const r = state.setShapeProps({ clipId, shape, transient: !!transient });
-        return { clipId: r.clipId, shape: r.shape };
+        const r = state.setShapeProps({ clipId, shape, transform, transient: !!transient });
+        return { clipId: r.clipId, shape: r.shape, transform: r.transform };
     }
 
     function setTextProps(params = {}) {
-        const { clipId, text, transient } = params;
+        const { clipId, text, transform, transient } = params;
         if (!clipId) throw badArg('clipId required');
-        const r = state.setTextProps({ clipId, text, transient: !!transient });
-        return { clipId: r.clipId, text: r.text };
+        const r = state.setTextProps({ clipId, text, transform, transient: !!transient });
+        return { clipId: r.clipId, text: r.text, transform: r.transform };
     }
 
     function trimClip(params = {}) {

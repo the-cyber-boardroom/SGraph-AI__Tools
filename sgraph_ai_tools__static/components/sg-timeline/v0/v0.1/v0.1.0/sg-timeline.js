@@ -120,9 +120,14 @@ export class SgTimeline extends HTMLElement {
 
     /** @param {string|null} clipId */
     setSelectedClip(clipId) {
-        this.#selected = clipId || null;
+        const next = clipId || null;
+        if (next === this.#selected) return;
+        this.#selected = next;
         this.#renderAll();
         if (this.#zoom) this.#zoom.refresh();
+        this.dispatchEvent(new CustomEvent(SGT_EVENTS.CLIP_SELECTED, {
+            detail: { clipId: next }, bubbles: true, composed: true,
+        }));
     }
 
     /** @param {number} pps */

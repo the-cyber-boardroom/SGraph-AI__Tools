@@ -135,10 +135,39 @@ export function paintImage(ctx, canvas, img, transform, crop) {
  * @param {{x: number, y: number, w: number, h: number}} [crop]
  * @returns {void}
  */
+/**
+ * Direct (non aspect-fit) draw rect for shape/text clips. Their intrinsic
+ * w/h ARE the canvas-pixel dimensions, so `drawW = w * scale` (no baseScale
+ * coupling). This lets the user freely change w and h independently and see
+ * a predictable, linear visual response — required for non-uniform resize.
+ *
+ * @param {number} canvasW
+ * @param {number} canvasH
+ * @param {number} w
+ * @param {number} h
+ * @param {{x: number, y: number, scale: number}} [transform]
+ * @param {{x: number, y: number, w: number, h: number}} [crop]
+ * @returns {{dx: number, dy: number, drawW: number, drawH: number}}
+ */
+export function computeDirectDestRect(canvasW, canvasH, w, h, transform, crop) {
+    const t = transform || defaultTransform();
+    const c = crop || defaultCrop();
+    const fullDrawW = w * t.scale;
+    const fullDrawH = h * t.scale;
+    const fullDx = t.x * canvasW - fullDrawW / 2;
+    const fullDy = t.y * canvasH - fullDrawH / 2;
+    return {
+        dx: fullDx + c.x * fullDrawW,
+        dy: fullDy + c.y * fullDrawH,
+        drawW: c.w * fullDrawW,
+        drawH: c.h * fullDrawH,
+    };
+}
+
 export function paintShape(ctx, canvas, clip, transform, crop) {
     const shape = clip && clip.shape;
     if (!shape || !shape.w || !shape.h) return;
-    const r = computeClipDestRect(canvas.width, canvas.height, shape.w, shape.h, transform, crop);
+    const r = computeDirectDestRect(canvas.width, canvas.height, shape.w, shape.h, transform, crop);
     if (shape.type !== 'rect') return;
     try {
         ctx.save();
@@ -162,7 +191,7 @@ export function paintShape(ctx, canvas, clip, transform, crop) {
 export function paintText(ctx, canvas, clip, transform, crop) {
     const text = clip && clip.text;
     if (!text || !text.w || !text.h) return;
-    const r = computeClipDestRect(canvas.width, canvas.height, text.w, text.h, transform, crop);
+    const r = computeDirectDestRect(canvas.width, canvas.height, text.w, text.h, transform, crop);
     try {
         ctx.save();
         const px = Math.max(1, (text.fontSize || 64) * (r.drawW / text.w));

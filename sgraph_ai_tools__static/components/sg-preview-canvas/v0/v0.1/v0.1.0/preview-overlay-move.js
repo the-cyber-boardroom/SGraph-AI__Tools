@@ -156,12 +156,69 @@ export function mountMoveOverlay(cfg) {
         window.addEventListener('pointercancel', onPointerUp);
     }
 
+    /** Detect if this drag is a non-uniform edge resize on a shape/text clip
+     *  ('n', 's', 'e', 'w' single-letter roles). For those we resize the
+     *  intrinsic w/h instead of changing transform.scale. */
+    function isAxisResize(drag) {
+        if (!drag || !drag.active) return false;
+        const k = drag.active.kind;
+        if (k !== 'shape' && k !== 'text') return false;
+        const r = drag.role;
+        return r === 'n' || r === 's' || r === 'e' || r === 'w';
+    }
+
+    /** Compute new intrinsic w/h + recentred t.x/t.y for an edge handle on a
+     *  shape/text clip. Anchors the diagonally-opposite edge. */
+    function computeNextDims(drag, dxCv, dyCv, canvasW, canvasH) {
+        const sx = drag.role === 'w' ? 0 : drag.role === 'e' ? 1 : 0.5;
+        const sy = drag.role === 'n' ? 0 : drag.role === 's' ? 1 : 0.5;
+        const handleX0 = drag.dxCv + sx * drag.drawW;
+        const handleY0 = drag.dyCv + sy * drag.drawH;
+        const anchorX  = drag.dxCv + (1 - sx) * drag.drawW;
+        const anchorY  = drag.dyCv + (1 - sy) * drag.drawH;
+        const horizontal = drag.role === 'e' || drag.role === 'w';
+        const newDrawW = horizontal ? Math.abs(handleX0 + dxCv - anchorX) : drag.drawW;
+        const newDrawH = horizontal ? drag.drawH : Math.abs(handleY0 + dyCv - anchorY);
+        const scale = Math.max(0.0001, drag.transform.scale || 1);
+        const newW = newDrawW / scale;
+        const newH = newDrawH / scale;
+        // Recentre so the opposite edge stays put: newCx = anchorX + newDrawW * (sx - 0.5)
+        // along the dragged axis; the perpendicular axis preserves the old centre.
+        const newCx = horizontal ? anchorX + newDrawW * (sx - 0.5) : drag.cxCv;
+        const newCy = horizontal ? drag.cyCv : anchorY + newDrawH * (sy - 0.5);
+        return {
+            w: round(newW, 2),
+            h: round(newH, 2),
+            tx: clamp(newCx / canvasW, 0, 1),
+            ty: clamp(newCy / canvasH, 0, 1),
+        };
+    }
+
+    function dispatchAxisResize(drag, dims, transient) {
+        const detail = transient ? { transient: true } : {};
+        detail.clipId = drag.active.clipId;
+        detail.transform = { x: dims.tx, y: dims.ty };
+        if (drag.active.kind === 'shape') {
+            detail.shape = drag.role === 'e' || drag.role === 'w' ? { w: dims.w } : { h: dims.h };
+            cfg.dispatch('shape-resize-requested', detail);
+        } else {
+            detail.text = drag.role === 'e' || drag.role === 'w' ? { w: dims.w } : { h: dims.h };
+            cfg.dispatch('text-resize-requested', detail);
+        }
+    }
+
     function onPointerMove(e) {
         if (!drag) return;
         const dxDisp = e.clientX - drag.startX;
         const dyDisp = e.clientY - drag.startY;
         const dxCv = dxDisp * drag.m.sx;
         const dyCv = dyDisp * drag.m.sy;
+        if (isAxisResize(drag)) {
+            const dims = computeNextDims(drag, dxCv, dyCv, drag.canvas.width, drag.canvas.height);
+            drag.lastDims = dims;
+            dispatchAxisResize(drag, dims, true);
+            return;
+        }
         const next = computeNextTransform(drag.role, drag, dxCv, dyCv, drag.canvas.width, drag.canvas.height);
         next.x = round(next.x, 4); next.y = round(next.y, 4); next.scale = round(next.scale, 4);
         drag.lastTransform = next;
@@ -172,7 +229,9 @@ export function mountMoveOverlay(cfg) {
         window.removeEventListener('pointermove', onPointerMove);
         window.removeEventListener('pointerup', onPointerUp);
         window.removeEventListener('pointercancel', onPointerUp);
-        if (drag && drag.lastTransform) {
+        if (drag && drag.lastDims && isAxisResize(drag)) {
+            dispatchAxisResize(drag, drag.lastDims, false);
+        } else if (drag && drag.lastTransform) {
             cfg.dispatch('transform-requested', {
                 clipId: drag.active.clipId, transform: drag.lastTransform,
             });

@@ -94,7 +94,10 @@ export function createState(initialProject) {
             const transient = !!(params && params.transient);
             if (!transient) snapshot();
             const r = setShapePropsOp(project, params);
-            if (!transient) withOp({ op: 'setShapeProps', clipId: r.clipId, shape: r.shape });
+            if (!transient) withOp({
+                op: 'setShapeProps', clipId: r.clipId,
+                shape: r.shape, transform: r.transform,
+            });
             emit(transient ? { transient: true } : null);
             return r;
         },
@@ -102,7 +105,10 @@ export function createState(initialProject) {
             const transient = !!(params && params.transient);
             if (!transient) snapshot();
             const r = setTextPropsOp(project, params);
-            if (!transient) withOp({ op: 'setTextProps', clipId: r.clipId, text: r.text });
+            if (!transient) withOp({
+                op: 'setTextProps', clipId: r.clipId,
+                text: r.text, transform: r.transform,
+            });
             emit(transient ? { transient: true } : null);
             return r;
         },

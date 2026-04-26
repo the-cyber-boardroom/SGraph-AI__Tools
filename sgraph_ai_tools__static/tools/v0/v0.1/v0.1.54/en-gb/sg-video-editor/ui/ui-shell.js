@@ -137,6 +137,11 @@ export function mountShell({ host, state, api, getComposer, setComposer }) {
             getProject: () => state.toComposerProject(),
             getSelectedClipId: () => ctx.selectedClipId,
             getPlayhead: () => ctx.currentPlayhead,
+            setSelectedClip: (id) => {
+                if (timelineEl && typeof timelineEl.setSelectedClip === 'function') {
+                    timelineEl.setSelectedClip(id);
+                }
+            },
         });
 
         if (timelineEl) {

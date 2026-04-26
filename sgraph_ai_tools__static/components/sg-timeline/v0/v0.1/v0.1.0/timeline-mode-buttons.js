@@ -3,10 +3,10 @@
 import { SGT_EVENTS } from './timeline-events.js';
 
 const MODES = ['select', 'move', 'crop'];
-const LABELS = { select: 'Select', move: 'Move', crop: 'Crop' };
+const LABELS = { select: 'Select', move: 'Move / Resize', crop: 'Crop' };
 const TITLES = {
-    select: 'Selection mode (default)',
-    move: 'Move / scale the selected clip on the canvas',
+    select: 'Click a clip in the preview to select it',
+    move: 'Move + resize the selected clip on the canvas',
     crop: 'Crop the selected clip on the canvas',
 };
 
