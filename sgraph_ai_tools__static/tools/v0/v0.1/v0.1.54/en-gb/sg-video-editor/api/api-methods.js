@@ -267,5 +267,8 @@ export function buildApiMethods({ state, getComposer, setComposer, hostEl }) {
         getAutosave:        storageMethods.getAutosave,
         discardAutosave:    storageMethods.discardAutosave,
         isAutosaveNewer:    storageMethods.isAutosaveNewer,
+        // Round-9-J — IDB blob storage helpers.
+        hydrateAssets:      storageMethods.hydrateAssets,
+        getStorageUsage:    storageMethods.getStorageUsage,
     };
 }
