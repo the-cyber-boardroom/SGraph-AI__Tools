@@ -1,6 +1,7 @@
 /** state-init.js — initial-project factory + deepClone + validation helpers. */
 
 import { validateProject } from '/core/video-composer/v0/v0.1/v0.1.0/composer-schema.js';
+import { ensureTrackColors, pickTrackColor } from './state-track-palette.js';
 
 const SCHEMA_VERSION = '0.1.0';
 const DEFAULT_FPS = 30;
@@ -27,7 +28,10 @@ export function createInitialProject(opts = {}) {
             createdAt: Date.now(),
         },
         assets: [],
-        tracks: [{ id: 't-video-1', kind: 'video', index: 0, muted: false, clips: [] }],
+        tracks: [{
+            id: 't-video-1', kind: 'video', index: 0, muted: false, clips: [],
+            color: pickTrackColor(0),
+        }],
         operations: [],
     };
 }
@@ -41,12 +45,16 @@ export function deepClone(obj) {
 /** Wrap an Error with code 'invalid-arg'. */
 export function badArg(msg) { return Object.assign(new Error(msg), { code: 'invalid-arg' }); }
 
-/** Validate the inner composer-shaped projection of the wrapped state. */
+/** Validate the inner composer-shaped projection of the wrapped state.
+ *  Also assigns a default `track.color` to any video track missing one
+ *  (Round-9-I Task 3) — keeps legacy projects from flickering between the
+ *  auto-shade and the new palette colour on first render. */
 export function validateWrapped(p) {
     if (!p || typeof p !== 'object') throw badArg('project must be an object');
     if (!p.project || typeof p.project !== 'object') throw badArg('project.project must be an object');
     if (!Array.isArray(p.tracks)) throw badArg('project.tracks must be an array');
     validateProject({ width: p.project.width, height: p.project.height, tracks: p.tracks });
+    ensureTrackColors(p);
     return p;
 }
 

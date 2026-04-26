@@ -74,6 +74,7 @@ export async function init(manifest) {
             .register('setTrackMuted',   methods.setTrackMuted,   { async: false, sanitiseParams: passthrough })
             .register('setTrackLocked',  methods.setTrackLocked,  { async: false, sanitiseParams: passthrough })
             .register('renameTrack',     methods.renameTrack,     { async: false, sanitiseParams: passthrough })
+            .register('setTrackColor',   methods.setTrackColor,   { async: false, sanitiseParams: passthrough })
             .register('exportMp4',  methods.exportMp4,  { async: true,  sanitiseParams: passthrough })
             .register('refreshPreview', methods.refreshPreview, { async: false, sanitiseParams: passthrough })
             .register('saveProject',        methods.saveProject,        { async: false, sanitiseParams: passthrough })

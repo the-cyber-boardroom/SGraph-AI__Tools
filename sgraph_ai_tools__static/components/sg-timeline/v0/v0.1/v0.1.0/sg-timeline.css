@@ -503,6 +503,21 @@
     font: 11px/1.2 ui-sans-serif, system-ui, sans-serif;
 }
 
+/* Round-9-I Task 3: 3px left strip drawn from the track's --track-color
+ * custom property (set inline by renderTrackHeader). The strip reads at a
+ * glance even when the lane is empty / muted / locked. The .track-header
+ * is already position: sticky, so ::before positions against it. */
+.track-header::before {
+    content: '';
+    position: absolute;
+    left: 0;
+    top: 0;
+    bottom: 0;
+    width: 3px;
+    background: var(--track-color, transparent);
+    pointer-events: none;
+}
+
 .track-header--muted {
     background: rgba(120, 53, 15, 0.55);
     color: #fde68a;

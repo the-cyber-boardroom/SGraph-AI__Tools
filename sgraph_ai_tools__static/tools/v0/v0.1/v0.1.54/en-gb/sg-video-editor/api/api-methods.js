@@ -257,6 +257,7 @@ export function buildApiMethods({ state, getComposer, setComposer, hostEl }) {
         setTrackMuted: trackMethods.setTrackMuted,
         setTrackLocked: trackMethods.setTrackLocked,
         renameTrack: trackMethods.renameTrack,
+        setTrackColor: trackMethods.setTrackColor,
         saveProject:        storageMethods.saveProject,
         loadProject:        storageMethods.loadProject,
         listSavedProjects:  storageMethods.listSavedProjects,
