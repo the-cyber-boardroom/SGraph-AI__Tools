@@ -11,7 +11,17 @@ function unsupportedMime(mime) {
 
 /** Build the 8 API methods bound to the given state container. */
 export function buildApiMethods({ state, getComposer, setComposer, hostEl }) {
-    void getComposer; void setComposer; void hostEl;
+    void setComposer; void hostEl;
+
+    /** Force the preview canvas to repaint at the current playhead. Useful as
+     *  an escape hatch when the on-canvas image gets out of sync with state
+     *  (the composer's frame cache normally invalidates on project change,
+     *  but this gives callers a manual flush). No-op if no composer attached. */
+    function refreshPreview() {
+        const c = getComposer && getComposer();
+        if (c && typeof c.refresh === 'function') c.refresh();
+        return { ok: !!c };
+    }
 
     async function loadAsset(params = {}) {
         const file = params && params.file;
@@ -229,7 +239,7 @@ export function buildApiMethods({ state, getComposer, setComposer, hostEl }) {
         copyClip, pasteClip, hasClipboard,
         getProject, setProject,
         undo, redo, canUndo, canRedo,
-        exportMp4,
+        exportMp4, refreshPreview,
         addTrack: trackMethods.addTrack,
         removeTrack: trackMethods.removeTrack,
         moveClipToTrack: trackMethods.moveClipToTrack,

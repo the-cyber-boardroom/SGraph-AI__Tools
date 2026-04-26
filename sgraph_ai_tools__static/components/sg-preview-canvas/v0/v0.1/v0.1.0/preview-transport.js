@@ -17,7 +17,7 @@ export function fmtMmss(t) {
 /**
  * Build the transport bar DOM into a parent.
  * @param {HTMLElement} parent
- * @returns {{back: HTMLButtonElement, play: HTMLButtonElement, fwd: HTMLButtonElement, time: HTMLElement}}
+ * @returns {{back: HTMLButtonElement, play: HTMLButtonElement, fwd: HTMLButtonElement, redraw: HTMLButtonElement, time: HTMLElement}}
  */
 export function buildTransport(parent) {
     parent.innerHTML = '';
@@ -33,19 +33,27 @@ export function buildTransport(parent) {
     fwd.type = 'button';
     fwd.title = 'Skip to end';
     fwd.textContent = '⏭';
+    // Redraw / refresh — escape hatch when the preview gets out of sync
+    // (e.g. after a transform tweak or any edge case the auto-refresh misses).
+    // Cheap operation: just re-paints the current frame, no re-decode.
+    const redraw = document.createElement('button');
+    redraw.type = 'button';
+    redraw.title = 'Redraw current frame';
+    redraw.textContent = '↻'; // ↻
     const time = document.createElement('span');
     time.className = 'time';
     time.textContent = '00:00 / 00:00';
     parent.appendChild(back);
     parent.appendChild(play);
     parent.appendChild(fwd);
+    parent.appendChild(redraw);
     parent.appendChild(time);
-    return { back, play, fwd, time };
+    return { back, play, fwd, redraw, time };
 }
 
 /**
  * Wire transport buttons to a composer handle.
- * @param {{back: HTMLButtonElement, play: HTMLButtonElement, fwd: HTMLButtonElement}} els
+ * @param {{back: HTMLButtonElement, play: HTMLButtonElement, fwd: HTMLButtonElement, redraw?: HTMLButtonElement}} els
  * @param {object} composer
  * @returns {() => void} dispose
  */
@@ -58,13 +66,24 @@ export function wireTransport(els, composer) {
         else composer.play();
         els.play.textContent = wasPlaying ? '▶' : '⏸';
     };
+    // Redraw force-repaints the current frame. Prefer composer.refresh() but
+    // gracefully fall back to a no-op-ish seek if older composers are in play.
+    const onRedraw = () => {
+        if (!composer) return;
+        if (typeof composer.refresh === 'function') composer.refresh();
+        else if (typeof composer.seek === 'function' && typeof composer.getCurrentTime === 'function') {
+            composer.seek(composer.getCurrentTime());
+        }
+    };
     els.back.addEventListener('click', onBack);
     els.fwd.addEventListener('click', onFwd);
     els.play.addEventListener('click', onPlay);
+    if (els.redraw) els.redraw.addEventListener('click', onRedraw);
     return () => {
         els.back.removeEventListener('click', onBack);
         els.fwd.removeEventListener('click', onFwd);
         els.play.removeEventListener('click', onPlay);
+        if (els.redraw) els.redraw.removeEventListener('click', onRedraw);
     };
 }
 
@@ -79,8 +98,10 @@ export function updateTime(els, cur, dur) {
 }
 
 /**
- * Set enable/disable on the three transport buttons together.
- * @param {{back: HTMLButtonElement, play: HTMLButtonElement, fwd: HTMLButtonElement}} els
+ * Set enable/disable on the three playback transport buttons together.
+ * The redraw button (if present) is intentionally left enabled at all times
+ * — it's a cheap no-op when no composer is attached.
+ * @param {{back: HTMLButtonElement, play: HTMLButtonElement, fwd: HTMLButtonElement, redraw?: HTMLButtonElement}} els
  * @param {boolean} enabled
  */
 export function setTransportEnabled(els, enabled) {
@@ -88,6 +109,7 @@ export function setTransportEnabled(els, enabled) {
     els.back.disabled = !enabled;
     els.play.disabled = !enabled;
     els.fwd.disabled = !enabled;
+    if (els.redraw) els.redraw.disabled = false;
 }
 
 /**
