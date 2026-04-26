@@ -250,10 +250,19 @@
     filter: brightness(1.12);
 }
 
+/* Round-9-K Item 3: clip selection is the LOUDEST signal in the timeline.
+ * 2.5px solid teal outline + a soft teal glow lifts it above both the
+ * track-selection background hint and the per-track colour strip on the
+ * track header. The outline-offset draws the ring INSIDE the clip's
+ * existing 1px border so it doesn't overflow into the lane gutter. */
 .clip.is-selected,
 .clip.selected {
-    outline: 2px solid var(--sg-accent, #14b8a6);
+    outline: 2.5px solid var(--sg-accent, #14b8a6);
     outline-offset: -2px;
+    box-shadow:
+        0 0 0 1px rgba(15, 23, 42, 0.55),
+        0 0 12px 2px rgba(20, 184, 166, 0.55);
+    z-index: 3;
 }
 
 .clip__delete {
@@ -596,8 +605,12 @@
     background: #fbbf24;
 }
 
+/* Round-9-K Item 3: track selection is a QUIETER hint than clip selection.
+ * Drops to a 1px inset border at ~45% alpha — visible but doesn't compete
+ * with the louder clip selection ring. Same hue (teal) so the connection
+ * between header + lane reads as one selection. */
 .track-header--selected {
-    box-shadow: inset 0 0 0 2px var(--sg-accent, #14b8a6);
+    box-shadow: inset 0 0 0 1px rgba(20, 184, 166, 0.45);
 }
 
 .track-header--locked {
@@ -653,8 +666,13 @@
     box-sizing: border-box;
 }
 
+/* Round-9-K Item 3: track selection on the lane is a quiet teal-tinted
+ * background hint instead of a loud full-alpha ring. ~10% alpha tint plus a
+ * 1px inset edge at ~40% alpha reads as "this is the active lane" without
+ * competing with the clip-selection glow above it. */
 .lane-row--selected .lane {
-    box-shadow: inset 0 0 0 2px var(--sg-accent, #14b8a6);
+    background-color: rgba(20, 184, 166, 0.10);
+    box-shadow: inset 0 0 0 1px rgba(20, 184, 166, 0.40);
 }
 
 .lane--locked,

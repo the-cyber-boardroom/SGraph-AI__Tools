@@ -143,7 +143,10 @@ export function buildStorageMethods({ state }) {
             await persistBlobsToIdb(state);
             // 2. Now write the (lossy, blob-stripped) project JSON.
             const r = saveProjectToStorage(project, name);
-            state.markSaved();
+            // Round-9-K Item 2: pass the exact JSON that hit storage so
+            // the dirty-baseline hash matches on-disk bytes — not whatever
+            // the live project looks like after any in-flight mutations.
+            state.markSaved(r.json);
             // After a successful manual save the autosave slot is moot.
             try { clearAutosave(); } catch (_) {}
             // 3. GC: evict any IDB blobs no longer referenced by ANY
@@ -206,14 +209,17 @@ export function buildStorageMethods({ state }) {
 
     /** Write the current project to the autosave slot.
      *  Round-9-J: also persists blobs to IDB so an autosave-restore can
-     *  hydrate pixels. */
+     *  hydrate pixels.
+     *  Round-9-K Item 2: pass the bytes that hit storage to `markSaved` so
+     *  the dirty-baseline matches on-disk content even if a mutation lands
+     *  while we await the IDB write. */
     async function autosave() {
         const project = state.getProject();
         try {
             await persistBlobsToIdb(state);
-            writeAutosave(project);
-            state.markSaved(); // autosave === "all current edits are persisted"
-            return { ok: true, savedAt: Date.now() };
+            const r = writeAutosave(project);
+            state.markSaved(r.json); // autosave === "all current edits are persisted"
+            return { ok: true, savedAt: r.savedAt };
         } catch (err) {
             return { ok: false, error: err && err.message };
         }

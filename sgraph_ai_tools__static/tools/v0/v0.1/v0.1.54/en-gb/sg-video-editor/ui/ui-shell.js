@@ -76,21 +76,24 @@ export function mountShell({ host, state, api, getComposer, setComposer }) {
     let autosaveHandle = null;
 
     /** beforeunload guard: prompt the browser's native confirm if the project
-     *  is dirty OR if the most recent mutation hasn't yet been flushed by
-     *  autosave (i.e. we're still inside the debounce window). Cheap — both
-     *  checks are string-length compares + arithmetic. */
+     *  is dirty (per the hash-based `hasUnsavedChanges()` check, which is the
+     *  canonical "did the saved JSON drift from in-memory" comparison).
+     *
+     *  Round-9-K Item 2: the previous implementation also tripped on
+     *  `lastMutationAt > autosave.lastFlushAt` to catch the autosave debounce
+     *  window. That secondary check fires even after a successful MANUAL
+     *  save (manual-save bumps `lastSavedHash` but never touches
+     *  `autosave.lastFlushAt`), which is why every reload-after-save
+     *  triggered the browser's "Reload site?" popup. The hash check alone
+     *  is sufficient: both manual save + autosave call `state.markSaved(json)`
+     *  with the bytes that hit storage, so `hasUnsavedChanges()` is the
+     *  authoritative source of truth. If the user mutates during the autosave
+     *  debounce window the hash will differ from the last saved baseline and
+     *  the guard fires for the right reason. */
     function onBeforeUnload(e) {
         try {
             if (!state || typeof state.hasUnsavedChanges !== 'function') return;
-            const dirty = state.hasUnsavedChanges();
-            // Inside the autosave debounce window? Treat as dirty even if
-            // hasUnsavedChanges() momentarily disagrees (e.g. mutation
-            // arrived between hash compare and autosave flush).
-            const lastMut = (typeof state.getLastMutationAt === 'function')
-                ? state.getLastMutationAt() : 0;
-            const lastFlush = autosaveHandle ? autosaveHandle.lastFlushAt() : 0;
-            const pendingFlush = lastMut > 0 && lastMut > lastFlush;
-            if (!dirty && !pendingFlush) return;
+            if (!state.hasUnsavedChanges()) return;
             e.preventDefault();
             e.returnValue = '';
         } catch (_) { /* never block unload on a guard error */ }

@@ -343,10 +343,24 @@ export function createState(initialProject) {
             return { attached };
         },
 
-        /** Stamp the current project as the saved-baseline for
-         *  `hasUnsavedChanges()`. Called after every successful save. */
-        markSaved() {
-            lastSavedHash = computeCurrentHash();
+        /** Stamp the saved-baseline for `hasUnsavedChanges()`. Called after
+         *  every successful save (manual or autosave).
+         *
+         *  Round-9-K Item 2: accepts an optional `savedJson` (the exact JSON
+         *  that was written to storage) so the baseline hash matches the
+         *  on-disk bytes — not "the project as it stood at the moment of
+         *  this call". Without that param a mutation that lands between the
+         *  saver's snapshot and `markSaved()` would falsely become the new
+         *  baseline (race: save snapshots t=0, await IDB, user types, save
+         *  resolves, markSaved hashes t=1 → "clean" when the on-disk bytes
+         *  describe t=0).
+         */
+        markSaved(savedJson) {
+            if (typeof savedJson === 'string' && savedJson.length > 0) {
+                lastSavedHash = hashProjectJson(savedJson);
+            } else {
+                lastSavedHash = computeCurrentHash();
+            }
         },
 
         /** Wipe the saved-baseline; subsequent `hasUnsavedChanges()` always
