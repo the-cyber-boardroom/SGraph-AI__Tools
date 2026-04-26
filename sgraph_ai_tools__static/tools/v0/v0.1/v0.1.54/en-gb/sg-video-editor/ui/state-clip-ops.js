@@ -18,8 +18,10 @@ import { assertTrackUnlocked } from './state-track-ops.js';
  * Centralised here so `addClipOp` / `moveClipOp` (and the shape/text/track
  * variants) all share the same heuristic.
  */
-function resolveSnapStart(track, proposedStart, duration, fps, excludeClipId) {
-    const next = snapToClearSlot(track, proposedStart, proposedStart + duration, excludeClipId);
+function resolveSnapStart(track, proposedStart, duration, fps, excludeClipId, maxSnapDistance) {
+    const next = snapToClearSlot(
+        track, proposedStart, proposedStart + duration, excludeClipId, maxSnapDistance,
+    );
     if (next == null) return null;
     return snapToFps(Math.max(0, next), fps);
 }
@@ -58,7 +60,7 @@ const DEFAULT_IMAGE_DURATION_SEC = 5;
  *  flush-abutting the nearest neighbour edge (see `snapToClearSlot`); the
  *  user-chosen `timelineStart` is preserved when there is no overlap. */
 export function addClipOp(project, params, genId) {
-    const { trackId, assetId, timelineStart, inPoint, outPoint, clipId, snap } = params;
+    const { trackId, assetId, timelineStart, inPoint, outPoint, clipId, snap, maxSnapDistance } = params;
     const track = findTrack(project, trackId);
     if (!track) throw badArg(`unknown trackId: ${trackId}`);
     assertTrackUnlocked(project, trackId);
@@ -75,7 +77,7 @@ export function addClipOp(project, params, genId) {
     const id = clipId || genId('c');
     if (snap) {
         const dur = outP - inP;
-        const adj = resolveSnapStart(track, tStart, dur, fps, id);
+        const adj = resolveSnapStart(track, tStart, dur, fps, id, maxSnapDistance);
         if (adj == null) assertNoOverlap(track, tStart, tStart + dur, id); // throws
         else tStart = adj;
     } else {
@@ -108,7 +110,7 @@ export function trimClipOp(project, { clipId, inPoint, outPoint }) {
  *  When `params.snap === true`, an overlapping placement is auto-resolved by
  *  flush-abutting the nearest neighbour edge (see `snapToClearSlot`); the
  *  user-chosen `timelineStart` is preserved when there is no overlap. */
-export function moveClipOp(project, { clipId, timelineStart, snap }) {
+export function moveClipOp(project, { clipId, timelineStart, snap, maxSnapDistance }) {
     const loc = findClipLocation(project, clipId);
     if (!loc) throw badArg(`unknown clipId: ${clipId}`);
     assertTrackUnlocked(project, loc.track.id);
@@ -117,7 +119,7 @@ export function moveClipOp(project, { clipId, timelineStart, snap }) {
     let t = snapToFps(Math.max(0, Number(timelineStart) || 0), fps);
     const dur = clip.outPoint - clip.inPoint;
     if (snap) {
-        const adj = resolveSnapStart(loc.track, t, dur, fps, clipId);
+        const adj = resolveSnapStart(loc.track, t, dur, fps, clipId, maxSnapDistance);
         if (adj == null) assertNoOverlap(loc.track, t, t + dur, clipId); // throws
         else t = adj;
     } else {
@@ -165,7 +167,7 @@ export function setClipCropOp(project, { clipId, crop }) {
 /** Append a shape clip (no asset). Returns its id.
  *  Honours `params.snap` like `addClipOp`. */
 export function addShapeClipOp(project, params, genId) {
-    const { trackId, timelineStart, duration, clipId, shape, snap } = params;
+    const { trackId, timelineStart, duration, clipId, shape, snap, maxSnapDistance } = params;
     const track = findTrack(project, trackId);
     if (!track) throw badArg(`unknown trackId: ${trackId}`);
     assertTrackUnlocked(project, trackId);
@@ -174,7 +176,7 @@ export function addShapeClipOp(project, params, genId) {
     let tStart = snapToFps(Number.isFinite(timelineStart) ? timelineStart : trackEnd(track), fps);
     const id = clipId || genId('s');
     if (snap) {
-        const adj = resolveSnapStart(track, tStart, dur, fps, id);
+        const adj = resolveSnapStart(track, tStart, dur, fps, id, maxSnapDistance);
         if (adj == null) assertNoOverlap(track, tStart, tStart + dur, id);
         else tStart = adj;
     } else {
@@ -190,7 +192,7 @@ export function addShapeClipOp(project, params, genId) {
 /** Append a text clip (no asset). Returns its id.
  *  Honours `params.snap` like `addClipOp`. */
 export function addTextClipOp(project, params, genId) {
-    const { trackId, timelineStart, duration, clipId, text, snap } = params;
+    const { trackId, timelineStart, duration, clipId, text, snap, maxSnapDistance } = params;
     const track = findTrack(project, trackId);
     if (!track) throw badArg(`unknown trackId: ${trackId}`);
     assertTrackUnlocked(project, trackId);
@@ -199,7 +201,7 @@ export function addTextClipOp(project, params, genId) {
     let tStart = snapToFps(Number.isFinite(timelineStart) ? timelineStart : trackEnd(track), fps);
     const id = clipId || genId('t');
     if (snap) {
-        const adj = resolveSnapStart(track, tStart, dur, fps, id);
+        const adj = resolveSnapStart(track, tStart, dur, fps, id, maxSnapDistance);
         if (adj == null) assertNoOverlap(track, tStart, tStart + dur, id);
         else tStart = adj;
     } else {

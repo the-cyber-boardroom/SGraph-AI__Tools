@@ -15,10 +15,10 @@ function isAcceptedFile(f) {
 
 /**
  * Mount the asset panel inside host. The full panel acts as a drop target.
- * @param {{host: HTMLElement, state: object, onFilesPicked: (files: File[]) => void, api?: object, getPlayhead?: () => number}} opts
+ * @param {{host: HTMLElement, state: object, onFilesPicked: (files: File[]) => void, api?: object, getPlayhead?: () => number, getSelectedTrackId?: () => (string|null)}} opts
  * @returns {{refresh: (project: object) => void, destroy: () => void}}
  */
-export function mountAssetPanel({ host, state, onFilesPicked, api, getPlayhead }) {
+export function mountAssetPanel({ host, state, onFilesPicked, api, getPlayhead, getSelectedTrackId }) {
     host.innerHTML = `
         <div class="sgve-asset-panel">
             <div class="sgve-asset-dropzone" tabindex="0">
@@ -41,6 +41,7 @@ export function mountAssetPanel({ host, state, onFilesPicked, api, getPlayhead }
             host: addSlot,
             getProject: () => state.getProject(),
             getPlayhead: typeof getPlayhead === 'function' ? getPlayhead : () => 0,
+            getSelectedTrackId: typeof getSelectedTrackId === 'function' ? getSelectedTrackId : () => null,
             api,
         });
     }

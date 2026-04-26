@@ -81,15 +81,25 @@ function findOverlappingClip(track, start, end, excludeClipId) {
  *  - If the natural side still collides with a different clip, try the other
  *    side. If both sides still collide, return `null`.
  *
+ * `maxSnapDistance` (optional, seconds) caps the distance the helper is
+ * willing to walk away from the proposed `start`. The toolbar buttons (`+
+ * Shape` / `+ Text` / asset auto-place) pass `maxSnapDistance: 2` so a
+ * playhead-on-clip drop only snaps to the immediate edge — it must NOT walk
+ * 100s+ across a long video to find an empty slot. Drag-drop callers leave
+ * the cap unlimited (the user can already see exactly where they're aiming).
+ *
  * Pure: does not mutate `track`.
  *
  * @param {{ clips: Array<{id: string, timelineStart: number, inPoint: number, outPoint: number}> }} track
  * @param {number} start Proposed start on the timeline (post-snap-to-fps).
  * @param {number} end Proposed end on the timeline.
  * @param {string|null|undefined} excludeClipId Clip being moved/trimmed (skipped).
+ * @param {number} [maxSnapDistance] Max seconds the snap target may be from
+ *     the proposed `start` (Infinity when omitted = unlimited; preserves the
+ *     pre-Task-1 behaviour for drag-drop callers).
  * @returns {number|null} Adjusted start, or `null` if no clear slot near either side.
  */
-export function snapToClearSlot(track, start, end, excludeClipId) {
+export function snapToClearSlot(track, start, end, excludeClipId, maxSnapDistance) {
     const neighbour = findOverlappingClip(track, start, end, excludeClipId);
     if (!neighbour) return start;
     const duration = end - start;
@@ -101,8 +111,12 @@ export function snapToClearSlot(track, start, end, excludeClipId) {
     const afterStart = nEnd;
     const beforeStart = Math.max(0, nStart - duration);
     const tryOrder = naturalAfter ? [afterStart, beforeStart] : [beforeStart, afterStart];
+    const cap = (Number.isFinite(maxSnapDistance) && maxSnapDistance >= 0)
+        ? maxSnapDistance
+        : Infinity;
     for (const cand of tryOrder) {
         if (cand < 0) continue;
+        if (Math.abs(cand - start) > cap + EPS) continue;
         if (!wouldOverlap(track, cand, cand + duration, excludeClipId)) return cand;
     }
     return null;

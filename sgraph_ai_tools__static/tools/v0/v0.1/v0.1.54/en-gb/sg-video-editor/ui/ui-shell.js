@@ -119,6 +119,7 @@ export function mountShell({ host, state, api, getComposer, setComposer }) {
             state,
             api,
             getPlayhead: () => ctx.currentPlayhead,
+            getSelectedTrackId: () => ctx.selectedTrackId,
             onFilesPicked: async (files) => {
                 for (const file of files) {
                     try { await api.loadAsset({ file }); }

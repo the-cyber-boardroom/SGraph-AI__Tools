@@ -38,24 +38,36 @@ export function buildApiMethods({ state, getComposer, setComposer, hostEl }) {
     }
 
     function addClip(params = {}) {
-        const { trackId, assetId, timelineStart, inPoint, outPoint, clipId, snap } = params;
+        const { trackId, assetId, timelineStart, inPoint, outPoint, clipId, snap, maxSnapDistance } = params;
         if (!trackId) throw badArg('trackId required');
         if (!assetId) throw badArg('assetId required');
-        const id = state.addClip({ trackId, assetId, timelineStart, inPoint, outPoint, clipId, snap: !!snap });
+        const id = state.addClip({
+            trackId, assetId, timelineStart, inPoint, outPoint, clipId,
+            snap: !!snap,
+            maxSnapDistance: Number.isFinite(maxSnapDistance) ? maxSnapDistance : undefined,
+        });
         return { clipId: id };
     }
 
     function addShapeClip(params = {}) {
-        const { trackId, timelineStart, duration, clipId, shape, snap } = params;
+        const { trackId, timelineStart, duration, clipId, shape, snap, maxSnapDistance } = params;
         if (!trackId) throw badArg('trackId required');
-        const id = state.addShapeClip({ trackId, timelineStart, duration, clipId, shape, snap: !!snap });
+        const id = state.addShapeClip({
+            trackId, timelineStart, duration, clipId, shape,
+            snap: !!snap,
+            maxSnapDistance: Number.isFinite(maxSnapDistance) ? maxSnapDistance : undefined,
+        });
         return { clipId: id };
     }
 
     function addTextClip(params = {}) {
-        const { trackId, timelineStart, duration, clipId, text, snap } = params;
+        const { trackId, timelineStart, duration, clipId, text, snap, maxSnapDistance } = params;
         if (!trackId) throw badArg('trackId required');
-        const id = state.addTextClip({ trackId, timelineStart, duration, clipId, text, snap: !!snap });
+        const id = state.addTextClip({
+            trackId, timelineStart, duration, clipId, text,
+            snap: !!snap,
+            maxSnapDistance: Number.isFinite(maxSnapDistance) ? maxSnapDistance : undefined,
+        });
         return { clipId: id };
     }
 
@@ -95,10 +107,14 @@ export function buildApiMethods({ state, getComposer, setComposer, hostEl }) {
     }
 
     function moveClip(params = {}) {
-        const { clipId, timelineStart, snap } = params;
+        const { clipId, timelineStart, snap, maxSnapDistance } = params;
         if (!clipId) throw badArg('clipId required');
         if (!Number.isFinite(timelineStart)) throw badArg('timelineStart must be a number');
-        state.moveClip({ clipId, timelineStart, snap: !!snap });
+        state.moveClip({
+            clipId, timelineStart,
+            snap: !!snap,
+            maxSnapDistance: Number.isFinite(maxSnapDistance) ? maxSnapDistance : undefined,
+        });
         return { clipId, timelineStart };
     }
 
