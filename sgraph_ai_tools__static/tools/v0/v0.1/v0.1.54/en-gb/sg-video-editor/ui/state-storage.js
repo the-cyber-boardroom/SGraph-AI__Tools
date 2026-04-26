@@ -201,10 +201,21 @@ export function deleteSavedProject(slug) {
  * Write the autosave slot. Same lossy serialisation as named saves; wrapped
  * with `{ savedAt, project }` so the on-init prompt can compute "N seconds
  * ago".
+ *
+ * Round-9-K Item 2: returns `{ savedAt, json }` — `json` is the
+ * stripped-project JSON (without the `{savedAt, project:…}` envelope) so
+ * callers can pass it to `state.markSaved(json)` and get a dirty-baseline
+ * hash that matches the bytes that hit storage. Without this the autosave
+ * + manual-save paths can't reuse the same hash recipe `hasUnsavedChanges()`
+ * uses internally (`stripAssetsForStorage(project) → JSON.stringify`),
+ * which leaves a race window where a mid-flight mutation could slip into
+ * the baseline.
  */
 export function writeAutosave(project) {
     const stripped = stripAssetsForStorage(project);
-    writeJson(AUTOSAVE_KEY, { savedAt: Date.now(), project: stripped });
+    const savedAt = Date.now();
+    writeJson(AUTOSAVE_KEY, { savedAt, project: stripped });
+    return { savedAt, json: JSON.stringify(stripped) };
 }
 
 /** Read the autosave slot. Returns `null` when absent or unparseable. */
