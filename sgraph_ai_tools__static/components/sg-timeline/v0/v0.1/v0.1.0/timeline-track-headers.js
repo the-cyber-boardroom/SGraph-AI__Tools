@@ -27,15 +27,29 @@ export function renderTrackHeader(track, arrayIndex, totalTracks, selectedTrackI
     if (locked) root.classList.add('track-header--locked');
     if (selected) root.classList.add('track-header--selected');
 
+    const labelWrap = document.createElement('div');
+    labelWrap.className = 'track-header__label-wrap';
     const label = document.createElement('div');
     label.className = 'track-header__label';
     label.dataset.role = 'track-label';
     label.dataset.trackId = track.id || '';
-    label.title = 'Click to select · double-click to rename';
+    label.title = 'Click to select · double-click (or pencil) to rename';
     const labelText = (typeof track.name === 'string' && track.name)
         ? track.name
         : `Track ${arrayIndex + 1}`;
     label.textContent = labelText;
+
+    const renameBtn = document.createElement('button');
+    renameBtn.type = 'button';
+    renameBtn.className = 'track-header__rename';
+    renameBtn.dataset.role = 'track-rename';
+    renameBtn.dataset.trackId = track.id || '';
+    renameBtn.title = 'Rename track';
+    renameBtn.setAttribute('aria-label', 'Rename track');
+    renameBtn.textContent = '✎'; // pencil
+
+    labelWrap.appendChild(label);
+    labelWrap.appendChild(renameBtn);
 
     const btns = document.createElement('div');
     btns.className = 'track-header__btns';
@@ -73,7 +87,7 @@ export function renderTrackHeader(track, arrayIndex, totalTracks, selectedTrackI
     btns.appendChild(muteBtn);
     btns.appendChild(lockBtn);
     btns.appendChild(removeBtn);
-    root.appendChild(label);
+    root.appendChild(labelWrap);
     root.appendChild(btns);
     return root;
 }
@@ -153,6 +167,15 @@ export function attachHeaderButtons(lanesEl, dispatch) {
             const trackId = removeEl.dataset.trackId;
             if (!trackId) return;
             dispatch(SGT_EVENTS.TRACK_REMOVE_REQUESTED, { trackId });
+            return;
+        }
+        const renameEl = e.target.closest && e.target.closest('[data-role="track-rename"]');
+        if (renameEl) {
+            e.preventDefault();
+            e.stopPropagation();
+            const wrap = renameEl.closest('.track-header__label-wrap');
+            const lbl = wrap && wrap.querySelector('[data-role="track-label"]');
+            if (lbl) startRename(lbl, dispatch);
             return;
         }
         const labelEl = e.target.closest && e.target.closest('[data-role="track-label"]');
