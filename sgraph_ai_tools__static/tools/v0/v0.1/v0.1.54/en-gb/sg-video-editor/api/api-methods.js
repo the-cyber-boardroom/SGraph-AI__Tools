@@ -38,24 +38,24 @@ export function buildApiMethods({ state, getComposer, setComposer, hostEl }) {
     }
 
     function addClip(params = {}) {
-        const { trackId, assetId, timelineStart, inPoint, outPoint, clipId } = params;
+        const { trackId, assetId, timelineStart, inPoint, outPoint, clipId, snap } = params;
         if (!trackId) throw badArg('trackId required');
         if (!assetId) throw badArg('assetId required');
-        const id = state.addClip({ trackId, assetId, timelineStart, inPoint, outPoint, clipId });
+        const id = state.addClip({ trackId, assetId, timelineStart, inPoint, outPoint, clipId, snap: !!snap });
         return { clipId: id };
     }
 
     function addShapeClip(params = {}) {
-        const { trackId, timelineStart, duration, clipId, shape } = params;
+        const { trackId, timelineStart, duration, clipId, shape, snap } = params;
         if (!trackId) throw badArg('trackId required');
-        const id = state.addShapeClip({ trackId, timelineStart, duration, clipId, shape });
+        const id = state.addShapeClip({ trackId, timelineStart, duration, clipId, shape, snap: !!snap });
         return { clipId: id };
     }
 
     function addTextClip(params = {}) {
-        const { trackId, timelineStart, duration, clipId, text } = params;
+        const { trackId, timelineStart, duration, clipId, text, snap } = params;
         if (!trackId) throw badArg('trackId required');
-        const id = state.addTextClip({ trackId, timelineStart, duration, clipId, text });
+        const id = state.addTextClip({ trackId, timelineStart, duration, clipId, text, snap: !!snap });
         return { clipId: id };
     }
 
@@ -95,10 +95,10 @@ export function buildApiMethods({ state, getComposer, setComposer, hostEl }) {
     }
 
     function moveClip(params = {}) {
-        const { clipId, timelineStart } = params;
+        const { clipId, timelineStart, snap } = params;
         if (!clipId) throw badArg('clipId required');
         if (!Number.isFinite(timelineStart)) throw badArg('timelineStart must be a number');
-        state.moveClip({ clipId, timelineStart });
+        state.moveClip({ clipId, timelineStart, snap: !!snap });
         return { clipId, timelineStart };
     }
 

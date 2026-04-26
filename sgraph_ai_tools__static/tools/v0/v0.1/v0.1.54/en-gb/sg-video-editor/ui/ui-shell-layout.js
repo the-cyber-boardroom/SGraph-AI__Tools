@@ -79,7 +79,8 @@ export function resolvePanels(layout) {
 export function wireTimelineEvents(timelineEl, api, ctx) {
     function onAdded(e) {
         const d = e.detail || {};
-        Promise.resolve(api.addClip({ trackId: d.trackId || 't-video-1', assetId: d.assetId, timelineStart: d.timelineStart }))
+        // snap: drag-drop snap-abuts to the nearest neighbour edge on overlap.
+        Promise.resolve(api.addClip({ trackId: d.trackId || 't-video-1', assetId: d.assetId, timelineStart: d.timelineStart, snap: true }))
             .catch(err => emitErr('addClip', err));
     }
     function onTrackAdd() {
@@ -102,14 +103,16 @@ export function wireTimelineEvents(timelineEl, api, ctx) {
         Promise.resolve(api.moveClipToTrack({ clipId: d.clipId, toTrackId: d.toTrackId }))
             .then(() => {
                 if (Number.isFinite(d.timelineStart)) {
-                    return api.moveClip({ clipId: d.clipId, timelineStart: d.timelineStart });
+                    // snap: drag-across-tracks should also snap-abut on overlap.
+                    return api.moveClip({ clipId: d.clipId, timelineStart: d.timelineStart, snap: true });
                 }
             })
             .catch(err => emitErr('moveClipToTrack', err));
     }
     function onMoved(e) {
         const d = e.detail || {};
-        Promise.resolve(api.moveClip({ clipId: d.clipId, timelineStart: d.timelineStart }))
+        // snap: drag-on-timeline snap-abuts to the nearest neighbour edge on overlap.
+        Promise.resolve(api.moveClip({ clipId: d.clipId, timelineStart: d.timelineStart, snap: true }))
             .catch(err => emitErr('moveClip', err));
     }
     function onTrimmed(e) {

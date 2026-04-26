@@ -144,12 +144,15 @@ export function mountAddClipButtons({ host, getProject, getPlayhead, api }) {
     }
 
     function commitShape() {
+        // snap: try snap-abut to the nearest edge first. Only fall through to
+        // withOverlapAutoTrack (which adds a new track) if both sides collide.
         withOverlapAutoTrack(api, getProject, (trackId) => {
             if (!trackId) throw new Error('No video track available — add one first.');
             return api.addShapeClip({
                 trackId,
                 timelineStart: getPlayhead(),
                 shape: { type: 'rect', fill: shapeFill },
+                snap: true,
             });
         }).catch(err => emitErr('addShapeClip', err));
         closeAll();
@@ -161,6 +164,7 @@ export function mountAddClipButtons({ host, getProject, getPlayhead, api }) {
                 trackId,
                 timelineStart: getPlayhead(),
                 text: { content: textContent, color: textColor, fontSize: textSize },
+                snap: true,
             });
         }).catch(err => emitErr('addTextClip', err));
         closeAll();
