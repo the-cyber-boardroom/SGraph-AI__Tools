@@ -146,6 +146,25 @@ Set or clear a track's display name. Empty / whitespace-only names clear the ove
 
 Returns: `{ trackId, name }` (`name === null` when cleared).
 
+### setTrackColor
+
+Set or clear a track's display colour (Round-9-I Task 3). Each track carries a `color` field (assigned automatically from a 6-shade contrast palette — indigo / teal / amber / rose / purple / sky — when the track is created). Clips render with priority:
+
+```
+clip.color   →   track.color   →   palette[trackIndex % 6]   (CSS auto-shade)
+```
+
+Pass `color: '#rrggbb'` to override; pass `color: null` (or `''`) to re-apply the palette pick for the track's current position so callers don't have to compute the auto colour themselves. Locked tracks may still be recoloured — colour is cosmetic, mirrors the existing rename / mute policy.
+
+Implementation note: this is the only track API method that goes through `state.getProject() → state-track-ops.setTrackColorOp(project) → state.setProject(project)` rather than a dedicated state container method. Tradeoff is one full validate + project-level history snapshot per recolour instead of a focused op log entry — acceptable for an infrequent cosmetic action; lets the parallel persistence layer's state.js stay untouched.
+
+| Param | Type | Required |
+|---|---|---|
+| `trackId` | string | yes |
+| `color` | string \| null | yes (`null` re-applies the auto palette colour) |
+
+Returns: `{ trackId, color }` (the resolved colour after auto-pick fallback).
+
 ### copyClip
 
 Copy a clip's payload (kind / shape / text / transform / crop / asset reference / inPoint / outPoint / colour) to the in-memory clipboard (single slot). The clip's `id` and `timelineStart` are stripped — they are picked at paste time.
