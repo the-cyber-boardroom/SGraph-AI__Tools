@@ -155,6 +155,28 @@ export function buildApiMethods({ state, getComposer, setComposer, hostEl }) {
         return { clipId: r.clipId, crop: r.crop };
     }
 
+    function copyClip(params = {}) {
+        const { clipId } = params;
+        if (!clipId) throw badArg('clipId required');
+        const r = state.copyClip({ clipId });
+        return { hasClipboard: !!(r && r.hasClipboard) };
+    }
+
+    function pasteClip(params = {}) {
+        const { targetTrackId, timelineStart, snap, maxSnapDistance } = params || {};
+        if (!state.hasClipboard()) throw badArg('clipboard is empty');
+        if (!targetTrackId) throw badArg('targetTrackId required');
+        if (!Number.isFinite(timelineStart)) throw badArg('timelineStart must be a finite number');
+        const r = state.pasteClip({
+            targetTrackId, timelineStart,
+            snap: !!snap,
+            maxSnapDistance: Number.isFinite(maxSnapDistance) ? maxSnapDistance : undefined,
+        });
+        return r ? { clipId: r.clipId, trackId: r.trackId, timelineStart: r.timelineStart } : null;
+    }
+
+    function hasClipboard() { return { hasClipboard: state.hasClipboard() }; }
+
     function getProject() { return state.getProject(); }
 
     function setProject(params = {}) {
@@ -204,6 +226,7 @@ export function buildApiMethods({ state, getComposer, setComposer, hostEl }) {
         loadAsset, removeAsset, addClip, trimClip, removeClip, moveClip, splitClip,
         setClipColor, setClipTransform, setClipCrop,
         addShapeClip, addTextClip, setShapeProps, setTextProps,
+        copyClip, pasteClip, hasClipboard,
         getProject, setProject,
         undo, redo, canUndo, canRedo,
         exportMp4,

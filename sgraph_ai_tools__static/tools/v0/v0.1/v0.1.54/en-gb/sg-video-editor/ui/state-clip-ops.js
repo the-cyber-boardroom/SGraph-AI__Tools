@@ -283,6 +283,72 @@ export function removeAssetOp(project, { assetId }) {
     return { assetId };
 }
 
+/**
+ * Build a clipboard payload for a clip — a self-contained snapshot the
+ * `pasteClipOp` can later use to materialise a fresh clip on any track. The
+ * payload deliberately strips `id` and `timelineStart` (they are picked at
+ * paste-time) but keeps every other field (kind/shape/text/transform/crop/
+ * inPoint/outPoint/assetId/color). Returns null if the clip cannot be found.
+ *
+ * Pure: does not mutate `project`.
+ *
+ * @param {object} project
+ * @param {{ clipId: string }} params
+ * @returns {object|null} Clipboard entry, ready to JSON-clone into state.
+ */
+export function copyClipOp(project, { clipId }) {
+    const loc = findClipLocation(project, clipId);
+    if (!loc) throw badArg(`unknown clipId: ${clipId}`);
+    const clip = loc.track.clips[loc.index];
+    const payload = {
+        sourceTrackId: loc.track.id,
+        clip: { ...clip },
+    };
+    delete payload.clip.id;
+    delete payload.clip.timelineStart;
+    return payload;
+}
+
+/**
+ * Paste a clipboard payload onto a target track at `timelineStart`. Honours
+ * the same `snap` / `maxSnapDistance` heuristics as `addClipOp`. Validates
+ * that any referenced asset still exists in the project. Returns the new
+ * clip id.
+ *
+ * @param {object} project
+ * @param {{ payload: object, targetTrackId: string, timelineStart: number, snap?: boolean, maxSnapDistance?: number }} params
+ * @param {(prefix: string) => string} genId
+ * @returns {{ clipId: string, trackId: string, timelineStart: number }}
+ */
+export function pasteClipOp(project, params, genId) {
+    const { payload, targetTrackId, timelineStart, snap, maxSnapDistance } = params || {};
+    if (!payload || typeof payload !== 'object' || !payload.clip) throw badArg('payload required');
+    const track = findTrack(project, targetTrackId);
+    if (!track) throw badArg(`unknown trackId: ${targetTrackId}`);
+    assertTrackUnlocked(project, targetTrackId);
+    const fps = project.project.fps;
+    const src = payload.clip;
+    if (src.assetId && !findAsset(project, src.assetId)) {
+        throw badArg(`paste source references missing asset ${src.assetId}`);
+    }
+    const inP = Number.isFinite(src.inPoint) ? src.inPoint : 0;
+    const outP = Number.isFinite(src.outPoint) ? src.outPoint : (inP + 5);
+    if (outP <= inP) throw badArg('payload outPoint must be > inPoint');
+    const dur = outP - inP;
+    let tStart = snapToFps(Math.max(0, Number.isFinite(timelineStart) ? timelineStart : trackEnd(track)), fps);
+    const id = genId(src.kind === 'shape' ? 's' : (src.kind === 'text' ? 't' : 'c'));
+    if (snap) {
+        const adj = resolveSnapStart(track, tStart, dur, fps, id, maxSnapDistance);
+        if (adj == null) assertNoOverlap(track, tStart, tStart + dur, id);
+        else tStart = adj;
+    } else {
+        assertNoOverlap(track, tStart, tStart + dur, id);
+    }
+    const next = { ...src, id, timelineStart: tStart, inPoint: inP, outPoint: outP };
+    track.clips.push(next);
+    return { clipId: id, trackId: targetTrackId, timelineStart: tStart };
+}
+
 /** Append an asset entry; caller wires the Blob into its registry. */
 export function addAssetOp(project, params) {
     const { assetId, name, mime, duration, width, height, bytes, assetType } = params;

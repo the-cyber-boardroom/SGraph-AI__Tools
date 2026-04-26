@@ -70,6 +70,13 @@
     flex: 0 0 auto;
 }
 
+.zoom-toolbar .clipboard-buttons {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.25rem;
+    flex: 0 0 auto;
+}
+
 .zoom-toolbar .zoom-label {
     margin-left: 0.5rem;
     opacity: 0.85;
@@ -169,6 +176,28 @@
 
 .drop-indicator.is-visible {
     display: block;
+}
+
+.drop-indicator.is-copy {
+    background: #fbbf24;
+    box-shadow: 0 0 6px rgba(251, 191, 36, 0.65);
+}
+
+.drop-indicator.is-copy::after {
+    content: '+';
+    position: absolute;
+    top: -8px;
+    left: 4px;
+    width: 14px;
+    height: 14px;
+    background: #fbbf24;
+    color: #0f172a;
+    border-radius: 50%;
+    font-weight: 700;
+    font-size: 11px;
+    line-height: 14px;
+    text-align: center;
+    box-shadow: 0 0 0 1px #0f172a;
 }
 
 .clip {
@@ -297,6 +326,11 @@
 }
 
 .sgt-ghost.is-visible { display: block; }
+
+.sgt-ghost.is-copy {
+    background: rgba(251, 191, 36, 0.22);
+    border-color: #fbbf24;
+}
 
 .sgt-drag-label {
     position: absolute;

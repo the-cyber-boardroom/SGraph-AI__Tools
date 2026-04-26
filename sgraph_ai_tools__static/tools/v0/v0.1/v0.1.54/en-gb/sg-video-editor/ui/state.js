@@ -6,7 +6,7 @@ import {
     addAssetOp, addClipOp, trimClipOp, moveClipOp, removeClipOp,
     setClipColorOp, setClipTransformOp, setClipCropOp,
     addShapeClipOp, addTextClipOp, setShapePropsOp, setTextPropsOp,
-    removeAssetOp,
+    removeAssetOp, copyClipOp, pasteClipOp,
 } from './state-clip-ops.js';
 import {
     addTrackOp, removeTrackOp, moveClipToTrackOp, reorderTracksOp, setTrackMutedOp,
@@ -27,6 +27,8 @@ export function createState(initialProject) {
     const assetRegistry = new Map();
     const target = new EventTarget();
     const history = createHistory({ maxEntries: 50 });
+    /** Clipboard: in-memory only, holds the last copyClip payload. */
+    let clipboard = null;
 
     function emit(extra) {
         const detail = { project: deepClone(project) };
@@ -209,6 +211,39 @@ export function createState(initialProject) {
             history.pushSnapshot(snap);
             withOp({ op: 'renameTrack', trackId: r.trackId, name: r.name });
             emit(); return r;
+        },
+        copyClip(params) {
+            const payload = copyClipOp(project, params);
+            // Defensive deep clone so mutations to project after copy don't bleed.
+            clipboard = deepClone(payload);
+            // Notify listeners so the toolbar can flip Paste from disabled→enabled.
+            target.dispatchEvent(new CustomEvent('clipboard', {
+                detail: { hasClipboard: !!clipboard },
+            }));
+            return { hasClipboard: true };
+        },
+        pasteClip(params) {
+            if (!clipboard) return null;
+            const snap = deepClone(project);
+            const r = pasteClipOp(project, { ...params, payload: clipboard }, genId);
+            history.pushSnapshot(snap);
+            withOp({
+                op: 'pasteClip',
+                clipId: r.clipId, trackId: r.trackId, timelineStart: r.timelineStart,
+            });
+            emit();
+            return r;
+        },
+        getClipboard() { return clipboard ? deepClone(clipboard) : null; },
+        hasClipboard() { return !!clipboard; },
+        clearClipboard() {
+            const had = !!clipboard;
+            clipboard = null;
+            if (had) {
+                target.dispatchEvent(new CustomEvent('clipboard', {
+                    detail: { hasClipboard: false },
+                }));
+            }
         },
         reorderTracks(params) {
             const snap = deepClone(project);

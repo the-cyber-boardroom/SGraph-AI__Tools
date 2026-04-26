@@ -56,7 +56,13 @@ export function mountShell({ host, state, api, getComposer, setComposer }) {
     layout.setLayout(buildLayoutDescriptor());
 
     const exportSlot = topbar.querySelector('[data-slot="export"]');
-    const ctx = { selectedClipId: null, selectedTrackId: null, currentPlayhead: 0, getComposer };
+    const ctx = {
+        selectedClipId: null,
+        selectedTrackId: null,
+        currentPlayhead: 0,
+        getComposer,
+        getProject: () => state.getProject(),
+    };
 
     let assetPanel = null, exportCtl = null, unwireTimeline = null;
     let previewEl = null, timelineEl = null;
@@ -83,6 +89,12 @@ export function mountShell({ host, state, api, getComposer, setComposer }) {
             timelineEl.setHistoryFlags({ canUndo: state.canUndo(), canRedo: state.canRedo() });
         }
     }
+    function syncClipboardFlags() {
+        if (timelineEl && typeof timelineEl.setClipboardFlags === 'function') {
+            timelineEl.setClipboardFlags({ canPaste: !!state.hasClipboard() });
+        }
+    }
+    function onClipboardChange() { syncClipboardFlags(); }
     /** Mid-drag transform/crop: refresh the composer's live project + overlay
      *  in-place (no destroy/recreate, no debounce) so the canvas reflects every
      *  pointer tick without recording a history entry. */
@@ -169,8 +181,10 @@ export function mountShell({ host, state, api, getComposer, setComposer }) {
         });
         if (messagesPanel) messagesPane = mountMessagesPanel({ host: messagesPanel });
         syncHistoryFlags();
+        syncClipboardFlags();
         rebuild();
         state.addEventListener('change', handleChange);
+        state.addEventListener('clipboard', onClipboardChange);
         devPanel = mountDevPanel({ host, manifestUrl: './manifest.json' });
     }
 
@@ -184,6 +198,7 @@ export function mountShell({ host, state, api, getComposer, setComposer }) {
         try { document.removeEventListener('tool:toast', onToolToast); } catch (_) {}
         try { document.removeEventListener('tool:error', onToolError); } catch (_) {}
         try { state.removeEventListener('change', handleChange); } catch (_) {}
+        try { state.removeEventListener('clipboard', onClipboardChange); } catch (_) {}
         if (unwireTimeline) { try { unwireTimeline(); } catch (_) {} }
         if (timelineEl) {
             try { timelineEl.removeEventListener('sg-timeline:clip-selected', schedulePushActive); } catch (_) {}

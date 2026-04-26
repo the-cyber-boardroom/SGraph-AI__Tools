@@ -21,4 +21,5 @@ export const SGT_EVENTS = Object.freeze({
     CLIP_TRACK_CHANGED: 'sg-timeline:clip-track-changed',
     EDITOR_MODE_REQUESTED: 'sg-timeline:editor-mode-requested',
     CLIP_COPIED: 'sg-timeline:clip-copied',
+    CLIP_PASTE_REQUESTED: 'sg-timeline:clip-paste-requested',
 });

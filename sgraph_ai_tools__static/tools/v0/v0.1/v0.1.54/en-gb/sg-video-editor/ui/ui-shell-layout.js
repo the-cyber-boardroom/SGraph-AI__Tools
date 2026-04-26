@@ -219,6 +219,46 @@ export function wireTimelineEvents(timelineEl, api, ctx) {
     function onRedo() {
         Promise.resolve(api.redo()).catch(err => emitErr('redo', err));
     }
+    function onClipCopy(e) {
+        const d = e.detail || {};
+        if (!d.clipId) return;
+        // Two paths funnel here: (a) toolbar Copy button (no toTrackId/start),
+        // (b) Cmd+drag (with toTrackId + timelineStart). For (a) we just copy.
+        // For (b) we copy then immediately paste at the drop target.
+        Promise.resolve(api.copyClip({ clipId: d.clipId }))
+            .then(() => {
+                if (d.toTrackId && Number.isFinite(d.timelineStart)) {
+                    return api.pasteClip({
+                        targetTrackId: d.toTrackId,
+                        timelineStart: d.timelineStart,
+                        snap: true,
+                    });
+                }
+                return null;
+            })
+            .catch(err => emitErr('copyClip', err));
+    }
+    function onClipPaste() {
+        // Resolve target track + start at host level: prefer the user's
+        // selected track, otherwise the first video track, else t-video-1.
+        // Time = current playhead. Snap=true (paste is intentional, accept
+        // unlimited cap so it lands somewhere reasonable).
+        const cb = api.hasClipboard ? api.hasClipboard() : null;
+        const has = cb && (cb.hasClipboard === true || cb === true);
+        if (!has) return;
+        const proj = (typeof ctx.getProject === 'function') ? ctx.getProject() : null;
+        let targetTrack = ctx.selectedTrackId || null;
+        if (!targetTrack && proj && Array.isArray(proj.tracks)) {
+            const first = proj.tracks.find(t => t && t.kind === 'video');
+            if (first) targetTrack = first.id;
+        }
+        if (!targetTrack) targetTrack = 't-video-1';
+        Promise.resolve(api.pasteClip({
+            targetTrackId: targetTrack,
+            timelineStart: ctx.currentPlayhead || 0,
+            snap: true,
+        })).catch(err => emitErr('pasteClip', err));
+    }
     timelineEl.addEventListener('sg-timeline:clip-added', onAdded);
     timelineEl.addEventListener('sg-timeline:clip-moved', onMoved);
     timelineEl.addEventListener('sg-timeline:clip-trimmed', onTrimmed);
@@ -228,6 +268,8 @@ export function wireTimelineEvents(timelineEl, api, ctx) {
     timelineEl.addEventListener('sg-timeline:clip-color-requested', onColor);
     timelineEl.addEventListener('sg-timeline:undo-requested', onUndo);
     timelineEl.addEventListener('sg-timeline:redo-requested', onRedo);
+    timelineEl.addEventListener('sg-timeline:clip-copied', onClipCopy);
+    timelineEl.addEventListener('sg-timeline:clip-paste-requested', onClipPaste);
     timelineEl.addEventListener('sg-timeline:playhead-changed', onPlayhead);
     timelineEl.addEventListener('sg-timeline:track-add-requested', onTrackAdd);
     timelineEl.addEventListener('sg-timeline:track-remove-requested', onTrackRemove);
@@ -246,6 +288,8 @@ export function wireTimelineEvents(timelineEl, api, ctx) {
         timelineEl.removeEventListener('sg-timeline:clip-color-requested', onColor);
         timelineEl.removeEventListener('sg-timeline:undo-requested', onUndo);
         timelineEl.removeEventListener('sg-timeline:redo-requested', onRedo);
+        timelineEl.removeEventListener('sg-timeline:clip-copied', onClipCopy);
+        timelineEl.removeEventListener('sg-timeline:clip-paste-requested', onClipPaste);
         timelineEl.removeEventListener('sg-timeline:playhead-changed', onPlayhead);
         timelineEl.removeEventListener('sg-timeline:track-add-requested', onTrackAdd);
         timelineEl.removeEventListener('sg-timeline:track-remove-requested', onTrackRemove);

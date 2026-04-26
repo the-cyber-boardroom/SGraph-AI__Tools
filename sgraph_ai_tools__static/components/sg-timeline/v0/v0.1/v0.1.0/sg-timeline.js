@@ -99,6 +99,7 @@ export class SgTimeline extends HTMLElement {
             getLane: () => this.#lanes,
             dispatch,
             getHistoryFlags: () => this.#historyFlags,
+            getClipboardFlags: () => this.#clipboardFlags,
         });
         this.#renderAll();
     }

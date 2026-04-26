@@ -45,6 +45,9 @@ export function attachInteractions(root, getState, dispatch, hostEl) {
         if (!sourceLane) return;
         e.preventDefault();
         clipEl.setPointerCapture && clipEl.setPointerCapture(e.pointerId);
+        // Cmd/Ctrl + drag on a clip body = copy gesture. Modifier on a trim
+        // handle is ignored (resize is a non-copy operation).
+        const isCopy = role === 'move' && !!(e.metaKey || e.ctrlKey);
         drag = {
             kind: role,
             clipId,
@@ -59,6 +62,7 @@ export function attachInteractions(root, getState, dispatch, hostEl) {
             assetDur: assetDuration(state, found.clip.assetId),
             pointerId: e.pointerId,
             moved: false,
+            isCopy,
         };
         dispatch(SGT_EVENTS.CLIP_SELECTED, { clipId });
     }
@@ -113,6 +117,18 @@ export function attachInteractions(root, getState, dispatch, hostEl) {
         if (!d.moved) return;
         if (d.kind === 'move' && Number.isFinite(d.pendingStart)) {
             const toTrackId = d.toTrackId || d.fromTrackId;
+            if (d.isCopy) {
+                // Copy gesture: emit a single CLIP_COPIED event. The host owns
+                // the actual clipboard mechanics — we just say "the user
+                // intends to materialise this clip at this position".
+                dispatch(SGT_EVENTS.CLIP_COPIED, {
+                    clipId: d.clipId,
+                    fromTrackId: d.fromTrackId,
+                    toTrackId,
+                    timelineStart: d.pendingStart,
+                });
+                return;
+            }
             if (toTrackId !== d.fromTrackId) {
                 dispatch(SGT_EVENTS.CLIP_TRACK_CHANGED, {
                     clipId: d.clipId, fromTrackId: d.fromTrackId, toTrackId,
