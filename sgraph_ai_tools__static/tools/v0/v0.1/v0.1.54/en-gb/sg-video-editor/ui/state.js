@@ -290,11 +290,18 @@ export function createState(initialProject) {
          *  localStorage). Resets the clean / dirty hash to `next`'s shape so
          *  the just-loaded project is considered fully saved. Pushes a
          *  history snapshot so the user can undo the restore. Emits
-         *  `project:replaced` followed by a `change`. */
+         *  `project:replaced` followed by a `change`.
+         *
+         *  Round-9-J: clears the in-memory asset blob registry too — the
+         *  restored project's assetIds may collide with stale ids from the
+         *  previous session, so we start clean and let the IDB-hydration
+         *  pass refill the registry. The `__missingBlob` flag on each asset
+         *  keeps the UI honest in the brief window before hydration lands. */
         replaceProject(next) {
             const snap = deepClone(project);
             project = validateWrapped(deepClone(next));
             history.pushSnapshot(snap);
+            assetRegistry.clear();
             // Mark as clean — caller already loaded from storage; the JSON
             // round-trip is the canonical "saved" state.
             lastSavedHash = computeCurrentHash();
@@ -302,6 +309,38 @@ export function createState(initialProject) {
                 detail: { project: deepClone(project) },
             }));
             emit();
+        },
+
+        /** Round-9-J: attach hydrated Blobs (loaded from IDB) into the
+         *  in-memory asset registry, AND clear the `__missingBlob` flag on
+         *  every matched asset entry. Emits a single non-transient `change`
+         *  so the asset panel + composer rebuild against the full pixels.
+         *
+         *  Pure no-op for unknown ids — callers don't need to filter.
+         *
+         *  @param {Map<string, Blob>|Record<string, Blob>} blobsById
+         *  @returns {{attached: number}} number of assets that gained pixels.
+         */
+        attachAssetBlobs(blobsById) {
+            if (!blobsById) return { attached: 0 };
+            const get = blobsById instanceof Map
+                ? (id) => blobsById.get(id)
+                : (id) => blobsById[id];
+            let attached = 0;
+            for (const a of project.assets) {
+                if (!a || !a.id) continue;
+                const blob = get(a.id);
+                if (blob instanceof Blob) {
+                    assetRegistry.set(a.id, blob);
+                    if (a.__missingBlob) delete a.__missingBlob;
+                    attached += 1;
+                }
+            }
+            if (attached > 0) {
+                lastSavedHash = computeCurrentHash();
+                emit();
+            }
+            return { attached };
         },
 
         /** Stamp the current project as the saved-baseline for
