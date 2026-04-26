@@ -1,13 +1,16 @@
 // timeline-focus.js — shared "is focus inside a text-entry?" helper (v0.1.0)
 //
 // Used by:
-//   - timeline-keyboard.js   (Delete / Backspace / S shortcuts)
+//   - timeline-keyboard.js   (S split shortcut)
 //   - sg-video-editor/ui/ui-keyboard.js (Space, Cmd/Ctrl+C/V)
 //
 // Both have the same vulnerability: a global / host-scoped keydown listener
 // will fire while the user is typing in an <input> (e.g. the inline track
-// rename input mounted by timeline-track-headers.js). Pressing Backspace to
-// edit the input would otherwise also delete the selected clip.
+// rename input mounted by timeline-track-headers.js). Without this guard,
+// typing 's' or pressing Space inside a rename input would invoke the
+// shortcut instead of editing the text. (The Round-9-L follow-up additionally
+// removed the Delete/Backspace clip-removal shortcut entirely — see
+// timeline-keyboard.js.)
 //
 // The check pierces shadow roots — sg-timeline lives in a shadow root, so
 // `document.activeElement` in the light DOM is the host element; the real

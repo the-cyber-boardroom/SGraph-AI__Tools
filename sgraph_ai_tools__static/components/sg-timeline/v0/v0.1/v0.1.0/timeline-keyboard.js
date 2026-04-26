@@ -36,7 +36,12 @@ function isFocusedInside(hostEl) {
 }
 
 /**
- * Attach Delete/Backspace + S key shortcuts to the host element.
+ * Attach the S split shortcut to the host element. The Delete/Backspace
+ * clip-removal shortcut was removed (commit follows the same precedent as
+ * 83d004f, which dropped the Cmd/Ctrl+Z undo/redo shortcuts) — clip removal
+ * still ships via the hover-× button on each clip, dispatched from
+ * timeline-interactions.js. The text-entry guard via isTextEntryFocus() is
+ * retained because it benefits the S shortcut and any future shortcuts.
  * @param {HTMLElement|undefined} hostEl Custom-element host.
  * @param {() => {project: object|null, fps: number, playhead?: number, selectedClipId?: string|null}} getState
  * @param {(name: string, detail: object) => void} dispatch
@@ -50,16 +55,11 @@ export function attachKeyboard(hostEl, getState, dispatch) {
         // / contenteditable (e.g. the inline rename input mounted by
         // timeline-track-headers.js), skip the shortcut entirely so the
         // keystroke reaches the input. NO preventDefault — the input must
-        // still receive Backspace / Delete / 's' as normal text edits.
+        // still receive 's' as a normal text edit.
         if (isTextEntryFocus()) return;
         const state = getState();
         const sel = state.selectedClipId;
         if (!sel) return;
-        if (e.key === 'Delete' || e.key === 'Backspace') {
-            e.preventDefault();
-            dispatch(SGT_EVENTS.CLIP_DELETED, { clipId: sel });
-            return;
-        }
         if (e.key === 's' || e.key === 'S') {
             const clip = findClip(state, sel);
             if (!clip) return;

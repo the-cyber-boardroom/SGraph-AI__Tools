@@ -90,7 +90,7 @@
             { "name": "sg-timeline:clip-moved",      "when": "user drags a clip on the timeline",       "detail": "{ clipId, timelineStart }" },
             { "name": "sg-timeline:clip-trimmed",    "when": "user drags a clip edge",                  "detail": "{ clipId, inPoint, outPoint }" },
             { "name": "sg-timeline:clip-selected",   "when": "user clicks a clip",                      "detail": "{ clipId }" },
-            { "name": "sg-timeline:clip-deleted",    "when": "user clicks the clip x or presses Del",   "detail": "{ clipId }" },
+            { "name": "sg-timeline:clip-deleted",    "when": "user clicks the clip x button",           "detail": "{ clipId }" },
             { "name": "sg-timeline:clip-split",      "when": "user presses S with a clip selected",     "detail": "{ clipId, atTime }" },
             { "name": "sg-timeline:clip-color-requested", "when": "user picks a colour for the selected clip in the timeline toolbar", "detail": "{ clipId, color }" },
             { "name": "sg-timeline:undo-requested",  "when": "user clicks the timeline Undo button",    "detail": "{}" },

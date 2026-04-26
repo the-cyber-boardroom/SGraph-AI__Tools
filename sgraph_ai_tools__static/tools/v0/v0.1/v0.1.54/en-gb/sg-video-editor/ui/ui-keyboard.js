@@ -12,13 +12,14 @@
  * Notes:
  *   - Cmd/Ctrl+Z and Cmd/Ctrl+Shift+Z (undo/redo) are intentionally NOT
  *     bound — commit 83d004f explicitly removed them; the user wants them off.
- *   - Delete / Backspace are handled inside <sg-timeline> already (focus
- *     scoped to the timeline host) so are not duplicated here.
+ *   - Delete / Backspace also have no binding — clip deletion ships via the
+ *     hover-× button on each clip; the keyboard shortcut was removed in the
+ *     Round-9-L follow-up (same precedent as 83d004f).
  *
- * Round-9-L: the text-entry guard now lives in
- * components/sg-timeline/v0/v0.1/v0.1.0/timeline-focus.js — same helper is
- * used by <sg-timeline>'s scoped Delete/Backspace/S listener so the shadow-
- * DOM-piercing logic is defined exactly once.
+ * Round-9-L: the text-entry guard lives in
+ * components/sg-timeline/v0/v0.1/v0.1.0/timeline-focus.js — the same helper
+ * is reused by <sg-timeline>'s scoped S split listener so the shadow-DOM-
+ * piercing logic is defined exactly once.
  */
 
 import { isTextEntryFocus } from '../../../../../../../components/sg-timeline/v0/v0.1/v0.1.0/timeline-focus.js';
