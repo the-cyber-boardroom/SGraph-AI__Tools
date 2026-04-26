@@ -9,6 +9,7 @@ import { mountPropertiesPanel } from './ui-properties-panel.js';
 import { mountMessagesPanel } from './ui-messages-panel.js';
 import { mountShortcutsPanel } from './ui-shortcuts-panel.js';
 import { attachGlobalShortcuts } from './ui-keyboard.js';
+import { attachAutosave } from './ui-autosave.js';
 import { wireOverlay } from './ui-shell-overlay.js';
 import { rebuildComposer, emitErr } from './ui-shell-composer.js';
 import { SGL_EVENTS } from '/core/sg-layout/v0.1.0/sg-layout-events.js';
@@ -71,17 +72,25 @@ export function mountShell({ host, state, api, getComposer, setComposer }) {
     let pending = null, activePending = null;
     let onCanvasPlayhead = null, devPanel = null, jsonPane = null, propertiesPane = null, messagesPane = null, overlayWire = null;
     let shortcutsPane = null, keyboardWire = null;
+    /** Autosave handle — debounced writes + on-init restore prompt. */
+    let autosaveHandle = null;
 
     /** beforeunload guard: prompt the browser's native confirm if the project
-     *  is dirty. Memoised against the last hash check time so flipping
-     *  between tabs (which fires beforeunload+pagehide aggressively) doesn't
-     *  thrash. The check itself is a string-length compare — already cheap. */
+     *  is dirty OR if the most recent mutation hasn't yet been flushed by
+     *  autosave (i.e. we're still inside the debounce window). Cheap — both
+     *  checks are string-length compares + arithmetic. */
     function onBeforeUnload(e) {
         try {
             if (!state || typeof state.hasUnsavedChanges !== 'function') return;
-            if (!state.hasUnsavedChanges()) return;
-            // Standard pattern: preventDefault + returnValue. Modern browsers
-            // ignore the message string but require returnValue to be set.
+            const dirty = state.hasUnsavedChanges();
+            // Inside the autosave debounce window? Treat as dirty even if
+            // hasUnsavedChanges() momentarily disagrees (e.g. mutation
+            // arrived between hash compare and autosave flush).
+            const lastMut = (typeof state.getLastMutationAt === 'function')
+                ? state.getLastMutationAt() : 0;
+            const lastFlush = autosaveHandle ? autosaveHandle.lastFlushAt() : 0;
+            const pendingFlush = lastMut > 0 && lastMut > lastFlush;
+            if (!dirty && !pendingFlush) return;
             e.preventDefault();
             e.returnValue = '';
         } catch (_) { /* never block unload on a guard error */ }
@@ -212,6 +221,16 @@ export function mountShell({ host, state, api, getComposer, setComposer }) {
         rebuild();
         state.addEventListener('change', handleChange);
         state.addEventListener('clipboard', onClipboardChange);
+        // Autosave: debounced writes + on-init restore prompt. Wired AFTER
+        // change listeners so the prompt-driven setProject (if accepted)
+        // flows through the normal handleChange pipeline.
+        autosaveHandle = attachAutosave({ state, api });
+        // Defer the restore prompt to the next tick so the layout has
+        // finished mounting — confirm() blocks the main thread and an
+        // un-painted UI behind it is jarring.
+        setTimeout(() => {
+            try { autosaveHandle && autosaveHandle.promptRestore(); } catch (_) {}
+        }, 0);
         devPanel = mountDevPanel({ host, manifestUrl: './manifest.json' });
     }
 
@@ -250,6 +269,7 @@ export function mountShell({ host, state, api, getComposer, setComposer }) {
         try { messagesPane && messagesPane.destroy(); } catch (_) {}
         try { shortcutsPane && shortcutsPane.destroy(); } catch (_) {}
         try { keyboardWire && keyboardWire.destroy(); } catch (_) {}
+        try { autosaveHandle && autosaveHandle.destroy(); } catch (_) {} autosaveHandle = null;
         try { devPanel && devPanel.destroy(); } catch (_) {}
         host.innerHTML = '';
     }

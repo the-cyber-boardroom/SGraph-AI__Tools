@@ -304,6 +304,16 @@ Compare an autosave's `savedAt` against the most recent named save.
 
 Returns: `{ newer: boolean }`.
 
+## Autosave behaviour
+
+Autosave fires `api.autosave()` ~750ms after the last non-transient mutation. Transient mutations (drag scrubs etc) are skipped — they would drown localStorage with no useful checkpoint.
+
+On editor init, if `sgve:autosave:current` exists AND its `savedAt` is newer than the most recent named save in the index, the user is prompted via `confirm()` whether to restore. Restore = `setProject(slot.project)`; Discard = `discardAutosave()`.
+
+After a successful manual `saveProject`, the autosave slot is cleared — it's no longer relevant.
+
+The `beforeunload` guard considers BOTH `hasUnsavedChanges()` AND the autosave-pending window: if the most recent mutation hasn't yet been flushed by autosave, the browser still prompts.
+
 ## Storage layout
 
 | Key | Shape |
