@@ -63,6 +63,11 @@
             "moveClipToTrack": { "description": "Atomically move a clip to another track. Pass `timelineStart` to position it at a chosen time on the destination (defaults to the clip's current start). Pass `snap: true` to snap-abut on overlap. Throws Error{code:'overlap'} if the destination position collides and snap can't clear it." },
             "reorderTracks":   { "description": "Reorder video tracks by id (bottom-up). trackIds must contain every existing video-track id exactly once." },
             "setTrackMuted":   { "description": "Set or clear a track's mute flag. Top-most active unmuted clip drives audio." },
+            "setTrackLocked":  { "description": "Set or clear a track's lock flag. Locked tracks reject addClip/addShapeClip/addTextClip/moveClip/trimClip/removeClip/removeTrack and any cross-track move INTO or FROM the locked lane (Error{code:'locked'}). Mute, lock-toggle, and rename are NOT gated." },
+            "renameTrack":     { "description": "Set or clear a track's display name. Empty/whitespace clears the override; UI falls back to the default `Track N` label. Locked tracks may still be renamed." },
+            "copyClip":        { "description": "Copy a clip to the in-memory clipboard (single slot). Strips id and timelineStart from the payload — those are picked at paste time. Returns { hasClipboard: true }." },
+            "pasteClip":       { "description": "Paste the clipboard payload onto a target track at a given time. Honours snap / maxSnapDistance like addClip. Throws Error{code:'invalid-arg'} if the clipboard is empty or the source asset has been removed; Error{code:'locked'} if the target track is locked." },
+            "hasClipboard":    { "description": "Report whether copyClip has populated the clipboard. Returns { hasClipboard: boolean }." },
             "exportMp4":    { "description": "Render the project to an MP4 Blob via the composer; returns blob+meta." }
         },
         "events": [
@@ -80,6 +85,11 @@
             { "name": "sg-timeline:track-add-requested",    "when": "user clicks the +Track toolbar button",                "detail": "{ kind }" },
             { "name": "sg-timeline:track-remove-requested", "when": "user clicks the × button on a lane header",            "detail": "{ trackId }" },
             { "name": "sg-timeline:track-mute-requested",   "when": "user clicks the M toggle on a lane header",            "detail": "{ trackId, muted }" },
+            { "name": "sg-timeline:track-lock-requested",   "when": "user clicks the lock toggle on a lane header",         "detail": "{ trackId, locked }" },
+            { "name": "sg-timeline:track-renamed",          "when": "user commits a rename via the inline input",           "detail": "{ trackId, name }" },
+            { "name": "sg-timeline:track-selected",         "when": "user clicks a lane header label / area",               "detail": "{ trackId | null }" },
+            { "name": "sg-timeline:clip-copied",            "when": "user clicks Copy or Cmd-drags a clip",                  "detail": "{ clipId, fromTrackId?, toTrackId?, timelineStart? }" },
+            { "name": "sg-timeline:clip-paste-requested",   "when": "user clicks the Paste button on the timeline toolbar", "detail": "{}" },
             { "name": "sg-timeline:clip-track-changed",     "when": "user drags a clip to a different lane and drops",      "detail": "{ clipId, fromTrackId, toTrackId, timelineStart }" },
             { "name": "tool:error",                  "when": "any pipeline error",                      "detail": "{ step, message }" }
         ],

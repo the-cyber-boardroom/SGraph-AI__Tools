@@ -111,7 +111,71 @@ Atomically move a clip to another track. When `timelineStart` is supplied, the d
 | `timelineStart` | number | no | Defaults to the clip's current start; snapped to fps and clamped to ≥ 0 |
 | `snap` | boolean | no | When true, an overlapping destination is auto-resolved by flush-abutting the nearest neighbour edge |
 
-Returns: `{ clipId, fromTrackId, toTrackId, timelineStart }`. Throws `Error{code:'overlap'}` if the destination position collides and `snap` couldn't clear it.
+Returns: `{ clipId, fromTrackId, toTrackId, timelineStart }`. Throws `Error{code:'overlap'}` if the destination position collides and `snap` couldn't clear it. Throws `Error{code:'locked'}` if the source or destination track is locked.
+
+### setTrackMuted
+
+Set or clear a track's mute flag. Mute is preview-only and is NOT gated by the lock flag.
+
+| Param | Type | Required |
+|---|---|---|
+| `trackId` | string | yes |
+| `muted` | boolean | yes |
+
+Returns: `{ trackId, muted }`.
+
+### setTrackLocked
+
+Set or clear a track's lock flag. Locked tracks reject `addClip` / `addShapeClip` / `addTextClip` / `moveClip` / `trimClip` / `removeClip` / `removeTrack` and any cross-track move INTO or FROM the locked lane (`Error{code:'locked'}`). The lock-toggle itself, mute, rename, and colour overrides are NOT gated.
+
+| Param | Type | Required |
+|---|---|---|
+| `trackId` | string | yes |
+| `locked` | boolean | yes |
+
+Returns: `{ trackId, locked }`.
+
+### renameTrack
+
+Set or clear a track's display name. Empty / whitespace-only names clear the override; the UI then renders the default `Track N` label. Locked tracks may still be renamed (label is metadata, not content).
+
+| Param | Type | Required |
+|---|---|---|
+| `trackId` | string | yes |
+| `name` | string | yes (`null` / empty clears the override) |
+
+Returns: `{ trackId, name }` (`name === null` when cleared).
+
+### copyClip
+
+Copy a clip's payload (kind / shape / text / transform / crop / asset reference / inPoint / outPoint / colour) to the in-memory clipboard (single slot). The clip's `id` and `timelineStart` are stripped — they are picked at paste time.
+
+Fires a `'clipboard'` event on the internal state target (mirrored onto `<sg-timeline>` via `setClipboardFlags()`).
+
+| Param | Type | Required |
+|---|---|---|
+| `clipId` | string | yes |
+
+Returns: `{ hasClipboard: true }`. Errors: `invalid-arg` if unknown `clipId`.
+
+### pasteClip
+
+Paste the clipboard payload onto a target track at a chosen time.
+
+| Param | Type | Required | Notes |
+|---|---|---|---|
+| `targetTrackId` | string | yes | |
+| `timelineStart` | number | yes | Must be finite |
+| `snap` | boolean | no | Honours `snapToClearSlot` like `addClip` |
+| `maxSnapDistance` | number | no | Cap (seconds) for snap walk; default unlimited |
+
+Returns: `{ clipId, trackId, timelineStart }` (or `null` if the clipboard is empty). Errors: `invalid-arg` for empty clipboard / missing target / non-finite time / payload referencing a removed asset; `locked` if the target track is locked.
+
+### hasClipboard
+
+Synchronous check.
+
+Returns: `{ hasClipboard: boolean }`.
 
 ### getProject
 
