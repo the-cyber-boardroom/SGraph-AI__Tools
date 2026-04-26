@@ -7,7 +7,6 @@ const SHORTCUTS = [
     { keys: ['Cmd/Ctrl', 'V'],                  desc: 'Paste at playhead on selected track' },
     { keys: ['Cmd/Ctrl', 'drag'],               desc: 'Copy clip while dragging' },
     { keys: ['S'],                              desc: 'Split selected clip at playhead' },
-    { keys: ['Delete', '/', 'Backspace'],       desc: 'Delete selected clip' },
     { keys: ['click', 'header'],                desc: 'Select track' },
     { keys: ['dbl-click', 'name'],              desc: 'Rename track (or click ✎)' },
 ];
