@@ -14,25 +14,14 @@
  *     bound — commit 83d004f explicitly removed them; the user wants them off.
  *   - Delete / Backspace are handled inside <sg-timeline> already (focus
  *     scoped to the timeline host) so are not duplicated here.
+ *
+ * Round-9-L: the text-entry guard now lives in
+ * components/sg-timeline/v0/v0.1/v0.1.0/timeline-focus.js — same helper is
+ * used by <sg-timeline>'s scoped Delete/Backspace/S listener so the shadow-
+ * DOM-piercing logic is defined exactly once.
  */
 
-function isTextEntryFocus() {
-    const ae = document.activeElement;
-    if (!ae) return false;
-    const tag = ae.tagName;
-    if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT') return true;
-    if (ae.isContentEditable) return true;
-    // Also check shadow DOM active elements (sg-timeline rename input lives in
-    // a shadow root). Walk down from each shadow host.
-    let cur = ae;
-    while (cur && cur.shadowRoot && cur.shadowRoot.activeElement) {
-        cur = cur.shadowRoot.activeElement;
-        const t = cur.tagName;
-        if (t === 'INPUT' || t === 'TEXTAREA' || t === 'SELECT') return true;
-        if (cur.isContentEditable) return true;
-    }
-    return false;
-}
+import { isTextEntryFocus } from '../../../../../../../components/sg-timeline/v0/v0.1/v0.1.0/timeline-focus.js';
 
 function emitErr(step, err) {
     document.dispatchEvent(new CustomEvent('tool:error', {

@@ -2,6 +2,7 @@
 
 import { snapToFps, clipTimelineEnd } from '../../../../../core/video-composer/v0/v0.1/v0.1.0/composer-schema.js';
 import { SGT_EVENTS } from './timeline-events.js';
+import { isTextEntryFocus } from './timeline-focus.js';
 
 /**
  * Find a clip by id across all video tracks of state.project.
@@ -45,6 +46,12 @@ export function attachKeyboard(hostEl, getState, dispatch) {
     if (!hostEl) return () => {};
     function onKeyDown(e) {
         if (!isFocusedInside(hostEl)) return;
+        // Text-entry guard: when focus is inside an INPUT / TEXTAREA / SELECT
+        // / contenteditable (e.g. the inline rename input mounted by
+        // timeline-track-headers.js), skip the shortcut entirely so the
+        // keystroke reaches the input. NO preventDefault — the input must
+        // still receive Backspace / Delete / 's' as normal text edits.
+        if (isTextEntryFocus()) return;
         const state = getState();
         const sel = state.selectedClipId;
         if (!sel) return;
