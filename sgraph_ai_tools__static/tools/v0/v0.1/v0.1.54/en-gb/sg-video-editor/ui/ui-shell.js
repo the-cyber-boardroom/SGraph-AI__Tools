@@ -72,6 +72,22 @@ export function mountShell({ host, state, api, getComposer, setComposer }) {
     let onCanvasPlayhead = null, devPanel = null, jsonPane = null, propertiesPane = null, messagesPane = null, overlayWire = null;
     let shortcutsPane = null, keyboardWire = null;
 
+    /** beforeunload guard: prompt the browser's native confirm if the project
+     *  is dirty. Memoised against the last hash check time so flipping
+     *  between tabs (which fires beforeunload+pagehide aggressively) doesn't
+     *  thrash. The check itself is a string-length compare — already cheap. */
+    function onBeforeUnload(e) {
+        try {
+            if (!state || typeof state.hasUnsavedChanges !== 'function') return;
+            if (!state.hasUnsavedChanges()) return;
+            // Standard pattern: preventDefault + returnValue. Modern browsers
+            // ignore the message string but require returnValue to be set.
+            e.preventDefault();
+            e.returnValue = '';
+        } catch (_) { /* never block unload on a guard error */ }
+    }
+    window.addEventListener('beforeunload', onBeforeUnload);
+
     function schedulePushActive() {
         if (!overlayWire) return;
         if (typeof overlayWire.pushActive === 'function') overlayWire.pushActive();
@@ -206,6 +222,7 @@ export function mountShell({ host, state, api, getComposer, setComposer }) {
         if (pending) { clearTimeout(pending); pending = null; }
         if (activePending) { clearTimeout(activePending); activePending = null; }
         if (toastTimer) { clearTimeout(toastTimer); toastTimer = null; }
+        try { window.removeEventListener('beforeunload', onBeforeUnload); } catch (_) {}
         try { document.removeEventListener('tool:toast', onToolToast); } catch (_) {}
         try { document.removeEventListener('tool:error', onToolError); } catch (_) {}
         try { state.removeEventListener('change', handleChange); } catch (_) {}
