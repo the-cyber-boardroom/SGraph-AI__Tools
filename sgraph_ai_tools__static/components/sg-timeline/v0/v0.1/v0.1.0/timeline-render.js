@@ -8,7 +8,10 @@ import { renderLaneClips } from './timeline-lane-render.js';
 import { renderTrackHeader } from './timeline-track-headers.js';
 
 const TICK_TARGET_PX = 80;
-export const LANE_HEIGHT = 80;
+/** Height of a single lane row in pixels. Kept in sync with the
+ *  `--sgt-lane-height` CSS custom property in sg-timeline.css. Compact
+ *  default since Round-9-I Task 2 (was 80). */
+export const LANE_HEIGHT = 44;
 
 /**
  * Pick a tick interval (seconds) for the given pps.
