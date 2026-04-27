@@ -8,12 +8,18 @@
  */
 
 import { SgToolApi } from '/core/sg-tool-api/v0/v0.1/v0.1.0/sg-tool-api.js'
-import { DEMO_CONFIG } from '../ui/main.js'
 import { getTraceLog, clearTraceLog } from '../ui/ui-trace-panel.js'
+
+const STORAGE_KEY = 'sg-vault-embed-demo-v1'
+
+/** Read current config from localStorage. */
+function getConfig() {
+    try { return JSON.parse(localStorage.getItem(STORAGE_KEY)) || {} } catch { return {} }
+}
 
 // ── Private state ─────────────────────────────────────────────────────────────
 
-let _currentEndpoint = DEMO_CONFIG.endpoint
+let _endpointOverride = null
 
 // ── API method implementations ────────────────────────────────────────────────
 
@@ -22,11 +28,12 @@ let _currentEndpoint = DEMO_CONFIG.endpoint
  * @returns {{ vaultId: string, readKey: string, endpoint: string, objectIds: object }}
  */
 function getDemoVaultInfoImpl() {
+    const cfg = getConfig()
     return {
-        vaultId:   DEMO_CONFIG.vaultId,
-        readKey:   DEMO_CONFIG.readKey,
-        endpoint:  _currentEndpoint,
-        objectIds: { ...DEMO_CONFIG.objectIds },
+        vaultId:   cfg.vaultId   || null,
+        readKey:   cfg.readKey   || null,
+        endpoint:  _endpointOverride || cfg.endpoint || 'https://send.sgraph.ai',
+        objectIds: cfg.objectIds || {},
     }
 }
 
@@ -66,10 +73,9 @@ function setEndpointImpl({ endpoint }) {
     if (!endpoint || typeof endpoint !== 'string') {
         throw new Error('endpoint must be a non-empty string')
     }
-    _currentEndpoint = endpoint.replace(/\/$/, '')
-    // Update all sg-vault-key elements on the page
+    _endpointOverride = endpoint.replace(/\/$/, '')
     document.querySelectorAll('sg-vault-key').forEach(el => {
-        el.setAttribute('endpoint', _currentEndpoint)
+        el.setAttribute('endpoint', _endpointOverride)
     })
 }
 
