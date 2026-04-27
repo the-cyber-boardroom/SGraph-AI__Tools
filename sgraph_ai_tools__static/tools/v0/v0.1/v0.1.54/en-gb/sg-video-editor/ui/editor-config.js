@@ -14,6 +14,10 @@ const DEFAULTS = {
     previewEnabled: true,
     /** Call timelineEl.setProject() on every state change. */
     timelineEnabled: true,
+    /** Call assetPanel.refresh() on every state change. */
+    assetPanelEnabled: true,
+    /** Call overlayWire.pushActive() on every state change. */
+    overlayEnabled: true,
     /** Run the debounced autosave after mutations. */
     autosaveEnabled: true,
 

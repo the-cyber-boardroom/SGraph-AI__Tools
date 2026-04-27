@@ -1046,6 +1046,27 @@
     border-color: var(--sg-accent, #4ecdc4);
 }
 
+.sgve-cfg-action-btn {
+    display: block;
+    width: 100%;
+    margin-top: 0.4rem;
+    background: transparent;
+    color: var(--sg-text-muted, #94a3b8);
+    border: 1px solid var(--sg-border, #475569);
+    border-radius: 4px;
+    padding: 0.35rem 0.75rem;
+    font: inherit;
+    font-size: 0.8rem;
+    text-align: left;
+    cursor: pointer;
+    transition: color 0.15s, border-color 0.15s, background 0.15s;
+}
+.sgve-cfg-action-btn:hover {
+    color: var(--sg-fg, #e2e8f0);
+    border-color: #f59e0b;
+    background: rgba(245,158,11,0.08);
+}
+
 /* ── Perf panel ─────────────────────────────────────────────────── */
 
 .sgve-perf-panel {

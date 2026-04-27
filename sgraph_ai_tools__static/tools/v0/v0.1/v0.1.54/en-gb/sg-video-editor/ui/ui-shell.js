@@ -135,6 +135,17 @@ export function mountShell({ host, state, api, getComposer, setComposer }) {
     }
     window.addEventListener('beforeunload', onBeforeUnload);
 
+    /** Cancel any queued handleChange / schedulePushActive callbacks. Exposed
+     *  via `sgve:cancel-pending` so the Config panel can provide a Stop button. */
+    function cancelPending() {
+        if (pending) { clearTimeout(pending); pending = null; }
+        if (activePending) { clearTimeout(activePending); activePending = null; }
+    }
+    function onCancelPending() { cancelPending(); }
+    document.addEventListener('sgve:cancel-pending', onCancelPending);
+    // Console escape hatch: sgveCancel() from DevTools stops the queued pipeline run.
+    try { window.sgveCancel = cancelPending; } catch (_) {}
+
     function schedulePushActive() {
         if (!overlayWire) return;
         if (typeof overlayWire.pushActive === 'function') overlayWire.pushActive();
@@ -182,10 +193,10 @@ export function mountShell({ host, state, api, getComposer, setComposer }) {
             pending = null;
             const flat = state.toComposerProject();
             if (editorConfig.get('timelineEnabled') && timelineEl) timelineEl.setProject(flat);
-            if (assetPanel) assetPanel.refresh(state.getProject());
+            if (editorConfig.get('assetPanelEnabled') && assetPanel) assetPanel.refresh(state.getProject());
             syncHistoryFlags();
             if (editorConfig.get('previewEnabled')) rebuild();
-            if (overlayWire) overlayWire.pushActive();
+            if (editorConfig.get('overlayEnabled') && overlayWire) overlayWire.pushActive();
         }, 100);
     }
 
@@ -289,6 +300,7 @@ export function mountShell({ host, state, api, getComposer, setComposer }) {
         if (activePending) { clearTimeout(activePending); activePending = null; }
         if (toastTimer) { clearTimeout(toastTimer); toastTimer = null; }
         try { window.removeEventListener('beforeunload', onBeforeUnload); } catch (_) {}
+        try { document.removeEventListener('sgve:cancel-pending', onCancelPending); } catch (_) {}
         try { document.removeEventListener('tool:toast', onToolToast); } catch (_) {}
         try { document.removeEventListener('tool:error', onToolError); } catch (_) {}
         try { state.removeEventListener('change', handleChange); } catch (_) {}
