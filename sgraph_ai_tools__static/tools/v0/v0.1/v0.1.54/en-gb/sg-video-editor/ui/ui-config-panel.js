@@ -33,6 +33,11 @@ const FEATURE_TOGGLES = [
 
 const DEBUG_TOGGLES = [
     {
+        key: 'perfEnabled',
+        label: 'Perf tab',
+        desc: 'Mount the Perf tab (rAF FPS sampler + heap sparklines). Disable to stop sampling overhead.',
+    },
+    {
         key: 'memoryProbeEnabled',
         label: 'Memory probe',
         desc: 'Enable URL.* + <video> counters (same as ?debug=1). Shows in Debug tab.',
