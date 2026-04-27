@@ -17,46 +17,13 @@
         <span class="ved-subtitle">Encrypted → browser decrypted → rendered by Web Components</span>
     </header>
 
-    <!-- Two-column body: sidebar + sg-layout -->
+    <!-- Two-column body: left sg-layout (credentials + tree) + right sg-layout (trace + viewers) -->
     <div class="ved-body">
 
-        <!-- Left sidebar -->
-        <aside class="ved-sidebar">
-
-            <!-- Config / credentials section -->
-            <section class="ved-sidebar-section ved-sidebar-config">
-                <h2 class="ved-section-title">Demo Vault Credentials</h2>
-
-                <!-- Setup form injected here by main.js; hidden once credentials restored -->
-                <div id="setup-form-container"></div>
-
-                <!-- Populated by mountCredentialsPanel() after vault is activated -->
-                <dl class="ved-creds-list" id="creds-display" hidden>
-                    <dt>Vault ID</dt>
-                    <dd id="cred-vault-id"></dd>
-
-                    <dt>Read Key</dt>
-                    <dd id="cred-read-key"></dd>
-
-                    <dt>API Endpoint</dt>
-                    <dd id="cred-endpoint"></dd>
-                </dl>
-            </section>
-
-            <!-- Vault tree section -->
-            <section class="ved-sidebar-section ved-sidebar-tree">
-                <h2 class="ved-section-title">Vault Files</h2>
-                <div class="ved-tree-wrap">
-                    <ved-vault-tree id="vault-tree"></ved-vault-tree>
-                </div>
-            </section>
-
-        </aside>
+        <sg-layout id="ved-left-layout"></sg-layout>
 
         <!-- Right: sg-layout manages tabbed panels (Trace + dynamic file viewers) -->
-        <div class="ved-main">
-            <sg-layout id="ved-layout"></sg-layout>
-        </div>
+        <sg-layout id="ved-layout"></sg-layout>
 
     </div>
 

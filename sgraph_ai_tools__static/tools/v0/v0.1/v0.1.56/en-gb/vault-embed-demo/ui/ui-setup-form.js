@@ -9,6 +9,7 @@
  */
 
 import { parseVaultKey, deriveVaultKeys } from '/core/vault-client/v1/v1.2/v1.2.2/sg-vault-client.js'
+import { loadHistory, pushHistory, formatAgo } from './ui-vault-history.js'
 
 /** localStorage key for persisting vault config (never stores passphrase). */
 export const STORAGE_KEY = 'sg-vault-embed-demo-v1'
@@ -22,76 +23,46 @@ function bytesToBase64Url(bytes) {
 const FORM_HTML = `
 <form id="cred-form" class="ved-setup-form" novalidate>
 
-    <div class="ved-form-section">
-        <div class="ved-form-group">
-            <label for="inp-vault-key" class="ved-form-label">
-                Vault Key
-                <span class="ved-form-hint">passphrase:vault_id — derives credentials automatically</span>
-            </label>
-            <input id="inp-vault-key" type="password" class="ved-form-input"
-                   placeholder="your-passphrase:vaultid"
-                   autocomplete="off" spellcheck="false">
-        </div>
-
-        <div class="ved-form-divider"><span>or enter separately</span></div>
-
-        <div class="ved-form-row">
-            <div class="ved-form-group">
-                <label for="inp-vault-id" class="ved-form-label">Vault ID</label>
-                <input id="inp-vault-id" type="text" class="ved-form-input"
-                       placeholder="abc12345" autocomplete="off" spellcheck="false">
-            </div>
-            <div class="ved-form-group ved-form-group--wide">
-                <label for="inp-read-key" class="ved-form-label">
-                    Read Key
-                    <span class="ved-form-hint">base64url, 32 bytes</span>
-                </label>
-                <input id="inp-read-key" type="password" class="ved-form-input"
-                       placeholder="base64url-encoded-read-key"
-                       autocomplete="off" spellcheck="false">
-            </div>
-        </div>
-
-        <div class="ved-form-group">
-            <label for="inp-endpoint" class="ved-form-label">API Endpoint</label>
-            <input id="inp-endpoint" type="url" class="ved-form-input"
-                   value="https://send.sgraph.ai"
-                   autocomplete="off" spellcheck="false">
-        </div>
+    <div class="ved-form-group">
+        <label for="inp-vault-key" class="ved-form-label">
+            Vault Key
+            <span class="ved-form-hint">passphrase:vault_id</span>
+        </label>
+        <input id="inp-vault-key" type="password" class="ved-form-input ved-form-input--primary"
+               placeholder="your-passphrase:vaultid"
+               autocomplete="off" spellcheck="false" autofocus>
     </div>
 
-    <details class="ved-form-advanced">
-        <summary class="ved-form-advanced-toggle">Object IDs (optional)</summary>
+    <div class="ved-form-error" id="form-error" hidden></div>
+    <button type="submit" class="ved-form-btn" id="form-submit-btn">Load Vault</button>
+
+    <details class="ved-form-advanced" id="manual-entry">
+        <summary class="ved-form-advanced-toggle">or enter credentials separately</summary>
         <div class="ved-form-advanced-body">
-            <p class="ved-form-hint-block">
-                Leave blank to skip that content section. Object IDs start with
-                <code>obj-cas-imm-</code>.
-            </p>
-            <div class="ved-form-group">
-                <label for="inp-obj-hero" class="ved-form-label">Hero object ID (markdown)</label>
-                <input id="inp-obj-hero" type="text" class="ved-form-input"
-                       placeholder="obj-cas-imm-..." autocomplete="off" spellcheck="false">
+            <div class="ved-form-row">
+                <div class="ved-form-group">
+                    <label for="inp-vault-id" class="ved-form-label">Vault ID</label>
+                    <input id="inp-vault-id" type="text" class="ved-form-input"
+                           placeholder="abc12345" autocomplete="off" spellcheck="false">
+                </div>
+                <div class="ved-form-group ved-form-group--wide">
+                    <label for="inp-read-key" class="ved-form-label">
+                        Read Key <span class="ved-form-hint">base64url</span>
+                    </label>
+                    <input id="inp-read-key" type="password" class="ved-form-input"
+                           placeholder="base64url read key"
+                           autocomplete="off" spellcheck="false">
+                </div>
             </div>
             <div class="ved-form-group">
-                <label for="inp-obj-image" class="ved-form-label">Image object ID</label>
-                <input id="inp-obj-image" type="text" class="ved-form-input"
-                       placeholder="obj-cas-imm-..." autocomplete="off" spellcheck="false">
-            </div>
-            <div class="ved-form-group">
-                <label for="inp-obj-json" class="ved-form-label">JSON object ID</label>
-                <input id="inp-obj-json" type="text" class="ved-form-input"
-                       placeholder="obj-cas-imm-..." autocomplete="off" spellcheck="false">
-            </div>
-            <div class="ved-form-group">
-                <label for="inp-manifest" class="ved-form-label">Manifest URL</label>
-                <input id="inp-manifest" type="url" class="ved-form-input"
-                       placeholder="https://send.sgraph.ai/..." autocomplete="off" spellcheck="false">
+                <label for="inp-endpoint" class="ved-form-label">API Endpoint</label>
+                <input id="inp-endpoint" type="url" class="ved-form-input"
+                       value="https://send.sgraph.ai"
+                       autocomplete="off" spellcheck="false">
             </div>
         </div>
     </details>
 
-    <div class="ved-form-error" id="form-error" hidden></div>
-    <button type="submit" class="ved-form-btn" id="form-submit-btn">Load Vault</button>
     <p class="ved-form-privacy">
         Credentials stay in this tab only — nothing is sent to any server.
     </p>
@@ -99,30 +70,74 @@ const FORM_HTML = `
 `
 
 /**
- * Mount the credential setup form into a container element.
- *
- * @param {{ container: HTMLElement, onConfig: (config: object) => void, savedConfig?: object|null }} opts
+ * Inject a history picker above the form.
+ * Single-click: pre-fills the manual-entry fields and opens the <details>.
+ * Double-click: directly activates the vault (bypasses form submission).
+ * @param {HTMLElement} container
+ * @param {HTMLElement} form
+ * @param {Function}    onConfig
  */
-export function mountSetupForm({ container, onConfig, savedConfig = null }) {
+function mountHistoryPicker(container, form, onConfig) {
+    const history = loadHistory()
+    if (history.length === 0) return
+
+    const wrap = document.createElement('div')
+    wrap.className = 'ved-hist-picker'
+
+    const title = document.createElement('p')
+    title.className = 'ved-hist-title'
+    title.textContent = 'Recent Vaults'
+    wrap.appendChild(title)
+
+    const hint = document.createElement('p')
+    hint.className = 'ved-hist-hint'
+    hint.textContent = 'click to pre-fill · double-click to open'
+    wrap.appendChild(hint)
+
+    const list = document.createElement('ul')
+    list.className = 'ved-hist-list'
+
+    for (const entry of history) {
+        const li = document.createElement('li')
+        li.className = 'ved-hist-item'
+        const hostname = (() => { try { return new URL(entry.endpoint).hostname } catch { return entry.endpoint } })()
+        li.innerHTML = `<span class="ved-hist-id">${entry.vaultId}</span><span class="ved-hist-meta">${hostname} · ${formatAgo(entry.lastUsed)}</span>`
+
+        li.addEventListener('click', () => {
+            form.querySelector('#inp-vault-id').value = entry.vaultId
+            form.querySelector('#inp-read-key').value = entry.readKey
+            form.querySelector('#inp-endpoint').value = entry.endpoint
+            const details = form.querySelector('#manual-entry')
+            if (details) details.open = true
+        })
+
+        li.addEventListener('dblclick', (e) => {
+            e.stopPropagation()
+            container.innerHTML = ''
+            onConfig({ vaultId: entry.vaultId, readKey: entry.readKey, endpoint: entry.endpoint })
+        })
+
+        list.appendChild(li)
+    }
+
+    wrap.appendChild(list)
+    container.insertBefore(wrap, container.firstChild)
+}
+
+/**
+ * Mount the credential setup form into a container element.
+ * History picker (if any) is injected above the form automatically.
+ *
+ * @param {{ container: HTMLElement, onConfig: (config: object) => void }} opts
+ */
+export function mountSetupForm({ container, onConfig }) {
     container.innerHTML = FORM_HTML
 
     const form      = container.querySelector('#cred-form')
     const errorEl   = container.querySelector('#form-error')
     const submitBtn = container.querySelector('#form-submit-btn')
 
-    // Pre-fill inputs from saved config (but never vault key / passphrase)
-    if (savedConfig) {
-        if (savedConfig.vaultId)  form.querySelector('#inp-vault-id').value  = savedConfig.vaultId
-        if (savedConfig.readKey)  form.querySelector('#inp-read-key').value  = savedConfig.readKey
-        if (savedConfig.endpoint) form.querySelector('#inp-endpoint').value  = savedConfig.endpoint
-        if (savedConfig.objectIds) {
-            const oi = savedConfig.objectIds
-            if (oi.hero)  form.querySelector('#inp-obj-hero').value  = oi.hero
-            if (oi.image) form.querySelector('#inp-obj-image').value = oi.image
-            if (oi.json)  form.querySelector('#inp-obj-json').value  = oi.json
-        }
-        if (savedConfig.manifestUrl) form.querySelector('#inp-manifest').value = savedConfig.manifestUrl
-    }
+    mountHistoryPicker(container, form, onConfig)
 
     form.addEventListener('submit', async (e) => {
         e.preventDefault()
@@ -133,14 +148,7 @@ export function mountSetupForm({ container, onConfig, savedConfig = null }) {
         const vaultKeyVal = form.querySelector('#inp-vault-key').value.trim()
         const vaultIdVal  = form.querySelector('#inp-vault-id').value.trim()
         const readKeyVal  = form.querySelector('#inp-read-key').value.trim()
-        const endpoint    = form.querySelector('#inp-endpoint').value.trim() || 'https://send.sgraph.ai'
-
-        const objectIds = {
-            hero:  form.querySelector('#inp-obj-hero').value.trim()  || null,
-            image: form.querySelector('#inp-obj-image').value.trim() || null,
-            json:  form.querySelector('#inp-obj-json').value.trim()  || null,
-        }
-        const manifestUrl = form.querySelector('#inp-manifest').value.trim() || null
+        const endpoint    = (form.querySelector('#inp-endpoint').value.trim()) || 'https://send.sgraph.ai'
 
         try {
             let vaultId, readKey
@@ -158,8 +166,9 @@ export function mountSetupForm({ container, onConfig, savedConfig = null }) {
                 throw new Error('Enter a vault key, or both vault ID and read key.')
             }
 
+            pushHistory({ vaultId, readKey, endpoint })
             container.innerHTML = ''
-            onConfig({ vaultId, readKey, endpoint, objectIds, manifestUrl })
+            onConfig({ vaultId, readKey, endpoint })
         } catch (err) {
             errorEl.textContent = err.message
             errorEl.hidden = false

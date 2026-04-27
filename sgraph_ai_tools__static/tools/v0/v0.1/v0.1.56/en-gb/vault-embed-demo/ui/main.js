@@ -15,6 +15,7 @@ import { mountCredentialsPanel } from './ui-credentials-panel.js'
 import { mountTracePanel }       from './ui-trace-panel.js'
 import { buildVaultHandle }      from './ui-vault-keys.js'
 import { initLayout }            from './ui-layout.js'
+import './ved-cred-panel.js'
 import './ved-vault-tree.js'
 import './ved-file-viewer.js'
 
@@ -44,6 +45,21 @@ function saveCfg(cfg) {
 }
 
 /**
+ * Show the credential setup form — used on first load and when switching vaults.
+ */
+function showSetupForm() {
+    const formEl    = document.getElementById('setup-form-container')
+    const credsEl   = document.getElementById('creds-display')
+    const switchBtn = document.getElementById('switch-vault-btn')
+    if (credsEl)   credsEl.hidden   = true
+    if (switchBtn) switchBtn.hidden = true
+    if (formEl) {
+        formEl.hidden = false
+        mountSetupForm({ container: formEl, savedConfig: loadSaved(), onConfig: activate })
+    }
+}
+
+/**
  * Activate the demo: persist config, populate credential panel, open vault,
  * and fire `ved:vault-ready` so tree + trace pick it up.
  * @param {object} config
@@ -58,35 +74,48 @@ async function activate(config) {
         config,
     })
 
+    const switchBtn = document.getElementById('switch-vault-btn')
+    if (switchBtn) {
+        switchBtn.hidden  = false
+        switchBtn.onclick = showSetupForm
+    }
+
     try {
         const vault = await buildVaultHandle(config)
+        document.dispatchEvent(new CustomEvent('sg-vault-key:key-ready', {
+            detail: { vaultId: vault.keys.vaultId, url: config.endpoint || 'https://send.sgraph.ai' },
+        }))
         document.dispatchEvent(new CustomEvent('ved:vault-ready', {
             detail: { vault, config },
         }))
     } catch (err) {
+        document.dispatchEvent(new CustomEvent('sg-vault-key:key-error', {
+            detail: { error: err.message },
+        }))
         console.error('[vault-embed-demo] vault handle error', err)
     }
 }
 
 // ── Bootstrap ─────────────────────────────────────────────────────────────────
 
-const saved = loadSaved()
-
 initLayout()
-mountTracePanel({ traceEl: document.getElementById('main-trace') })
 
-if (saved && saved.vaultId && saved.readKey) {
-    // Skip form — restore immediately from localStorage
-    const formEl = document.getElementById('setup-form-container')
-    if (formEl) formEl.hidden = true
-    activate(saved)
-} else {
-    mountSetupForm({
-        container:   document.getElementById('setup-form-container'),
-        savedConfig: saved,
-        onConfig:    activate,
-    })
-}
+// ved-cred-panel connects inside sg-layout's setLayout() which runs in a
+// whenDefined microtask — wait for it before touching DOM inside the panel.
+document.addEventListener('ved:cred-panel-ready', () => {
+    const saved = loadSaved()
+    if (saved && saved.vaultId && saved.readKey) {
+        const formEl = document.getElementById('setup-form-container')
+        if (formEl) formEl.hidden = true
+        activate(saved)
+    } else {
+        mountSetupForm({
+            container:   document.getElementById('setup-form-container'),
+            savedConfig: null,
+            onConfig:    activate,
+        })
+    }
+}, { once: true })
 
 // Register SgToolApi (non-blocking)
 import('../api/vault-embed-demo-api.js')

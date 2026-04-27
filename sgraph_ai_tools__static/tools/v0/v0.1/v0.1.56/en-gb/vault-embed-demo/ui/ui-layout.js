@@ -1,34 +1,58 @@
 /**
- * ui-layout — initialise the sg-layout right panel and wire file-open events.
+ * ui-layout — initialise both sg-layout elements and wire file-open events.
+ *
+ * Left layout  : column split — credentials panel (top) + vault tree (bottom).
+ * Right layout : stack — Trace tab + dynamically added file-viewer tabs.
+ *
+ * sg-layout does NOT listen for CMD_ADD_PANEL as a DOM event; the public
+ * imperative API is layout.addTabToStack(stackId, config).
  *
  * @module ui-layout
  */
 
-import { SGL_EVENTS } from '/core/sg-layout/v0.1.0/sg-layout-events.js'
+const LEFT_LAYOUT = {
+    type: 'column',
+    sizes: [0.38, 0.62],
+    children: [
+        { type: 'stack', tabs: [{ tag: 'ved-cred-panel', title: 'Credentials', locked: true }] },
+        { type: 'stack', tabs: [{ tag: 'ved-vault-tree', title: 'Vault Files',  locked: true }] },
+    ],
+}
 
-/** Initial layout: one locked Trace tab. */
 const RIGHT_LAYOUT = {
     type: 'stack',
     tabs: [{ tag: 'sg-vault-trace', title: 'Trace', locked: true }],
 }
 
+let _rightLayout = null
+let _stackId     = null
+
 /**
- * Initialise the sg-layout element and attach the file-open listener.
+ * Initialise both sg-layout elements and attach the file-open listener.
  * Must be called after the DOM is ready.
  */
 export function initLayout() {
-    const layout = document.getElementById('ved-layout')
-    if (!layout) return
+    const leftLayout  = document.getElementById('ved-left-layout')
+    _rightLayout      = document.getElementById('ved-layout')
 
     customElements.whenDefined('sg-layout').then(() => {
-        if (typeof layout.setLayout === 'function') {
-            layout.setLayout(RIGHT_LAYOUT)
+        if (leftLayout && typeof leftLayout.setLayout === 'function') {
+            leftLayout.setLayout(LEFT_LAYOUT)
+        }
+        if (_rightLayout && typeof _rightLayout.setLayout === 'function') {
+            _rightLayout.setLayout(RIGHT_LAYOUT)
+            const tree = _rightLayout.getLayout ? _rightLayout.getLayout() : null
+            _stackId = tree?.id ?? null
         }
     })
 
     document.addEventListener('ved:file-open', ({ detail: { entry, vault } }) => {
-        layout.dispatchEvent(new CustomEvent(SGL_EVENTS.CMD_ADD_PANEL, {
-            detail: { tag: 'ved-file-viewer', title: entry.name, state: { entry, vault } },
-        }))
+        if (!_rightLayout) return
+        const cfg = { tag: 'ved-file-viewer', title: entry.name || 'File', state: { entry, vault } }
+        if (_stackId && typeof _rightLayout.addTabToStack === 'function') {
+            _rightLayout.addTabToStack(_stackId, cfg)
+        } else if (typeof _rightLayout.addPanel === 'function') {
+            _rightLayout.addPanel(cfg)
+        }
     })
 }
