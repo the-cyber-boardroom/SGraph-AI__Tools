@@ -181,14 +181,31 @@ const PDF_MAGIC = [0x25, 0x50, 0x44, 0x46]
  * @param {ArrayBuffer} encryptedBuf
  * @returns {Promise<ArrayBuffer>}
  */
-async function decryptAesGcm(key, buf) {
-    const enc = new Uint8Array(buf)
-    return crypto.subtle.decrypt({ name: 'AES-GCM', iv: enc.slice(0, 12) }, key, enc.slice(12))
+/**
+ * AES-256-GCM decrypt for presigned-URL downloads.
+ * Format: first 12 bytes = IV, remainder = ciphertext.
+ * @param {CryptoKey}    cryptoKey
+ * @param {ArrayBuffer}  encryptedBuf
+ * @returns {Promise<ArrayBuffer>}
+ */
+async function decryptAesGcm(cryptoKey, encryptedBuf) {
+    const enc = new Uint8Array(encryptedBuf)
+    const iv  = enc.slice(0, 12)
+    return crypto.subtle.decrypt({ name: 'AES-GCM', iv }, cryptoKey, enc.slice(12))
 }
 
+/**
+ * Returns true when the file name or parsed JSON matches the _page.json schema.
+ * @param {string} name filename
+ * @param {string} text raw text content
+ * @returns {boolean}
+ */
 function isPageJson(name, text) {
     if (name === '_page.json') return true
-    try { const o = JSON.parse(text); return o && Array.isArray(o.components) && !!o.theme } catch { return false }
+    try {
+        const o = JSON.parse(text)
+        return o && typeof o === 'object' && Array.isArray(o.components) && !!o.theme
+    } catch { return false }
 }
 
 /**

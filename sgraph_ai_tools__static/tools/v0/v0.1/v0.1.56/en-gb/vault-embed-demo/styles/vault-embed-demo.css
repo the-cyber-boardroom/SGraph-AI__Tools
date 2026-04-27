@@ -412,8 +412,15 @@ details[open] .ved-form-advanced-toggle::before { content: '▼ '; }
     font-weight: 600;
     letter-spacing: 0.04em;
     color: var(--ved-muted);
-    margin: 0 0 0.4rem;
+    margin: 0 0 0.1rem;
     text-transform: uppercase;
+}
+
+.ved-hist-hint {
+    font-size: 0.66rem;
+    color: rgba(148, 163, 184, 0.4);
+    margin: 0 0 0.4rem;
+    font-style: italic;
 }
 
 .ved-hist-list {

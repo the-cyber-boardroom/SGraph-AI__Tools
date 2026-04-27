@@ -70,11 +70,14 @@ const FORM_HTML = `
 `
 
 /**
- * Inject a history picker above the form. Clicking an entry pre-fills the form.
+ * Inject a history picker above the form.
+ * Single-click: pre-fills the manual-entry fields and opens the <details>.
+ * Double-click: directly activates the vault (bypasses form submission).
  * @param {HTMLElement} container
  * @param {HTMLElement} form
+ * @param {Function}    onConfig
  */
-function mountHistoryPicker(container, form) {
+function mountHistoryPicker(container, form, onConfig) {
     const history = loadHistory()
     if (history.length === 0) return
 
@@ -86,6 +89,11 @@ function mountHistoryPicker(container, form) {
     title.textContent = 'Recent Vaults'
     wrap.appendChild(title)
 
+    const hint = document.createElement('p')
+    hint.className = 'ved-hist-hint'
+    hint.textContent = 'click to pre-fill · double-click to open'
+    wrap.appendChild(hint)
+
     const list = document.createElement('ul')
     list.className = 'ved-hist-list'
 
@@ -94,11 +102,21 @@ function mountHistoryPicker(container, form) {
         li.className = 'ved-hist-item'
         const hostname = (() => { try { return new URL(entry.endpoint).hostname } catch { return entry.endpoint } })()
         li.innerHTML = `<span class="ved-hist-id">${entry.vaultId}</span><span class="ved-hist-meta">${hostname} · ${formatAgo(entry.lastUsed)}</span>`
+
         li.addEventListener('click', () => {
             form.querySelector('#inp-vault-id').value = entry.vaultId
             form.querySelector('#inp-read-key').value = entry.readKey
             form.querySelector('#inp-endpoint').value = entry.endpoint
+            const details = form.querySelector('#manual-entry')
+            if (details) details.open = true
         })
+
+        li.addEventListener('dblclick', (e) => {
+            e.stopPropagation()
+            container.innerHTML = ''
+            onConfig({ vaultId: entry.vaultId, readKey: entry.readKey, endpoint: entry.endpoint })
+        })
+
         list.appendChild(li)
     }
 
@@ -119,7 +137,7 @@ export function mountSetupForm({ container, onConfig }) {
     const errorEl   = container.querySelector('#form-error')
     const submitBtn = container.querySelector('#form-submit-btn')
 
-    mountHistoryPicker(container, form)
+    mountHistoryPicker(container, form, onConfig)
 
     form.addEventListener('submit', async (e) => {
         e.preventDefault()
