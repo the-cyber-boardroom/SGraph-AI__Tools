@@ -14,7 +14,10 @@
 
 **Before describing, assessing, or assuming what tools.sgraph.ai can do, READ:**
 
-`team/explorer/librarian/reality/v0.1.0__what-exists-today.md`
+`team/explorer/librarian/reality/v0.1.0__what-exists-today.md` — cover sheet that links to the three parts:
+- `…__1__libraries.md` — core modules + components
+- `…__2__tools.md` — tools, manifests, tests
+- `…__3__operations.md` — CI/CD, SEO, team, config, reuse plan
 
 This is the **code-verified** record of every module, component, tool, and feature that actually exists.
 
@@ -176,7 +179,7 @@ This project starts with a single **Explorer team** of 6 roles:
 
 | Document | Location |
 |---|---|
-| **Reality document** | `team/explorer/librarian/reality/v0.1.0__what-exists-today.md` |
+| **Reality document (index)** | `team/explorer/librarian/reality/v0.1.0__what-exists-today.md` (links to `…__1__libraries.md`, `…__2__tools.md`, `…__3__operations.md`) |
 | **Master index** | `team/explorer/librarian/reviews/v0.1.68__master-index__spring-clean-v2.md` |
 | **Briefing pack** | `team/humans/dinis_cruz/briefs/03/05/v0.1.0__initial_tools_repo__BRIEF_PACK.md` |
 | **Architecture guide** | `library/architecture/v0.1.68__guide__three-tier-architecture.md` |
