@@ -8,11 +8,30 @@ import { mountJsonPane } from './ui-json-pane.js';
 import { mountPropertiesPanel } from './ui-properties-panel.js';
 import { mountMessagesPanel } from './ui-messages-panel.js';
 import { mountShortcutsPanel } from './ui-shortcuts-panel.js';
+import { mountConfigPanel } from './ui-config-panel.js';
+import { editorConfig } from './editor-config.js';
 import { attachGlobalShortcuts } from './ui-keyboard.js';
 import { attachAutosave } from './ui-autosave.js';
 import { wireOverlay } from './ui-shell-overlay.js';
 import { rebuildComposer, emitErr } from './ui-shell-composer.js';
+import { initMemoryProbe, isMemoryProbeEnabled, debugLog, notifyComposerRebuilt }
+    from './debug/memory-probe.js';
+import { mountDebugPanel } from './debug/ui-debug-panel.js';
 import { SGL_EVENTS } from '/core/sg-layout/v0.1.0/sg-layout-events.js';
+
+/**
+ * True when the URL has `?debug=1` (or `?debug` empty). Drives the Round-9-M
+ * observability surface. Tolerates running in environments without `URL`.
+ */
+function isDebugRequested() {
+    try {
+        if (typeof window === 'undefined' || !window.location) return false;
+        const sp = new URLSearchParams(window.location.search || '');
+        if (!sp.has('debug')) return false;
+        const v = sp.get('debug');
+        return v === '' || v === '1' || v === 'true' || v === 'yes';
+    } catch (_) { return false; }
+}
 
 // Side-effect import — register <sg-layout> custom element before use.
 import '/core/sg-layout/v0.1.0/sg-layout.js';
@@ -24,6 +43,15 @@ import '/core/sg-layout/v0.1.0/sg-layout.js';
  */
 export function mountShell({ host, state, api, getComposer, setComposer }) {
     if (!host) return { destroy() {} };
+
+    // Round-9-M: install the URL.* + video-element counters BEFORE the layout
+    // fires its first composer rebuild. The probe only matters when the user
+    // opted in via `?debug=1`; otherwise it's a no-op.
+    const debugEnabled = isDebugRequested();
+    if (debugEnabled) {
+        initMemoryProbe();
+        debugLog('memory probe enabled. Add `?debug=0` to the URL to disable.');
+    }
 
     host.innerHTML = '';
 
@@ -56,7 +84,7 @@ export function mountShell({ host, state, api, getComposer, setComposer }) {
     layoutWrap.appendChild(layout);
 
     const ready = new Promise(resolve => layout.events.on(SGL_EVENTS.LAYOUT_READY, resolve));
-    layout.setLayout(buildLayoutDescriptor());
+    layout.setLayout(buildLayoutDescriptor({ withDebugTab: debugEnabled }));
 
     const exportSlot = topbar.querySelector('[data-slot="export"]');
     const ctx = {
@@ -74,6 +102,10 @@ export function mountShell({ host, state, api, getComposer, setComposer }) {
     let shortcutsPane = null, keyboardWire = null;
     /** Autosave handle — debounced writes + on-init restore prompt. */
     let autosaveHandle = null;
+    /** Round-9-M debug panel handle (only when ?debug=1). */
+    let debugPane = null;
+    /** Config + Debug panel handle. */
+    let configPane = null;
 
     /** beforeunload guard: prompt the browser's native confirm if the project
      *  is dirty (per the hash-based `hasUnsavedChanges()` check, which is the
@@ -114,6 +146,10 @@ export function mountShell({ host, state, api, getComposer, setComposer }) {
             state, previewEl, getComposer, setComposer,
             playheadHint: ctx.currentPlayhead,
         });
+        if (isMemoryProbeEnabled()) {
+            notifyComposerRebuilt();
+            debugLog('composer rebuilt; playheadHint=' + (ctx.currentPlayhead || 0).toFixed(3));
+        }
     }
     function syncHistoryFlags() {
         if (timelineEl && typeof timelineEl.setHistoryFlags === 'function') {
@@ -142,10 +178,10 @@ export function mountShell({ host, state, api, getComposer, setComposer }) {
         pending = setTimeout(() => {
             pending = null;
             const flat = state.toComposerProject();
-            if (timelineEl) timelineEl.setProject(flat);
+            if (editorConfig.get('timelineEnabled') && timelineEl) timelineEl.setProject(flat);
             if (assetPanel) assetPanel.refresh(state.getProject());
             syncHistoryFlags();
-            rebuild();
+            if (editorConfig.get('previewEnabled')) rebuild();
             if (overlayWire) overlayWire.pushActive();
         }, 100);
     }
@@ -212,6 +248,10 @@ export function mountShell({ host, state, api, getComposer, setComposer }) {
         });
         if (messagesPanel) messagesPane = mountMessagesPanel({ host: messagesPanel });
         if (slots.shortcutsPanel) shortcutsPane = mountShortcutsPanel({ host: slots.shortcutsPanel });
+        if (slots.configPanel) configPane = mountConfigPanel({ host: slots.configPanel });
+        if (debugEnabled && slots.debugPanel) {
+            debugPane = mountDebugPanel({ host: slots.debugPanel, state, api });
+        }
         keyboardWire = attachGlobalShortcuts({
             api,
             getSelectedClipId: () => ctx.selectedClipId,
@@ -273,6 +313,8 @@ export function mountShell({ host, state, api, getComposer, setComposer }) {
         try { shortcutsPane && shortcutsPane.destroy(); } catch (_) {}
         try { keyboardWire && keyboardWire.destroy(); } catch (_) {}
         try { autosaveHandle && autosaveHandle.destroy(); } catch (_) {} autosaveHandle = null;
+        try { configPane && configPane.destroy(); } catch (_) {} configPane = null;
+        try { debugPane && debugPane.destroy(); } catch (_) {} debugPane = null;
         try { devPanel && devPanel.destroy(); } catch (_) {}
         host.innerHTML = '';
     }

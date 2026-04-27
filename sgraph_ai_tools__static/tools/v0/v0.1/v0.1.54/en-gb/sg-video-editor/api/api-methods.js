@@ -4,6 +4,20 @@ import { exportComposerProject } from '/core/video-composer/v0/v0.1/v0.1.0/sg-vi
 import { buildTrackMethods } from './api-track-methods.js';
 import { buildStorageMethods } from './api-storage-methods.js';
 import { probeVideoFile, probeImageFile } from './api-probe.js';
+import {
+    isMemoryProbeEnabled, debugLog, debugLogThrottled, readPerfMemory,
+} from '../ui/debug/memory-probe.js';
+
+/** Round-9-M: log a one-line "[sgve]" summary line when the probe is on. */
+function logHeap(tag) {
+    if (!isMemoryProbeEnabled()) return;
+    const m = readPerfMemory();
+    if (!m) return;
+    debugLogThrottled('heap', 5000,
+        `${tag} heap used=${(m.usedJSHeapBytes / (1024 * 1024)).toFixed(1)}MB`,
+        `total=${(m.totalJSHeapBytes / (1024 * 1024)).toFixed(1)}MB`,
+        `limit=${(m.jsHeapLimitBytes / (1024 * 1024)).toFixed(1)}MB`);
+}
 
 function badArg(msg) { return Object.assign(new Error(msg), { code: 'invalid-arg' }); }
 function unsupportedMime(mime) {
@@ -35,6 +49,10 @@ export function buildApiMethods({ state, getComposer, setComposer, hostEl }) {
                 assetId, name: file.name || 'asset', mime,
                 width, height, bytes: file.size, blob: file, assetType: 'image',
             });
+            // Round-9-M observability: large images are also a memory risk.
+            debugLog(`asset added (image): id=${assetId} name=${file.name || ''}`,
+                `size=${file.size}B`, `mime=${mime}`, `dims=${width}×${height}`);
+            logHeap('asset-added');
             return { assetId, assetType: 'image', width, height, bytes: file.size };
         }
         if (mime.startsWith('video/') || !mime) {
@@ -43,6 +61,12 @@ export function buildApiMethods({ state, getComposer, setComposer, hostEl }) {
                 assetId, name: file.name || 'asset', mime: mime || 'video/mp4',
                 duration, width, height, bytes: file.size, blob: file, assetType: 'video',
             });
+            // Round-9-M observability — these are the numbers we need to
+            // recognise the high-resolution-screen-recording case.
+            debugLog(`asset added (video): id=${assetId} name=${file.name || ''}`,
+                `size=${file.size}B`, `mime=${mime}`,
+                `dims=${width}×${height}`, `duration=${duration ? duration.toFixed(2) : '?'}s`);
+            logHeap('asset-added');
             return { assetId, assetType: 'video', duration, width, height, bytes: file.size };
         }
         throw unsupportedMime(mime);
@@ -57,6 +81,17 @@ export function buildApiMethods({ state, getComposer, setComposer, hostEl }) {
             snap: !!snap,
             maxSnapDistance: Number.isFinite(maxSnapDistance) ? maxSnapDistance : undefined,
         });
+        // Round-9-M observability: log the clip-add hop. The expensive bit
+        // happens 100ms later when handleChange triggers rebuildComposer
+        // (which logs its own [sgve] line).
+        if (isMemoryProbeEnabled()) {
+            const project = state.getProject();
+            const totalClips = (project.tracks || []).reduce((s, t) =>
+                s + ((t && Array.isArray(t.clips)) ? t.clips.length : 0), 0);
+            debugLog(`clip added: id=${id} trackId=${trackId} assetId=${assetId}`,
+                `totalClips=${totalClips} videosInDom=${document.querySelectorAll('video').length}`);
+            logHeap('clip-added');
+        }
         return { clipId: id };
     }
 
@@ -114,6 +149,12 @@ export function buildApiMethods({ state, getComposer, setComposer, hostEl }) {
         const { clipId } = params;
         if (!clipId) throw badArg('clipId required');
         state.removeClip({ clipId });
+        if (isMemoryProbeEnabled()) {
+            const project = state.getProject();
+            const totalClips = (project.tracks || []).reduce((s, t) =>
+                s + ((t && Array.isArray(t.clips)) ? t.clips.length : 0), 0);
+            debugLog(`clip removed: id=${clipId} totalClips=${totalClips}`);
+        }
         return { clipId };
     }
 
