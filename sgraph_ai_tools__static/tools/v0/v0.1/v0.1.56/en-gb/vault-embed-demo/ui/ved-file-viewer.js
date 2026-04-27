@@ -425,6 +425,7 @@ class VedFileViewer extends HTMLElement {
                 pageWrap.className = 'page-wrap'
                 try {
                     const renderer = await this._loadPageRenderer(entry._endpoint)
+                    await this._injectPageRendererCSS(entry._endpoint)
                     const json = JSON.parse(text)
                     renderer.render(pageWrap, json, '', null, null)
                 } catch (e) {
@@ -515,13 +516,27 @@ class VedFileViewer extends HTMLElement {
             s.onerror = () => reject(new Error(`Could not load PageLayoutRenderer from ${base}`))
             document.head.appendChild(s)
         })
-        if (!document.querySelector('link[href*="page-layout"]')) {
-            const link = document.createElement('link')
-            link.rel  = 'stylesheet'
-            link.href = `${base}/_common/js/components/send-download/send-browse-v031--page-layout.css`
-            document.head.appendChild(link)
-        }
         return PageLayoutRenderer
+    }
+
+    /**
+     * Fetch the PageLayoutRenderer CSS and inject it into shadow DOM as a <style>.
+     * Shadow DOM blocks external <link> stylesheets — we must inline the text.
+     * Idempotent: skips if already injected.
+     * @param {string} endpoint base URL of the SG/Send server
+     */
+    async _injectPageRendererCSS(endpoint) {
+        if (this._shadow.querySelector('.plr-injected-css')) return
+        const base = (endpoint || 'https://send.sgraph.ai').replace(/\/$/, '')
+        const cssUrl = `${base}/_common/js/components/send-download/send-browse-v031--page-layout.css`
+        try {
+            const resp = await fetch(cssUrl)
+            if (!resp.ok) return
+            const style = document.createElement('style')
+            style.className = 'plr-injected-css'
+            style.textContent = await resp.text()
+            this._shadow.appendChild(style)
+        } catch { /* fail silently — rendered content degrades gracefully */ }
     }
 }
 
