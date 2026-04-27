@@ -1,0 +1,185 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>sg-vault-manifest v0.1.0 — test</title>
+    <style>
+        body { font-family: monospace; background: #1a1a2e; color: #eee; padding: 2rem; }
+        .pass { color: #4ade80; } .fail { color: #f87171; }
+        pre { background: #0f3460; padding: 1rem; border-radius: 6px; }
+    </style>
+</head>
+<body>
+<h2>sg-vault-manifest v0.1.0 — AC tests</h2>
+<pre id="log">Running...</pre>
+
+<script type="module">
+import '/components/vault-embed/sg-vault-manifest/v0/v0.1/v0.1.0/sg-vault-manifest.js';
+import { SGVM_EVENTS } from '/components/vault-embed/sg-vault-manifest/v0/v0.1/v0.1.0/events.js';
+
+const log = document.getElementById('log');
+const results = [];
+function pass(msg) { results.push(`✓ ${msg}`); }
+function fail(msg) { results.push(`✗ ${msg}`); }
+
+// Helper: create a manifest blob URL
+function manifestUrl(data) {
+    const blob = new Blob([JSON.stringify(data)], { type: 'application/json' });
+    return URL.createObjectURL(blob);
+}
+
+// Test 1: SGVM_EVENTS frozen + correct names
+if (Object.isFrozen(SGVM_EVENTS) &&
+    SGVM_EVENTS.MANIFEST_LOADED === 'sg-vault-manifest:manifest-loaded' &&
+    SGVM_EVENTS.SLOT_READY      === 'sg-vault-manifest:slot-ready'      &&
+    SGVM_EVENTS.MANIFEST_ERROR  === 'sg-vault-manifest:manifest-error') {
+    pass('SGVM_EVENTS frozen + correct names');
+} else {
+    fail('SGVM_EVENTS issue');
+}
+
+// Test 2: AC-4 — write_key rejection
+await new Promise((resolve) => {
+    const manifest = {
+        version: '1.0',
+        write_key: 'this-should-be-rejected',
+        slots: {
+            hero: { object_id: 'obj-cas-imm-abc123456789', render: 'markdown' }
+        }
+    };
+    const url = manifestUrl(manifest);
+    const el = document.createElement('sg-vault-manifest');
+    el.setAttribute('src', url);
+    el.setAttribute('vault-id', 'test1234');
+    el.setAttribute('read-key', 'dGVzdA');
+
+    el.addEventListener(SGVM_EVENTS.MANIFEST_ERROR, (e) => {
+        const expected = 'Manifest validation error: write_key is forbidden in manifests.';
+        if (e.detail.error === expected) {
+            pass('AC-4: write_key rejected with exact error message');
+        } else {
+            fail(`AC-4: wrong error: "${e.detail.error}"`);
+        }
+        URL.revokeObjectURL(url);
+        el.remove();
+        resolve();
+    }, { once: true });
+
+    document.body.appendChild(el);
+});
+
+// Test 3: slot-ready fires for each slot
+await new Promise((resolve) => {
+    const manifest = {
+        version: '1.0',
+        slots: {
+            hero:    { object_id: 'obj-cas-imm-abc123456789', render: 'markdown' },
+            photo:   { object_id: 'obj-cas-imm-def123456789', render: 'image'    },
+            'build': { object_id: 'obj-cas-imm-ghi123456789', render: 'json'     },
+        }
+    };
+    const url = manifestUrl(manifest);
+    const slots = [];
+    let loadedFired = false;
+
+    const el = document.createElement('sg-vault-manifest');
+    el.setAttribute('src', url);
+    el.setAttribute('vault-id', 'test5678');
+    el.setAttribute('read-key', 'dGVzdGtleXZhbHVlMTIzNDU2Nzg5MDEyMzQ');
+
+    el.addEventListener(SGVM_EVENTS.MANIFEST_LOADED, (e) => {
+        if (e.detail.src && e.detail.slotCount === 3) {
+            loadedFired = true;
+        }
+    });
+
+    el.addEventListener(SGVM_EVENTS.SLOT_READY, (e) => {
+        slots.push(e.detail);
+        if (slots.length === 3) {
+            if (loadedFired) {
+                pass('manifest-loaded fired with correct slotCount');
+            } else {
+                fail('manifest-loaded did not fire before slot-ready');
+            }
+            const slotNames = slots.map(s => s.slotName).sort();
+            if (JSON.stringify(slotNames) === JSON.stringify(['build','hero','photo'])) {
+                pass('slot-ready fires once per slot with correct slotName');
+            } else {
+                fail(`slot names wrong: ${slotNames}`);
+            }
+            const hero = slots.find(s => s.slotName === 'hero');
+            if (hero && hero.objectId === 'obj-cas-imm-abc123456789' && hero.render === 'markdown') {
+                pass('slot-ready detail shape correct');
+            } else {
+                fail(`hero slot detail wrong: ${JSON.stringify(hero)}`);
+            }
+            URL.revokeObjectURL(url);
+            el.remove();
+            resolve();
+        }
+    });
+
+    document.body.appendChild(el);
+});
+
+// Test 4: bad version rejected
+await new Promise((resolve) => {
+    const manifest = {
+        version: '2.0',
+        slots: {}
+    };
+    const url = manifestUrl(manifest);
+    const el = document.createElement('sg-vault-manifest');
+    el.setAttribute('src', url);
+    el.setAttribute('vault-id', 'test9');
+    el.setAttribute('read-key', 'dGVzdA');
+
+    el.addEventListener(SGVM_EVENTS.MANIFEST_ERROR, (e) => {
+        if (e.detail.error.includes('2.0')) {
+            pass('Bad version rejected with informative error');
+        } else {
+            fail(`Bad version error not informative: ${e.detail.error}`);
+        }
+        URL.revokeObjectURL(url);
+        el.remove();
+        resolve();
+    }, { once: true });
+
+    document.body.appendChild(el);
+});
+
+// Test 5: nested write_key rejected (AC-4 recursive check)
+await new Promise((resolve) => {
+    const manifest = {
+        version: '1.0',
+        slots: {
+            hero: { object_id: 'obj-cas-imm-abc123456789', render: 'markdown', write_key: 'nested' }
+        }
+    };
+    const url = manifestUrl(manifest);
+    const el = document.createElement('sg-vault-manifest');
+    el.setAttribute('src', url);
+    el.setAttribute('vault-id', 'test10');
+    el.setAttribute('read-key', 'dGVzdA');
+
+    el.addEventListener(SGVM_EVENTS.MANIFEST_ERROR, (e) => {
+        if (e.detail.error === 'Manifest validation error: write_key is forbidden in manifests.') {
+            pass('AC-4: nested write_key also rejected');
+        } else {
+            fail(`AC-4 nested: wrong error: ${e.detail.error}`);
+        }
+        URL.revokeObjectURL(url);
+        el.remove();
+        resolve();
+    }, { once: true });
+
+    document.body.appendChild(el);
+});
+
+// ── render ────────────────────────────────────────────────────────────────────
+const allPass = results.every(r => r.startsWith('✓'));
+log.className   = allPass ? 'pass' : 'fail';
+log.textContent = results.join('\n') + '\n\n' + (allPass ? '✓ ALL PASS' : '✗ FAILURES ABOVE');
+</script>
+</body>
+</html>
