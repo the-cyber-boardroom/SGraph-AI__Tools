@@ -50,7 +50,10 @@ export class SgPreviewCanvas extends HTMLElement {
         updateTime(this.#els, 0, 0);
         setTransportEnabled(this.#els, false);
         this.#modeBtns = mountTransportModeButtons(this.#transportEl, {
-            getMode: () => this.#editorMode,
+            // Return null when no clip is selected so none of the mode buttons
+            // appear highlighted — the active state is only meaningful when
+            // there is something to act on.
+            getMode: () => this.#activeClip ? this.#editorMode : null,
             dispatch: (name, detail) => this.dispatchEvent(
                 new CustomEvent(name, { detail, bubbles: true, composed: true })),
         });
@@ -152,6 +155,7 @@ export class SgPreviewCanvas extends HTMLElement {
             srcWidth: info.srcWidth,
             srcHeight: info.srcHeight,
         } : null;
+        if (this.#modeBtns) this.#modeBtns.refresh();
         if (this.#overlay) this.#overlay.refresh();
     }
 

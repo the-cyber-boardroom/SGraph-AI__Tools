@@ -42,12 +42,13 @@ export function mountModeButtons(cfg) {
     }
 
     function refresh() {
-        const active = cfg.getMode() || 'select';
+        const active = cfg.getMode(); // null = no clip selected → none highlighted
         for (const mode of MODES) {
             const btn = buttons[mode];
-            if (mode === active) btn.classList.add('is-active');
+            const on = mode === active;
+            if (on) btn.classList.add('is-active');
             else btn.classList.remove('is-active');
-            btn.setAttribute('aria-pressed', mode === active ? 'true' : 'false');
+            btn.setAttribute('aria-pressed', on ? 'true' : 'false');
         }
     }
 
