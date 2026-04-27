@@ -1,0 +1,4 @@
+/* sg-vault-manifest — manifest loader, renders nothing */
+:host {
+    display: none;
+}
