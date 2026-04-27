@@ -1,47 +1,43 @@
 /**
  * vault-embed-demo — entry point.
  *
- * Configures the demo with vault credentials, wires the manifest
- * slot-mount bootstrap, and registers the SgToolApi.
+ * Shows a credential setup form on load. Once the user provides a vault key
+ * (or vault-id + read-key directly), derives all credentials, hydrates the
+ * credentials panel, and mounts all content components dynamically.
  */
 
+import { mountSetupForm }        from './ui-setup-form.js'
 import { mountCredentialsPanel } from './ui-credentials-panel.js'
 import { mountTracePanel }       from './ui-trace-panel.js'
-import { mountShell }            from './ui-shell.js'
+import { mountDynamicContent }   from './ui-dynamic-content.js'
 
-// Demo vault credentials (OQ-3: credentials are placeholders — real credentials
-// are injected by the demo vault setup script, or remain as-is for the
-// structural demo without a live vault).
-//
-// NOTE: This is intentionally public. The vault key is a read_key only.
-// The content is intentionally public. No write_key is present anywhere.
-export const DEMO_CONFIG = {
-    vaultId:   'DEMO_VAULT_ID',
-    readKey:   'DEMO_READ_KEY',
-    endpoint:  'https://send.sgraph.ai',
-    objectIds: {
-        hero:   'DEMO_OBJECT_HERO',
-        image:  'DEMO_OBJECT_IMAGE',
-        json:   'DEMO_OBJECT_JSON',
-    },
-    manifestUrl: 'DEMO_MANIFEST_URL',
+/**
+ * Called once the user has provided credentials.
+ * @param {{ vaultId, readKey, endpoint, objectIds, manifestUrl }} config
+ */
+function init(config) {
+    mountCredentialsPanel({
+        vaultIdEl:  document.getElementById('cred-vault-id'),
+        readKeyEl:  document.getElementById('cred-read-key'),
+        endpointEl: document.getElementById('cred-endpoint'),
+        config,
+    })
+
+    mountDynamicContent({
+        config,
+        objectIds:   config.objectIds,
+        manifestUrl: config.manifestUrl,
+    })
 }
 
-// Hydrate the page's placeholder credential values
-mountCredentialsPanel({
-    vaultIdEl:  document.getElementById('cred-vault-id'),
-    readKeyEl:  document.getElementById('cred-read-key'),
-    endpointEl: document.getElementById('cred-endpoint'),
-    config:     DEMO_CONFIG,
+// Show the credential form in the credentials panel container
+mountSetupForm({
+    container: document.getElementById('setup-form-container'),
+    onConfig:  init,
 })
 
-// Wire the manifest slot bootstrap
-mountShell({ config: DEMO_CONFIG })
+// Mount trace panel (works immediately — just listens for events)
+mountTracePanel({ traceEl: document.getElementById('main-trace') })
 
-// Mount trace panel controls
-mountTracePanel({
-    traceEl: document.getElementById('main-trace'),
-})
-
-// Register SgToolApi
+// Register SgToolApi (non-blocking)
 import('../api/vault-embed-demo-api.js')

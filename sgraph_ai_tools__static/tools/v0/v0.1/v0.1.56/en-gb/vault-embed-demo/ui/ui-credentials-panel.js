@@ -12,6 +12,9 @@
  */
 export function mountCredentialsPanel({ vaultIdEl, readKeyEl, endpointEl, config }) {
     if (vaultIdEl)  vaultIdEl.textContent  = config.vaultId
-    if (readKeyEl)  readKeyEl.textContent  = config.readKey + ' (this key is public — content is public)'
+    if (readKeyEl)  readKeyEl.textContent  = config.readKey
     if (endpointEl) endpointEl.textContent = config.endpoint
+
+    const display = document.getElementById('creds-display')
+    if (display) display.hidden = false
 }

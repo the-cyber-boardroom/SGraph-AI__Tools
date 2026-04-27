@@ -195,9 +195,183 @@ body {
     text-decoration: underline;
 }
 
-/* ── Loading state ───────────────────────────────────────────────────────── */
-.ved-loading {
+/* ── Loading / waiting state ─────────────────────────────────────────────── */
+.ved-loading,
+.ved-waiting {
     color: var(--ved-muted);
     font-style: italic;
     font-size: 0.9rem;
+    margin: 0;
+}
+
+.ved-not-configured {
+    color: var(--ved-muted);
+    font-size: 0.85rem;
+    margin: 0;
+}
+
+/* ── Setup form ──────────────────────────────────────────────────────────── */
+.ved-setup-form {
+    display: flex;
+    flex-direction: column;
+    gap: 0;
+}
+
+.ved-form-section {
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+}
+
+.ved-form-group {
+    display: flex;
+    flex-direction: column;
+    gap: 0.3rem;
+}
+
+.ved-form-group--wide {
+    flex: 2;
+}
+
+.ved-form-row {
+    display: flex;
+    gap: 0.5rem;
+    flex-wrap: wrap;
+}
+
+.ved-form-row .ved-form-group {
+    flex: 1;
+    min-width: 0;
+}
+
+.ved-form-label {
+    font-size: 0.72rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    color: var(--ved-muted);
+}
+
+.ved-form-hint {
+    font-weight: 400;
+    text-transform: none;
+    letter-spacing: 0;
+    color: rgba(148, 163, 184, 0.7);
+    margin-left: 0.3em;
+}
+
+.ved-form-input {
+    background: rgba(0, 0, 0, 0.25);
+    border: 1px solid rgba(148, 163, 184, 0.25);
+    border-radius: 4px;
+    color: var(--ved-text);
+    font-family: ui-monospace, 'SF Mono', monospace;
+    font-size: 0.78rem;
+    padding: 0.45rem 0.6rem;
+    width: 100%;
+    transition: border-color 0.15s;
+}
+
+.ved-form-input:focus {
+    outline: none;
+    border-color: var(--ved-accent);
+    box-shadow: 0 0 0 2px rgba(0, 255, 170, 0.1);
+}
+
+.ved-form-input::placeholder {
+    color: rgba(148, 163, 184, 0.4);
+}
+
+.ved-form-divider {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    margin: 0.25rem 0;
+    color: rgba(148, 163, 184, 0.4);
+    font-size: 0.72rem;
+}
+
+.ved-form-divider::before,
+.ved-form-divider::after {
+    content: '';
+    flex: 1;
+    height: 1px;
+    background: rgba(148, 163, 184, 0.15);
+}
+
+.ved-form-advanced {
+    margin-top: 0.75rem;
+    border: 1px solid rgba(148, 163, 184, 0.12);
+    border-radius: 4px;
+}
+
+.ved-form-advanced-toggle {
+    padding: 0.5rem 0.75rem;
+    font-size: 0.72rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    color: var(--ved-muted);
+    cursor: pointer;
+    list-style: none;
+    user-select: none;
+}
+
+.ved-form-advanced-toggle::-webkit-details-marker { display: none; }
+.ved-form-advanced-toggle::before { content: '▶ '; font-size: 0.6em; }
+details[open] .ved-form-advanced-toggle::before { content: '▼ '; }
+
+.ved-form-advanced-body {
+    padding: 0.75rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.6rem;
+    border-top: 1px solid rgba(148, 163, 184, 0.12);
+}
+
+.ved-form-hint-block {
+    font-size: 0.78rem;
+    color: var(--ved-muted);
+    margin: 0;
+}
+
+.ved-form-hint-block code {
+    background: rgba(255,255,255,0.06);
+    padding: 0.1em 0.3em;
+    border-radius: 3px;
+    font-size: 0.9em;
+}
+
+.ved-form-error {
+    background: rgba(239, 68, 68, 0.1);
+    border: 1px solid rgba(239, 68, 68, 0.3);
+    border-radius: 4px;
+    color: #fca5a5;
+    font-size: 0.8rem;
+    margin-top: 0.5rem;
+    padding: 0.5rem 0.75rem;
+}
+
+.ved-form-btn {
+    margin-top: 0.75rem;
+    background: var(--ved-accent);
+    border: none;
+    border-radius: 4px;
+    color: #0f172a;
+    cursor: pointer;
+    font-size: 0.85rem;
+    font-weight: 700;
+    padding: 0.6rem 1rem;
+    transition: opacity 0.15s;
+    width: 100%;
+}
+
+.ved-form-btn:hover:not(:disabled) { opacity: 0.85; }
+.ved-form-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+
+.ved-form-privacy {
+    color: rgba(148, 163, 184, 0.5);
+    font-size: 0.7rem;
+    margin: 0.5rem 0 0;
+    text-align: center;
 }
