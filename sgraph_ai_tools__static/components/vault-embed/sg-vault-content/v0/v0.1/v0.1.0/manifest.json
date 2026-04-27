@@ -1,0 +1,29 @@
+{
+    "name": "sg-vault-content",
+    "version": "0.1.0",
+    "type": "component",
+    "namespace": "vault-embed",
+    "tag": "sg-vault-content",
+    "description": "One-line page surface. Wraps sg-vault-key, sg-vault-fetch, and a content renderer. Most page authors use this rather than the primitives directly.",
+    "attributes": {
+        "vault-id":  { "required": true,  "type": "string", "description": "Vault ID" },
+        "read-key":  { "required": true,  "type": "string", "description": "base64url read key" },
+        "object-id": { "required": true,  "type": "string", "description": "obj-cas-imm-* blob ID" },
+        "render":    { "required": true,  "type": "enum",   "values": ["markdown", "image", "json"] },
+        "endpoint":  { "required": false, "type": "string", "description": "API endpoint override" },
+        "inspect":   { "required": false, "type": "bool-attr", "description": "If present, renders an <sg-vault-trace> alongside the content" }
+    },
+    "dependencies": {
+        "core": [
+            { "module": "sg-component", "path": "/components/base/v1/v1.0/v1.0.0/sg-component.js" }
+        ],
+        "shared": [
+            { "module": "sg-vault-key",          "path": "/components/vault-embed/sg-vault-key/v0/v0.1/v0.1.0/sg-vault-key.js" },
+            { "module": "sg-vault-fetch",        "path": "/components/vault-embed/sg-vault-fetch/v0/v0.1/v0.1.0/sg-vault-fetch.js" },
+            { "module": "sg-content-markdown",   "path": "/components/content/sg-content-markdown/v0/v0.1/v0.1.0/sg-content-markdown.js" },
+            { "module": "sg-content-image",      "path": "/components/content/sg-content-image/v0/v0.1/v0.1.0/sg-content-image.js" },
+            { "module": "sg-content-json",       "path": "/components/content/sg-content-json/v0/v0.1/v0.1.0/sg-content-json.js" },
+            { "module": "sg-vault-trace",        "path": "/components/vault-embed/sg-vault-trace/v0/v0.1/v0.1.0/sg-vault-trace.js" }
+        ]
+    }
+}
