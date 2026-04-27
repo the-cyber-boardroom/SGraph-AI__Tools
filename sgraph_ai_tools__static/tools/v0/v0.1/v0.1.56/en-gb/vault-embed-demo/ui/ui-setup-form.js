@@ -9,6 +9,7 @@
  */
 
 import { parseVaultKey, deriveVaultKeys } from '/core/vault-client/v1/v1.2/v1.2.2/sg-vault-client.js'
+import { loadHistory, pushHistory, formatAgo } from './ui-vault-history.js'
 
 /** localStorage key for persisting vault config (never stores passphrase). */
 export const STORAGE_KEY = 'sg-vault-embed-demo-v1'
@@ -99,6 +100,43 @@ const FORM_HTML = `
 `
 
 /**
+ * Inject a history picker above the form. Clicking an entry pre-fills the form.
+ * @param {HTMLElement} container
+ * @param {HTMLElement} form
+ */
+function mountHistoryPicker(container, form) {
+    const history = loadHistory()
+    if (history.length === 0) return
+
+    const wrap = document.createElement('div')
+    wrap.className = 'ved-hist-picker'
+
+    const title = document.createElement('p')
+    title.className = 'ved-hist-title'
+    title.textContent = 'Recent Vaults'
+    wrap.appendChild(title)
+
+    const list = document.createElement('ul')
+    list.className = 'ved-hist-list'
+
+    for (const entry of history) {
+        const li = document.createElement('li')
+        li.className = 'ved-hist-item'
+        const hostname = (() => { try { return new URL(entry.endpoint).hostname } catch { return entry.endpoint } })()
+        li.innerHTML = `<span class="ved-hist-id">${entry.vaultId}</span><span class="ved-hist-meta">${hostname} · ${formatAgo(entry.lastUsed)}</span>`
+        li.addEventListener('click', () => {
+            form.querySelector('#inp-vault-id').value = entry.vaultId
+            form.querySelector('#inp-read-key').value = entry.readKey
+            form.querySelector('#inp-endpoint').value = entry.endpoint
+        })
+        list.appendChild(li)
+    }
+
+    wrap.appendChild(list)
+    container.insertBefore(wrap, container.firstChild)
+}
+
+/**
  * Mount the credential setup form into a container element.
  *
  * @param {{ container: HTMLElement, onConfig: (config: object) => void, savedConfig?: object|null }} opts
@@ -109,6 +147,8 @@ export function mountSetupForm({ container, onConfig, savedConfig = null }) {
     const form      = container.querySelector('#cred-form')
     const errorEl   = container.querySelector('#form-error')
     const submitBtn = container.querySelector('#form-submit-btn')
+
+    mountHistoryPicker(container, form)
 
     // Pre-fill inputs from saved config (but never vault key / passphrase)
     if (savedConfig) {
@@ -158,6 +198,7 @@ export function mountSetupForm({ container, onConfig, savedConfig = null }) {
                 throw new Error('Enter a vault key, or both vault ID and read key.')
             }
 
+            pushHistory({ vaultId, readKey, endpoint })
             container.innerHTML = ''
             onConfig({ vaultId, readKey, endpoint, objectIds, manifestUrl })
         } catch (err) {
