@@ -1,0 +1,22 @@
+{
+    "name": "sg-vault-trace",
+    "version": "0.1.0",
+    "type": "component",
+    "namespace": "vault-embed",
+    "tag": "sg-vault-trace",
+    "description": "Introspection panel. Listens for all sg-vault-* events and renders a chronological trace. Pure sink — emits nothing.",
+    "attributes": {
+        "target": { "required": false, "type": "string", "description": "Element ID to scope to (default: document)" },
+        "format": { "required": false, "type": "enum", "values": ["compact", "detailed"], "default": "compact" }
+    },
+    "events": {},
+    "methods": {
+        "getLog":   { "async": false, "returns": "Array<{event, detail, ts}>", "description": "Returns recorded events" },
+        "clearLog": { "async": false, "returns": "void" }
+    },
+    "dependencies": {
+        "core": [
+            { "module": "sg-component", "path": "/components/base/v1/v1.0/v1.0.0/sg-component.js" }
+        ]
+    }
+}
