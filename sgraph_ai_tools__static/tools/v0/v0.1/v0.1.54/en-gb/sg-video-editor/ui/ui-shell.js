@@ -110,6 +110,10 @@ export function mountShell({ host, state, api, getComposer, setComposer }) {
     let configPane = null;
     /** Perf panel handle. */
     let perfPane = null;
+    /** Unsubscribe fn for the perfEnabled config watcher. */
+    let unsubPerfConfig = null;
+    /** Slot element for the perf panel (captured during mountInto). */
+    let perfSlot = null;
 
     /** beforeunload guard: prompt the browser's native confirm if the project
      *  is dirty (per the hash-based `hasUnsavedChanges()` check, which is the
@@ -264,7 +268,21 @@ export function mountShell({ host, state, api, getComposer, setComposer }) {
         if (messagesPanel) messagesPane = mountMessagesPanel({ host: messagesPanel });
         if (slots.shortcutsPanel) shortcutsPane = mountShortcutsPanel({ host: slots.shortcutsPanel });
         if (slots.configPanel) configPane = mountConfigPanel({ host: slots.configPanel });
-        if (slots.perfPanel)   perfPane   = mountPerfPanel({ host: slots.perfPanel, state });
+        perfSlot = slots.perfPanel || null;
+        function refreshPerfPanel() {
+            const want = !!editorConfig.get('perfEnabled');
+            if (want && !perfPane && perfSlot) {
+                perfPane = mountPerfPanel({ host: perfSlot, state });
+            } else if (!want && perfPane) {
+                try { perfPane.destroy(); } catch (_) {}
+                perfPane = null;
+                if (perfSlot) perfSlot.innerHTML = '';
+            }
+        }
+        refreshPerfPanel();
+        unsubPerfConfig = editorConfig.onChange((key) => {
+            if (key === 'perfEnabled' || key === '*') refreshPerfPanel();
+        });
         if (debugEnabled && slots.debugPanel) {
             debugPane = mountDebugPanel({ host: slots.debugPanel, state, api });
         }
@@ -355,6 +373,7 @@ export function mountShell({ host, state, api, getComposer, setComposer }) {
         try { keyboardWire && keyboardWire.destroy(); } catch (_) {}
         try { autosaveHandle && autosaveHandle.destroy(); } catch (_) {} autosaveHandle = null;
         try { configPane && configPane.destroy(); } catch (_) {} configPane = null;
+        if (unsubPerfConfig) { try { unsubPerfConfig(); } catch (_) {} unsubPerfConfig = null; }
         try { perfPane   && perfPane.destroy();   } catch (_) {} perfPane   = null;
         try { debugPane && debugPane.destroy(); } catch (_) {} debugPane = null;
         try { devPanel && devPanel.destroy(); } catch (_) {}

@@ -16,7 +16,7 @@ const MAX_RULER_TICKS = 120;
  *  default since Round-9-I Task 2 (was 80). */
 export const LANE_HEIGHT = 44;
 
-console.log('[sgve-timeline] timeline-render.js v4 loaded (DocumentFragment + tick cap)');
+console.log('[sgve-timeline] timeline-render.js v5 loaded (tick cap overflow fix + h:mm:ss labels)');
 
 /**
  * Pick a tick interval (seconds) for the given pps and total duration.
@@ -32,14 +32,17 @@ function pickTickInterval(pps, totalSec) {
     const effective  = Math.max(targetSec, minForCap);
     const candidates = [0.1, 0.25, 0.5, 1, 2, 5, 10, 30, 60, 120, 300, 600, 1800, 3600];
     for (const c of candidates) if (c >= effective) return c;
-    return candidates[candidates.length - 1];
+    // Duration exceeds all candidates — compute directly so the cap is always honoured.
+    return Math.ceil(totalSec / MAX_RULER_TICKS);
 }
 
-/** Format seconds as mm:ss or m:ss.s. */
+/** Format seconds as [h:]mm:ss or s.s for short clips. */
 function fmtTime(t) {
     if (t < 60) return t.toFixed(t < 10 ? 1 : 0) + 's';
-    const m = Math.floor(t / 60);
-    const s = Math.floor(t - m * 60);
+    const h = Math.floor(t / 3600);
+    const m = Math.floor((t % 3600) / 60);
+    const s = Math.floor(t % 60);
+    if (h > 0) return `${h}:${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
     return `${m}:${String(s).padStart(2, '0')}`;
 }
 

@@ -22,6 +22,8 @@ const DEFAULTS = {
     autosaveEnabled: true,
 
     // Debug / observability
+    /** Mount the Perf tab panel. Disabled by default to avoid rAF + sampling overhead. */
+    perfEnabled: false,
     /** Enable URL.* + <video> memory counters (same as ?debug=1 but live-togglable). */
     memoryProbeEnabled: false,
     /** Console verbosity: 'off' | 'error' | 'info' | 'verbose' */
