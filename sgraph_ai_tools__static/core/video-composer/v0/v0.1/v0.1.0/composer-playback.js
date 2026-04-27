@@ -47,6 +47,16 @@ function waitForVideoFrame(video, cb) {
  * Build a Map<assetId, HTMLVideoElement> covering every video clip on every
  * `kind: 'video'` track. Object URLs are returned in `urls` so callers can
  * revoke them on destroy.
+ *
+ * Round-9-M memory fix: `preload='metadata'` (not `'auto'`). With a
+ * high-resolution screen recording (e.g. 4K MP4) and `preload='auto'`, Chrome
+ * eagerly decodes large stretches of the file the moment the element gets a
+ * src — combined with the shell's destroy+recreate-on-every-mutation pattern
+ * this can stack multiple in-flight decoders on the same blob and balloon
+ * heap usage to multiple GB. `'metadata'` defers the heavy decode to the
+ * first `currentTime` set / `play()` call, which the scheduler / `seek()`
+ * path issues anyway when a clip becomes active.
+ *
  * @param {object} project
  * @param {Map<string, Blob>} assets
  * @returns {{ videos: Map<string, HTMLVideoElement>, urls: Map<string, string> }}
@@ -65,7 +75,7 @@ function buildAllTrackVideos(project, assets) {
             const v = document.createElement('video');
             v.src = url;
             v.playsInline = true;
-            v.preload = 'auto';
+            v.preload = 'metadata';
             v.crossOrigin = 'anonymous';
             videos.set(clip.assetId, v);
             urls.set(clip.assetId, url);
@@ -184,6 +194,12 @@ export function createPlayback({ project, assets, canvas, fps }) {
         imageReg.destroy();
     }
 
+    /** Round-9-M: introspection helpers for the memory debug panel. Cheap;
+     *  return current sizes of the composer's internal collections. */
+    function getVideoCount() { return videos.size; }
+    function getBlobUrlCount() { return urls.size; }
+    function getVideoAssetIds() { return Array.from(videos.keys()); }
+
     return {
         play,
         pause,
@@ -193,6 +209,9 @@ export function createPlayback({ project, assets, canvas, fps }) {
         getCurrentTime: () => playhead,
         getDuration: () => duration,
         isPlaying: () => playing,
+        getVideoCount,
+        getBlobUrlCount,
+        getVideoAssetIds,
         destroy,
     };
 }
