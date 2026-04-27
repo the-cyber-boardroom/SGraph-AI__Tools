@@ -1,0 +1,203 @@
+/* vault-embed-demo — tool styles */
+
+:root {
+    --ved-bg:         #0f172a;
+    --ved-surface:    #1e293b;
+    --ved-border:     rgba(148, 163, 184, 0.15);
+    --ved-text:       #e2e8f0;
+    --ved-muted:      #94a3b8;
+    --ved-accent:     #00ffaa;
+    --ved-accent-dim: rgba(0, 255, 170, 0.1);
+    --ved-radius:     8px;
+    --ved-max-width:  900px;
+}
+
+*, *::before, *::after { box-sizing: border-box; }
+
+body {
+    margin: 0;
+    padding: 0;
+    background: var(--ved-bg);
+    color: var(--ved-text);
+    font-family: system-ui, -apple-system, 'Segoe UI', sans-serif;
+    line-height: 1.6;
+}
+
+#app {
+    max-width: var(--ved-max-width);
+    margin: 0 auto;
+    padding: 2rem 1.5rem;
+}
+
+/* ── Header ─────────────────────────────────────────────────────────────── */
+.ved-header {
+    margin-bottom: 2rem;
+    padding-bottom: 1.5rem;
+    border-bottom: 1px solid var(--ved-border);
+}
+
+.ved-title {
+    font-size: 1.5rem;
+    font-weight: 700;
+    margin: 0 0 0.5rem;
+    color: var(--ved-text);
+}
+
+.ved-subtitle {
+    color: var(--ved-muted);
+    margin: 0;
+    font-size: 0.95rem;
+}
+
+.ved-subtitle code {
+    background: rgba(255,255,255,0.06);
+    padding: 0.1em 0.35em;
+    border-radius: 3px;
+    font-family: ui-monospace, monospace;
+    font-size: 0.9em;
+}
+
+/* ── Layout ──────────────────────────────────────────────────────────────── */
+.ved-layout {
+    display: grid;
+    grid-template-columns: 1fr 2fr;
+    gap: 1.5rem;
+    margin-bottom: 2rem;
+}
+
+@media (max-width: 640px) {
+    .ved-layout { grid-template-columns: 1fr; }
+}
+
+/* ── Credentials Panel ────────────────────────────────────────────────────── */
+.ved-credentials {
+    background: var(--ved-surface);
+    border: 1px solid var(--ved-border);
+    border-radius: var(--ved-radius);
+    padding: 1rem 1.25rem;
+}
+
+.ved-section-title {
+    font-size: 0.85rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: var(--ved-accent);
+    margin: 0 0 0.75rem;
+}
+
+.ved-note {
+    font-size: 0.8rem;
+    color: var(--ved-muted);
+    margin: 0 0 0.75rem;
+    font-style: italic;
+}
+
+.ved-creds-list {
+    margin: 0;
+    display: grid;
+    row-gap: 0.5rem;
+}
+
+.ved-creds-list dt {
+    font-size: 0.75rem;
+    color: var(--ved-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    margin-bottom: 0;
+}
+
+.ved-creds-list dd {
+    margin: 0 0 0.5rem;
+    font-size: 0.8rem;
+    font-family: ui-monospace, monospace;
+    color: var(--ved-text);
+    word-break: break-all;
+}
+
+/* ── Trace container ─────────────────────────────────────────────────────── */
+.ved-trace-container {
+    overflow: hidden;
+}
+
+/* ── Main content ────────────────────────────────────────────────────────── */
+.ved-main {
+    display: flex;
+    flex-direction: column;
+    gap: 1.75rem;
+}
+
+.ved-section {
+    background: var(--ved-surface);
+    border: 1px solid var(--ved-border);
+    border-radius: var(--ved-radius);
+    padding: 1.25rem;
+}
+
+.ved-desc {
+    font-size: 0.9rem;
+    color: var(--ved-muted);
+    margin: 0 0 1rem;
+}
+
+.ved-desc code {
+    background: rgba(255,255,255,0.06);
+    padding: 0.1em 0.35em;
+    border-radius: 3px;
+    font-family: ui-monospace, monospace;
+    font-size: 0.9em;
+}
+
+.ved-content-card {
+    background: rgba(255,255,255,0.03);
+    border: 1px solid var(--ved-border);
+    border-radius: 6px;
+    padding: 1rem;
+    color: var(--ved-text);
+}
+
+.ved-slot-placeholder {
+    border: 1px dashed var(--ved-border);
+    border-radius: 6px;
+    padding: 0.75rem 1rem;
+    margin-bottom: 0.5rem;
+    color: var(--ved-muted);
+    font-style: italic;
+    font-size: 0.9rem;
+}
+
+/* ── Code block ──────────────────────────────────────────────────────────── */
+.ved-code-block {
+    background: rgba(0,0,0,0.4);
+    border: 1px solid var(--ved-border);
+    border-radius: 6px;
+    padding: 1rem;
+    overflow-x: auto;
+    font-family: ui-monospace, 'SF Mono', monospace;
+    font-size: 0.8rem;
+    line-height: 1.6;
+    color: #cbd5e1;
+    margin: 0;
+    white-space: pre-wrap;
+}
+
+/* ── Source link ─────────────────────────────────────────────────────────── */
+.ved-source-link {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4em;
+    color: var(--ved-accent);
+    text-decoration: none;
+    font-size: 0.9rem;
+}
+
+.ved-source-link:hover {
+    text-decoration: underline;
+}
+
+/* ── Loading state ───────────────────────────────────────────────────────── */
+.ved-loading {
+    color: var(--ved-muted);
+    font-style: italic;
+    font-size: 0.9rem;
+}

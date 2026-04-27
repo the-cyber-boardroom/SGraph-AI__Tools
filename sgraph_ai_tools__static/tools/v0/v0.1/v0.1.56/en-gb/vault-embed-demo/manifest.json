@@ -1,0 +1,66 @@
+{
+    "id": "vault-embed-demo",
+    "name": "Vault Embed Demo",
+    "slug": "vault-embed-demo",
+    "description": "Live demonstration of the public-vault embed component suite. Fetches encrypted blobs from send.sgraph.ai, decrypts client-side, renders markdown/image/JSON, and shows the full event trace.",
+    "icon": "🔐",
+    "version": "0.1.0",
+    "status": "dev",
+    "category": "vault",
+    "keywords": ["vault", "embed", "decrypt", "web-crypto", "aes-gcm", "components"],
+    "locale": "en-gb",
+    "loader": [
+        { "phase": 1, "type": "css", "path": "/components/tokens/v1/v1.0/v1.0.0/sg-tokens.css" },
+        { "phase": 1, "type": "css", "path": "./styles/vault-embed-demo.css" },
+        { "phase": 2, "type": "js",  "path": "/components/base/v1/v1.0/v1.0.0/sg-component.js" },
+        { "phase": 2, "type": "js",  "path": "/components/vault-embed/sg-vault-key/v0/v0.1/v0.1.0/sg-vault-key.js" },
+        { "phase": 2, "type": "js",  "path": "/components/vault-embed/sg-vault-fetch/v0/v0.1/v0.1.0/sg-vault-fetch.js" },
+        { "phase": 2, "type": "js",  "path": "/components/vault-embed/sg-vault-content/v0/v0.1/v0.1.0/sg-vault-content.js" },
+        { "phase": 2, "type": "js",  "path": "/components/vault-embed/sg-vault-manifest/v0/v0.1/v0.1.0/sg-vault-manifest.js" },
+        { "phase": 2, "type": "js",  "path": "/components/vault-embed/sg-vault-trace/v0/v0.1/v0.1.0/sg-vault-trace.js" },
+        { "phase": 2, "type": "js",  "path": "/components/content/sg-content-markdown/v0/v0.1/v0.1.0/sg-content-markdown.js" },
+        { "phase": 2, "type": "js",  "path": "/components/content/sg-content-image/v0/v0.1/v0.1.0/sg-content-image.js" },
+        { "phase": 2, "type": "js",  "path": "/components/content/sg-content-json/v0/v0.1/v0.1.0/sg-content-json.js" },
+        { "phase": 3, "type": "js",  "entry": true, "path": "./ui/main.js" }
+    ],
+    "api": {
+        "actions": {
+            "getDemoVaultInfo": {
+                "description": "Returns the demo vault's public credentials: { vaultId, readKey, endpoint, objectIds }."
+            },
+            "loadDemoContent": {
+                "description": "Re-triggers a fetch+decrypt cycle for one slot. Params: { slot: 'hero'|'image'|'json' }. Useful for cache testing."
+            },
+            "getTraceLog": {
+                "description": "Returns the last N events from the trace panel. Params: { limit?: number }."
+            },
+            "clearTraceLog": {
+                "description": "Clears all events from the trace panel."
+            },
+            "setEndpoint": {
+                "description": "Switch endpoint for testing. Params: { endpoint: string }."
+            }
+        }
+    },
+    "dependencies": {
+        "core": [
+            { "module": "sg-component",   "path": "/components/base/v1/v1.0/v1.0.0/sg-component.js" },
+            { "module": "sg-vault-client","path": "/core/vault-client/v1/v1.2/v1.2.2/sg-vault-client.js" }
+        ],
+        "shared": [
+            { "module": "sg-vault-key",           "path": "/components/vault-embed/sg-vault-key/v0/v0.1/v0.1.0/sg-vault-key.js" },
+            { "module": "sg-vault-fetch",         "path": "/components/vault-embed/sg-vault-fetch/v0/v0.1/v0.1.0/sg-vault-fetch.js" },
+            { "module": "sg-vault-content",       "path": "/components/vault-embed/sg-vault-content/v0/v0.1/v0.1.0/sg-vault-content.js" },
+            { "module": "sg-vault-manifest",      "path": "/components/vault-embed/sg-vault-manifest/v0/v0.1/v0.1.0/sg-vault-manifest.js" },
+            { "module": "sg-vault-trace",         "path": "/components/vault-embed/sg-vault-trace/v0/v0.1/v0.1.0/sg-vault-trace.js" },
+            { "module": "sg-content-markdown",    "path": "/components/content/sg-content-markdown/v0/v0.1/v0.1.0/sg-content-markdown.js" },
+            { "module": "sg-content-image",       "path": "/components/content/sg-content-image/v0/v0.1/v0.1.0/sg-content-image.js" },
+            { "module": "sg-content-json",        "path": "/components/content/sg-content-json/v0/v0.1/v0.1.0/sg-content-json.js" }
+        ]
+    },
+    "skills": {
+        "human":   "./SKILL-human.md",
+        "browser": "./SKILL-browser.md",
+        "api":     "./SKILL-api.md"
+    }
+}
