@@ -141,6 +141,24 @@ export function mountConfigPanel({ host }) {
         document.dispatchEvent(new CustomEvent('sgve:cancel-pending'));
     });
     actSec.appendChild(cancelBtn);
+
+    const STRESS_DURATIONS = [
+        { label: 'Timeline test: 30 s', sec: 30 },
+        { label: 'Timeline test: 5 min', sec: 300 },
+        { label: 'Timeline test: 30 min', sec: 1800 },
+        { label: 'Timeline test: 2 hr', sec: 7200 },
+    ];
+    STRESS_DURATIONS.forEach(({ label, sec }) => {
+        const btn = document.createElement('button');
+        btn.className = 'sgve-cfg-action-btn';
+        btn.textContent = label;
+        btn.title = `Inject a synthetic ${label} project into the timeline. Console: sgveTimelineTest(${sec})`;
+        btn.addEventListener('click', () => {
+            document.dispatchEvent(new CustomEvent('sgve:timeline-test', { detail: { durationSec: sec } }));
+        });
+        actSec.appendChild(btn);
+    });
+
     root.appendChild(actSec);
 
     // Reset button
