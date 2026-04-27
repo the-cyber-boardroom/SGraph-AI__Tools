@@ -16,12 +16,13 @@ import { createImageRegistry } from './composer-images.js';
 
 /**
  * Wait until a video element has at least HAVE_CURRENT_DATA (readyState >= 2)
- * and its first frame is paintable, then invoke `cb`. Listens for `seeked`
- * AND `loadeddata` (whichever fires first wins via `{ once: true }` on each
- * plus a guard flag) — a freshly-attached video where `currentTime` is set
- * before metadata loads may NOT fire `seeked` (no real seek when the value
- * doesn't change), so the `seeked`-only path used to leave the canvas black
- * until the user pressed play (which forces `v.play()` and a real load).
+ * and its first frame is paintable, then invoke `cb`. Listens for `seeked`,
+ * `loadeddata`, and `canplay` — but only invokes `cb` once `readyState >= 2`.
+ * `seeked` can fire before frame data is available (readyState still 1) when the
+ * browser considers the seek complete but hasn't decoded the first frame yet;
+ * in that case we keep listening until one of the data-ready events fires.
+ * Manual listener cleanup (no `{ once: true }`) is used so we stay subscribed
+ * across an early `seeked` → `loadeddata` transition.
  * @param {HTMLVideoElement} video
  * @param {() => void} cb
  * @returns {void}
@@ -32,15 +33,16 @@ function waitForVideoFrame(video, cb) {
     let done = false;
     function run() {
         if (done) return;
+        if (video.readyState < 2) return; // seeked fired before frame data — keep waiting
         done = true;
-        try { video.removeEventListener('seeked', run); } catch (_) {}
-        try { video.removeEventListener('loadeddata', run); } catch (_) {}
-        try { video.removeEventListener('canplay', run); } catch (_) {}
+        video.removeEventListener('seeked',      run);
+        video.removeEventListener('loadeddata',  run);
+        video.removeEventListener('canplay',     run);
         cb();
     }
-    video.addEventListener('seeked', run, { once: true });
-    video.addEventListener('loadeddata', run, { once: true });
-    video.addEventListener('canplay', run, { once: true });
+    video.addEventListener('seeked',     run);
+    video.addEventListener('loadeddata', run);
+    video.addEventListener('canplay',    run);
 }
 
 /**
