@@ -81,10 +81,16 @@ async function activate(config) {
 
     try {
         const vault = await buildVaultHandle(config)
+        document.dispatchEvent(new CustomEvent('sg-vault-key:key-ready', {
+            detail: { vaultId: vault.keys.vaultId, url: config.endpoint || 'https://send.sgraph.ai' },
+        }))
         document.dispatchEvent(new CustomEvent('ved:vault-ready', {
             detail: { vault, config },
         }))
     } catch (err) {
+        document.dispatchEvent(new CustomEvent('sg-vault-key:key-error', {
+            detail: { error: err.message },
+        }))
         console.error('[vault-embed-demo] vault handle error', err)
     }
 }

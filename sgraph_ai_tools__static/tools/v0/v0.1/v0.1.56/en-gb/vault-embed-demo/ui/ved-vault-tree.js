@@ -88,16 +88,36 @@ class VedVaultTree extends HTMLElement {
         document.removeEventListener('ved:vault-ready', this._bound)
     }
 
+    /**
+     * Dispatch a trace event on document.
+     * @param {string} name
+     * @param {object} detail
+     */
+    _emit(name, detail) {
+        document.dispatchEvent(new CustomEvent(name, { detail, bubbles: false }))
+    }
+
     /** @param {CustomEvent} e */
     async _onVaultReady(e) {
         this._vault = e.detail.vault
+        const vaultId = this._vault.keys.vaultId
         this._shadow.innerHTML = `<style>${STYLES}</style><p class="msg">Loading vault tree…</p>`
+
+        this._emit('sg-vault-fetch:fetch-started', { vaultId, objectId: 'tree-root' })
+        const t0 = performance.now()
         try {
-            const tree = await openVaultTree(this._vault)
+            const tree    = await openVaultTree(this._vault)
+            const fetchMs = performance.now() - t0
+            this._emit('sg-vault-fetch:fetch-completed', {
+                vaultId, objectId: 'tree-root', fetchMs,
+                bytesReceived: 0, cacheHit: false,
+            })
             const ul = this._renderEntries(tree.rootTree.entries, 0)
             this._shadow.innerHTML = `<style>${STYLES}</style>`
             this._shadow.appendChild(ul)
         } catch (err) {
+            const fetchMs = performance.now() - t0
+            this._emit('sg-vault-fetch:fetch-error', { vaultId, objectId: 'tree-root', error: err.message, fetchMs })
             this._shadow.innerHTML = `<style>${STYLES}</style><p class="msg">Error: ${err.message}</p>`
         }
     }
