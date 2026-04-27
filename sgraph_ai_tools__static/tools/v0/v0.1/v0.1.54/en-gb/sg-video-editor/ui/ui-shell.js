@@ -14,6 +14,7 @@ import { editorConfig } from './editor-config.js';
 import { attachGlobalShortcuts } from './ui-keyboard.js';
 import { attachAutosave } from './ui-autosave.js';
 import { wireOverlay } from './ui-shell-overlay.js';
+import { mountPreviewMaximize } from './ui-preview-maximize.js';
 import { rebuildComposer, emitErr } from './ui-shell-composer.js';
 import { initMemoryProbe, isMemoryProbeEnabled, debugLog, notifyComposerRebuilt }
     from './debug/memory-probe.js';
@@ -100,6 +101,8 @@ export function mountShell({ host, state, api, getComposer, setComposer }) {
     let previewEl = null, timelineEl = null;
     let pending = null, activePending = null;
     let onCanvasPlayhead = null, devPanel = null, jsonPane = null, propertiesPane = null, messagesPane = null, overlayWire = null;
+    /** Preview maximize overlay handle. */
+    let maximizeHandle = null;
     let onTimelineTest = null;
     let shortcutsPane = null, keyboardWire = null;
     /** Autosave handle — debounced writes + on-init restore prompt. */
@@ -238,11 +241,21 @@ export function mountShell({ host, state, api, getComposer, setComposer }) {
             getSelectedClipId: () => ctx.selectedClipId,
             getPlayhead: () => ctx.currentPlayhead,
             setSelectedClip: (id) => {
+                ctx.selectedClipId = id;
                 if (timelineEl && typeof timelineEl.setSelectedClip === 'function') {
                     timelineEl.setSelectedClip(id);
                 }
+                refreshProperties();
             },
         });
+
+        if (slots.previewPanel && previewEl) {
+            maximizeHandle = mountPreviewMaximize({
+                previewPanel: slots.previewPanel,
+                previewEl,
+                getComposer,
+            });
+        }
 
         if (timelineEl) {
             timelineEl.addEventListener('sg-timeline:clip-selected', schedulePushActive);
@@ -377,6 +390,7 @@ export function mountShell({ host, state, api, getComposer, setComposer }) {
         try { perfPane   && perfPane.destroy();   } catch (_) {} perfPane   = null;
         try { debugPane && debugPane.destroy(); } catch (_) {} debugPane = null;
         try { devPanel && devPanel.destroy(); } catch (_) {}
+        try { maximizeHandle && maximizeHandle.destroy(); } catch (_) {} maximizeHandle = null;
         host.innerHTML = '';
     }
 

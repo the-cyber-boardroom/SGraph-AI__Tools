@@ -117,7 +117,15 @@ export function wireOverlay(cfg) {
         cfg.previewEl.setActiveClip(info);
     }
 
-    function onModeReq(e) { applyMode(e && e.detail && e.detail.mode); }
+    function onModeReq(e) {
+        const mode = e && e.detail && e.detail.mode;
+        // Re-clicking Select while already in select mode → deselect the clip
+        // so the Properties panel falls back to showing project settings.
+        if (mode === 'select' && editorMode === 'select' && typeof cfg.setSelectedClip === 'function') {
+            cfg.setSelectedClip(null);
+        }
+        applyMode(mode);
+    }
     function onTransform(e) {
         const d = e.detail || {};
         if (!d.clipId || !d.transform) return;
