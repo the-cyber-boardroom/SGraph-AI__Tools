@@ -16,12 +16,14 @@ import { createImageRegistry } from './composer-images.js';
 
 /**
  * Wait until a video element has at least HAVE_CURRENT_DATA (readyState >= 2)
- * and its first frame is paintable, then invoke `cb`. Listens for `seeked`
- * AND `loadeddata` (whichever fires first wins via `{ once: true }` on each
- * plus a guard flag) — a freshly-attached video where `currentTime` is set
- * before metadata loads may NOT fire `seeked` (no real seek when the value
- * doesn't change), so the `seeked`-only path used to leave the canvas black
- * until the user pressed play (which forces `v.play()` and a real load).
+ * and its first frame is paintable, then invoke `cb`.
+ *
+ * Chrome will NOT buffer frame data for a preload='metadata' video sitting at
+ * currentTime=0 — it considers itself "already there" (no displacement) and
+ * stops after loading metadata (readyState=1). We work around this by nudging
+ * currentTime by 1ms once metadata is available, forcing a real seek that
+ * triggers data loading. The nudge is imperceptible (< 1 video frame).
+ *
  * @param {HTMLVideoElement} video
  * @param {() => void} cb
  * @returns {void}
@@ -32,53 +34,70 @@ function waitForVideoFrame(video, cb) {
     let done = false;
     function run() {
         if (done) return;
+        if (video.readyState < 2) return; // seeked fired before frame data — keep waiting
         done = true;
-        try { video.removeEventListener('seeked', run); } catch (_) {}
-        try { video.removeEventListener('loadeddata', run); } catch (_) {}
-        try { video.removeEventListener('canplay', run); } catch (_) {}
+        video.removeEventListener('seeked',     run);
+        video.removeEventListener('loadeddata', run);
+        video.removeEventListener('canplay',    run);
         cb();
     }
-    video.addEventListener('seeked', run, { once: true });
-    video.addEventListener('loadeddata', run, { once: true });
-    video.addEventListener('canplay', run, { once: true });
+    function kickLoad() {
+        if (done) return;
+        // Nudge currentTime to force Chrome to buffer frame data. Without this,
+        // preload='metadata' at currentTime=0 stays at readyState=1 forever.
+        const t = video.currentTime;
+        const d = Number.isFinite(video.duration) && video.duration > 0 ? video.duration : Infinity;
+        video.currentTime = (t + 1e-3 < d) ? t + 1e-3 : Math.max(0, t - 1e-3);
+    }
+    video.addEventListener('seeked',     run);
+    video.addEventListener('loadeddata', run);
+    video.addEventListener('canplay',    run);
+    if (video.readyState < 1) {
+        video.addEventListener('loadedmetadata', kickLoad, { once: true });
+    } else {
+        kickLoad();
+    }
 }
 
 /**
- * Build a Map<assetId, HTMLVideoElement> covering every video clip on every
- * `kind: 'video'` track. Object URLs are returned in `urls` so callers can
- * revoke them on destroy.
+ * Build a Map<clipId, HTMLVideoElement> covering every video clip on every
+ * `kind: 'video'` track. Keyed by CLIP id (not asset id) so two clips that
+ * reference the same asset each get their own independent decoder — otherwise
+ * a second clip starting mid-timeline clobbers the first clip's currentTime
+ * and causes a black frame plus broken audio.
+ *
+ * Blob URLs are shared per asset (Map<assetId, url>) so the browser can
+ * satisfy both decoders from the same cached resource. URLs are returned in
+ * `urls` so callers can revoke them on destroy.
  *
  * Round-9-M memory fix: `preload='metadata'` (not `'auto'`). With a
- * high-resolution screen recording (e.g. 4K MP4) and `preload='auto'`, Chrome
- * eagerly decodes large stretches of the file the moment the element gets a
- * src — combined with the shell's destroy+recreate-on-every-mutation pattern
- * this can stack multiple in-flight decoders on the same blob and balloon
- * heap usage to multiple GB. `'metadata'` defers the heavy decode to the
- * first `currentTime` set / `play()` call, which the scheduler / `seek()`
- * path issues anyway when a clip becomes active.
+ * high-resolution screen recording and `preload='auto'`, Chrome eagerly
+ * decodes large stretches the moment the element gets a src, ballooning
+ * heap. `'metadata'` defers the heavy decode to the first play/seek.
  *
  * @param {object} project
  * @param {Map<string, Blob>} assets
  * @returns {{ videos: Map<string, HTMLVideoElement>, urls: Map<string, string> }}
  */
 function buildAllTrackVideos(project, assets) {
-    const videos = new Map();
-    const urls = new Map();
+    const videos = new Map(); // Map<clipId, HTMLVideoElement>
+    const urls = new Map();   // Map<assetId, string> — shared blob URLs
     for (const track of getVideoTracks(project)) {
         for (const clip of (track.clips || [])) {
-            if (videos.has(clip.assetId)) continue;
             const asset = getAssetById(project, clip.assetId);
             if (isImageAsset(asset)) continue;
             const blob = assets.get(clip.assetId);
             if (!blob) continue;
-            const url = URL.createObjectURL(blob);
+            // Share one blob URL per asset; create separate <video> per clip.
+            if (!urls.has(clip.assetId)) {
+                urls.set(clip.assetId, URL.createObjectURL(blob));
+            }
             const v = document.createElement('video');
-            v.src = url;
+            v.src = urls.get(clip.assetId);
             v.playsInline = true;
             v.preload = 'metadata';
             v.crossOrigin = 'anonymous';
-            videos.set(clip.assetId, v);
-            urls.set(clip.assetId, url);
+            videos.set(clip.id, v);
         }
     }
     return { videos, urls };
@@ -163,7 +182,7 @@ export function createPlayback({ project, assets, canvas, fps }) {
                 if (img && !img.complete) waitImage = img;
                 continue;
             }
-            const v = videos.get(clip.assetId);
+            const v = videos.get(clip.id);
             if (!v) continue;
             const local = clip.inPoint + (snapped - clip.timelineStart);
             try { v.currentTime = Math.max(0, local); } catch (_) {}

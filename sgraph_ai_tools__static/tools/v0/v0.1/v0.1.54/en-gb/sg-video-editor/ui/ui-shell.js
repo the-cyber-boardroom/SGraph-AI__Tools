@@ -9,10 +9,12 @@ import { mountPropertiesPanel } from './ui-properties-panel.js';
 import { mountMessagesPanel } from './ui-messages-panel.js';
 import { mountShortcutsPanel } from './ui-shortcuts-panel.js';
 import { mountConfigPanel } from './ui-config-panel.js';
+import { mountPerfPanel } from './debug/ui-perf-panel.js';
 import { editorConfig } from './editor-config.js';
 import { attachGlobalShortcuts } from './ui-keyboard.js';
 import { attachAutosave } from './ui-autosave.js';
 import { wireOverlay } from './ui-shell-overlay.js';
+import { mountPreviewMaximize } from './ui-preview-maximize.js';
 import { rebuildComposer, emitErr } from './ui-shell-composer.js';
 import { initMemoryProbe, isMemoryProbeEnabled, debugLog, notifyComposerRebuilt }
     from './debug/memory-probe.js';
@@ -99,6 +101,9 @@ export function mountShell({ host, state, api, getComposer, setComposer }) {
     let previewEl = null, timelineEl = null;
     let pending = null, activePending = null;
     let onCanvasPlayhead = null, devPanel = null, jsonPane = null, propertiesPane = null, messagesPane = null, overlayWire = null;
+    /** Preview maximize overlay handle. */
+    let maximizeHandle = null;
+    let onTimelineTest = null;
     let shortcutsPane = null, keyboardWire = null;
     /** Autosave handle — debounced writes + on-init restore prompt. */
     let autosaveHandle = null;
@@ -106,6 +111,12 @@ export function mountShell({ host, state, api, getComposer, setComposer }) {
     let debugPane = null;
     /** Config + Debug panel handle. */
     let configPane = null;
+    /** Perf panel handle. */
+    let perfPane = null;
+    /** Unsubscribe fn for the perfEnabled config watcher. */
+    let unsubPerfConfig = null;
+    /** Slot element for the perf panel (captured during mountInto). */
+    let perfSlot = null;
 
     /** beforeunload guard: prompt the browser's native confirm if the project
      *  is dirty (per the hash-based `hasUnsavedChanges()` check, which is the
@@ -131,6 +142,17 @@ export function mountShell({ host, state, api, getComposer, setComposer }) {
         } catch (_) { /* never block unload on a guard error */ }
     }
     window.addEventListener('beforeunload', onBeforeUnload);
+
+    /** Cancel any queued handleChange / schedulePushActive callbacks. Exposed
+     *  via `sgve:cancel-pending` so the Config panel can provide a Stop button. */
+    function cancelPending() {
+        if (pending) { clearTimeout(pending); pending = null; }
+        if (activePending) { clearTimeout(activePending); activePending = null; }
+    }
+    function onCancelPending() { cancelPending(); }
+    document.addEventListener('sgve:cancel-pending', onCancelPending);
+    // Console escape hatch: sgveCancel() from DevTools stops the queued pipeline run.
+    try { window.sgveCancel = cancelPending; } catch (_) {}
 
     function schedulePushActive() {
         if (!overlayWire) return;
@@ -179,10 +201,10 @@ export function mountShell({ host, state, api, getComposer, setComposer }) {
             pending = null;
             const flat = state.toComposerProject();
             if (editorConfig.get('timelineEnabled') && timelineEl) timelineEl.setProject(flat);
-            if (assetPanel) assetPanel.refresh(state.getProject());
+            if (editorConfig.get('assetPanelEnabled') && assetPanel) assetPanel.refresh(state.getProject());
             syncHistoryFlags();
             if (editorConfig.get('previewEnabled')) rebuild();
-            if (overlayWire) overlayWire.pushActive();
+            if (editorConfig.get('overlayEnabled') && overlayWire) overlayWire.pushActive();
         }, 100);
     }
 
@@ -219,11 +241,21 @@ export function mountShell({ host, state, api, getComposer, setComposer }) {
             getSelectedClipId: () => ctx.selectedClipId,
             getPlayhead: () => ctx.currentPlayhead,
             setSelectedClip: (id) => {
+                ctx.selectedClipId = id;
                 if (timelineEl && typeof timelineEl.setSelectedClip === 'function') {
                     timelineEl.setSelectedClip(id);
                 }
+                refreshProperties();
             },
         });
+
+        if (slots.previewPanel && previewEl) {
+            maximizeHandle = mountPreviewMaximize({
+                previewPanel: slots.previewPanel,
+                previewEl,
+                getComposer,
+            });
+        }
 
         if (timelineEl) {
             timelineEl.addEventListener('sg-timeline:clip-selected', schedulePushActive);
@@ -249,6 +281,21 @@ export function mountShell({ host, state, api, getComposer, setComposer }) {
         if (messagesPanel) messagesPane = mountMessagesPanel({ host: messagesPanel });
         if (slots.shortcutsPanel) shortcutsPane = mountShortcutsPanel({ host: slots.shortcutsPanel });
         if (slots.configPanel) configPane = mountConfigPanel({ host: slots.configPanel });
+        perfSlot = slots.perfPanel || null;
+        function refreshPerfPanel() {
+            const want = !!editorConfig.get('perfEnabled');
+            if (want && !perfPane && perfSlot) {
+                perfPane = mountPerfPanel({ host: perfSlot, state });
+            } else if (!want && perfPane) {
+                try { perfPane.destroy(); } catch (_) {}
+                perfPane = null;
+                if (perfSlot) perfSlot.innerHTML = '';
+            }
+        }
+        refreshPerfPanel();
+        unsubPerfConfig = editorConfig.onChange((key) => {
+            if (key === 'perfEnabled' || key === '*') refreshPerfPanel();
+        });
         if (debugEnabled && slots.debugPanel) {
             debugPane = mountDebugPanel({ host: slots.debugPanel, state, api });
         }
@@ -275,6 +322,28 @@ export function mountShell({ host, state, api, getComposer, setComposer }) {
             try { autosaveHandle && autosaveHandle.promptRestore(); } catch (_) {}
         }, 0);
         devPanel = mountDevPanel({ host, manifestUrl: './manifest.json' });
+
+        // ── Timeline stress test helpers ──────────────────────────────────────
+        function buildTestProject(durationSec) {
+            return {
+                width: 1920, height: 1080, fps: 30,
+                tracks: [{ id: 'test-track', kind: 'video', muted: false, locked: false,
+                    clips: [{ id: 'test-clip', assetId: 'test-asset',
+                        timelineStart: 0, inPoint: 0, outPoint: durationSec }] }],
+                assets: [{ id: 'test-asset', name: `test-${durationSec}s.mp4`,
+                    assetType: 'video', duration: durationSec, width: 1920, height: 1080 }],
+            };
+        }
+        function runTimelineTest(durationSec) {
+            if (!timelineEl) { console.log('[sgve] no timeline'); return; }
+            const proj = buildTestProject(durationSec);
+            const t0 = performance.now();
+            timelineEl.setProject(proj);
+            console.log(`[sgve] sgveTimelineTest(${durationSec}s) wall=${(performance.now() - t0).toFixed(1)}ms`);
+        }
+        try { window.sgveTimelineTest = runTimelineTest; } catch (_) {}
+        onTimelineTest = (e) => { runTimelineTest((e && e.detail && e.detail.durationSec) || 60); };
+        document.addEventListener('sgve:timeline-test', onTimelineTest);
     }
 
     mountInto().catch(err => emitErr('mountShell', err));
@@ -285,6 +354,9 @@ export function mountShell({ host, state, api, getComposer, setComposer }) {
         if (activePending) { clearTimeout(activePending); activePending = null; }
         if (toastTimer) { clearTimeout(toastTimer); toastTimer = null; }
         try { window.removeEventListener('beforeunload', onBeforeUnload); } catch (_) {}
+        try { document.removeEventListener('sgve:cancel-pending', onCancelPending); } catch (_) {}
+        try { document.removeEventListener('sgve:timeline-test', onTimelineTest); } catch (_) {}
+        try { delete window.sgveTimelineTest; } catch (_) {}
         try { document.removeEventListener('tool:toast', onToolToast); } catch (_) {}
         try { document.removeEventListener('tool:error', onToolError); } catch (_) {}
         try { state.removeEventListener('change', handleChange); } catch (_) {}
@@ -314,8 +386,11 @@ export function mountShell({ host, state, api, getComposer, setComposer }) {
         try { keyboardWire && keyboardWire.destroy(); } catch (_) {}
         try { autosaveHandle && autosaveHandle.destroy(); } catch (_) {} autosaveHandle = null;
         try { configPane && configPane.destroy(); } catch (_) {} configPane = null;
+        if (unsubPerfConfig) { try { unsubPerfConfig(); } catch (_) {} unsubPerfConfig = null; }
+        try { perfPane   && perfPane.destroy();   } catch (_) {} perfPane   = null;
         try { debugPane && debugPane.destroy(); } catch (_) {} debugPane = null;
         try { devPanel && devPanel.destroy(); } catch (_) {}
+        try { maximizeHandle && maximizeHandle.destroy(); } catch (_) {} maximizeHandle = null;
         host.innerHTML = '';
     }
 

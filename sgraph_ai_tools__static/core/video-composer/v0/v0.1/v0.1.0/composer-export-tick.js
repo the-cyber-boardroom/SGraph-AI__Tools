@@ -52,7 +52,7 @@ export function paintExportFrame(cfg) {
     const { ctx, canvas, project, t, videos, getImage } = cfg;
     paintBlack(ctx, canvas);
     const perTrack = findActiveClipsPerTrack(project, t);
-    const activeAssetIds = new Set();
+    const activeClipIds = new Set();
     for (const { clip } of perTrack) {
         if (!clip) continue;
         const tf = getClipTransform(clip);
@@ -64,14 +64,14 @@ export function paintExportFrame(cfg) {
             paintImage(ctx, canvas, getImage ? getImage(clip.assetId) : null, tf, cr);
             continue;
         }
-        const v = videos.get(clip.assetId);
+        const v = videos.get(clip.id);
         if (!v) continue;
-        activeAssetIds.add(clip.assetId);
+        activeClipIds.add(clip.id);
         ensureSynced(v, clip, t);
         if (v.readyState >= 2) paintVideo(ctx, canvas, v, tf, cr);
     }
-    pauseUnused(videos, activeAssetIds);
-    return { activeAssetIds, perTrack };
+    pauseUnused(videos, activeClipIds);
+    return { activeClipIds, perTrack };
 }
 
 /**
@@ -86,7 +86,7 @@ export function createAudioSwitcher({ audio, videos }) {
     let connectedClipId = null;
     return function update(project, t) {
         const top = findTopmostActiveAudioClip(project, t);
-        const nextVideo = top ? (videos.get(top.clip.assetId) || null) : null;
+        const nextVideo = top ? (videos.get(top.clip.id) || null) : null;
         const nextClipId = top ? top.clip.id : null;
         if (nextVideo === connected && nextClipId === connectedClipId) return;
         if (connected) audio.disconnect(connected);

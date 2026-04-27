@@ -225,6 +225,19 @@ export function createState(initialProject) {
             withOp({ op: 'renameTrack', trackId: r.trackId, name: r.name });
             emit(); return r;
         },
+        renameClip(params) {
+            const { clipId, name } = params;
+            for (const t of project.tracks) {
+                const clip = t.clips && t.clips.find(c => c.id === clipId);
+                if (!clip) continue;
+                const snap = deepClone(project);
+                if (name) clip.name = name; else delete clip.name;
+                history.pushSnapshot(snap);
+                withOp({ op: 'renameClip', clipId, name: name || '' });
+                emit(); return { clipId, name: name || '' };
+            }
+            throw Object.assign(new Error('unknown clipId'), { code: 'not-found' });
+        },
         renameProject(params) {
             const snap = deepClone(project);
             const r = renameProjectOp(project, params);

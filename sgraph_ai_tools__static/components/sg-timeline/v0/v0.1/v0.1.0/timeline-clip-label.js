@@ -33,6 +33,7 @@ export function clipLabel(clip, project) {
         const c = (clip.text.content || '').slice(0, 24);
         return `[text] "${c}"`;
     }
+    if (clip.name && typeof clip.name === 'string') return clip.name;
     const a = clipAsset(clip, project);
     const base = (a && a.name) ? a.name : clip.assetId;
     return (a && a.assetType === 'image') ? `[img] ${base}` : base;

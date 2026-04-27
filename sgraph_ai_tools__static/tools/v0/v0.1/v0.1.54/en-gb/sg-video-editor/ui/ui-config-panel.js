@@ -15,6 +15,16 @@ const FEATURE_TOGGLES = [
         desc: 'Re-render timeline clips on every state change.',
     },
     {
+        key: 'assetPanelEnabled',
+        label: 'Asset panel refresh',
+        desc: 'Rebuild the asset list on every state change.',
+    },
+    {
+        key: 'overlayEnabled',
+        label: 'Overlay updates',
+        desc: 'Push active-clip overlay to the preview canvas on changes.',
+    },
+    {
         key: 'autosaveEnabled',
         label: 'Autosave',
         desc: 'Debounced autosave to localStorage / IDB after mutations.',
@@ -22,6 +32,11 @@ const FEATURE_TOGGLES = [
 ];
 
 const DEBUG_TOGGLES = [
+    {
+        key: 'perfEnabled',
+        label: 'Perf tab',
+        desc: 'Mount the Perf tab (rAF FPS sampler + heap sparklines). Disable to stop sampling overhead.',
+    },
     {
         key: 'memoryProbeEnabled',
         label: 'Memory probe',
@@ -120,6 +135,36 @@ export function mountConfigPanel({ host }) {
     DEBUG_TOGGLES.forEach(t => dbgSec.appendChild(buildToggle(t)));
     dbgSec.appendChild(buildLogLevelRow());
     root.appendChild(dbgSec);
+
+    // Actions section
+    const actSec = buildSectionEl('Actions');
+    const cancelBtn = document.createElement('button');
+    cancelBtn.className = 'sgve-cfg-action-btn';
+    cancelBtn.textContent = 'Cancel pending changes';
+    cancelBtn.title = 'Clear any queued handleChange debounce — stops the next pipeline run. Console: sgveCancel()';
+    cancelBtn.addEventListener('click', () => {
+        document.dispatchEvent(new CustomEvent('sgve:cancel-pending'));
+    });
+    actSec.appendChild(cancelBtn);
+
+    const STRESS_DURATIONS = [
+        { label: 'Timeline test: 30 s', sec: 30 },
+        { label: 'Timeline test: 5 min', sec: 300 },
+        { label: 'Timeline test: 30 min', sec: 1800 },
+        { label: 'Timeline test: 2 hr', sec: 7200 },
+    ];
+    STRESS_DURATIONS.forEach(({ label, sec }) => {
+        const btn = document.createElement('button');
+        btn.className = 'sgve-cfg-action-btn';
+        btn.textContent = label;
+        btn.title = `Inject a synthetic ${label} project into the timeline. Console: sgveTimelineTest(${sec})`;
+        btn.addEventListener('click', () => {
+            document.dispatchEvent(new CustomEvent('sgve:timeline-test', { detail: { durationSec: sec } }));
+        });
+        actSec.appendChild(btn);
+    });
+
+    root.appendChild(actSec);
 
     // Reset button
     const resetBtn = document.createElement('button');

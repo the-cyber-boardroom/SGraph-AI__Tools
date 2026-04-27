@@ -60,6 +60,7 @@ export async function init(manifest) {
             .register('copyClip',      methods.copyClip,      { async: false, sanitiseParams: passthrough })
             .register('pasteClip',     methods.pasteClip,     { async: false, sanitiseParams: passthrough })
             .register('hasClipboard',  methods.hasClipboard,  { async: false, sanitiseParams: passthrough })
+            .register('renameClip',    methods.renameClip,    { async: false, sanitiseParams: passthrough })
             .register('renameProject', methods.renameProject, { async: false, sanitiseParams: passthrough })
             .register('getProject', methods.getProject, { async: false, sanitiseParams: passthrough })
             .register('setProject', methods.setProject, { async: false, sanitiseParams: projectSanitiser })

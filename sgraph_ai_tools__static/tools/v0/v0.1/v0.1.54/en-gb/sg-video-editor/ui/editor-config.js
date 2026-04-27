@@ -14,10 +14,16 @@ const DEFAULTS = {
     previewEnabled: true,
     /** Call timelineEl.setProject() on every state change. */
     timelineEnabled: true,
+    /** Call assetPanel.refresh() on every state change. */
+    assetPanelEnabled: true,
+    /** Call overlayWire.pushActive() on every state change. */
+    overlayEnabled: true,
     /** Run the debounced autosave after mutations. */
     autosaveEnabled: true,
 
     // Debug / observability
+    /** Mount the Perf tab panel. Disabled by default to avoid rAF + sampling overhead. */
+    perfEnabled: false,
     /** Enable URL.* + <video> memory counters (same as ?debug=1 but live-togglable). */
     memoryProbeEnabled: false,
     /** Console verbosity: 'off' | 'error' | 'info' | 'verbose' */

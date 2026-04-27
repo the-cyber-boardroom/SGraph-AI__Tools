@@ -57,6 +57,7 @@ export function splitClipOp(project, { clipId, atTime }, genId) {
         right.assetId = clip.assetId;
     }
     if (clip.color) right.color = clip.color;
+    if (clip.name) right.name = clip.name;
     if (clip.transform) right.transform = { ...clip.transform };
     if (clip.crop) right.crop = { ...clip.crop };
     clip.outPoint = newOutPoint;

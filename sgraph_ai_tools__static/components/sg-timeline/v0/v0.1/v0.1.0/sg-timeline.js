@@ -9,10 +9,13 @@ import {
     updatePlayhead,
 } from './timeline-render.js';
 import { attachInteractions } from './timeline-interactions.js';
-import { attachZoom } from './timeline-zoom.js';
+import { attachZoom, computeFitPps } from './timeline-zoom.js';
+import { getProjectDuration } from '../../../../../core/video-composer/v0/v0.1/v0.1.0/composer-schema.js';
 
 const CSS_HREF = new URL('./sg-timeline.css', import.meta.url).href;
 const DEFAULT_PPS = 60;
+/** Auto-fit when a project longer than this (seconds) first loads at default zoom. */
+const AUTO_FIT_THRESHOLD_SEC = 30;
 const DEFAULT_FPS = 30;
 
 export { SGT_EVENTS };
@@ -123,8 +126,24 @@ export class SgTimeline extends HTMLElement {
 
     /** @param {object} project */
     setProject(project) {
+        const prevDur = this.#project ? getProjectDuration(this.#project) : 0;
         this.#project = project || null;
         if (project && Number.isFinite(project.fps)) this.#fps = project.fps;
+        // Auto-fit before the first render of a long project so we don't build
+        // an enormous surface + thousands of ruler ticks at the default zoom.
+        if (prevDur === 0 && this.#pps === DEFAULT_PPS && this.#zoom) {
+            const dur = this.#project ? getProjectDuration(this.#project) : 0;
+            if (dur > AUTO_FIT_THRESHOLD_SEC) {
+                const lane = this.#lanes;
+                const vp = lane && lane.parentElement ? lane.parentElement : null;
+                const w = vp ? vp.clientWidth : 0;
+                const fitPps = computeFitPps(this.#project, w);
+                if (fitPps > 0) {
+                    this.#pps = fitPps;
+                    console.log(`[sgve-timeline] auto-fit: dur=${dur.toFixed(0)}s pps ${DEFAULT_PPS}→${fitPps}`);
+                }
+            }
+        }
         this.#renderAll();
         if (this.#zoom) this.#zoom.refresh();
     }
