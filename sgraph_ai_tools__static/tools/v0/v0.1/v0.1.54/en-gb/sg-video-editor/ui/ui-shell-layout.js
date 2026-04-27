@@ -13,6 +13,7 @@ export function buildLayoutDescriptor(opts = {}) {
         { type: 'tab', id: 't-properties', title: 'Properties', tag: 'div', locked: true, closable: false },
         { type: 'tab', id: 't-json',       title: 'JSON',       tag: 'div', locked: true, closable: false },
         { type: 'tab', id: 't-messages',   title: 'Messages',   tag: 'div', locked: true, closable: false },
+        { type: 'tab', id: 't-config',     title: 'Config',     tag: 'div', locked: true, closable: false },
     ];
     if (opts && opts.withDebugTab) {
         rightTabs.push({ type: 'tab', id: 't-debug', title: 'Debug', tag: 'div', locked: true, closable: false });
@@ -95,6 +96,7 @@ export function resolvePanels(layout) {
     const propertiesPanel = layout.getPanelElement('t-properties');
     const messagesPanel = layout.getPanelElement('t-messages');
     const shortcutsPanel = layout.getPanelElement('t-shortcuts');
+    const configPanel = layout.getPanelElement('t-config');
     const debugPanel = layout.getPanelElement('t-debug');
     let previewEl = null;
     let timelineEl = null;
@@ -113,10 +115,11 @@ export function resolvePanels(layout) {
     if (propertiesPanel) propertiesPanel.className = 'sgve-panel-slot sgve-properties';
     if (messagesPanel) messagesPanel.className = 'sgve-panel-slot sgve-messages';
     if (shortcutsPanel) shortcutsPanel.className = 'sgve-panel-slot sgve-shortcuts';
+    if (configPanel) configPanel.className = 'sgve-panel-slot sgve-config';
     if (debugPanel) debugPanel.className = 'sgve-panel-slot sgve-debug';
     return {
         assetsPanel, previewPanel, timelinePanel,
-        jsonPanel, propertiesPanel, messagesPanel, shortcutsPanel, debugPanel,
+        jsonPanel, propertiesPanel, messagesPanel, shortcutsPanel, configPanel, debugPanel,
         previewEl, timelineEl,
     };
 }

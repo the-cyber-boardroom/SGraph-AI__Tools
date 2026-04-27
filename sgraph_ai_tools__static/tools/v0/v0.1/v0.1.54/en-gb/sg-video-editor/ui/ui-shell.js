@@ -8,6 +8,8 @@ import { mountJsonPane } from './ui-json-pane.js';
 import { mountPropertiesPanel } from './ui-properties-panel.js';
 import { mountMessagesPanel } from './ui-messages-panel.js';
 import { mountShortcutsPanel } from './ui-shortcuts-panel.js';
+import { mountConfigPanel } from './ui-config-panel.js';
+import { editorConfig } from './editor-config.js';
 import { attachGlobalShortcuts } from './ui-keyboard.js';
 import { attachAutosave } from './ui-autosave.js';
 import { wireOverlay } from './ui-shell-overlay.js';
@@ -102,6 +104,8 @@ export function mountShell({ host, state, api, getComposer, setComposer }) {
     let autosaveHandle = null;
     /** Round-9-M debug panel handle (only when ?debug=1). */
     let debugPane = null;
+    /** Config + Debug panel handle. */
+    let configPane = null;
 
     /** beforeunload guard: prompt the browser's native confirm if the project
      *  is dirty (per the hash-based `hasUnsavedChanges()` check, which is the
@@ -174,10 +178,10 @@ export function mountShell({ host, state, api, getComposer, setComposer }) {
         pending = setTimeout(() => {
             pending = null;
             const flat = state.toComposerProject();
-            if (timelineEl) timelineEl.setProject(flat);
+            if (editorConfig.get('timelineEnabled') && timelineEl) timelineEl.setProject(flat);
             if (assetPanel) assetPanel.refresh(state.getProject());
             syncHistoryFlags();
-            rebuild();
+            if (editorConfig.get('previewEnabled')) rebuild();
             if (overlayWire) overlayWire.pushActive();
         }, 100);
     }
@@ -244,6 +248,7 @@ export function mountShell({ host, state, api, getComposer, setComposer }) {
         });
         if (messagesPanel) messagesPane = mountMessagesPanel({ host: messagesPanel });
         if (slots.shortcutsPanel) shortcutsPane = mountShortcutsPanel({ host: slots.shortcutsPanel });
+        if (slots.configPanel) configPane = mountConfigPanel({ host: slots.configPanel });
         if (debugEnabled && slots.debugPanel) {
             debugPane = mountDebugPanel({ host: slots.debugPanel, state, api });
         }
@@ -308,6 +313,7 @@ export function mountShell({ host, state, api, getComposer, setComposer }) {
         try { shortcutsPane && shortcutsPane.destroy(); } catch (_) {}
         try { keyboardWire && keyboardWire.destroy(); } catch (_) {}
         try { autosaveHandle && autosaveHandle.destroy(); } catch (_) {} autosaveHandle = null;
+        try { configPane && configPane.destroy(); } catch (_) {} configPane = null;
         try { debugPane && debugPane.destroy(); } catch (_) {} debugPane = null;
         try { devPanel && devPanel.destroy(); } catch (_) {}
         host.innerHTML = '';

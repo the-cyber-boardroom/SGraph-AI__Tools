@@ -18,6 +18,8 @@
  * SgToolApi._invoke is async-by-default.
  */
 
+import { editorConfig } from './editor-config.js';
+
 const DEBOUNCE_MS = 750;
 
 function timeAgo(ts) {
@@ -61,6 +63,7 @@ export function attachAutosave({ state, api, debounceMs }) {
         // Skip transient mutations (drag scrubs etc) — saving every tick
         // would drown localStorage and produce no useful checkpoint.
         if (e && e.detail && e.detail.transient) return;
+        if (!editorConfig.get('autosaveEnabled')) return;
         if (timer) clearTimeout(timer);
         timer = setTimeout(() => {
             // Best-effort fire-and-forget — flush() returns a Promise but

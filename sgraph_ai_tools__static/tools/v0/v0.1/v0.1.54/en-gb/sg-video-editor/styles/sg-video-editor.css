@@ -957,3 +957,91 @@
     color: rgba(100, 116, 139, 0.85);
     font-style: italic;
 }
+
+/* ── Config + Debug panel ───────────────────────────────────────── */
+
+.sgve-cfg-panel {
+    display: flex;
+    flex-direction: column;
+    gap: 0;
+    height: 100%;
+    overflow-y: auto;
+    padding: 0.5rem 0.75rem 1rem;
+}
+
+.sgve-cfg-section {
+    margin-bottom: 0.75rem;
+}
+
+.sgve-cfg-heading {
+    font-size: 0.7rem;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--sg-accent, #4ecdc4);
+    padding: 0.5rem 0 0.3rem;
+    border-bottom: 1px solid rgba(78, 205, 196, 0.25);
+    margin-bottom: 0.4rem;
+}
+
+.sgve-cfg-row {
+    display: flex;
+    align-items: flex-start;
+    gap: 0.5rem;
+    padding: 0.35rem 0;
+    cursor: pointer;
+}
+
+.sgve-cfg-row input[type="checkbox"] {
+    flex-shrink: 0;
+    margin-top: 2px;
+    accent-color: var(--sg-accent, #4ecdc4);
+    cursor: pointer;
+}
+
+.sgve-cfg-info {
+    font-size: 0.8rem;
+    color: var(--sg-fg, #e2e8f0);
+    line-height: 1.4;
+}
+
+.sgve-cfg-info small {
+    color: var(--sg-text-muted, #94a3b8);
+    font-size: 0.72rem;
+}
+
+.sgve-cfg-select-row {
+    flex-direction: column;
+    align-items: stretch;
+    cursor: default;
+}
+
+.sgve-cfg-select {
+    margin-top: 0.3rem;
+    background: var(--sg-bg-elev, #1f2937);
+    color: var(--sg-fg, #e2e8f0);
+    border: 1px solid var(--sg-border, #475569);
+    border-radius: 4px;
+    padding: 0.25rem 0.4rem;
+    font: inherit;
+    font-size: 0.8rem;
+    cursor: pointer;
+}
+
+.sgve-cfg-reset {
+    margin-top: 0.75rem;
+    background: transparent;
+    color: var(--sg-text-muted, #94a3b8);
+    border: 1px solid var(--sg-border, #475569);
+    border-radius: 4px;
+    padding: 0.3rem 0.75rem;
+    font: inherit;
+    font-size: 0.78rem;
+    cursor: pointer;
+    transition: color 0.15s, border-color 0.15s;
+}
+
+.sgve-cfg-reset:hover {
+    color: var(--sg-fg, #e2e8f0);
+    border-color: var(--sg-accent, #4ecdc4);
+}

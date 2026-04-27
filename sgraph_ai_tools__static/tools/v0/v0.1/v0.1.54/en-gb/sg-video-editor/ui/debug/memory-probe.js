@@ -29,6 +29,8 @@
 let _enabled = false;
 let _origCreate = null;
 let _origRevoke = null;
+/** 'off' | 'error' | 'info' | 'verbose' — default matches editorConfig default. */
+let _logLevel = 'error';
 
 const _state = {
     blobUrlsLive: 0,
@@ -173,18 +175,33 @@ export function getSnapshot() {
     };
 }
 
-/* ── console-log helpers ──────────────────────────────────────── */
+/* ── log-level helpers ────────────────────────────────────────── */
 
-/** Log a high-signal event. Prefixed with [sgve] for easy filtering. */
+/**
+ * Set console verbosity. Called by the Config panel when the user changes
+ * the log-level selector. Independent of the memory probe — logs can be
+ * enabled without installing the URL.* counters.
+ * @param {'off'|'error'|'info'|'verbose'} level
+ */
+export function setLogLevel(level) {
+    _logLevel = level || 'error';
+}
+
+function _shouldLog() {
+    return _logLevel === 'info' || _logLevel === 'verbose';
+}
+
+/** Log a high-signal event. Prefixed with [sgve] for easy filtering.
+ *  Outputs when the memory probe is active OR log level is info/verbose. */
 export function debugLog(...args) {
-    if (!_enabled) return;
+    if (!_enabled && !_shouldLog()) return;
     try { console.log('[sgve]', ...args); } catch (_) {}
 }
 
 /** Throttle a heavy log (e.g. paint-frame heap reads) to once per `ms`. */
 const _throttleLast = new Map();
 export function debugLogThrottled(key, ms, ...args) {
-    if (!_enabled) return;
+    if (!_enabled && !_shouldLog()) return;
     const now = Date.now();
     const last = _throttleLast.get(key) || 0;
     if (now - last < ms) return;
