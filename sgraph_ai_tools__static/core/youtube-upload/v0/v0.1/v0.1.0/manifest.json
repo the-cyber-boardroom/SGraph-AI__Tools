@@ -1,0 +1,10 @@
+{
+    "name": "sg-youtube-upload",
+    "version": "0.1.0",
+    "layer": "core",
+    "description": "YouTube Data API v3 client-side resumable uploader. GIS scope request + uploadVideo() with progress events.",
+    "exports": ["requestAccess", "YouTubeUpload", "YOUTUBE_UPLOAD_SCOPE"],
+    "dependencies": [],
+    "author": "SGraph Tools Team",
+    "license": "CC-BY-4.0"
+}

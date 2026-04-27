@@ -585,6 +585,11 @@ class SgLayout extends HTMLElement {
         // Set up registration listener before anything mounts
         this._setupRegistrationListener();
 
+        // Handle CMD_FOCUS_PANEL dispatched on this element
+        this.addEventListener(SGL_EVENTS.CMD_FOCUS_PANEL, (e) => {
+            if (e.detail?.id) this.focusPanel(e.detail.id);
+        });
+
         // Try to register with a parent sg-layout (fractal case)
         this._registerWithParent();
 
@@ -2041,6 +2046,23 @@ class SgLayout extends HTMLElement {
             if (tab.id === id) locked = !!tab.locked;
         });
         return locked;
+    }
+
+    /**
+     * Focus (activate) a panel tab by its id.
+     * Finds the containing stack and switches to that tab.
+     * @param {string} id  Panel/tab id
+     * @returns {boolean}  true if found and focused
+     */
+    focusPanel(id) {
+        let found = null;
+        this._walkTabs(this._tree, (tab, stack) => {
+            if (tab.id === id) found = { tab, stack };
+        });
+        if (!found) return false;
+        const idx = found.stack.tabs.indexOf(found.tab);
+        this._switchTab(found.stack, idx);
+        return true;
     }
 
     // -----------------------------------------------------------------------

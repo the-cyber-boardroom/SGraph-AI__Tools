@@ -1,0 +1,81 @@
+<!DOCTYPE html>
+<html lang="en-GB">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Vault Embed Demo — SGraph Tools</title>
+    <link rel="stylesheet" href="/components/tokens/v1/v1.0/v1.0.0/sg-tokens.css">
+    <link rel="stylesheet" href="./styles/vault-embed-demo.css">
+</head>
+<body>
+
+<div id="app">
+
+    <!-- Slim header strip -->
+    <header class="ved-header">
+        <span class="ved-title">SG/Send — Public Vault Embed Demo</span>
+        <span class="ved-subtitle">Encrypted → browser decrypted → rendered by Web Components</span>
+    </header>
+
+    <!-- Two-column body: sidebar + sg-layout -->
+    <div class="ved-body">
+
+        <!-- Left sidebar -->
+        <aside class="ved-sidebar">
+
+            <!-- Config / credentials section -->
+            <section class="ved-sidebar-section ved-sidebar-config">
+                <h2 class="ved-section-title">Demo Vault Credentials</h2>
+
+                <!-- Setup form injected here by main.js; hidden once credentials restored -->
+                <div id="setup-form-container"></div>
+
+                <!-- Populated by mountCredentialsPanel() after vault is activated -->
+                <dl class="ved-creds-list" id="creds-display" hidden>
+                    <dt>Vault ID</dt>
+                    <dd id="cred-vault-id"></dd>
+
+                    <dt>Read Key</dt>
+                    <dd id="cred-read-key"></dd>
+
+                    <dt>API Endpoint</dt>
+                    <dd id="cred-endpoint"></dd>
+                </dl>
+            </section>
+
+            <!-- Vault tree section -->
+            <section class="ved-sidebar-section ved-sidebar-tree">
+                <h2 class="ved-section-title">Vault Files</h2>
+                <div class="ved-tree-wrap">
+                    <ved-vault-tree id="vault-tree"></ved-vault-tree>
+                </div>
+            </section>
+
+        </aside>
+
+        <!-- Right: sg-layout manages tabbed panels (Trace + dynamic file viewers) -->
+        <div class="ved-main">
+            <sg-layout id="ved-layout"></sg-layout>
+        </div>
+
+    </div>
+
+</div>
+
+<!-- Vault embed components -->
+<script type="module" src="/components/vault-embed/sg-vault-trace/v0/v0.1/v0.1.0/sg-vault-trace.js"></script>
+<script type="module" src="/components/vault-embed/sg-vault-key/v0/v0.1/v0.1.0/sg-vault-key.js"></script>
+<script type="module" src="/components/vault-embed/sg-vault-fetch/v0/v0.1/v0.1.0/sg-vault-fetch.js"></script>
+<script type="module" src="/components/vault-embed/sg-vault-content/v0/v0.1/v0.1.0/sg-vault-content.js"></script>
+<script type="module" src="/components/vault-embed/sg-vault-manifest/v0/v0.1/v0.1.0/sg-vault-manifest.js"></script>
+
+<!-- Content renderer components -->
+<script type="module" src="/components/content/sg-content-markdown/v0/v0.1/v0.1.0/sg-content-markdown.js"></script>
+<script type="module" src="/components/content/sg-content-image/v0/v0.1/v0.1.0/sg-content-image.js"></script>
+<script type="module" src="/components/content/sg-content-json/v0/v0.1/v0.1.0/sg-content-json.js"></script>
+
+<!-- Tool entry point -->
+<script type="module" src="./ui/main.js"></script>
+
+</body>
+</html>

@@ -1,0 +1,444 @@
+/* vault-embed-demo — tool styles */
+
+:root {
+    --ved-bg:         #0f172a;
+    --ved-surface:    #1e293b;
+    --ved-border:     rgba(148, 163, 184, 0.15);
+    --ved-text:       #e2e8f0;
+    --ved-muted:      #94a3b8;
+    --ved-accent:     #00ffaa;
+    --ved-accent-dim: rgba(0, 255, 170, 0.1);
+    --ved-radius:     8px;
+    --ved-max-width:  900px;
+}
+
+*, *::before, *::after { box-sizing: border-box; }
+
+/* ── Full-height page ────────────────────────────────────────────────────── */
+html, body {
+    height: 100%;
+    margin: 0;
+    overflow: hidden;
+}
+
+body {
+    background: var(--ved-bg);
+    color: var(--ved-text);
+    font-family: system-ui, -apple-system, 'Segoe UI', sans-serif;
+    line-height: 1.6;
+}
+
+#app {
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+}
+
+/* ── Header strip ────────────────────────────────────────────────────────── */
+.ved-header {
+    flex-shrink: 0;
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    padding: 0.6rem 1.25rem;
+    border-bottom: 1px solid var(--ved-border);
+    background: var(--ved-surface);
+}
+
+.ved-title {
+    font-size: 0.95rem;
+    font-weight: 700;
+    margin: 0;
+    color: var(--ved-accent);
+    white-space: nowrap;
+}
+
+.ved-subtitle {
+    color: var(--ved-muted);
+    font-size: 0.78rem;
+    margin: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+/* ── Two-column body ─────────────────────────────────────────────────────── */
+.ved-body {
+    flex: 1;
+    display: grid;
+    grid-template-columns: 300px 1fr;
+    min-height: 0;
+}
+
+/* ── Sidebar ─────────────────────────────────────────────────────────────── */
+.ved-sidebar {
+    display: flex;
+    flex-direction: column;
+    border-right: 1px solid var(--ved-border);
+    overflow: hidden;
+    background: var(--ved-surface);
+}
+
+.ved-sidebar-section {
+    border-bottom: 1px solid var(--ved-border);
+}
+
+.ved-sidebar-config {
+    flex-shrink: 0;
+    overflow-y: auto;
+    padding: 0.85rem 1rem;
+    max-height: 55%;
+}
+
+.ved-sidebar-tree {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
+    padding: 0.75rem 1rem 0.5rem;
+    border-bottom: none;
+}
+
+.ved-tree-wrap {
+    flex: 1;
+    min-height: 0;
+    overflow: hidden;
+}
+
+ved-vault-tree {
+    display: block;
+    height: 100%;
+}
+
+/* ── Right main: sg-layout ───────────────────────────────────────────────── */
+.ved-main {
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+}
+
+sg-layout {
+    flex: 1;
+    display: block;
+    height: 100%;
+    min-height: 0;
+}
+
+/* ── Legacy layout class (kept for compatibility) ────────────────────────── */
+.ved-layout {
+    display: grid;
+    grid-template-columns: 1fr 2fr;
+    gap: 1.5rem;
+    margin-bottom: 2rem;
+}
+
+@media (max-width: 640px) {
+    .ved-layout { grid-template-columns: 1fr; }
+}
+
+/* ── Credentials Panel ────────────────────────────────────────────────────── */
+.ved-credentials {
+    background: var(--ved-surface);
+    border: 1px solid var(--ved-border);
+    border-radius: var(--ved-radius);
+    padding: 1rem 1.25rem;
+}
+
+.ved-section-title {
+    font-size: 0.85rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: var(--ved-accent);
+    margin: 0 0 0.75rem;
+}
+
+.ved-note {
+    font-size: 0.8rem;
+    color: var(--ved-muted);
+    margin: 0 0 0.75rem;
+    font-style: italic;
+}
+
+.ved-creds-list {
+    margin: 0;
+    display: grid;
+    row-gap: 0.5rem;
+}
+
+.ved-creds-list dt {
+    font-size: 0.75rem;
+    color: var(--ved-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    margin-bottom: 0;
+}
+
+.ved-creds-list dd {
+    margin: 0 0 0.5rem;
+    font-size: 0.8rem;
+    font-family: ui-monospace, monospace;
+    color: var(--ved-text);
+    word-break: break-all;
+}
+
+/* ── Trace container ─────────────────────────────────────────────────────── */
+.ved-trace-container {
+    overflow: hidden;
+}
+
+/* ── Main content ────────────────────────────────────────────────────────── */
+.ved-main {
+    display: flex;
+    flex-direction: column;
+    gap: 1.75rem;
+}
+
+.ved-section {
+    background: var(--ved-surface);
+    border: 1px solid var(--ved-border);
+    border-radius: var(--ved-radius);
+    padding: 1.25rem;
+}
+
+.ved-desc {
+    font-size: 0.9rem;
+    color: var(--ved-muted);
+    margin: 0 0 1rem;
+}
+
+.ved-desc code {
+    background: rgba(255,255,255,0.06);
+    padding: 0.1em 0.35em;
+    border-radius: 3px;
+    font-family: ui-monospace, monospace;
+    font-size: 0.9em;
+}
+
+.ved-content-card {
+    background: rgba(255,255,255,0.03);
+    border: 1px solid var(--ved-border);
+    border-radius: 6px;
+    padding: 1rem;
+    color: var(--ved-text);
+}
+
+.ved-slot-placeholder {
+    border: 1px dashed var(--ved-border);
+    border-radius: 6px;
+    padding: 0.75rem 1rem;
+    margin-bottom: 0.5rem;
+    color: var(--ved-muted);
+    font-style: italic;
+    font-size: 0.9rem;
+}
+
+/* ── Code block ──────────────────────────────────────────────────────────── */
+.ved-code-block {
+    background: rgba(0,0,0,0.4);
+    border: 1px solid var(--ved-border);
+    border-radius: 6px;
+    padding: 1rem;
+    overflow-x: auto;
+    font-family: ui-monospace, 'SF Mono', monospace;
+    font-size: 0.8rem;
+    line-height: 1.6;
+    color: #cbd5e1;
+    margin: 0;
+    white-space: pre-wrap;
+}
+
+/* ── Source link ─────────────────────────────────────────────────────────── */
+.ved-source-link {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4em;
+    color: var(--ved-accent);
+    text-decoration: none;
+    font-size: 0.9rem;
+}
+
+.ved-source-link:hover {
+    text-decoration: underline;
+}
+
+/* ── Loading / waiting state ─────────────────────────────────────────────── */
+.ved-loading,
+.ved-waiting {
+    color: var(--ved-muted);
+    font-style: italic;
+    font-size: 0.9rem;
+    margin: 0;
+}
+
+.ved-not-configured {
+    color: var(--ved-muted);
+    font-size: 0.85rem;
+    margin: 0;
+}
+
+/* ── Setup form ──────────────────────────────────────────────────────────── */
+.ved-setup-form {
+    display: flex;
+    flex-direction: column;
+    gap: 0;
+}
+
+.ved-form-section {
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+}
+
+.ved-form-group {
+    display: flex;
+    flex-direction: column;
+    gap: 0.3rem;
+}
+
+.ved-form-group--wide {
+    flex: 2;
+}
+
+.ved-form-row {
+    display: flex;
+    gap: 0.5rem;
+    flex-wrap: wrap;
+}
+
+.ved-form-row .ved-form-group {
+    flex: 1;
+    min-width: 0;
+}
+
+.ved-form-label {
+    font-size: 0.72rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    color: var(--ved-muted);
+}
+
+.ved-form-hint {
+    font-weight: 400;
+    text-transform: none;
+    letter-spacing: 0;
+    color: rgba(148, 163, 184, 0.7);
+    margin-left: 0.3em;
+}
+
+.ved-form-input {
+    background: rgba(0, 0, 0, 0.25);
+    border: 1px solid rgba(148, 163, 184, 0.25);
+    border-radius: 4px;
+    color: var(--ved-text);
+    font-family: ui-monospace, 'SF Mono', monospace;
+    font-size: 0.78rem;
+    padding: 0.45rem 0.6rem;
+    width: 100%;
+    transition: border-color 0.15s;
+}
+
+.ved-form-input:focus {
+    outline: none;
+    border-color: var(--ved-accent);
+    box-shadow: 0 0 0 2px rgba(0, 255, 170, 0.1);
+}
+
+.ved-form-input::placeholder {
+    color: rgba(148, 163, 184, 0.4);
+}
+
+.ved-form-divider {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    margin: 0.25rem 0;
+    color: rgba(148, 163, 184, 0.4);
+    font-size: 0.72rem;
+}
+
+.ved-form-divider::before,
+.ved-form-divider::after {
+    content: '';
+    flex: 1;
+    height: 1px;
+    background: rgba(148, 163, 184, 0.15);
+}
+
+.ved-form-advanced {
+    margin-top: 0.75rem;
+    border: 1px solid rgba(148, 163, 184, 0.12);
+    border-radius: 4px;
+}
+
+.ved-form-advanced-toggle {
+    padding: 0.5rem 0.75rem;
+    font-size: 0.72rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    color: var(--ved-muted);
+    cursor: pointer;
+    list-style: none;
+    user-select: none;
+}
+
+.ved-form-advanced-toggle::-webkit-details-marker { display: none; }
+.ved-form-advanced-toggle::before { content: '▶ '; font-size: 0.6em; }
+details[open] .ved-form-advanced-toggle::before { content: '▼ '; }
+
+.ved-form-advanced-body {
+    padding: 0.75rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.6rem;
+    border-top: 1px solid rgba(148, 163, 184, 0.12);
+}
+
+.ved-form-hint-block {
+    font-size: 0.78rem;
+    color: var(--ved-muted);
+    margin: 0;
+}
+
+.ved-form-hint-block code {
+    background: rgba(255,255,255,0.06);
+    padding: 0.1em 0.3em;
+    border-radius: 3px;
+    font-size: 0.9em;
+}
+
+.ved-form-error {
+    background: rgba(239, 68, 68, 0.1);
+    border: 1px solid rgba(239, 68, 68, 0.3);
+    border-radius: 4px;
+    color: #fca5a5;
+    font-size: 0.8rem;
+    margin-top: 0.5rem;
+    padding: 0.5rem 0.75rem;
+}
+
+.ved-form-btn {
+    margin-top: 0.75rem;
+    background: var(--ved-accent);
+    border: none;
+    border-radius: 4px;
+    color: #0f172a;
+    cursor: pointer;
+    font-size: 0.85rem;
+    font-weight: 700;
+    padding: 0.6rem 1rem;
+    transition: opacity 0.15s;
+    width: 100%;
+}
+
+.ved-form-btn:hover:not(:disabled) { opacity: 0.85; }
+.ved-form-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+
+.ved-form-privacy {
+    color: rgba(148, 163, 184, 0.5);
+    font-size: 0.7rem;
+    margin: 0.5rem 0 0;
+    text-align: center;
+}

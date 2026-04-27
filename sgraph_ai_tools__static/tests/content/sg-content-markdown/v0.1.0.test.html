@@ -1,0 +1,107 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>sg-content-markdown v0.1.0 — test</title>
+    <style>
+        body { font-family: monospace; background: #1a1a2e; color: #eee; padding: 2rem; }
+        .pass { color: #4ade80; } .fail { color: #f87171; }
+        pre { background: #0f3460; padding: 1rem; border-radius: 6px; }
+    </style>
+</head>
+<body>
+<h2>sg-content-markdown v0.1.0 — AC tests (including AC-2)</h2>
+<pre id="log">Running...</pre>
+
+<!-- Source element for AC-2 test -->
+<div id="demo-source"></div>
+<sg-content-markdown id="test-md" content-source="demo-source"></sg-content-markdown>
+
+<script type="module">
+import '/components/content/sg-content-markdown/v0/v0.1/v0.1.0/sg-content-markdown.js';
+
+const log = document.getElementById('log');
+const results = [];
+function pass(msg) { results.push(`✓ ${msg}`); }
+function fail(msg) { results.push(`✗ ${msg}`); }
+
+const mdEl = document.getElementById('test-md');
+await mdEl.whenReady();
+
+// Test 1: AC-2 — works with hand-fired CustomEvent, no vault component on page
+const sourceEl = document.getElementById('demo-source');
+await new Promise((resolve) => {
+    setTimeout(() => {
+        // Fire a demo:content-ready event directly on the source element
+        sourceEl.dispatchEvent(new CustomEvent('demo:content-ready', {
+            detail: { text: '# Hello World\n\nThis is **markdown**.' },
+            bubbles: true,
+        }));
+        setTimeout(() => resolve(), 100);
+    }, 100);
+});
+
+const shadow = mdEl.shadowRoot;
+const content = shadow?.querySelector('#content');
+if (content && content.innerHTML.includes('<h1>') && content.innerHTML.includes('Hello World')) {
+    pass('AC-2: renders hand-fired CustomEvent without vault components');
+} else {
+    fail(`AC-2: content not rendered. HTML: ${content?.innerHTML?.slice(0,200)}`);
+}
+
+// Test 2: markdown renders headings correctly
+await new Promise((resolve) => {
+    sourceEl.dispatchEvent(new CustomEvent('demo:content-ready', {
+        detail: { text: '## Subheading\n\nParagraph text.' },
+        bubbles: true,
+    }));
+    setTimeout(() => resolve(), 100);
+});
+
+const content2 = shadow?.querySelector('#content');
+if (content2?.innerHTML.includes('<h2>') && content2?.innerHTML.includes('Subheading')) {
+    pass('Markdown headings rendered correctly');
+} else {
+    fail(`Heading not found: ${content2?.innerHTML?.slice(0,200)}`);
+}
+
+// Test 3: XSS check — HTML entities escaped before markdown processing
+await new Promise((resolve) => {
+    sourceEl.dispatchEvent(new CustomEvent('demo:content-ready', {
+        detail: { text: '<script>alert("xss")<\/script>' },
+        bubbles: true,
+    }));
+    setTimeout(() => resolve(), 100);
+});
+
+const content3 = shadow?.querySelector('#content');
+if (content3 && !content3.innerHTML.includes('<script>')) {
+    pass('XSS: script tags are escaped, not injected');
+} else {
+    fail('XSS: script tag found in rendered HTML!');
+}
+
+// Test 4: AC-2 import check — no vault-embed imports
+const resp = await fetch('/components/content/sg-content-markdown/v0/v0.1/v0.1.0/sg-content-markdown.js');
+const src  = await resp.text();
+if (!src.includes('vault-embed') && !src.includes('vault-client') && !src.includes('sg-vault')) {
+    pass('AC-2: zero imports from vault namespaces');
+} else {
+    fail('AC-2: vault import found in sg-content-markdown.js source!');
+}
+
+// Test 5: static jsUrl set
+const { SgContentMarkdown } = await import('/components/content/sg-content-markdown/v0/v0.1/v0.1.0/sg-content-markdown.js');
+if (SgContentMarkdown.jsUrl && SgContentMarkdown.jsUrl.includes('sg-content-markdown.js')) {
+    pass('AC-A: static jsUrl set');
+} else {
+    fail('AC-A: static jsUrl missing');
+}
+
+// ── render ────────────────────────────────────────────────────────────────────
+const allPass = results.every(r => r.startsWith('✓'));
+log.className   = allPass ? 'pass' : 'fail';
+log.textContent = results.join('\n') + '\n\n' + (allPass ? '✓ ALL PASS' : '✗ FAILURES ABOVE');
+</script>
+</body>
+</html>

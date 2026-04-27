@@ -1,0 +1,77 @@
+<!DOCTYPE html>
+<html lang="en-GB">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>LinkedIn Publisher — tools.sgraph.ai</title>
+    <meta name="description" content="Publish to LinkedIn from your browser. Phase 0: connection probe.">
+
+    <link rel="stylesheet" href="./styles/linkedin-publisher.css">
+    <script type="module" src="https://dev.sgraph.ai/_common/js/components/sg-site-header/v1/v1.0/v1.0.6/sg-site-header.js"></script>
+    <script type="module" src="./ui/main.js"></script>
+</head>
+<body>
+    <sg-site-header
+        site="Tools"
+        active-nav="Tools"
+        home-url="/en-gb/"
+        nav-items='[{"label":"How it Works","href":"https://sgraph.ai/en-gb/how-it-works/"},{"label":"Vaults","href":"https://sgraph.ai/en-gb/vaults/"},{"label":"Security","href":"https://sgraph.ai/en-gb/security/"},{"label":"Tools","href":"/en-gb/"},{"label":"Pricing","href":"https://sgraph.ai/en-gb/pricing/"}]'>
+    </sg-site-header>
+
+    <main id="linkedin-publisher-root">
+        <header class="lp-header">
+            <h1>LinkedIn Publisher · Phase 0 Probe</h1>
+            <p class="lp-subtitle">
+                Verifies the four building blocks before any auth code runs:
+                CORS on <code>api.linkedin.com</code>, CORS on the two OAuth endpoints,
+                and Web Crypto support for PKCE. Sample auth-URL scope =
+                <code>openid profile email w_member_social</code> (member-first MVP).
+            </p>
+        </header>
+
+        <section class="lp-card">
+            <div class="lp-card-head">
+                <h2>1 — Probes</h2>
+                <button id="lp-run-all" class="lp-run-btn">Re-run probes</button>
+            </div>
+            <div id="lp-probes" class="lp-steps"></div>
+        </section>
+
+        <section class="lp-card">
+            <h2>2 — Decision matrix (auto-filled from probe results)</h2>
+            <table id="lp-decisions">
+                <thead>
+                    <tr><th>Question</th><th>Answer</th><th>Implies</th></tr>
+                </thead>
+                <tbody>
+                    <tr data-row="api-cors"><td>Does <code>api.linkedin.com</code> accept browser requests?</td><td class="answer">—</td><td class="implies">—</td></tr>
+                    <tr data-row="auth-cors"><td>Does <code>oauth/v2/authorization</code> accept cross-origin GET (preflight)?</td><td class="answer">—</td><td class="implies">—</td></tr>
+                    <tr data-row="token-cors"><td>Does <code>oauth/v2/accessToken</code> accept browser POST?</td><td class="answer">—</td><td class="implies">—</td></tr>
+                    <tr data-row="pkce"><td>Can the browser produce S256 PKCE challenges?</td><td class="answer">—</td><td class="implies">—</td></tr>
+                </tbody>
+            </table>
+            <p class="lp-note">
+                These results are environment-specific. Run on
+                <code>dev.tools.sgraph.ai</code> (the registered redirect origin) to
+                capture the values that drive the architecture decision in
+                <code>team/explorer/architect/v0.1.0__phase-0__linkedin-cors-findings.md</code>.
+            </p>
+        </section>
+
+        <section class="lp-card">
+            <h2>3 — App registration</h2>
+            <dl class="lp-app">
+                <dt>Client ID</dt><dd><code>78tdt0b9upct3u</code></dd>
+                <dt>Redirect URL</dt><dd><code>https://dev.tools.sgraph.ai/en-gb/linkedin-publisher/oauth-callback.html</code></dd>
+                <dt>Scopes (granted)</dt><dd><code>openid</code> <code>profile</code> <code>email</code> <code>w_member_social</code></dd>
+                <dt>Scopes (pending Community Management API approval)</dt><dd><code>r_organization_admin</code> <code>r_organization_social</code> <code>w_organization_social</code></dd>
+            </dl>
+        </section>
+
+        <section class="lp-card">
+            <h2>4 — Raw log</h2>
+            <pre id="lp-log"></pre>
+        </section>
+    </main>
+</body>
+</html>

@@ -39,8 +39,9 @@ export class SgVaultConnect extends HTMLElement {
         this._session = null;
     }
 
-    static LS_KEY = 'sg-vault:last-key';
-    static LS_API = 'sg-vault:last-api';
+    static LS_KEY   = 'sg-vault:last-key';
+    static LS_API   = 'sg-vault:last-api';
+    static LS_TOKEN = 'sg-vault:last-token';
 
     connectedCallback() {
         this._render();
@@ -159,6 +160,11 @@ export class SgVaultConnect extends HTMLElement {
       <input id="api-url" class="vc-input" type="text"
              placeholder="https://send.sgraph.ai" spellcheck="false">
     </div>
+    <div class="vc-field">
+      <label class="vc-label" for="access-token">Access Token (optional — needed for push)</label>
+      <input id="access-token" class="vc-input" type="password" autocomplete="off" spellcheck="false"
+             placeholder="Server access token">
+    </div>
     <button id="btn-connect" class="vc-btn vc-btn-connect">Connect</button>
   </div>
 
@@ -178,17 +184,24 @@ export class SgVaultConnect extends HTMLElement {
 
     _restoreFromStorage() {
         try {
-            const savedKey = localStorage.getItem(SgVaultConnect.LS_KEY);
-            const savedApi = localStorage.getItem(SgVaultConnect.LS_API);
-            if (savedKey) this.shadowRoot.getElementById('vault-key').value = savedKey;
-            if (savedApi) this.shadowRoot.getElementById('api-url').value  = savedApi;
+            const savedKey   = localStorage.getItem(SgVaultConnect.LS_KEY);
+            const savedApi   = localStorage.getItem(SgVaultConnect.LS_API);
+            const savedToken = localStorage.getItem(SgVaultConnect.LS_TOKEN);
+            if (savedKey)   this.shadowRoot.getElementById('vault-key').value     = savedKey;
+            if (savedApi)   this.shadowRoot.getElementById('api-url').value       = savedApi;
+            if (savedToken) this.shadowRoot.getElementById('access-token').value  = savedToken;
         } catch { /* localStorage unavailable */ }
     }
 
-    _saveToStorage(vaultKey, apiUrl) {
+    _saveToStorage(vaultKey, apiUrl, accessToken) {
         try {
             localStorage.setItem(SgVaultConnect.LS_KEY, vaultKey);
             localStorage.setItem(SgVaultConnect.LS_API, apiUrl);
+            if (accessToken) {
+                localStorage.setItem(SgVaultConnect.LS_TOKEN, accessToken);
+            } else {
+                localStorage.removeItem(SgVaultConnect.LS_TOKEN);
+            }
         } catch { /* localStorage unavailable */ }
     }
 
@@ -209,12 +222,14 @@ export class SgVaultConnect extends HTMLElement {
     // ── Connect / Disconnect ───────────────────────────────────────────────
 
     async _connect() {
-        const keyInput = this.shadowRoot.getElementById('vault-key');
-        const urlInput = this.shadowRoot.getElementById('api-url');
-        const btn      = this.shadowRoot.getElementById('btn-connect');
+        const keyInput   = this.shadowRoot.getElementById('vault-key');
+        const urlInput   = this.shadowRoot.getElementById('api-url');
+        const tokenInput = this.shadowRoot.getElementById('access-token');
+        const btn        = this.shadowRoot.getElementById('btn-connect');
 
-        const rawKey    = keyInput.value.trim();
-        const apiBase   = (urlInput.value.trim() || this.apiUrl).replace(/\/$/, '');
+        const rawKey      = keyInput.value.trim();
+        const apiBase     = (urlInput.value.trim() || this.apiUrl).replace(/\/$/, '');
+        const accessToken = tokenInput.value.trim() || null;
 
         if (!rawKey) {
             this._showStatus('Enter a vault key or simple token.', 'error');
@@ -248,6 +263,7 @@ export class SgVaultConnect extends HTMLElement {
                 apiBaseUrl: apiBase,
                 vaultId:    keys.vaultId,
                 keys,
+                accessToken,
             });
 
             try {
@@ -274,7 +290,7 @@ export class SgVaultConnect extends HTMLElement {
 
             this._vault   = vault;
             this._session = session;
-            this._saveToStorage(rawKey, apiBase);
+            this._saveToStorage(rawKey, apiBase, accessToken);
 
             const treeStats = session.treeModel.getStats();
             this._showConnected(keys.vaultId, apiBase, keys.derivationTimeMs || 0, treeStats);

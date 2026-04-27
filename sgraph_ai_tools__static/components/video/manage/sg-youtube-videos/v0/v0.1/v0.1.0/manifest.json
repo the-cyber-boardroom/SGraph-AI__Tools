@@ -1,0 +1,13 @@
+{
+    "name": "sg-youtube-videos",
+    "version": "0.1.0",
+    "layer": "component",
+    "description": "Web Component grid of the signed-in user's YouTube uploads. Lazy-paginated via the uploads playlist. Click a row to emit video-selected.",
+    "exports": ["SgYouTubeVideos"],
+    "dependencies": ["sg-component", "sg-tokens", "core/youtube-api"],
+    "tagName": "sg-youtube-videos",
+    "attributes": ["page-size", "auto-load"],
+    "events": ["videos-loaded", "videos-error", "video-selected"],
+    "author": "SGraph Tools Team",
+    "license": "CC-BY-4.0"
+}

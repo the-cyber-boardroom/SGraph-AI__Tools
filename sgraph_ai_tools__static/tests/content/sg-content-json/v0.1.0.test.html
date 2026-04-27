@@ -1,0 +1,91 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>sg-content-json v0.1.0 — test</title>
+    <style>
+        body { font-family: monospace; background: #1a1a2e; color: #eee; padding: 2rem; }
+        .pass { color: #4ade80; } .fail { color: #f87171; }
+        pre { background: #0f3460; padding: 1rem; border-radius: 6px; }
+    </style>
+</head>
+<body>
+<h2>sg-content-json v0.1.0 — AC tests</h2>
+<pre id="log">Running...</pre>
+<div id="json-source-1"></div>
+<sg-content-json id="test-json-render" content-source="json-source-1" mode="render"></sg-content-json>
+<div id="json-source-2"></div>
+<sg-content-json id="test-json-emit" content-source="json-source-2" mode="emit"></sg-content-json>
+
+<script type="module">
+import '/components/content/sg-content-json/v0/v0.1/v0.1.0/sg-content-json.js';
+import { SGCJ_EVENTS } from '/components/content/sg-content-json/v0/v0.1/v0.1.0/events.js';
+
+const log = document.getElementById('log');
+const results = [];
+function pass(msg) { results.push(`✓ ${msg}`); }
+function fail(msg) { results.push(`✗ ${msg}`); }
+
+// Test 1: SGCJ_EVENTS frozen
+if (Object.isFrozen(SGCJ_EVENTS) && SGCJ_EVENTS.JSON_PARSED === 'sg-content-json:json-parsed') {
+    pass('SGCJ_EVENTS frozen + correct name');
+} else {
+    fail('SGCJ_EVENTS issue');
+}
+
+const renderEl = document.getElementById('test-json-render');
+const emitEl   = document.getElementById('test-json-emit');
+
+await Promise.all([renderEl.whenReady(), emitEl.whenReady()]);
+
+// Test 2: mode=render — shows pretty-printed JSON in <pre>
+await new Promise((resolve) => {
+    const src1 = document.getElementById('json-source-1');
+    src1.dispatchEvent(new CustomEvent('demo:content-ready', {
+        detail: { text: '{"name":"SGraph","version":"0.1.0"}', objectId: 'obj-1', text: '{"name":"SGraph","version":"0.1.0"}' },
+        bubbles: true,
+    }));
+    setTimeout(() => resolve(), 100);
+});
+
+const pre = renderEl.shadowRoot?.querySelector('#pre');
+if (pre && pre.textContent.includes('"name"') && pre.textContent.includes('"SGraph"')) {
+    pass('mode=render: pretty-printed JSON in <pre>');
+} else {
+    fail(`mode=render failed: ${pre?.textContent?.slice(0,100)}`);
+}
+
+// Test 3: mode=emit — fires json-parsed event
+await new Promise((resolve) => {
+    emitEl.addEventListener(SGCJ_EVENTS.JSON_PARSED, (e) => {
+        if (e.detail.data && e.detail.data.hello === 'world') {
+            pass('mode=emit: json-parsed fires with parsed data');
+        } else {
+            fail(`mode=emit detail wrong: ${JSON.stringify(e.detail)}`);
+        }
+        resolve();
+    }, { once: true });
+
+    const src2 = document.getElementById('json-source-2');
+    src2.dispatchEvent(new CustomEvent('demo:content-ready', {
+        detail: { text: '{"hello":"world"}', objectId: 'obj-2' },
+        bubbles: true,
+    }));
+});
+
+// Test 4: No vault imports
+const resp = await fetch('/components/content/sg-content-json/v0/v0.1/v0.1.0/sg-content-json.js');
+const src  = await resp.text();
+if (!src.includes('vault-embed') && !src.includes('vault-client')) {
+    pass('AC-2: zero imports from vault namespaces');
+} else {
+    fail('AC-2: vault import found!');
+}
+
+// ── render ────────────────────────────────────────────────────────────────────
+const allPass = results.every(r => r.startsWith('✓'));
+log.className   = allPass ? 'pass' : 'fail';
+log.textContent = results.join('\n') + '\n\n' + (allPass ? '✓ ALL PASS' : '✗ FAILURES ABOVE');
+</script>
+</body>
+</html>

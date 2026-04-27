@@ -176,7 +176,7 @@
     </style>
 </head>
 <body>
-    <script type="module" src="/components/site-header/v1/v1.0/v1.0.2/sg-site-header.js"></script>
+    <script type="module" src="/components/site-header/v1/v1.0/v1.0.3/sg-site-header.js"></script>
     <script type="module" src="/components/locale-picker/v1/v1.0/v1.0.1/sg-locale-picker.js"></script>
     <sg-site-header site="Tools" home-url="/en-gb/">
         <sg-locale-picker slot="locale" locale="en-gb" base-path="/"></sg-locale-picker>
@@ -244,12 +244,13 @@
         import { TOOL_SLUGS, CATEGORIES, loadManifests, groupByCategory, renderToolCard } from '../_common/js/sg-tool-registry.js';
 
         // ── Featured tools (hero row) ──
-        const FEATURED_SLUGS = ['chat', 'file-encryptor', 'infographic-gen', 'vault'];
+        const FEATURED_SLUGS = ['chat', 'file-encryptor', 'infographic-gen', 'vault', 'video-recorder'];
         const FEATURED_TAGLINES = {
             'chat':            'No account needed — just paste your API key',
             'file-encryptor':  'AES-256-GCM encryption, entirely in your browser',
             'infographic-gen': 'One prompt, one click — instant SVG infographics',
             'vault':           'Browse encrypted vaults without any server',
+            'video-recorder':  'Record screen, camera & audio — all in your browser',
         };
 
         // ── LLM tools that need an API key ──

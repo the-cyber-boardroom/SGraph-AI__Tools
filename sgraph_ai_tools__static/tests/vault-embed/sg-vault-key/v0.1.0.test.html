@@ -1,0 +1,173 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>sg-vault-key v0.1.0 — test</title>
+    <style>
+        body { font-family: monospace; background: #1a1a2e; color: #eee; padding: 2rem; }
+        .pass { color: #4ade80; } .fail { color: #f87171; }
+        pre { background: #0f3460; padding: 1rem; border-radius: 6px; }
+    </style>
+</head>
+<body>
+<h2>sg-vault-key v0.1.0 — AC tests</h2>
+<pre id="log">Running...</pre>
+
+<script type="module">
+import '/components/vault-embed/sg-vault-key/v0/v0.1/v0.1.0/sg-vault-key.js';
+import { SGVK_EVENTS } from '/components/vault-embed/sg-vault-key/v0/v0.1/v0.1.0/events.js';
+
+const log = document.getElementById('log');
+const results = [];
+function pass(msg) { results.push(`✓ ${msg}`); }
+function fail(msg) { results.push(`✗ ${msg}`); }
+
+// Helper: generate a valid base64url read key
+function makeReadKey() {
+    const bytes = crypto.getRandomValues(new Uint8Array(32));
+    return btoa(String.fromCharCode(...bytes)).replace(/\+/g,'-').replace(/\//g,'_').replace(/=+$/,'');
+}
+
+// Test 1: AC-A — extends SgComponent, has static jsUrl
+const { SgVaultKey } = await import('/components/vault-embed/sg-vault-key/v0/v0.1/v0.1.0/sg-vault-key.js');
+if (SgVaultKey.jsUrl && SgVaultKey.jsUrl.includes('sg-vault-key.js')) {
+    pass('AC-A: static jsUrl is set');
+} else {
+    fail(`AC-A: static jsUrl missing or wrong: ${SgVaultKey.jsUrl}`);
+}
+
+// Test 2: AC-D — SGVK_EVENTS is frozen
+if (Object.isFrozen(SGVK_EVENTS)) {
+    pass('AC-D: SGVK_EVENTS is frozen');
+} else {
+    fail('AC-D: SGVK_EVENTS is not frozen');
+}
+
+// Test 3: AC-D — event names are correct
+if (SGVK_EVENTS.KEY_READY === 'sg-vault-key:key-ready' &&
+    SGVK_EVENTS.KEY_ERROR === 'sg-vault-key:key-error') {
+    pass('AC-D: event names match spec');
+} else {
+    fail(`AC-D: wrong event names: ${JSON.stringify(SGVK_EVENTS)}`);
+}
+
+// Test 4: key-ready fires with correct detail shape
+await new Promise((resolve) => {
+    const el = document.createElement('sg-vault-key');
+    el.id = 'test-key-1';
+    el.setAttribute('vault-id', 'testvault1');
+    el.setAttribute('read-key', makeReadKey());
+    el.setAttribute('endpoint', 'https://send.sgraph.ai');
+
+    el.addEventListener(SGVK_EVENTS.KEY_READY, (e) => {
+        const d = e.detail;
+        if (d.vaultId === 'testvault1' && d.cryptoKey instanceof CryptoKey &&
+            d.endpoint === 'https://send.sgraph.ai' && typeof d.derivationMs === 'number') {
+            pass('key-ready fires with correct detail shape');
+        } else {
+            fail(`key-ready detail shape wrong: ${JSON.stringify({...d, cryptoKey: String(d.cryptoKey)})}`);
+        }
+        el.remove();
+        resolve();
+    }, { once: true });
+
+    el.addEventListener(SGVK_EVENTS.KEY_ERROR, (e) => {
+        fail(`key-error fired unexpectedly: ${e.detail?.error}`);
+        el.remove();
+        resolve();
+    }, { once: true });
+
+    document.body.appendChild(el);
+});
+
+// Test 5: getKey() resolves to a CryptoKey
+await new Promise((resolve) => {
+    const el = document.createElement('sg-vault-key');
+    el.id = 'test-key-2';
+    el.setAttribute('vault-id', 'testvault2');
+    el.setAttribute('read-key', makeReadKey());
+
+    el.addEventListener(SGVK_EVENTS.KEY_READY, async () => {
+        try {
+            const k = await el.getKey();
+            if (k instanceof CryptoKey) {
+                pass('getKey() resolves to CryptoKey');
+            } else {
+                fail(`getKey() returned non-CryptoKey: ${k}`);
+            }
+        } catch (e) {
+            fail(`getKey() threw: ${e.message}`);
+        }
+        el.remove();
+        resolve();
+    }, { once: true });
+
+    document.body.appendChild(el);
+});
+
+// Test 6: getEndpoint() returns the configured endpoint
+await new Promise((resolve) => {
+    const el = document.createElement('sg-vault-key');
+    el.id = 'test-key-3';
+    el.setAttribute('vault-id', 'testvault3');
+    el.setAttribute('read-key', makeReadKey());
+    el.setAttribute('endpoint', 'https://custom.example.com');
+
+    el.addEventListener(SGVK_EVENTS.KEY_READY, () => {
+        if (el.getEndpoint() === 'https://custom.example.com') {
+            pass('getEndpoint() returns configured endpoint');
+        } else {
+            fail(`getEndpoint() wrong: ${el.getEndpoint()}`);
+        }
+        el.remove();
+        resolve();
+    }, { once: true });
+
+    document.body.appendChild(el);
+});
+
+// Test 7: key-error fires on bad key
+await new Promise((resolve) => {
+    const el = document.createElement('sg-vault-key');
+    el.setAttribute('vault-id', 'testvault4');
+    el.setAttribute('read-key', 'not-a-valid-key!!!');
+
+    el.addEventListener(SGVK_EVENTS.KEY_ERROR, (e) => {
+        if (e.detail.vaultId === 'testvault4' && typeof e.detail.error === 'string') {
+            pass('key-error fires with correct detail shape on invalid key');
+        } else {
+            fail(`key-error detail shape wrong: ${JSON.stringify(e.detail)}`);
+        }
+        el.remove();
+        resolve();
+    }, { once: true });
+
+    document.body.appendChild(el);
+});
+
+// Test 8: AC-F — no localStorage usage (inspect source)
+const resp = await fetch('/components/vault-embed/sg-vault-key/v0/v0.1/v0.1.0/sg-vault-key.js');
+const src  = await resp.text();
+if (!src.includes('localStorage') && !src.includes('sessionStorage') && !src.includes('IndexedDB')) {
+    pass('AC-F: no browser storage APIs used');
+} else {
+    fail('AC-F: browser storage API found in source');
+}
+
+// Test 9: customElements guard
+const defined1 = customElements.get('sg-vault-key');
+import('/components/vault-embed/sg-vault-key/v0/v0.1/v0.1.0/sg-vault-key.js');
+const defined2 = customElements.get('sg-vault-key');
+if (defined1 === defined2) {
+    pass('AC-B: re-import does not re-define customElement (guard works)');
+} else {
+    fail('customElement guard failed');
+}
+
+// ── render ────────────────────────────────────────────────────────────────────
+const allPass = results.every(r => r.startsWith('✓'));
+log.className   = allPass ? 'pass' : 'fail';
+log.textContent = results.join('\n') + '\n\n' + (allPass ? '✓ ALL PASS' : '✗ FAILURES ABOVE');
+</script>
+</body>
+</html>

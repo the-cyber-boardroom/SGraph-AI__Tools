@@ -1,0 +1,77 @@
+<div class="ytup">
+
+    <header class="ytup__header">
+        <span class="ytup__icon" aria-hidden="true">▶</span>
+        <span class="ytup__title">YouTube Upload</span>
+        <span id="conn-status" class="ytup__status ytup__status--off">disconnected</span>
+    </header>
+
+    <section class="ytup__section">
+        <label class="ytup__label" for="client-id-input">Google OAuth Client ID</label>
+        <input type="text"
+               id="client-id-input"
+               class="ytup__input ytup__input--mono"
+               placeholder="123456-abc.apps.googleusercontent.com"
+               autocomplete="off"
+               spellcheck="false">
+        <div class="ytup__hint">Stored in localStorage as <code>sg-youtube-client-id</code>.</div>
+
+        <div class="ytup__row">
+            <button type="button" id="connect-btn"    class="ytup__btn ytup__btn--primary">Connect to YouTube</button>
+            <button type="button" id="disconnect-btn" class="ytup__btn ytup__btn--ghost" hidden>Sign out</button>
+        </div>
+    </section>
+
+    <section class="ytup__section">
+        <label class="ytup__label" for="title-input">Title <span class="ytup__req">*</span></label>
+        <input type="text" id="title-input" class="ytup__input" maxlength="100" placeholder="My recording">
+
+        <label class="ytup__label" for="desc-input">Description</label>
+        <textarea id="desc-input" class="ytup__input ytup__input--area" rows="3" maxlength="5000"></textarea>
+
+        <label class="ytup__label" for="tags-input">Tags (comma-separated)</label>
+        <input type="text" id="tags-input" class="ytup__input" placeholder="demo, sgraph, recording">
+
+        <label class="ytup__label" for="privacy-select">Privacy</label>
+        <select id="privacy-select" class="ytup__input">
+            <option value="private">Private</option>
+            <option value="unlisted" selected>Unlisted (link only)</option>
+            <option value="public">Public</option>
+        </select>
+    </section>
+
+    <section class="ytup__section">
+        <span class="ytup__label">Video file <span class="ytup__req">*</span></span>
+        <button type="button" id="picker" class="ytup__picker" aria-label="Choose or drop a video file">
+            <span id="picker-empty" class="ytup__picker-empty">
+                <span class="ytup__picker-icon" aria-hidden="true">⬆</span>
+                <span>Click to choose a video, or drop one here</span>
+            </span>
+            <span id="picker-filled" class="ytup__picker-filled" hidden>
+                <span class="ytup__file-name"  id="file-name"></span>
+                <span class="ytup__file-size"  id="file-size"></span>
+                <span class="ytup__file-clear" id="file-clear" role="button" aria-label="Remove file">✕</span>
+            </span>
+        </button>
+        <input type="file" id="file-input" accept="video/*" hidden>
+    </section>
+
+    <section class="ytup__section">
+        <button type="button" id="upload-btn" class="ytup__btn ytup__btn--primary ytup__btn--block" disabled>
+            Upload to YouTube
+        </button>
+
+        <div id="progress-wrap" class="ytup__progress" hidden>
+            <div id="progress-bar"  class="ytup__progress-bar"></div>
+            <div id="progress-text" class="ytup__progress-text">0%</div>
+        </div>
+
+        <div id="result-wrap" class="ytup__result" hidden>
+            <div class="ytup__result-label">Uploaded:</div>
+            <a id="result-link" class="ytup__result-link" target="_blank" rel="noopener"></a>
+        </div>
+
+        <div id="error-wrap" class="ytup__error" hidden></div>
+    </section>
+
+</div>

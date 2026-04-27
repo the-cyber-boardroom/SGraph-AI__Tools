@@ -14,7 +14,10 @@
 
 **Before describing, assessing, or assuming what tools.sgraph.ai can do, READ:**
 
-`team/explorer/librarian/reality/v0.1.0__what-exists-today.md`
+`team/explorer/librarian/reality/v0.1.0__what-exists-today.md` — cover sheet that links to the three parts:
+- `…__1__libraries.md` — core modules + components
+- `…__2__tools.md` — tools, manifests, tests
+- `…__3__operations.md` — CI/CD, SEO, team, config, reuse plan
 
 This is the **code-verified** record of every module, component, tool, and feature that actually exists.
 
@@ -109,6 +112,23 @@ sgraph_ai_tools__static/
 7. **No localStorage** in core modules. Browser storage APIs are not supported in some contexts. Use in-memory state. Exception: tools that explicitly need persistence.
 8. **Web components optional.** Components MAY use Custom Elements but this is not required.
 
+### File Size & Incremental Building
+
+**Keep files small — target under ~300 lines, hard ceiling ~500.** This rule exists for three reasons, in order of importance:
+
+1. **Maintainability + refactoring.** Small, single-responsibility files are easier to read, move, version independently, and replace. A 200-line file with one job can be refactored in an afternoon; an 800-line file with five jobs becomes load-bearing and rots.
+2. **Reviewability.** Small files produce small diffs that humans actually read. Large rewrites get rubber-stamped.
+3. **Stream stability.** Long single-`Write` calls from agents can hit "Stream idle timeout" mid-file and have to be retried, wasting the whole emission. Small files avoid this entirely.
+
+**How to keep files small:**
+
+- **Split by concern, not by size.** Mirror the youtube-editor pattern: `api/{tool}-state.js` (mutable state), `api/{tool}-events.js` (frozen event-name constants), `api/{tool}-pipeline.js` (state ↔ core glue), `api/{tool}-api.js` (SgToolApi registration), and one `ui/ui-*.js` per panel/tab.
+- **Build incrementally.** Land a minimal working version first (e.g. just the constructor + one method), then add features via small `Edit` patches. Don't try to ship a final 800-line file in one `Write` call.
+- **Prefer `Edit` over `Write`.** Once a file exists, every change should be a targeted `Edit`. `Write` is for new files only.
+- **Extract on the third repetition.** If the same shape appears in three files, lift it into a sibling helper. Two repetitions is fine — three earns a refactor.
+
+If a file crosses ~500 lines, stop and split it before continuing. It is always cheaper to split early than to refactor a monolith later.
+
 ### Versioning
 
 9. **Folder-based versioning.** Each module independently versioned: `core/crypto/v1.0.0/`, `core/crypto/v1.1.0/`.
@@ -178,7 +198,7 @@ This enables headless Playwright testing, agentic driving, and console scripting
 
 | Document | Location |
 |---|---|
-| **Reality document** | `team/explorer/librarian/reality/v0.1.0__what-exists-today.md` |
+| **Reality document (index)** | `team/explorer/librarian/reality/v0.1.0__what-exists-today.md` (links to `…__1__libraries.md`, `…__2__tools.md`, `…__3__operations.md`) |
 | **Master index** | `team/explorer/librarian/reviews/04/15/v0.1.91__master-index__briefs-09-15-apr.md` |
 | **Briefing pack** | `team/humans/dinis_cruz/briefs/03/05/v0.1.0__initial_tools_repo__BRIEF_PACK.md` |
 | **Architecture guide** | `library/architecture/v0.1.68__guide__three-tier-architecture.md` |

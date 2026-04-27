@@ -1,0 +1,89 @@
+/* sg-vault-trace — introspection panel */
+:host {
+    display: block;
+    font-family: ui-monospace, 'SF Mono', 'Courier New', monospace;
+    font-size: 0.8rem;
+}
+
+.sgvt-panel {
+    border: 1px solid rgba(0, 255, 170, 0.25);
+    border-radius: 6px;
+    background: rgba(0, 0, 0, 0.85);
+    color: #d4d4d4;
+    overflow: hidden;
+}
+
+.sgvt-header-bar {
+    padding: 0.4em 0.75em;
+    background: rgba(0, 255, 170, 0.1);
+    border-bottom: 1px solid rgba(0, 255, 170, 0.2);
+}
+
+.sgvt-title {
+    font-weight: 600;
+    color: #00ffaa;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    font-size: 0.75rem;
+}
+
+.sgvt-list {
+    padding: 0.5em;
+    max-height: 400px;
+    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+    gap: 0.3em;
+}
+
+.sgvt-entry {
+    padding: 0.4em 0.5em;
+    border-radius: 4px;
+    background: rgba(255, 255, 255, 0.04);
+    border-left: 2px solid rgba(0, 255, 170, 0.4);
+}
+
+.sgvt-entry--error {
+    border-left-color: #f87171;
+    background: rgba(248, 113, 113, 0.08);
+}
+
+.sgvt-header {
+    display: flex;
+    align-items: center;
+    gap: 0.4em;
+    margin-bottom: 0.2em;
+}
+
+.sgvt-icon { font-size: 0.85em; }
+
+.sgvt-name {
+    font-weight: 600;
+    color: #e2e8f0;
+    font-size: 0.8rem;
+}
+
+.sgvt-ts {
+    margin-left: auto;
+    color: #64748b;
+    font-size: 0.7rem;
+}
+
+.sgvt-row {
+    display: flex;
+    gap: 0.5em;
+    padding-left: 1.4em;
+    font-size: 0.75rem;
+    line-height: 1.5;
+}
+
+.sgvt-key {
+    color: #94a3b8;
+    white-space: nowrap;
+    min-width: 8em;
+}
+
+.sgvt-val {
+    color: #cbd5e1;
+    word-break: break-all;
+}

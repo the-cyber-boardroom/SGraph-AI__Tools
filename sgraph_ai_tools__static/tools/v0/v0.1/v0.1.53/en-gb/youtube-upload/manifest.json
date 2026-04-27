@@ -1,0 +1,53 @@
+{
+    "name": "YouTube Upload",
+    "slug": "youtube-upload",
+    "description": "Browser-only YouTube uploader. Sign in with Google, drop a video, set metadata, and resumable-upload to your channel. Tokens cached in localStorage (vault swap planned).",
+    "icon": "▶",
+    "version": "0.1.0",
+    "status": "live",
+    "category": "media",
+    "keywords": ["youtube", "upload", "video", "oauth", "google", "resumable", "sg-video-recorder"],
+    "dependencies": {
+        "core": [
+            { "module": "sg-tool-api",      "path": "/core/sg-tool-api/v0/v0.1/v0.1.0/sg-tool-api.js" },
+            { "module": "sg-youtube-upload", "path": "/core/youtube-upload/v0/v0.1/v0.1.0/sg-youtube-upload.js" },
+            { "module": "manifest-loader",   "path": "/core/manifest-loader/v0/v0.1/v0.1.0/manifest-loader.js" }
+        ],
+        "shared": [
+            { "module": "sg-site-header",         "path": "/components/site-header/v1/v1.0/v1.0.0/sg-site-header.js" },
+            { "module": "sg-layout",              "path": "/core/sg-layout/v0.1.0/sg-layout.js" },
+            { "module": "sg-upload-dropzone",     "path": "/components/upload-dropzone/v1/v1.0/v1.0.0/sg-upload-dropzone.js" },
+            { "module": "sg-youtube-upload-cmp",  "path": "/components/video/upload/sg-youtube-upload/v0/v0.1/v0.1.0/sg-youtube-upload.js" },
+            { "module": "sg-tool-api-explorer",   "path": "/components/tool-api/sg-tool-api-explorer/v0/v0.1/v0.1.0/sg-tool-api-explorer.js" },
+            { "module": "sg-tool-api-console",    "path": "/components/tool-api/sg-tool-api-console/v0/v0.1/v0.1.0/sg-tool-api-console.js" },
+            { "module": "sg-tool-api-manifest",   "path": "/components/tool-api/sg-tool-api-manifest/v0/v0.1/v0.1.0/sg-tool-api-manifest.js" }
+        ],
+        "loader": [
+            { "phase": 1, "type": "css", "path": "/core/sg-layout/v0.1.0/sg-layout.css" },
+            { "phase": 1, "type": "css", "path": "./styles/upload.css" },
+            { "phase": 1, "type": "css", "path": "./styles/api-pane.css" },
+            { "phase": 2, "type": "js",  "path": "/components/upload-dropzone/v1/v1.0/v1.0.0/sg-upload-dropzone.js" },
+            { "phase": 2, "type": "js",  "path": "/components/video/upload/sg-youtube-upload/v0/v0.1/v0.1.0/sg-youtube-upload.js" },
+            { "phase": 3, "type": "js",  "entry": true, "path": "./api/youtube-upload-api.js" }
+        ]
+    },
+    "api": {
+        "version": "0.1.0",
+        "note": "window.__tool live after tool:ready. OAuth popup appears on first connect; token cached in localStorage under 'sg-auth-token-youtube-upload'. All upload bytes go directly browser → YouTube; nothing transits an SGraph server.",
+        "events": [
+            { "name": "tool:ready",                "when": "activate() called",                  "detail": "{ instanceId, tool, version }" },
+            { "name": "tool:youtube:connected",    "when": "OAuth grant succeeded or cache hit", "detail": "{ expiresAt }" },
+            { "name": "tool:youtube:disconnected", "when": "signOut() called",                   "detail": "{}" },
+            { "name": "tool:youtube:file-set",     "when": "setFile() called",                   "detail": "{ fileName, fileSize, type }" },
+            { "name": "tool:youtube:upload:start", "when": "uploadVideo() called",               "detail": "{ fileName, fileSize, metadata }" },
+            { "name": "tool:youtube:upload:progress", "when": "PUT progress event",              "detail": "{ loaded, total, percent }" },
+            { "name": "tool:youtube:upload:complete", "when": "upload finished",                 "detail": "{ id, url, snippet, status }" },
+            { "name": "tool:error",                "when": "any pipeline error",                 "detail": "{ step, message }" }
+        ],
+        "skills": {
+            "human":   "./skills/SKILL-human.md",
+            "browser": "./skills/SKILL-browser.md",
+            "api":     "./skills/SKILL-api.md"
+        }
+    }
+}

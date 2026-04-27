@@ -1,0 +1,112 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>sg-youtube-videos v0.1.0 — Health Check</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+               background: #0d0d1a; color: #e2e8f0; padding: 20px; font-size: 13px; }
+        h1 { font-size: 16px; color: #4ECDC4; margin-bottom: 4px; }
+        .sub { font-size: 12px; color: #64748b; margin-bottom: 18px; }
+        h2 { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.06em;
+             color: #475569; margin: 18px 0 6px; border-bottom: 1px solid #1e293b; padding-bottom: 4px; }
+        #results { font-family: 'SF Mono', Monaco, monospace; line-height: 1.7; }
+        .pass { color: #4ECDC4; }
+        .fail { color: #ff6b6b; font-weight: 600; }
+        .summary { margin-top: 16px; font-weight: 700; font-size: 14px; }
+        .demo { margin-top: 24px; max-width: 640px; height: 360px; }
+    </style>
+</head>
+<body>
+
+<h1>sg-youtube-videos v0.1.0 — Health Check</h1>
+<div class="sub">Pure-browser tests with stubbed `window.fetch`. Live demo loads a fake page.</div>
+
+<h2>Test Results</h2>
+<div id="results"></div>
+<div id="summary" class="summary"></div>
+
+<h2>Live grid (mock data)</h2>
+<div class="demo">
+    <sg-youtube-videos id="grid" page-size="3"></sg-youtube-videos>
+</div>
+
+<script type="module">
+import '/components/video/manage/sg-youtube-videos/v0/v0.1/v0.1.0/sg-youtube-videos.js';
+
+const resultsEl = document.getElementById('results');
+const summaryEl = document.getElementById('summary');
+let pass = 0, fail = 0;
+function ok(label, cond) {
+    const row = document.createElement('div');
+    row.className = cond ? 'pass' : 'fail';
+    row.textContent = `${cond ? 'PASS' : 'FAIL'}  ${label}`;
+    resultsEl.appendChild(row);
+    cond ? pass++ : fail++;
+}
+
+ok('Custom element registered', !!customElements.get('sg-youtube-videos'));
+
+const el = document.getElementById('grid');
+await el.whenReady?.();
+ok('Component reaches ready', el.isReady === true);
+ok('Exposes setToken()', typeof el.setToken === 'function');
+ok('Exposes refresh()',  typeof el.refresh  === 'function');
+ok('Exposes getItems()', typeof el.getItems === 'function');
+
+// Stub fetch then drive a refresh
+const realFetch = window.fetch;
+let pageToken = null;
+window.fetch = async (url) => {
+    if (String(url).includes('/channels?')) {
+        return new Response(JSON.stringify({ items: [{
+            id: 'C1', snippet: {}, statistics: {}, contentDetails: { relatedPlaylists: { uploads: 'UU_FAKE' } },
+        }]}), { status: 200 });
+    }
+    if (String(url).includes('/playlistItems?')) {
+        const items = (pageToken === 'P2')
+            ? [{ snippet: { title: 'C', resourceId: { videoId: 'V3' } }, contentDetails: { videoId: 'V3' } }]
+            : [
+                { snippet: { title: 'A', resourceId: { videoId: 'V1' } }, contentDetails: { videoId: 'V1' } },
+                { snippet: { title: 'B', resourceId: { videoId: 'V2' } }, contentDetails: { videoId: 'V2' } },
+            ];
+        const next = pageToken === 'P2' ? null : 'P2';
+        pageToken = pageToken === 'P2' ? null : 'P2';
+        return new Response(JSON.stringify({ items, pageInfo: { totalResults: 3 }, nextPageToken: next }), { status: 200 });
+    }
+    return new Response('500', { status: 500 });
+};
+
+el.setToken('fake-token');
+
+// videos-loaded fires per page
+const loadedPromise = new Promise(r => el.addEventListener('videos-loaded', r, { once: true }));
+await el.refresh();
+const loadedEvent = await loadedPromise;
+ok('videos-loaded event fired', !!loadedEvent);
+ok('First page loaded 2 items', el.getItems().length === 2);
+
+// loadMore uses next page token
+const loaded2 = new Promise(r => el.addEventListener('videos-loaded', r, { once: true }));
+await el.loadMore();
+await loaded2;
+ok('loadMore appended page 2', el.getItems().length === 3);
+
+// Click a row → video-selected event
+const row = el.shadowRoot.querySelector('.ytv__row');
+ok('Row rendered in shadow DOM', !!row);
+const sel = new Promise(r => el.addEventListener('video-selected', r, { once: true }));
+row?.click();
+const selDetail = (await sel).detail;
+ok('video-selected emits id + video', selDetail?.id === 'V1' && !!selDetail?.video);
+
+window.fetch = realFetch;
+
+summaryEl.className = 'summary ' + (fail === 0 ? 'pass' : 'fail');
+summaryEl.textContent = `${pass} passed, ${fail} failed`;
+</script>
+
+</body>
+</html>

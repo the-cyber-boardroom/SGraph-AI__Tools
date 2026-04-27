@@ -1,0 +1,118 @@
+<!DOCTYPE html>
+<html lang="en-GB">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Vault — tools.sgraph.ai</title>
+    <meta name="description" content="Browse, edit, preview and manage files in an SGraph zero-knowledge encrypted vault. Create new vaults, render markdown/images/JSON/CSV, push/pull sync, and view commit history.">
+    <link rel="icon" type="image/svg+xml" href="../../_common/favicon.svg">
+    <link rel="stylesheet" href="../../_common/css/tools.css">
+    <style>
+        html, body {
+            height: 100%;
+            margin: 0;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
+        sg-site-header { flex-shrink: 0; }
+        #vault-bus {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            min-height: 0;
+        }
+        sg-layout { flex: 1; min-height: 0; }
+        #bottom-bar {
+            flex-shrink: 0;
+            display: flex;
+            gap: 0.5rem;
+            padding: 0.25rem 0.75rem;
+            align-items: center;
+        }
+        #bottom-bar sg-vault-sync-status { flex: 1; }
+        #bottom-bar sg-vault-file-ops { flex: 1; }
+        #manifest-bar { flex-shrink: 0; padding: 0 0.75rem 0.5rem; }
+    </style>
+</head>
+<body>
+
+<script type="module" src="https://dev.sgraph.ai/_common/js/components/sg-site-header/v1/v1.0/v1.0.6/sg-site-header.js"></script>
+<sg-site-header site="Send">
+        <div slot="locale" id="locale-picker"></div>
+    </sg-site-header>
+
+<div id="vault-bus" data-vault-bus>
+    <sg-layout id="layout"></sg-layout>
+    <div id="bottom-bar">
+        <sg-vault-file-ops></sg-vault-file-ops>
+        <sg-vault-sync-status></sg-vault-sync-status>
+    </div>
+</div>
+
+<div id="manifest-bar">
+    <script type="module" src="../../_common/js/sg-tool-manifest.js"></script>
+    <sg-tool-manifest src="manifest.json"></sg-tool-manifest>
+</div>
+
+<script type="module">
+import '/core/sg-layout/v0.1.0/sg-layout.js';
+import '/components/vault/sg-vault-connect/v0/v0.1/v0.1.3/sg-vault-connect.js';
+import '/components/vault/sg-vault-create/v0/v0.1/v0.1.0/sg-vault-create.js';
+import '/components/vault/sg-vault-tree/v0/v0.1/v0.1.3/sg-vault-tree.js';
+import '/components/vault/sg-vault-viewer/v0/v0.1/v0.1.3/sg-vault-viewer.js';
+import '/components/vault/sg-vault-file-preview/v0/v0.1/v0.1.0/sg-vault-file-preview.js';
+import '/components/vault/sg-vault-sync-status/v0/v0.1/v0.1.0/sg-vault-sync-status.js';
+import '/components/vault/sg-vault-file-ops/v0/v0.1/v0.1.0/sg-vault-file-ops.js';
+import '/components/vault/sg-vault-commit-log/v0/v0.1/v0.1.0/sg-vault-commit-log.js';
+
+// ── Layout definition ──────────────────────────────────────────────────────
+//
+//  ┌──────────────────────┬─────────────────────────────────────────────────┐
+//  │  Connect / Create    │   Preview / Editor / Commits (tabs)             │
+//  │  (tabbed, fixed)     │                                                 │
+//  │  File Tree (flex)    │                                                 │
+//  └──────────────────────┴─────────────────────────────────────────────────┘
+//  │ + File  + Folder  Rename  Delete  │  ↑0 Push  ↓0 Pull  status bar     │
+//  └───────────────────────────────────────────────────────────────────────────
+
+const LAYOUT = {
+    type: 'row',
+    sizes: [0.26, 0.74],
+    children: [
+        {
+            type: 'column',
+            sizes: [0.5, 0.5],
+            children: [
+                {
+                    type: 'stack',
+                    fixedSize: '320px',
+                    tabs: [
+                        { tag: 'sg-vault-connect', title: 'Connect',  locked: true },
+                        { tag: 'sg-vault-create',  title: 'Create' },
+                    ],
+                },
+                {
+                    type: 'stack',
+                    tabs: [{ tag: 'sg-vault-tree', title: 'Files', locked: true }],
+                },
+            ],
+        },
+        {
+            type: 'stack',
+            tabs: [
+                { tag: 'sg-vault-file-preview', title: 'Preview', locked: true },
+                { tag: 'sg-vault-viewer',       title: 'Editor' },
+                { tag: 'sg-vault-commit-log',   title: 'Commits' },
+            ],
+        },
+    ],
+};
+
+customElements.whenDefined('sg-layout').then(() => {
+    document.getElementById('layout').setLayout(LAYOUT);
+});
+</script>
+
+</body>
+</html>

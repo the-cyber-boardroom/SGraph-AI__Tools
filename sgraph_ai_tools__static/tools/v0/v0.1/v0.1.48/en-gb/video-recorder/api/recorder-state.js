@@ -26,6 +26,18 @@ export class RecordingConfig {
          *  'separate'          — individual tracks only, no composite
          * @type {'combined'|'combined+separate'|'separate'} */
         this.recordingMode      = 'combined';
+        /** Name used for download filenames and the recording tab title. */
+        this.recordingName      = '';
+        /** Visualization mode used when recording mode is 'viz+audio'. */
+        this.vizMode            = 'smooth-eq';
+        /** Provided by ui-shell — { start(micStream,fps):Promise<MediaStream>, stop():void }
+         *  Called by the pipeline when mode is 'viz+audio'. Not serialised. */
+        this.vizProvider        = null;
+        /** Composite layout for camera+screen modes.
+         *  'landscape' — standard PiP (camera overlay on screen, 16:9)
+         *  'shorts'    — vertical 9:16 canvas with title, screen, camera, footer
+         * @type {'landscape'|'shorts'} */
+        this.layout             = 'landscape';
     }
 }
 

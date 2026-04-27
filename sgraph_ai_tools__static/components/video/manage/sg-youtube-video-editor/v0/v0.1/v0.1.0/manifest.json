@@ -1,0 +1,13 @@
+{
+    "name": "sg-youtube-video-editor",
+    "version": "0.1.0",
+    "layer": "component",
+    "description": "Web Component edit form for a single YouTube video — title, description, tags, privacy, plus thumbnail replacement and delete. Wraps core/youtube-api.",
+    "exports": ["SgYouTubeVideoEditor"],
+    "dependencies": ["sg-component", "sg-tokens", "core/youtube-api"],
+    "tagName": "sg-youtube-video-editor",
+    "attributes": ["allow-delete"],
+    "events": ["video-loaded", "video-saved", "video-deleted", "video-thumbnail-set", "video-playlists-changed", "video-error"],
+    "author": "SGraph Tools Team",
+    "license": "CC-BY-4.0"
+}

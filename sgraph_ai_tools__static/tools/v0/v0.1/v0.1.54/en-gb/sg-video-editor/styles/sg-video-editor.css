@@ -1,0 +1,1220 @@
+/* sg-video-editor.css — tool-level layout. Component styles live in components. */
+
+#sg-video-editor-root,
+#sg-video-editor-root *,
+#sg-video-editor-root *::before,
+#sg-video-editor-root *::after {
+    box-sizing: border-box;
+}
+
+#sg-video-editor-root {
+    display: flex;
+    flex-direction: column;
+    flex: 1 1 auto;
+    min-height: 0;
+    background: var(--sg-bg, #0a0a18);
+    color: var(--sg-fg, #e2e8f0);
+    font-family: var(--sg-font, system-ui, sans-serif);
+    font-size: 14px;
+    line-height: 1.4;
+}
+
+/* sg-layout panel slots own their height; ensure children fill them. */
+.sgve-panel-slot {
+    width: 100%;
+    height: 100%;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
+}
+
+/* ── Asset panel ────────────────────────────────────────────── */
+
+.sgve-asset-panel {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+    height: 100%;
+    padding: 0.75rem;
+    overflow-y: auto;
+    transition: background 0.15s ease, outline-color 0.15s ease;
+}
+
+.sgve-asset-panel.is-drag-over {
+    outline: 2px solid var(--sg-accent, #4ecdc4);
+    outline-offset: -8px;
+    background: rgba(78, 205, 196, 0.08);
+}
+
+.sgve-asset-dropzone {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.75rem;
+    border: 1px dashed var(--sg-border, #475569);
+    border-radius: 6px;
+    background: var(--sg-bg-elev, #111827);
+    text-align: center;
+    flex: 0 0 auto;
+}
+
+.sgve-asset-dropzone p {
+    margin: 0;
+    font-size: 0.85rem;
+    color: var(--sg-text-muted, #94a3b8);
+}
+
+.sgve-asset-pick {
+    background: var(--sg-bg-elev, #1f2937);
+    color: var(--sg-fg, #f8fafc);
+    border: 1px solid var(--sg-accent, #4ecdc4);
+    border-radius: 6px;
+    padding: 0.5rem 1rem;
+    font: inherit;
+    font-size: 0.9rem;
+    font-weight: 500;
+    cursor: pointer;
+    transition: background 0.15s ease, color 0.15s ease;
+}
+
+.sgve-asset-pick:hover,
+.sgve-asset-pick:focus-visible {
+    background: var(--sg-accent, #4ecdc4);
+    color: #0f172a;
+    outline: none;
+}
+
+.sgve-asset-list {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 0.25rem;
+    flex: 1 1 auto;
+    min-height: 0;
+}
+
+/* + Shape / + Text toolbar (above the asset list) */
+.sgve-add-row {
+    display: flex;
+    flex-direction: row;
+    gap: 0.5rem;
+    align-items: center;
+    margin: 0.5rem 0;
+}
+.sgve-add-wrap {
+    position: relative;
+    flex: 1 1 0;
+}
+.sgve-add-btn {
+    width: 100%;
+    background: #1e293b;
+    color: #f1f5f9;
+    border: 1px solid rgba(255, 255, 255, 0.18);
+    border-radius: 4px;
+    padding: 0.4rem 0.6rem;
+    font-size: 13px;
+    cursor: pointer;
+    transition: background 0.12s ease, border-color 0.12s ease;
+}
+.sgve-add-btn:hover {
+    background: rgba(20, 184, 166, 0.18);
+    border-color: rgba(20, 184, 166, 0.5);
+}
+.sgve-add-confirm {
+    background: #14b8a6;
+    color: #0f172a;
+    border-color: #14b8a6;
+    font-weight: 600;
+}
+.sgve-add-confirm:hover {
+    background: #2dd4bf;
+}
+.sgve-add-pop {
+    display: none;
+    position: absolute;
+    top: calc(100% + 4px);
+    left: 0;
+    z-index: 50;
+    background: #0f172a;
+    border: 1px solid rgba(20, 184, 166, 0.45);
+    border-radius: 6px;
+    padding: 0.6rem;
+    min-width: 220px;
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.5);
+    flex-direction: column;
+    gap: 0.5rem;
+}
+.sgve-add-pop.is-open {
+    display: flex;
+}
+.sgve-add-palette {
+    display: grid;
+    grid-template-columns: repeat(6, 1fr);
+    gap: 4px;
+}
+.sgve-add-swatch {
+    width: 24px;
+    height: 24px;
+    border: 1px solid rgba(255, 255, 255, 0.25);
+    border-radius: 3px;
+    padding: 0;
+    cursor: pointer;
+}
+.sgve-add-swatch.is-selected {
+    box-shadow: 0 0 0 2px #14b8a6;
+}
+.sgve-add-custom {
+    width: 32px;
+    height: 24px;
+    padding: 0;
+    background: transparent;
+    border: 1px solid rgba(255, 255, 255, 0.25);
+    border-radius: 3px;
+    cursor: pointer;
+}
+.sgve-add-text-input {
+    width: 100%;
+    background: #1e293b;
+    color: #f1f5f9;
+    border: 1px solid rgba(255, 255, 255, 0.18);
+    border-radius: 4px;
+    padding: 0.35rem 0.5rem;
+    font-size: 13px;
+    box-sizing: border-box;
+}
+.sgve-add-size {
+    background: #1e293b;
+    color: #f1f5f9;
+    border: 1px solid rgba(255, 255, 255, 0.18);
+    border-radius: 4px;
+    padding: 0.2rem 0.4rem;
+    font-size: 13px;
+}
+
+.sgve-asset-empty {
+    font-size: 0.75rem;
+    color: var(--sg-text-muted, #94a3b8);
+    padding: 0.5rem;
+}
+
+.sgve-asset-row {
+    display: grid;
+    grid-template-columns: 48px 1fr 22px;
+    grid-template-rows: auto auto;
+    column-gap: 0.5rem;
+    row-gap: 0.1rem;
+    align-items: center;
+    padding: 0.4rem 0.5rem;
+    border: 1px solid var(--sg-border, #1f2937);
+    border-radius: 4px;
+    background: var(--sg-bg-elev, #0f172a);
+    cursor: grab;
+}
+
+.sgve-asset-del {
+    grid-column: 3;
+    grid-row: span 2;
+    width: 22px;
+    height: 22px;
+    padding: 0;
+    background: transparent;
+    color: rgba(255, 255, 255, 0.55);
+    border: 1px solid rgba(255, 255, 255, 0.18);
+    border-radius: 3px;
+    cursor: pointer;
+    font-size: 14px;
+    line-height: 1;
+    align-self: center;
+    justify-self: end;
+}
+.sgve-asset-del:hover {
+    background: rgba(220, 38, 38, 0.22);
+    color: #fecaca;
+    border-color: rgba(220, 38, 38, 0.5);
+}
+
+.sgve-asset-row:active { cursor: grabbing; }
+
+/* Source asset card while it is being dragged out of the panel. Mirrors the
+ * timeline clip drag style (`.clip.is-dragging`) so the user sees the same
+ * teal accent + dimmed treatment everywhere a drag is in flight. */
+.sgve-asset-row.is-dragging {
+    opacity: 0.45;
+    outline: 2px solid var(--sg-accent, #4ecdc4);
+    outline-offset: -2px;
+    box-shadow: 0 0 0 1px rgba(78, 205, 196, 0.35);
+}
+
+.sgve-asset-thumb {
+    grid-row: span 2;
+    width: 48px;
+    height: 27px;
+    background: #000;
+    border-radius: 2px;
+    overflow: hidden;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.sgve-asset-thumb img {
+    max-width: 100%;
+    max-height: 100%;
+    object-fit: contain;
+    display: block;
+}
+
+.sgve-asset-thumb[data-kind="video"]::after {
+    content: 'vid';
+    font-size: 0.6rem;
+    color: var(--sg-text-muted, #94a3b8);
+    letter-spacing: 0.05em;
+}
+
+.sgve-asset-meta {
+    font-size: 0.75rem;
+    color: var(--sg-text-muted, #94a3b8);
+}
+
+/* Round-9-J: asset whose blob hasn't (yet) been hydrated from IndexedDB.
+ * Visible cue so the user knows their pixels are missing — without
+ * crashing the row layout. */
+.sgve-asset-row.is-missing { opacity: 0.7; }
+.sgve-asset-row.is-missing .sgve-asset-thumb {
+    background: repeating-linear-gradient(
+        45deg, #1a1a1a, #1a1a1a 4px,
+        #2a2a2a 4px, #2a2a2a 8px
+    );
+}
+.sgve-asset-row.is-missing .sgve-asset-meta {
+    color: #d97706;
+}
+
+/* ── Generic button (export controls) ────────────────────── */
+
+.sg-video-editor__btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
+    padding: 0.4rem 0.75rem;
+    border: 1px solid var(--sg-border, #1f2937);
+    border-radius: 4px;
+    background: var(--sg-bg-elev, #111827);
+    color: inherit;
+    font: inherit;
+    cursor: pointer;
+}
+
+.sg-video-editor__btn:hover { background: var(--sg-bg-hover, #1e293b); }
+.sg-video-editor__btn[disabled] { opacity: 0.5; cursor: not-allowed; }
+
+/* ── Export button (Round-9-I Task 4) ────────────────────────────────
+ * The button widths used to jitter between "Export MP4" (idle) and
+ * "Exporting NN%" (busy). The min-width is pinned in JS at mount time
+ * (measured against "Exporting 100%" + 28px padding), the label is
+ * centred, and a teal L→R fill behind the label visualises progress
+ * via a `--sgve-progress` custom property the JS updates per tick. */
+.sgve-export-btn {
+    position: relative;
+    overflow: hidden;
+    padding: .4rem .9rem;
+    border: 1px solid #1f2937;
+    border-radius: 4px;
+    background: #1e293b;
+    color: inherit;
+    font: inherit;
+    cursor: pointer;
+    text-align: center;
+    /* min-width is set inline by ui-export-progress.js */
+}
+.sgve-export-btn:hover:not([disabled]) {
+    background: #233247;
+    border-color: rgba(20, 184, 166, 0.45);
+}
+.sgve-export-btn[disabled] {
+    cursor: progress;
+    opacity: 1; /* the fill bar carries the activity cue, no need to dim */
+}
+.sgve-export-btn::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    width: var(--sgve-progress, 0%);
+    background: rgba(20, 184, 166, 0.32);
+    transition: width 0.12s linear;
+    pointer-events: none;
+}
+.sgve-export-btn.is-exporting {
+    border-color: rgba(20, 184, 166, 0.55);
+}
+.sgve-export-btn__label {
+    position: relative; /* sit above the ::before fill */
+    display: inline-block;
+    z-index: 1;
+    font-feature-settings: "tnum"; /* tabular numbers — no width jitter */
+}
+.sgve-export-status {
+    font-size: .8rem;
+    color: #94a3b8;
+}
+
+/* ── Post-export action row (Round-9-I Task 5) ───────────────────────
+ * Idle → Exporting collapses back into the same single button; on
+ * `done` the button is removed and replaced by Download + Drag out +
+ * Re-export side-by-side. */
+.sgve-export-actions {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
+}
+.sgve-export-actions button {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
+    padding: .4rem .75rem;
+    border: 1px solid #1f2937;
+    border-radius: 4px;
+    background: #1e293b;
+    color: inherit;
+    font: inherit;
+    cursor: pointer;
+}
+.sgve-export-actions button:hover {
+    background: #233247;
+    border-color: rgba(20, 184, 166, 0.45);
+}
+.sgve-export-download {
+    border-color: rgba(20, 184, 166, 0.55) !important;
+    background: rgba(20, 184, 166, 0.18) !important;
+    color: #ccfbf1 !important;
+}
+.sgve-export-download:hover {
+    background: rgba(20, 184, 166, 0.32) !important;
+}
+.sgve-export-drag {
+    cursor: grab;
+}
+.sgve-export-drag:active,
+.sgve-export-drag.is-dragging {
+    cursor: grabbing;
+    background: rgba(251, 191, 36, 0.18) !important;
+    border-color: rgba(251, 191, 36, 0.55) !important;
+    color: #fde68a !important;
+}
+.sgve-export-reexport {
+    /* link-like, not a primary action */
+    background: transparent !important;
+    border-color: rgba(255, 255, 255, 0.12) !important;
+    color: rgba(255, 255, 255, 0.65) !important;
+    font-size: 12px;
+}
+.sgve-export-reexport:hover {
+    color: #f1f5f9 !important;
+    border-color: rgba(255, 255, 255, 0.32) !important;
+}
+
+/* ── Topbar (export slot) ─────────────────────────────────── */
+
+.sgve-topbar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0.5rem 1rem;
+    border-bottom: 1px solid var(--sg-border, #1f2937);
+    background: var(--sg-bg-elev, #111827);
+    flex: 0 0 auto;
+}
+
+.sgve-topbar h2 {
+    margin: 0;
+    font-size: 1rem;
+    font-weight: 600;
+}
+
+.sgve-toast {
+    flex: 0 1 auto;
+    padding: 0.3rem 0.7rem;
+    border-radius: 4px;
+    font-size: 12px;
+    background: rgba(20, 184, 166, 0.18);
+    color: #99f6e4;
+    border: 1px solid rgba(20, 184, 166, 0.45);
+    max-width: 60%;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    transition: opacity 0.2s ease;
+}
+.sgve-toast[data-kind="error"] {
+    background: rgba(220, 38, 38, 0.2);
+    color: #fecaca;
+    border-color: rgba(220, 38, 38, 0.5);
+}
+.sgve-toast[hidden] { display: none; }
+
+/* ── Properties panel ─────────────────────────────────────── */
+
+.sgve-prop-host {
+    display: flex;
+    flex-direction: column;
+    overflow: auto;
+}
+.sgve-prop-panel {
+    padding: 0.5rem 0.6rem;
+    color: #e5e7eb;
+    font-size: 12px;
+}
+.sgve-prop-empty {
+    padding: 1rem;
+    color: rgba(255, 255, 255, 0.55);
+    font-style: italic;
+    text-align: center;
+}
+.sgve-prop-section {
+    margin-bottom: 0.85rem;
+    padding-bottom: 0.5rem;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+}
+.sgve-prop-section:last-child {
+    border-bottom: none;
+}
+.sgve-prop-section h4 {
+    margin: 0 0 0.4rem;
+    font-size: 11px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    color: rgba(255, 255, 255, 0.55);
+}
+.sgve-prop-row {
+    display: grid;
+    grid-template-columns: 78px 1fr;
+    align-items: center;
+    gap: 0.4rem;
+    margin: 0.25rem 0;
+}
+.sgve-prop-label {
+    color: rgba(255, 255, 255, 0.7);
+    font-size: 11px;
+}
+.sgve-prop-ro {
+    color: rgba(255, 255, 255, 0.85);
+    font-size: 12px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+.sgve-prop-input,
+.sgve-prop-textarea {
+    width: 100%;
+    background: #1e293b;
+    color: #f1f5f9;
+    border: 1px solid rgba(255, 255, 255, 0.18);
+    border-radius: 4px;
+    padding: 0.25rem 0.4rem;
+    font-size: 12px;
+    box-sizing: border-box;
+}
+.sgve-prop-textarea {
+    resize: vertical;
+    min-height: 36px;
+    font-family: system-ui, sans-serif;
+}
+.sgve-prop-range {
+    width: 100%;
+    accent-color: #14b8a6;
+}
+.sgve-prop-color {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.3rem;
+}
+.sgve-prop-color-sw {
+    width: 28px;
+    height: 22px;
+    padding: 0;
+    background: transparent;
+    border: 1px solid rgba(255, 255, 255, 0.18);
+    border-radius: 3px;
+    cursor: pointer;
+}
+.sgve-prop-color-hex {
+    flex: 1 1 auto;
+    background: #1e293b;
+    color: #f1f5f9;
+    border: 1px solid rgba(255, 255, 255, 0.18);
+    border-radius: 4px;
+    padding: 0.2rem 0.4rem;
+    font-size: 11px;
+    font-family: ui-monospace, monospace;
+    box-sizing: border-box;
+    min-width: 0;
+}
+.sgve-prop-btn {
+    display: inline-block;
+    padding: 0.35rem 0.7rem;
+    background: #1e293b;
+    color: #f1f5f9;
+    border: 1px solid rgba(255, 255, 255, 0.18);
+    border-radius: 4px;
+    font-size: 12px;
+    cursor: pointer;
+}
+.sgve-prop-btn--danger {
+    background: rgba(220, 38, 38, 0.18);
+    color: #fecaca;
+    border-color: rgba(220, 38, 38, 0.45);
+}
+.sgve-prop-btn--danger:hover {
+    background: rgba(220, 38, 38, 0.32);
+}
+.sgve-prop-btn--primary {
+    background: rgba(20, 184, 166, 0.22);
+    color: #ccfbf1;
+    border-color: rgba(20, 184, 166, 0.45);
+}
+.sgve-prop-btn--primary:hover {
+    background: rgba(20, 184, 166, 0.36);
+}
+.sgve-prop-btn--secondary {
+    background: rgba(255, 255, 255, 0.04);
+    color: #e2e8f0;
+    border-color: rgba(255, 255, 255, 0.18);
+}
+.sgve-prop-btn--secondary:hover {
+    background: rgba(255, 255, 255, 0.10);
+}
+.sgve-prop-rename {
+    width: 100%;
+    box-sizing: border-box;
+}
+
+/* ── Save / Load controls (Project section) ─────────────── */
+
+.sgve-saveload {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+}
+.sgve-saveload__row {
+    display: flex;
+    gap: 0.4rem;
+    flex-wrap: wrap;
+    align-items: center;
+}
+.sgve-saveload__row--saved {
+    padding: 0.35rem 0.45rem;
+    background: rgba(255, 255, 255, 0.03);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: 4px;
+    justify-content: space-between;
+}
+.sgve-saveload__list {
+    display: flex;
+    flex-direction: column;
+    gap: 0.35rem;
+    margin-top: 0.25rem;
+}
+.sgve-saveload__heading {
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: rgba(255, 255, 255, 0.45);
+    margin-top: 0.2rem;
+}
+.sgve-saveload__meta {
+    display: flex;
+    flex-direction: column;
+    flex: 1 1 0;
+    min-width: 0;
+}
+.sgve-saveload__name {
+    font-size: 12px;
+    color: #e2e8f0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+.sgve-saveload__sub {
+    font-size: 10px;
+    color: rgba(255, 255, 255, 0.45);
+    margin-top: 1px;
+}
+.sgve-saveload__empty {
+    font-size: 11px;
+    color: rgba(255, 255, 255, 0.45);
+    font-style: italic;
+}
+
+/* ── Messages panel ───────────────────────────────────────── */
+
+.sgve-msg-host {
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+}
+.sgve-msg-panel {
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+    color: #e5e7eb;
+    font-size: 12px;
+}
+.sgve-msg-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0.45rem 0.6rem;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+    flex: 0 0 auto;
+}
+.sgve-msg-title {
+    font-size: 11px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    color: rgba(255, 255, 255, 0.55);
+}
+.sgve-msg-clear {
+    background: transparent;
+    color: rgba(255, 255, 255, 0.7);
+    border: 1px solid rgba(255, 255, 255, 0.18);
+    border-radius: 3px;
+    padding: 0.15rem 0.45rem;
+    font-size: 11px;
+    cursor: pointer;
+}
+.sgve-msg-clear:hover {
+    background: rgba(20, 184, 166, 0.18);
+    color: #99f6e4;
+    border-color: rgba(20, 184, 166, 0.45);
+}
+.sgve-msg-list {
+    list-style: none;
+    margin: 0;
+    padding: 0.4rem 0.5rem;
+    overflow: auto;
+    flex: 1 1 auto;
+    min-height: 0;
+}
+.sgve-msg-empty {
+    padding: 1rem;
+    color: rgba(255, 255, 255, 0.45);
+    font-style: italic;
+    text-align: center;
+}
+.sgve-msg {
+    display: grid;
+    grid-template-columns: 56px 44px 1fr;
+    gap: 0.4rem;
+    align-items: baseline;
+    padding: 0.25rem 0.1rem;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+    font-size: 11px;
+}
+.sgve-msg-time {
+    color: rgba(255, 255, 255, 0.45);
+    font-family: ui-monospace, monospace;
+}
+.sgve-msg-tag {
+    font-size: 10px;
+    font-weight: 600;
+    letter-spacing: 0.04em;
+    text-align: center;
+    padding: 0.05rem 0.2rem;
+    border-radius: 2px;
+}
+.sgve-msg--info .sgve-msg-tag {
+    color: #99f6e4;
+    background: rgba(20, 184, 166, 0.18);
+}
+.sgve-msg--error .sgve-msg-tag {
+    color: #fecaca;
+    background: rgba(220, 38, 38, 0.22);
+}
+.sgve-msg-text {
+    color: #e5e7eb;
+    word-break: break-word;
+}
+
+/* ── Shortcuts panel ──────────────────────────────────────── */
+
+.sgve-shortcuts {
+    overflow: hidden;
+}
+
+.sgve-sc-panel {
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+    color: #e5e7eb;
+    font-size: 12px;
+    overflow: hidden;
+}
+
+.sgve-sc-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0.45rem 0.6rem;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+    flex: 0 0 auto;
+}
+
+.sgve-sc-title {
+    font-size: 11px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    color: rgba(255, 255, 255, 0.55);
+}
+
+.sgve-sc-list {
+    list-style: none;
+    margin: 0;
+    padding: 0.3rem 0.5rem;
+    overflow: auto;
+    flex: 1 1 auto;
+    min-height: 0;
+}
+
+.sgve-sc-row {
+    display: grid;
+    grid-template-columns: minmax(85px, auto) 1fr;
+    gap: 0.4rem;
+    align-items: center;
+    padding: 0.2rem 0;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.04);
+}
+
+.sgve-sc-row:last-child { border-bottom: none; }
+
+.sgve-sc-keys {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 2px;
+    color: #99f6e4;
+}
+
+.sgve-sc-key {
+    font: 600 10px/1 ui-monospace, SFMono-Regular, monospace;
+    background: rgba(20, 184, 166, 0.12);
+    border: 1px solid rgba(20, 184, 166, 0.35);
+    color: #99f6e4;
+    border-radius: 3px;
+    padding: 2px 5px;
+    white-space: nowrap;
+}
+
+.sgve-sc-glue {
+    font-size: 10px;
+    color: rgba(255, 255, 255, 0.45);
+}
+
+.sgve-sc-desc {
+    color: rgba(255, 255, 255, 0.85);
+    font-size: 11px;
+}
+
+/* ── Preview panel ────────────────────────────────────────── */
+
+.sgve-preview {
+    width: 100%;
+    height: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: #000;
+    padding: 0.5rem;
+    overflow: hidden;
+}
+
+.sgve-preview sg-preview-canvas {
+    max-width: 100%;
+    max-height: 100%;
+}
+
+/* ── Timeline panel ───────────────────────────────────────── */
+
+.sgve-timeline {
+    width: 100%;
+    height: 100%;
+    overflow: auto;
+    background: var(--sg-bg-secondary, #0f172a);
+}
+
+/* ── Debug panel (Round-9-M memory observability) ──────────── */
+
+.sgve-debug {
+    width: 100%;
+    height: 100%;
+    overflow: auto;
+    background: var(--sg-bg-secondary, #0f172a);
+    color: rgba(226, 232, 240, 0.95);
+    font: 12px/1.4 system-ui, sans-serif;
+}
+
+.sgve-debug-root {
+    padding: 0.6rem 0.8rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.6rem;
+}
+
+.sgve-debug-h, .sgve-debug-h2 {
+    margin: 0;
+    color: rgba(20, 184, 166, 0.95);
+    font-size: 12px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+}
+
+.sgve-debug-h2 { margin-top: 0.4rem; font-size: 11px; }
+
+.sgve-debug-note {
+    margin: 0;
+    color: rgba(148, 163, 184, 0.8);
+    font-size: 11px;
+}
+
+.sgve-debug-note code {
+    background: rgba(20, 184, 166, 0.18);
+    padding: 0 4px;
+    border-radius: 3px;
+    font: 11px/1.2 ui-monospace, SFMono-Regular, monospace;
+}
+
+.sgve-debug-rows {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+}
+
+.sgve-debug-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 4px 8px;
+    background: rgba(15, 23, 42, 0.5);
+    border: 1px solid rgba(30, 41, 59, 0.7);
+    border-radius: 3px;
+}
+
+.sgve-debug-label {
+    color: rgba(148, 163, 184, 0.95);
+    font-size: 11px;
+}
+
+.sgve-debug-value {
+    font: 11px/1.2 ui-monospace, SFMono-Regular, monospace;
+    color: rgba(226, 232, 240, 0.98);
+    font-weight: 600;
+}
+
+.sgve-debug-assets {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+.sgve-debug-assets li {
+    padding: 5px 8px;
+    background: rgba(15, 23, 42, 0.5);
+    border: 1px solid rgba(30, 41, 59, 0.7);
+    border-radius: 3px;
+}
+
+.sgve-debug-asset-head {
+    font-weight: 600;
+    color: rgba(226, 232, 240, 0.98);
+    font-size: 11.5px;
+}
+
+.sgve-debug-asset-body {
+    color: rgba(148, 163, 184, 0.95);
+    font-size: 11px;
+}
+
+.sgve-debug-asset-id {
+    color: rgba(100, 116, 139, 0.85);
+    font: 10px/1.2 ui-monospace, SFMono-Regular, monospace;
+    margin-top: 2px;
+}
+
+.sgve-debug-empty {
+    color: rgba(100, 116, 139, 0.85);
+    font-style: italic;
+}
+
+/* ── Config + Debug panel ───────────────────────────────────────── */
+
+.sgve-cfg-panel {
+    display: flex;
+    flex-direction: column;
+    gap: 0;
+    height: 100%;
+    overflow-y: auto;
+    padding: 0.5rem 0.75rem 1rem;
+}
+
+.sgve-cfg-section {
+    margin-bottom: 0.75rem;
+}
+
+.sgve-cfg-heading {
+    font-size: 0.7rem;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--sg-accent, #4ecdc4);
+    padding: 0.5rem 0 0.3rem;
+    border-bottom: 1px solid rgba(78, 205, 196, 0.25);
+    margin-bottom: 0.4rem;
+}
+
+.sgve-cfg-row {
+    display: flex;
+    align-items: flex-start;
+    gap: 0.5rem;
+    padding: 0.35rem 0;
+    cursor: pointer;
+}
+
+.sgve-cfg-row input[type="checkbox"] {
+    flex-shrink: 0;
+    margin-top: 2px;
+    accent-color: var(--sg-accent, #4ecdc4);
+    cursor: pointer;
+}
+
+.sgve-cfg-info {
+    font-size: 0.8rem;
+    color: var(--sg-fg, #e2e8f0);
+    line-height: 1.4;
+}
+
+.sgve-cfg-info small {
+    color: var(--sg-text-muted, #94a3b8);
+    font-size: 0.72rem;
+}
+
+.sgve-cfg-select-row {
+    flex-direction: column;
+    align-items: stretch;
+    cursor: default;
+}
+
+.sgve-cfg-select {
+    margin-top: 0.3rem;
+    background: var(--sg-bg-elev, #1f2937);
+    color: var(--sg-fg, #e2e8f0);
+    border: 1px solid var(--sg-border, #475569);
+    border-radius: 4px;
+    padding: 0.25rem 0.4rem;
+    font: inherit;
+    font-size: 0.8rem;
+    cursor: pointer;
+}
+
+.sgve-cfg-reset {
+    margin-top: 0.75rem;
+    background: transparent;
+    color: var(--sg-text-muted, #94a3b8);
+    border: 1px solid var(--sg-border, #475569);
+    border-radius: 4px;
+    padding: 0.3rem 0.75rem;
+    font: inherit;
+    font-size: 0.78rem;
+    cursor: pointer;
+    transition: color 0.15s, border-color 0.15s;
+}
+
+.sgve-cfg-reset:hover {
+    color: var(--sg-fg, #e2e8f0);
+    border-color: var(--sg-accent, #4ecdc4);
+}
+
+.sgve-cfg-action-btn {
+    display: block;
+    width: 100%;
+    margin-top: 0.4rem;
+    background: transparent;
+    color: var(--sg-text-muted, #94a3b8);
+    border: 1px solid var(--sg-border, #475569);
+    border-radius: 4px;
+    padding: 0.35rem 0.75rem;
+    font: inherit;
+    font-size: 0.8rem;
+    text-align: left;
+    cursor: pointer;
+    transition: color 0.15s, border-color 0.15s, background 0.15s;
+}
+.sgve-cfg-action-btn:hover {
+    color: var(--sg-fg, #e2e8f0);
+    border-color: #f59e0b;
+    background: rgba(245,158,11,0.08);
+}
+
+/* ── Perf panel ─────────────────────────────────────────────────── */
+
+.sgve-perf-panel {
+    display: flex;
+    flex-direction: column;
+    gap: 0;
+    height: 100%;
+    overflow-y: auto;
+    padding: 0.25rem 0.75rem 1rem;
+    font-size: 0.78rem;
+}
+
+.sgve-perf-section { margin-bottom: 0.5rem; }
+
+.sgve-perf-cards {
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr;
+    gap: 4px;
+    margin-bottom: 6px;
+}
+
+.sgve-perf-card {
+    display: flex;
+    flex-direction: column;
+    padding: 5px 7px;
+    background: rgba(15, 23, 42, 0.6);
+    border: 1px solid rgba(30, 41, 59, 0.8);
+    border-radius: 4px;
+    min-width: 0;
+}
+
+.sgve-perf-val {
+    font: 600 13px/1.2 ui-monospace, SFMono-Regular, monospace;
+    color: var(--sg-accent, #4ecdc4);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.sgve-perf-lbl {
+    font-size: 0.68rem;
+    color: var(--sg-fg, #e2e8f0);
+    margin-top: 1px;
+}
+
+.sgve-perf-sub {
+    font-size: 0.62rem;
+    color: var(--sg-text-muted, #94a3b8);
+    margin-top: 1px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.sgve-perf-sparks {
+    display: flex;
+    gap: 6px;
+}
+
+.sgve-perf-spark {
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+}
+
+.sgve-perf-spark-lbl {
+    font-size: 0.62rem;
+    color: var(--sg-text-muted, #94a3b8);
+    margin-bottom: 2px;
+}
+
+.sgve-perf-chips {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px;
+    margin-top: 2px;
+}
+
+.sgve-perf-chip {
+    font-size: 0.72rem;
+    padding: 2px 6px;
+    background: rgba(15, 23, 42, 0.6);
+    border: 1px solid rgba(30, 41, 59, 0.8);
+    border-radius: 3px;
+    color: var(--sg-fg, #e2e8f0);
+    white-space: nowrap;
+}
+
+.sgve-perf-muted { color: var(--sg-text-muted, #94a3b8); }
+
+/* Instructions */
+
+.sgve-perf-instr { margin-top: 0.5rem; }
+
+.sgve-perf-instr-sum {
+    cursor: pointer;
+    list-style: none;
+    user-select: none;
+}
+.sgve-perf-instr-sum::-webkit-details-marker { display: none; }
+
+.sgve-perf-instr-body {
+    padding: 0.5rem 0 0;
+    font-size: 0.75rem;
+    line-height: 1.5;
+    color: var(--sg-fg, #e2e8f0);
+}
+
+.sgve-perf-instr-body details {
+    margin-bottom: 6px;
+    border: 1px solid rgba(30, 41, 59, 0.8);
+    border-radius: 4px;
+    padding: 4px 8px;
+}
+
+.sgve-perf-instr-body summary {
+    cursor: pointer;
+    font-weight: 600;
+    color: var(--sg-fg, #e2e8f0);
+    font-size: 0.73rem;
+    padding: 2px 0;
+    list-style: none;
+}
+.sgve-perf-instr-body summary::-webkit-details-marker { display: none; }
+
+.sgve-perf-instr-body p, .sgve-perf-instr-body ul, .sgve-perf-instr-body ol {
+    margin: 4px 0;
+    color: var(--sg-text-muted, #94a3b8);
+}
+
+.sgve-perf-instr-body li { margin-left: 1rem; margin-bottom: 2px; }
+
+.sgve-perf-instr-body code, .sgve-perf-instr-body kbd {
+    font: 0.7rem/1.2 ui-monospace, SFMono-Regular, monospace;
+    background: rgba(30, 41, 59, 0.8);
+    border: 1px solid rgba(71, 85, 105, 0.6);
+    border-radius: 3px;
+    padding: 0 3px;
+    color: #f8fafc;
+}
+
+.sgve-perf-note {
+    background: rgba(245, 158, 11, 0.1);
+    border: 1px solid rgba(245, 158, 11, 0.3);
+    border-radius: 4px;
+    padding: 5px 8px;
+    margin-bottom: 6px;
+    font-size: 0.72rem;
+    color: var(--sg-fg, #e2e8f0);
+}

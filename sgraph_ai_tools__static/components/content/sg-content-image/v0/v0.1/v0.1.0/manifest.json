@@ -1,0 +1,16 @@
+{
+    "name": "sg-content-image",
+    "version": "0.1.0",
+    "type": "component",
+    "namespace": "content",
+    "tag": "sg-content-image",
+    "description": "Vault-agnostic image renderer. Creates a Blob URL from event.detail.bytes and renders an <img>. Revokes the Blob URL on disconnectedCallback.",
+    "attributes": {
+        "content-source": { "required": true, "type": "string" }
+    },
+    "dependencies": {
+        "core": [
+            { "module": "sg-component", "path": "/components/base/v1/v1.0/v1.0.0/sg-component.js" }
+        ]
+    }
+}

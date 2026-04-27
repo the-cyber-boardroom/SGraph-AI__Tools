@@ -1,0 +1,20 @@
+{
+    "version": "1.0.3",
+    "name": "sg-site-header",
+    "description": "Shared sticky header for all sgraph.ai domains. Plain text SG/ logo matching SG/Send, nav links, slotted locale picker, teal accent line.",
+    "type": "component",
+    "exports": [
+        "SgSiteHeader"
+    ],
+    "custom_element": "sg-site-header",
+    "attributes": ["site", "home-url", "nav-items"],
+    "slots": ["locale"],
+    "dependencies": [
+        "sg-component",
+        "sg-tokens"
+    ],
+    "changes_from": "1.0.2",
+    "changes": [
+        "Remove inline SVG favicon from logo — plain text SG/Product logo now matches SG/Send header at sgraph.ai"
+    ]
+}

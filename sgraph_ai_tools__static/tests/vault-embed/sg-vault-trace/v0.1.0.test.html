@@ -1,0 +1,118 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>sg-vault-trace v0.1.0 — test</title>
+    <style>
+        body { font-family: monospace; background: #1a1a2e; color: #eee; padding: 2rem; }
+        .pass { color: #4ade80; } .fail { color: #f87171; }
+        pre { background: #0f3460; padding: 1rem; border-radius: 6px; }
+    </style>
+</head>
+<body>
+<h2>sg-vault-trace v0.1.0 — AC tests</h2>
+<pre id="log">Running...</pre>
+<sg-vault-trace id="test-trace" format="compact"></sg-vault-trace>
+
+<script type="module">
+import '/components/vault-embed/sg-vault-trace/v0/v0.1/v0.1.0/sg-vault-trace.js';
+
+const log = document.getElementById('log');
+const results = [];
+function pass(msg) { results.push(`✓ ${msg}`); }
+function fail(msg) { results.push(`✗ ${msg}`); }
+
+// Wait for the trace component to be ready
+const traceEl = document.getElementById('test-trace');
+await traceEl.whenReady();
+
+// Test 1: getLog() starts empty
+const initialLog = traceEl.getLog();
+if (Array.isArray(initialLog) && initialLog.length === 0) {
+    pass('getLog() returns empty array initially');
+} else {
+    fail(`getLog() not empty: ${JSON.stringify(initialLog)}`);
+}
+
+// Test 2: captures sg-vault-key:key-ready events
+const fakeKeyReady = new CustomEvent('sg-vault-key:key-ready', {
+    detail: { vaultId: 'testvault', cryptoKey: null, endpoint: 'https://example.com', derivationMs: 1.5 },
+    bubbles: true,
+    composed: true,
+});
+document.dispatchEvent(fakeKeyReady);
+
+const log1 = traceEl.getLog();
+if (log1.length === 1 && log1[0].event === 'sg-vault-key:key-ready') {
+    pass('captures sg-vault-key:key-ready event');
+} else {
+    fail(`key-ready not captured: ${JSON.stringify(log1)}`);
+}
+
+// Test 3: captures sg-vault-fetch:content-ready
+const fakeContentReady = new CustomEvent('sg-vault-fetch:content-ready', {
+    detail: { objectId: 'obj-cas-imm-abc', bytes: new ArrayBuffer(100), contentType: 'text/plain', text: '# Hello' },
+    bubbles: true,
+    composed: true,
+});
+document.dispatchEvent(fakeContentReady);
+
+const log2 = traceEl.getLog();
+if (log2.length === 2 && log2[1].event === 'sg-vault-fetch:content-ready') {
+    pass('captures sg-vault-fetch:content-ready event');
+} else {
+    fail(`content-ready not captured: ${JSON.stringify(log2)}`);
+}
+
+// Test 4: detail sanitisation — ArrayBuffer converted to string
+const contentEntry = log2[1];
+if (typeof contentEntry.detail.bytes === 'string' && contentEntry.detail.bytes.includes('ArrayBuffer')) {
+    pass('ArrayBuffer sanitised to string in detail');
+} else {
+    fail(`ArrayBuffer not sanitised: ${JSON.stringify(contentEntry.detail.bytes)}`);
+}
+
+// Test 5: clearLog() empties the log
+traceEl.clearLog();
+const log3 = traceEl.getLog();
+if (log3.length === 0) {
+    pass('clearLog() empties the log');
+} else {
+    fail(`clearLog() failed, ${log3.length} entries remain`);
+}
+
+// Test 6: getLog(limit) returns only N entries
+const fakeFetch = new CustomEvent('sg-vault-fetch:fetch-started', {
+    detail: { vaultId: 'x', objectId: 'obj-cas-imm-x', url: 'https://x.com/x' },
+    bubbles: true,
+});
+for (let i = 0; i < 5; i++) document.dispatchEvent(fakeFetch);
+const limited = traceEl.getLog(3);
+if (limited.length === 3) {
+    pass('getLog(3) returns only 3 entries');
+} else {
+    fail(`getLog(3) returned ${limited.length}`);
+}
+
+// Test 7: trace panel renders entries in the DOM
+traceEl.clearLog();
+document.dispatchEvent(new CustomEvent('sg-vault-key:key-ready', {
+    detail: { vaultId: 'v', cryptoKey: null, endpoint: 'https://x.com', derivationMs: 0.5 },
+    bubbles: true,
+}));
+// Wait a tick for rendering
+await new Promise(r => setTimeout(r, 50));
+const entryEls = traceEl.shadowRoot?.querySelectorAll?.('.sgvt-entry') || [];
+if (entryEls.length >= 1) {
+    pass('trace panel renders entries in the DOM');
+} else {
+    fail(`No .sgvt-entry elements found. Shadow root: ${traceEl.shadowRoot?.innerHTML?.slice(0,200)}`);
+}
+
+// ── render ────────────────────────────────────────────────────────────────────
+const allPass = results.every(r => r.startsWith('✓'));
+log.className   = allPass ? 'pass' : 'fail';
+log.textContent = results.join('\n') + '\n\n' + (allPass ? '✓ ALL PASS' : '✗ FAILURES ABOVE');
+</script>
+</body>
+</html>

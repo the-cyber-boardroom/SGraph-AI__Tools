@@ -1,0 +1,10 @@
+/* sg-vault-content — one-line page surface */
+:host {
+    display: block;
+}
+
+/* Logical sub-elements (key + fetch) should not be visible */
+sg-vault-key,
+sg-vault-fetch {
+    display: none;
+}

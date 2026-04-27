@@ -1,0 +1,132 @@
+/* youtube-upload — controls + activity panel */
+
+.yt-intro {
+    margin: 0 0 16px;
+}
+
+.yt-intro__title {
+    font-size: 16px;
+    font-weight: 600;
+    margin: 0 0 6px;
+    color: #e2e8f0;
+}
+
+.yt-intro__body {
+    font-size: 12px;
+    line-height: 1.55;
+    color: #94a3b8;
+    margin: 0;
+}
+
+.yt-block {
+    margin-bottom: 14px;
+}
+
+/* ── Activity panel ──────────────────────────────────────────────────────── */
+
+.yt-activity {
+    background: #0d0d1a;
+    border: 1px solid #1e293b;
+    border-radius: 8px;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+}
+
+.yt-activity__header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 8px 12px;
+    border-bottom: 1px solid #1e293b;
+    background: #0a0a18;
+}
+
+.yt-activity__title {
+    font-size: 11px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: #4ECDC4;
+}
+
+.yt-activity__clear {
+    font-size: 10px;
+    background: transparent;
+    border: 1px solid #1e293b;
+    color: #64748b;
+    border-radius: 4px;
+    padding: 2px 8px;
+    cursor: pointer;
+    font-family: inherit;
+}
+
+.yt-activity__clear:hover {
+    border-color: #4ECDC4;
+    color: #4ECDC4;
+}
+
+.yt-activity__log {
+    padding: 8px 12px;
+    max-height: 360px;
+    overflow-y: auto;
+    font-family: 'SF Mono', Monaco, monospace;
+    font-size: 11px;
+    line-height: 1.7;
+}
+
+.yt-log-row {
+    display: flex;
+    gap: 8px;
+}
+
+.yt-log-row__time {
+    color: #475569;
+    flex-shrink: 0;
+}
+
+.yt-log-row__msg {
+    color: #cbd5e0;
+    word-break: break-word;
+}
+
+.yt-log-row--ok  .yt-log-row__msg { color: #4ECDC4; }
+.yt-log-row--err .yt-log-row__msg { color: #E94560; }
+
+/* ── Result card ─────────────────────────────────────────────────────────── */
+
+.yt-result-card {
+    margin-top: 14px;
+    padding: 12px 14px;
+    background: rgba(78,205,196,0.08);
+    border: 1px solid rgba(78,205,196,0.3);
+    border-radius: 8px;
+}
+
+.yt-result-card__label {
+    font-size: 10px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: #4ECDC4;
+    margin-bottom: 6px;
+}
+
+.yt-result-card__link {
+    display: block;
+    font-size: 13px;
+    color: #e2e8f0;
+    text-decoration: none;
+    word-break: break-all;
+    margin-bottom: 4px;
+}
+
+.yt-result-card__link:hover {
+    color: #4ECDC4;
+    text-decoration: underline;
+}
+
+.yt-result-card__meta {
+    font-size: 11px;
+    color: #64748b;
+}
