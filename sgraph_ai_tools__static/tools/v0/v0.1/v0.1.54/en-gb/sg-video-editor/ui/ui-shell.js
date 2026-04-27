@@ -9,6 +9,7 @@ import { mountPropertiesPanel } from './ui-properties-panel.js';
 import { mountMessagesPanel } from './ui-messages-panel.js';
 import { mountShortcutsPanel } from './ui-shortcuts-panel.js';
 import { mountConfigPanel } from './ui-config-panel.js';
+import { mountPerfPanel } from './debug/ui-perf-panel.js';
 import { editorConfig } from './editor-config.js';
 import { attachGlobalShortcuts } from './ui-keyboard.js';
 import { attachAutosave } from './ui-autosave.js';
@@ -106,6 +107,8 @@ export function mountShell({ host, state, api, getComposer, setComposer }) {
     let debugPane = null;
     /** Config + Debug panel handle. */
     let configPane = null;
+    /** Perf panel handle. */
+    let perfPane = null;
 
     /** beforeunload guard: prompt the browser's native confirm if the project
      *  is dirty (per the hash-based `hasUnsavedChanges()` check, which is the
@@ -249,6 +252,7 @@ export function mountShell({ host, state, api, getComposer, setComposer }) {
         if (messagesPanel) messagesPane = mountMessagesPanel({ host: messagesPanel });
         if (slots.shortcutsPanel) shortcutsPane = mountShortcutsPanel({ host: slots.shortcutsPanel });
         if (slots.configPanel) configPane = mountConfigPanel({ host: slots.configPanel });
+        if (slots.perfPanel)   perfPane   = mountPerfPanel({ host: slots.perfPanel, state });
         if (debugEnabled && slots.debugPanel) {
             debugPane = mountDebugPanel({ host: slots.debugPanel, state, api });
         }
@@ -314,6 +318,7 @@ export function mountShell({ host, state, api, getComposer, setComposer }) {
         try { keyboardWire && keyboardWire.destroy(); } catch (_) {}
         try { autosaveHandle && autosaveHandle.destroy(); } catch (_) {} autosaveHandle = null;
         try { configPane && configPane.destroy(); } catch (_) {} configPane = null;
+        try { perfPane   && perfPane.destroy();   } catch (_) {} perfPane   = null;
         try { debugPane && debugPane.destroy(); } catch (_) {} debugPane = null;
         try { devPanel && devPanel.destroy(); } catch (_) {}
         host.innerHTML = '';
