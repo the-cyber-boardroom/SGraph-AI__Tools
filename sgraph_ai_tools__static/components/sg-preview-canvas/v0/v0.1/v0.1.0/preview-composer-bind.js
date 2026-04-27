@@ -41,6 +41,7 @@ export function bindComposer(cfg) {
         canvas.removeEventListener('composer:state-changed', onState);
         canvas.removeEventListener('composer:ended', onState);
         updateTime(els, 0, 0);
+        if (els.scrubber) { els.scrubber.value = '0'; els._scrubDragging = false; }
         setTransportEnabled(els, false);
         els.play.textContent = '▶';
     }
