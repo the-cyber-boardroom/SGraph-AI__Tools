@@ -62,7 +62,7 @@ body {
     white-space: nowrap;
 }
 
-/* ── Two-column body ─────────────────────────────────────────────────────── */
+/* ── Two-column body: left sg-layout + right sg-layout ──────────────────── */
 .ved-body {
     flex: 1;
     display: grid;
@@ -70,70 +70,31 @@ body {
     min-height: 0;
 }
 
-/* ── Sidebar ─────────────────────────────────────────────────────────────── */
-.ved-sidebar {
-    display: flex;
-    flex-direction: column;
-    border-right: 1px solid var(--ved-border);
+sg-layout {
+    display: block;
+    height: 100%;
+    min-height: 0;
+}
+
+/* ── Credentials panel (ved-cred-panel, no shadow DOM) ───────────────────── */
+ved-cred-panel,
+.ved-cred-panel-host {
+    display: block;
+    height: 100%;
     overflow: hidden;
-    background: var(--ved-surface);
 }
 
-.ved-sidebar-section {
-    border-bottom: 1px solid var(--ved-border);
-}
-
-.ved-sidebar-config {
-    flex-shrink: 0;
+.ved-cred-panel-inner {
+    height: 100%;
     overflow-y: auto;
     padding: 0.85rem 1rem;
-    max-height: 55%;
+    box-sizing: border-box;
 }
 
-.ved-sidebar-tree {
-    flex: 1;
-    display: flex;
-    flex-direction: column;
-    min-height: 0;
-    padding: 0.75rem 1rem 0.5rem;
-    border-bottom: none;
-}
-
-.ved-tree-wrap {
-    flex: 1;
-    min-height: 0;
-    overflow: hidden;
-}
-
+/* ── Vault tree panel fills its sg-layout slot ───────────────────────────── */
 ved-vault-tree {
     display: block;
     height: 100%;
-}
-
-/* ── Right main: sg-layout ───────────────────────────────────────────────── */
-.ved-main {
-    overflow: hidden;
-    display: flex;
-    flex-direction: column;
-}
-
-sg-layout {
-    flex: 1;
-    display: block;
-    height: 100%;
-    min-height: 0;
-}
-
-/* ── Legacy layout class (kept for compatibility) ────────────────────────── */
-.ved-layout {
-    display: grid;
-    grid-template-columns: 1fr 2fr;
-    gap: 1.5rem;
-    margin-bottom: 2rem;
-}
-
-@media (max-width: 640px) {
-    .ved-layout { grid-template-columns: 1fr; }
 }
 
 /* ── Credentials Panel ────────────────────────────────────────────────────── */
@@ -182,17 +143,7 @@ sg-layout {
     word-break: break-all;
 }
 
-/* ── Trace container ─────────────────────────────────────────────────────── */
-.ved-trace-container {
-    overflow: hidden;
-}
-
-/* ── Main content ────────────────────────────────────────────────────────── */
-.ved-main {
-    display: flex;
-    flex-direction: column;
-    gap: 1.75rem;
-}
+/* ── Main content sections ───────────────────────────────────────────────── */
 
 .ved-section {
     background: var(--ved-surface);
@@ -343,6 +294,12 @@ sg-layout {
     outline: none;
     border-color: var(--ved-accent);
     box-shadow: 0 0 0 2px rgba(0, 255, 170, 0.1);
+}
+
+.ved-form-input--primary {
+    font-size: 0.88rem;
+    padding: 0.55rem 0.7rem;
+    border-color: rgba(0, 255, 170, 0.25);
 }
 
 .ved-form-input::placeholder {

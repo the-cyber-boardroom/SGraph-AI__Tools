@@ -139,10 +139,30 @@ img {
     font-family: system-ui, -apple-system, 'Segoe UI', sans-serif;
     align-self: center;
 }
+
+/* ── Full-panel PDF / page-layout containers ── */
+.pdf-wrap {
+    flex: 1;
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
+}
+.pdf-wrap iframe {
+    flex: 1;
+    border: none;
+    display: block;
+    width: 100%;
+}
+.page-wrap {
+    flex: 1;
+    min-height: 0;
+    overflow: auto;
+    padding: 1rem;
+}
 `
 
 /** PNG magic bytes */
-const PNG_MAGIC = [0x89, 0x50, 0x4e, 0x47]
+const PNG_MAGIC  = [0x89, 0x50, 0x4e, 0x47]
 /** JPEG magic bytes */
 const JPEG_MAGIC = [0xff, 0xd8, 0xff]
 /** GIF magic bytes */
@@ -150,6 +170,26 @@ const GIF_MAGIC_87 = [0x47, 0x49, 0x46, 0x38, 0x37]
 const GIF_MAGIC_89 = [0x47, 0x49, 0x46, 0x38, 0x39]
 /** WebP bytes at offset 8 */
 const WEBP_RIFF = [0x52, 0x49, 0x46, 0x46]
+/** PDF magic: %PDF */
+const PDF_MAGIC = [0x25, 0x50, 0x44, 0x46]
+
+/**
+ * AES-256-GCM decrypt. Used for presigned-URL downloads where we fetch
+ * raw encrypted bytes and need to decrypt without going through readObject().
+ * Format: first 12 bytes = IV, remainder = ciphertext.
+ * @param {CryptoKey} cryptoKey
+ * @param {ArrayBuffer} encryptedBuf
+ * @returns {Promise<ArrayBuffer>}
+ */
+async function decryptAesGcm(key, buf) {
+    const enc = new Uint8Array(buf)
+    return crypto.subtle.decrypt({ name: 'AES-GCM', iv: enc.slice(0, 12) }, key, enc.slice(12))
+}
+
+function isPageJson(name, text) {
+    if (name === '_page.json') return true
+    try { const o = JSON.parse(text); return o && Array.isArray(o.components) && !!o.theme } catch { return false }
+}
 
 /**
  * @param {Uint8Array} bytes
@@ -163,8 +203,10 @@ function sniffType(bytes, name) {
     if (startsWith(JPEG_MAGIC)) return 'image/jpeg'
     if (startsWith(GIF_MAGIC_87) || startsWith(GIF_MAGIC_89)) return 'image/gif'
     if (startsWith(WEBP_RIFF) && bytes.length > 12 && String.fromCharCode(...bytes.slice(8, 12)) === 'WEBP') return 'image/webp'
+    if (startsWith(PDF_MAGIC))  return 'application/pdf'
 
     const ext = (name || '').split('.').pop().toLowerCase()
+    if (ext === 'pdf')                    return 'application/pdf'
     if (ext === 'md' || ext === 'markdown') return 'text/markdown'
     if (ext === 'json') return 'application/json'
     if (ext === 'js') return 'text/javascript'
@@ -251,7 +293,19 @@ class VedFileViewer extends HTMLElement {
 
         const t0 = performance.now()
         try {
-            const buf     = await readObject(vault.apiBaseUrl, vaultId, blobId, vault.keys.readKey)
+            let buf
+            try {
+                buf = await readObject(vault.apiBaseUrl, vaultId, blobId, vault.keys.readKey)
+            } catch (directErr) {
+                const isGatewayError = /502|413|504/.test(directErr.message)
+                if (!isGatewayError) throw directErr
+                // Fallback: presigned URL for large files (bypasses API gateway limits)
+                this._emit('sg-vault-fetch:fetch-started', {
+                    vaultId, objectId: blobId, url: 'presigned',
+                })
+                buf = await this._fetchViaPresigned(vault.apiBaseUrl, vaultId, blobId, vault.keys.readKey)
+            }
+
             const fetchMs = performance.now() - t0
             const bytes   = new Uint8Array(buf)
 
@@ -267,7 +321,7 @@ class VedFileViewer extends HTMLElement {
             const mime = sniffType(bytes, entry.name || '')
             this._emit('sg-vault-fetch:content-ready', { objectId: blobId, contentType: mime })
 
-            await this._render(entry, bytes, mime, storagePath, apiUrl, fetchMs)
+            await this._render({ ...entry, _endpoint: vault.apiBaseUrl }, bytes, mime, storagePath, apiUrl, fetchMs)
         } catch (err) {
             this._emit('sg-vault-fetch:fetch-error', {
                 vaultId, objectId: blobId, url: apiUrl, error: err.message,
@@ -326,7 +380,19 @@ class VedFileViewer extends HTMLElement {
         const wrap = document.createElement('div')
         wrap.className = 'viewer-wrap'
 
-        if (mime.startsWith('image/')) {
+        if (mime === 'application/pdf') {
+            const blob = new Blob([bytes], { type: 'application/pdf' })
+            this._blobUrl = URL.createObjectURL(blob)
+            const pdfWrap = document.createElement('div')
+            pdfWrap.className = 'pdf-wrap'
+            const iframe = document.createElement('iframe')
+            iframe.src   = this._blobUrl
+            iframe.title = entry.name || 'PDF'
+            pdfWrap.appendChild(iframe)
+            this._shadow.appendChild(pdfWrap)
+            return  // pdf-wrap replaces viewer-wrap
+
+        } else if (mime.startsWith('image/')) {
             const blob = new Blob([bytes], { type: mime })
             this._blobUrl = URL.createObjectURL(blob)
             const img = document.createElement('img')
@@ -336,10 +402,23 @@ class VedFileViewer extends HTMLElement {
 
         } else if (mime === 'application/json') {
             const text = new TextDecoder().decode(bytes)
-            const pre  = document.createElement('pre')
-            try { pre.textContent = JSON.stringify(JSON.parse(text), null, 2) }
-            catch { pre.textContent = text }
-            wrap.appendChild(pre)
+            if (isPageJson(entry.name || '', text)) {
+                const pageWrap = document.createElement('div')
+                pageWrap.className = 'page-wrap'
+                try {
+                    const renderer = await this._loadPageRenderer(entry._endpoint)
+                    const json = JSON.parse(text)
+                    renderer.render(pageWrap, json, '', null, null)
+                } catch (e) {
+                    pageWrap.textContent = `_page.json render failed: ${e.message}`
+                }
+                wrap.appendChild(pageWrap)
+            } else {
+                const pre  = document.createElement('pre')
+                try { pre.textContent = JSON.stringify(JSON.parse(text), null, 2) }
+                catch { pre.textContent = text }
+                wrap.appendChild(pre)
+            }
 
         } else if (mime === 'text/markdown') {
             const text = new TextDecoder().decode(bytes)
@@ -369,6 +448,51 @@ class VedFileViewer extends HTMLElement {
         }
 
         this._shadow.appendChild(wrap)
+    }
+
+    /**
+     * Fetch encrypted bytes via a presigned URL (bypasses API gateway payload limits).
+     * Expects GET {apiBaseUrl}/api/vault/presigned/{vaultId}/{encodedPath} → { url }.
+     * @param {string}    apiBaseUrl
+     * @param {string}    vaultId
+     * @param {string}    blobId
+     * @param {CryptoKey} cryptoKey
+     * @returns {Promise<ArrayBuffer>} decrypted content
+     */
+    async _fetchViaPresigned(apiBaseUrl, vaultId, blobId, cryptoKey) {
+        const storagePath  = `bare/data/${blobId}`
+        const presignedApi = `${apiBaseUrl}/api/vault/presigned/${vaultId}/${encodeURIComponent(storagePath)}`
+        const resp = await fetch(presignedApi)
+        if (!resp.ok) throw new Error(`Presigned endpoint returned ${resp.status}`)
+        const { url } = await resp.json()
+        if (!url) throw new Error('No presigned URL in response')
+        const s3 = await fetch(url)
+        if (!s3.ok) throw new Error(`Presigned fetch failed: ${s3.status}`)
+        return decryptAesGcm(cryptoKey, await s3.arrayBuffer())
+    }
+
+    /**
+     * Dynamically load PageLayoutRenderer from CDN (idempotent).
+     * @param {string} endpoint base URL of the SG/Send server
+     * @returns {Promise<object>} the global PageLayoutRenderer
+     */
+    async _loadPageRenderer(endpoint) {
+        if (typeof PageLayoutRenderer !== 'undefined') return PageLayoutRenderer
+        const base = (endpoint || 'https://send.sgraph.ai').replace(/\/$/, '')
+        await new Promise((resolve, reject) => {
+            const s = document.createElement('script')
+            s.src = `${base}/_common/js/page-layout-renderer.js`
+            s.onload  = resolve
+            s.onerror = () => reject(new Error(`Could not load PageLayoutRenderer from ${base}`))
+            document.head.appendChild(s)
+        })
+        if (!document.querySelector('link[href*="page-layout"]')) {
+            const link = document.createElement('link')
+            link.rel  = 'stylesheet'
+            link.href = `${base}/_common/js/components/send-download/send-browse-v031--page-layout.css`
+            document.head.appendChild(link)
+        }
+        return PageLayoutRenderer
     }
 }
 
