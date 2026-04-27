@@ -317,8 +317,9 @@ class VedFileViewer extends HTMLElement {
                 const isGatewayError = /502|413|504/.test(directErr.message)
                 if (!isGatewayError) throw directErr
                 // Fallback: presigned URL for large files (bypasses API gateway limits)
+                const presignedApiUrl = `${vault.apiBaseUrl}/api/vault/presigned/read-url/${vaultId}/${encodeURIComponent(`bare/data/${blobId}`)}`
                 this._emit('sg-vault-fetch:fetch-started', {
-                    vaultId, objectId: blobId, url: 'presigned',
+                    vaultId, objectId: blobId, url: presignedApiUrl,
                 })
                 buf = await this._fetchViaPresigned(vault.apiBaseUrl, vaultId, blobId, vault.keys.readKey)
             }
@@ -468,8 +469,14 @@ class VedFileViewer extends HTMLElement {
     }
 
     /**
-     * Fetch encrypted bytes via a presigned URL (bypasses API gateway payload limits).
-     * Expects GET {apiBaseUrl}/api/vault/presigned/{vaultId}/{encodedPath} → { url }.
+     * Fetch encrypted bytes via a presigned S3 URL.
+     *
+     * Step 1: GET /api/vault/presigned/read-url/{vaultId}/{encodedPath}
+     *         — no auth headers needed; backend signs the S3 URL itself.
+     *         Returns { url, expires_in } (may also use key 'presigned_url').
+     * Step 2: Plain GET {url} → raw IV-prepended AES-256-GCM ciphertext.
+     * Step 3: Decrypt locally with the read key.
+     *
      * @param {string}    apiBaseUrl
      * @param {string}    vaultId
      * @param {string}    blobId
@@ -478,13 +485,18 @@ class VedFileViewer extends HTMLElement {
      */
     async _fetchViaPresigned(apiBaseUrl, vaultId, blobId, cryptoKey) {
         const storagePath  = `bare/data/${blobId}`
-        const presignedApi = `${apiBaseUrl}/api/vault/presigned/${vaultId}/${encodeURIComponent(storagePath)}`
-        const resp = await fetch(presignedApi)
+        const presignedApi = `${apiBaseUrl}/api/vault/presigned/read-url/${vaultId}/${encodeURIComponent(storagePath)}`
+
+        const resp = await fetch(presignedApi)   // no auth headers — URL is self-signed
         if (!resp.ok) throw new Error(`Presigned endpoint returned ${resp.status}`)
-        const { url } = await resp.json()
-        if (!url) throw new Error('No presigned URL in response')
-        const s3 = await fetch(url)
-        if (!s3.ok) throw new Error(`Presigned fetch failed: ${s3.status}`)
+
+        const data = await resp.json()
+        const url  = data.url || data.presigned_url
+        if (!url) throw new Error('No URL in presigned response')
+
+        const s3 = await fetch(url)              // plain GET to S3, no headers
+        if (!s3.ok) throw new Error(`S3 fetch failed: ${s3.status}`)
+
         return decryptAesGcm(cryptoKey, await s3.arrayBuffer())
     }
 
