@@ -10,7 +10,7 @@
  * autosave so we don't spam writes during scrubbing.
  *
  * Restore prompt: on init, if an autosave exists and is newer than every
- * named save, the user is asked once via `confirm()` whether to restore.
+ * named save, the user is asked once (via an in-page modal) whether to restore.
  * Restore = `api.setProject` with the autosave payload, then
  * `api.hydrateAssets()` to pull blob pixels back from IDB. Discard = clear.
  *
@@ -19,50 +19,10 @@
  */
 
 import { editorConfig } from './editor-config.js';
+import { showConfirm } from './ui-confirm.js';
 
 const DEBOUNCE_MS = 750;
 
-/** Non-blocking in-page replacement for confirm(). Returns Promise<boolean>. */
-function showRestorePrompt(msg) {
-    return new Promise(resolve => {
-        const ov = document.createElement('div');
-        ov.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:9999;display:flex;align-items:center;justify-content:center';
-        const box = document.createElement('div');
-        box.style.cssText = 'background:#1e2535;color:#e2e8f0;border-radius:12px;padding:24px 28px;max-width:360px;width:90%;box-shadow:0 8px 40px rgba(0,0,0,.6);font-family:system-ui,sans-serif';
-        const h = document.createElement('div');
-        h.style.cssText = 'font-weight:600;font-size:15px;margin-bottom:8px';
-        h.textContent = 'Restore unsaved work?';
-        const p = document.createElement('div');
-        p.style.cssText = 'font-size:13px;color:#94a3b8;margin-bottom:20px;line-height:1.5';
-        p.textContent = msg;
-        const btns = document.createElement('div');
-        btns.style.cssText = 'display:flex;gap:8px;justify-content:flex-end';
-        function done(v) {
-            document.removeEventListener('keydown', onKey);
-            try { document.body.removeChild(ov); } catch (_) {}
-            resolve(v);
-        }
-        const discardBtn = document.createElement('button');
-        discardBtn.textContent = 'Discard';
-        discardBtn.style.cssText = 'padding:7px 16px;border-radius:6px;border:1px solid #334155;background:transparent;color:#94a3b8;cursor:pointer;font-size:13px';
-        discardBtn.onclick = () => done(false);
-        const restoreBtn = document.createElement('button');
-        restoreBtn.textContent = 'Restore';
-        restoreBtn.style.cssText = 'padding:7px 16px;border-radius:6px;border:none;background:#22c55e;color:#052e16;cursor:pointer;font-size:13px;font-weight:600';
-        restoreBtn.onclick = () => done(true);
-        function onKey(e) {
-            if (e.key === 'Escape') done(false);
-            else if (e.key === 'Enter') done(true);
-        }
-        document.addEventListener('keydown', onKey);
-        btns.appendChild(discardBtn);
-        btns.appendChild(restoreBtn);
-        box.appendChild(h); box.appendChild(p); box.appendChild(btns);
-        ov.appendChild(box);
-        document.body.appendChild(ov);
-        restoreBtn.focus();
-    });
-}
 
 function timeAgo(ts) {
     if (!Number.isFinite(ts) || ts <= 0) return 'a moment ago';
@@ -125,7 +85,11 @@ export function attachAutosave({ state, api, debounceMs }) {
             const isNewer = !!(newer && (newer.newer === true || newer === true));
             if (!isNewer) return;
             const ago = timeAgo(slot.savedAt);
-            const ok = await showRestorePrompt(`Found unsaved work from ${ago}. Restore it?`);
+            const ok = await showConfirm(`Found unsaved work from ${ago}. Restore it?`, {
+                title: 'Restore unsaved work?',
+                confirmLabel: 'Restore',
+                cancelLabel: 'Discard',
+            });
             if (ok) {
                 // Restore via setProject — the autosave payload IS a wrapped
                 // project (with __missingBlob tags on assets).

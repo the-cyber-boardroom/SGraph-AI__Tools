@@ -593,6 +593,51 @@
     box-sizing: border-box;
 }
 
+/* ── Unsaved-changes banner ───────────────────────────────── */
+
+.sgve-unsaved-notice {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.45rem 0.7rem;
+    background: rgba(245, 158, 11, 0.15);
+    border: 1px solid rgba(245, 158, 11, 0.4);
+    border-radius: 6px;
+    font-size: 12px;
+    font-weight: 600;
+    color: #fcd34d;
+    letter-spacing: 0.01em;
+}
+
+.sgve-unsaved-notice__icon {
+    font-size: 13px;
+    flex-shrink: 0;
+}
+
+.sgve-unsaved-notice__text {
+    flex: 1 1 0;
+    text-transform: uppercase;
+    font-size: 11px;
+    letter-spacing: 0.06em;
+}
+
+.sgve-unsaved-notice__btn {
+    padding: 3px 10px;
+    background: rgba(245, 158, 11, 0.25);
+    border: 1px solid rgba(245, 158, 11, 0.5);
+    border-radius: 4px;
+    color: #fcd34d;
+    font-size: 11px;
+    font-weight: 600;
+    cursor: pointer;
+    flex-shrink: 0;
+    transition: background 0.12s;
+}
+
+.sgve-unsaved-notice__btn:hover {
+    background: rgba(245, 158, 11, 0.4);
+}
+
 /* ── Save / Load controls (Project section) ─────────────── */
 
 .sgve-saveload {
