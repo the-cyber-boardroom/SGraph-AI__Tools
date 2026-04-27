@@ -93,6 +93,52 @@ img {
     color: #94a3b8;
     font-size: 0.85rem;
 }
+
+/* ── Metadata bar ── */
+.meta-bar {
+    flex-shrink: 0;
+    background: #1e293b;
+    border-bottom: 1px solid rgba(148,163,184,0.15);
+    padding: 0.55rem 0.85rem;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.4rem 1.1rem;
+    font-size: 0.72rem;
+    font-family: ui-monospace, 'SF Mono', monospace;
+    color: #94a3b8;
+}
+
+.meta-bar .meta-name {
+    font-family: system-ui, -apple-system, 'Segoe UI', sans-serif;
+    font-weight: 700;
+    font-size: 0.8rem;
+    color: #e2e8f0;
+    width: 100%;
+    margin-bottom: 0.1rem;
+}
+
+.meta-bar .meta-pair { display: flex; gap: 0.3em; }
+.meta-bar .meta-key { color: #64748b; }
+.meta-bar .meta-val { color: #cbd5e1; word-break: break-all; }
+
+.meta-bar .meta-url {
+    width: 100%;
+    display: flex;
+    gap: 0.3em;
+}
+
+.badge-ro {
+    display: inline-block;
+    background: rgba(0,255,170,0.1);
+    border: 1px solid rgba(0,255,170,0.3);
+    color: #00ffaa;
+    border-radius: 3px;
+    padding: 0 0.4em;
+    font-size: 0.68rem;
+    letter-spacing: 0.03em;
+    font-family: system-ui, -apple-system, 'Segoe UI', sans-serif;
+    align-self: center;
+}
 `
 
 /** PNG magic bytes */
@@ -172,6 +218,15 @@ class VedFileViewer extends HTMLElement {
         this._shadow.innerHTML = `<style>${STYLES}</style><div class="viewer-wrap"><p class="err">${text}</p></div>`
     }
 
+    /**
+     * Dispatch a vault-fetch trace event on document.
+     * @param {string} name event type
+     * @param {object} detail
+     */
+    _emit(name, detail) {
+        document.dispatchEvent(new CustomEvent(name, { detail, bubbles: false }))
+    }
+
     _revokeBlobUrl() {
         if (this._blobUrl) {
             URL.revokeObjectURL(this._blobUrl)
@@ -187,65 +242,133 @@ class VedFileViewer extends HTMLElement {
         this._revokeBlobUrl()
         this._showMsg('Fetching…')
 
+        const { vaultId } = vault.keys
+        const blobId      = entry.blob_id
+        const storagePath = `bare/data/${blobId}`
+        const apiUrl      = `${vault.apiBaseUrl}/api/vault/read/${vaultId}/${encodeURIComponent(storagePath)}`
+
+        this._emit('sg-vault-fetch:fetch-started', { vaultId, objectId: blobId, url: apiUrl })
+
+        const t0 = performance.now()
         try {
-            const buf = await readObject(vault.apiBaseUrl, vault.keys.vaultId, entry.blob_id, vault.keys.readKey)
-            const bytes = new Uint8Array(buf)
+            const buf     = await readObject(vault.apiBaseUrl, vaultId, blobId, vault.keys.readKey)
+            const fetchMs = performance.now() - t0
+            const bytes   = new Uint8Array(buf)
+
+            this._emit('sg-vault-fetch:fetch-completed', {
+                vaultId, objectId: blobId, url: apiUrl,
+                bytesReceived: bytes.length, fetchMs, cacheHit: false,
+            })
+            this._emit('sg-vault-fetch:decrypt-completed', {
+                vaultId, objectId: blobId,
+                plaintextBytes: bytes.length, decryptMs: 0,
+            })
+
             const mime = sniffType(bytes, entry.name || '')
+            this._emit('sg-vault-fetch:content-ready', { objectId: blobId, contentType: mime })
 
-            this._shadow.innerHTML = `<style>${STYLES}</style>`
-            const wrap = document.createElement('div')
-            wrap.className = 'viewer-wrap'
+            await this._render(entry, bytes, mime, storagePath, apiUrl, fetchMs)
+        } catch (err) {
+            this._emit('sg-vault-fetch:fetch-error', {
+                vaultId, objectId: blobId, url: apiUrl, error: err.message,
+            })
+            this._showErr(`Failed to load file: ${err.message}`)
+        }
+    }
 
-            if (mime.startsWith('image/')) {
-                const blob = new Blob([bytes], { type: mime })
-                this._blobUrl = URL.createObjectURL(blob)
-                const img = document.createElement('img')
-                img.src = this._blobUrl
-                img.alt = entry.name || 'image'
-                wrap.appendChild(img)
+    /**
+     * Render metadata bar + file content into shadow DOM.
+     * @param {object}     entry
+     * @param {Uint8Array} bytes
+     * @param {string}     mime
+     * @param {string}     storagePath
+     * @param {string}     apiUrl
+     * @param {number}     loadMs
+     */
+    async _render(entry, bytes, mime, storagePath, apiUrl, loadMs) {
+        this._shadow.innerHTML = `<style>${STYLES}</style>`
 
-            } else if (mime === 'application/json') {
-                const text = new TextDecoder().decode(bytes)
-                const pre = document.createElement('pre')
-                try {
-                    pre.textContent = JSON.stringify(JSON.parse(text), null, 2)
-                } catch {
-                    pre.textContent = text
-                }
-                wrap.appendChild(pre)
+        // ── Metadata bar ──────────────────────────────────────────────────────
+        const bar = document.createElement('div')
+        bar.className = 'meta-bar'
 
-            } else if (mime === 'text/markdown') {
-                const text = new TextDecoder().decode(bytes)
-                try {
-                    const mod = await import('/core/markdown/v1/v1.0/v1.0.0/sg-markdown.js')
-                    const div = document.createElement('div')
-                    div.className = 'md-body'
-                    div.innerHTML = mod.renderMarkdown(text)
-                    wrap.appendChild(div)
-                } catch {
-                    // Fallback to plain text if markdown module unavailable
-                    const pre = document.createElement('pre')
-                    pre.textContent = text
-                    wrap.appendChild(pre)
-                }
+        const mp = (key, val) => {
+            const d = document.createElement('div')
+            d.className = 'meta-pair'
+            d.innerHTML = `<span class="meta-key">${key}:</span><span class="meta-val">${val}</span>`
+            return d
+        }
 
-            } else if (mime.startsWith('text/') || mime === 'text/javascript') {
-                const text = new TextDecoder().decode(bytes)
+        const nameEl = document.createElement('div')
+        nameEl.className = 'meta-name'
+        nameEl.textContent = entry.name || 'File'
+        bar.appendChild(nameEl)
+
+        bar.appendChild(mp('blob_id', entry.blob_id))
+        bar.appendChild(mp('storage_path', storagePath))
+        bar.appendChild(mp('type', mime))
+        bar.appendChild(mp('size', `${bytes.length.toLocaleString()} bytes`))
+        bar.appendChild(mp('load', `${loadMs.toFixed(0)}ms`))
+
+        const urlRow = document.createElement('div')
+        urlRow.className = 'meta-url'
+        urlRow.innerHTML = `<span class="meta-key">api_url:</span><span class="meta-val">${apiUrl}</span>`
+        bar.appendChild(urlRow)
+
+        const badge = document.createElement('span')
+        badge.className = 'badge-ro'
+        badge.textContent = 'read-only'
+        bar.appendChild(badge)
+
+        this._shadow.appendChild(bar)
+
+        // ── Content area ──────────────────────────────────────────────────────
+        const wrap = document.createElement('div')
+        wrap.className = 'viewer-wrap'
+
+        if (mime.startsWith('image/')) {
+            const blob = new Blob([bytes], { type: mime })
+            this._blobUrl = URL.createObjectURL(blob)
+            const img = document.createElement('img')
+            img.src = this._blobUrl
+            img.alt = entry.name || 'image'
+            wrap.appendChild(img)
+
+        } else if (mime === 'application/json') {
+            const text = new TextDecoder().decode(bytes)
+            const pre  = document.createElement('pre')
+            try { pre.textContent = JSON.stringify(JSON.parse(text), null, 2) }
+            catch { pre.textContent = text }
+            wrap.appendChild(pre)
+
+        } else if (mime === 'text/markdown') {
+            const text = new TextDecoder().decode(bytes)
+            try {
+                const mod = await import('/core/markdown/v1/v1.0/v1.0.0/sg-markdown.js')
+                const div = document.createElement('div')
+                div.className = 'md-body'
+                div.innerHTML = mod.renderMarkdown(text)
+                wrap.appendChild(div)
+            } catch {
                 const pre = document.createElement('pre')
                 pre.textContent = text
                 wrap.appendChild(pre)
-
-            } else {
-                const p = document.createElement('p')
-                p.className = 'binary-msg'
-                p.textContent = `Binary file (${mime}, ${bytes.length} bytes)`
-                wrap.appendChild(p)
             }
 
-            this._shadow.appendChild(wrap)
-        } catch (err) {
-            this._showErr(`Failed to load file: ${err.message}`)
+        } else if (mime.startsWith('text/') || mime === 'text/javascript') {
+            const text = new TextDecoder().decode(bytes)
+            const pre  = document.createElement('pre')
+            pre.textContent = text
+            wrap.appendChild(pre)
+
+        } else {
+            const p = document.createElement('p')
+            p.className = 'binary-msg'
+            p.textContent = `Binary file (${mime}, ${bytes.length.toLocaleString()} bytes)`
+            wrap.appendChild(p)
         }
+
+        this._shadow.appendChild(wrap)
     }
 }
 
