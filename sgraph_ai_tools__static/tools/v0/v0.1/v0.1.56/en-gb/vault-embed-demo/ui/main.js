@@ -44,6 +44,21 @@ function saveCfg(cfg) {
 }
 
 /**
+ * Show the credential setup form — used on first load and when switching vaults.
+ */
+function showSetupForm() {
+    const formEl    = document.getElementById('setup-form-container')
+    const credsEl   = document.getElementById('creds-display')
+    const switchBtn = document.getElementById('switch-vault-btn')
+    if (credsEl)   credsEl.hidden   = true
+    if (switchBtn) switchBtn.hidden = true
+    if (formEl) {
+        formEl.hidden = false
+        mountSetupForm({ container: formEl, savedConfig: loadSaved(), onConfig: activate })
+    }
+}
+
+/**
  * Activate the demo: persist config, populate credential panel, open vault,
  * and fire `ved:vault-ready` so tree + trace pick it up.
  * @param {object} config
@@ -57,6 +72,12 @@ async function activate(config) {
         endpointEl: document.getElementById('cred-endpoint'),
         config,
     })
+
+    const switchBtn = document.getElementById('switch-vault-btn')
+    if (switchBtn) {
+        switchBtn.hidden  = false
+        switchBtn.onclick = showSetupForm
+    }
 
     try {
         const vault = await buildVaultHandle(config)
