@@ -15,6 +15,16 @@ const FEATURE_TOGGLES = [
         desc: 'Re-render timeline clips on every state change.',
     },
     {
+        key: 'assetPanelEnabled',
+        label: 'Asset panel refresh',
+        desc: 'Rebuild the asset list on every state change.',
+    },
+    {
+        key: 'overlayEnabled',
+        label: 'Overlay updates',
+        desc: 'Push active-clip overlay to the preview canvas on changes.',
+    },
+    {
         key: 'autosaveEnabled',
         label: 'Autosave',
         desc: 'Debounced autosave to localStorage / IDB after mutations.',
@@ -120,6 +130,18 @@ export function mountConfigPanel({ host }) {
     DEBUG_TOGGLES.forEach(t => dbgSec.appendChild(buildToggle(t)));
     dbgSec.appendChild(buildLogLevelRow());
     root.appendChild(dbgSec);
+
+    // Actions section
+    const actSec = buildSectionEl('Actions');
+    const cancelBtn = document.createElement('button');
+    cancelBtn.className = 'sgve-cfg-action-btn';
+    cancelBtn.textContent = 'Cancel pending changes';
+    cancelBtn.title = 'Clear any queued handleChange debounce — stops the next pipeline run. Console: sgveCancel()';
+    cancelBtn.addEventListener('click', () => {
+        document.dispatchEvent(new CustomEvent('sgve:cancel-pending'));
+    });
+    actSec.appendChild(cancelBtn);
+    root.appendChild(actSec);
 
     // Reset button
     const resetBtn = document.createElement('button');
