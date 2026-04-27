@@ -155,14 +155,35 @@ This project starts with a single **Explorer team** of 6 roles:
 
 ---
 
+## JS Tool API Primitive — MANDATORY PATTERN
+
+**Every tool must expose a JS API. The UI is one consumer, not the only one.**
+
+When building or updating any tool:
+
+1. Import `SgToolApi` from `core/sg-tool-api/v0/v0.1/v0.1.0/sg-tool-api.js`
+2. Register all user-callable actions via `api.register()`
+3. Call `api.activate()` — publishes to `window.__tool`, fires `tool:ready`
+4. Write three SKILL files: `SKILL-human.md`, `SKILL-browser.md`, `SKILL-api.md`
+
+This enables headless Playwright testing, agentic driving, and console scripting with no special tooling. The three `components/tool-api/` components (console, explorer, manifest) auto-bind to any tool that calls `activate()`.
+
+**Implemented today:** `infographic-gen`, `voice-memo`, `video-creator`, `video-recorder`
+**Reference implementation:** `tools/v0/v0.1/v0.1.37/en-gb/infographic-gen/` (most complete SKILL files)
+**Full docs:** `library/api/v0.1.91__tool-api__index.md`
+
+---
+
 ## Key Documents
 
 | Document | Location |
 |---|---|
 | **Reality document** | `team/explorer/librarian/reality/v0.1.0__what-exists-today.md` |
-| **Master index** | `team/explorer/librarian/reviews/v0.1.68__master-index__spring-clean-v2.md` |
+| **Master index** | `team/explorer/librarian/reviews/04/15/v0.1.91__master-index__briefs-09-15-apr.md` |
 | **Briefing pack** | `team/humans/dinis_cruz/briefs/03/05/v0.1.0__initial_tools_repo__BRIEF_PACK.md` |
 | **Architecture guide** | `library/architecture/v0.1.68__guide__three-tier-architecture.md` |
+| **JS Tool API** | `library/api/v0.1.91__tool-api__index.md` |
+| **Static asset catalogue** | `library/catalogue/v0.1.91__catalogue__index.md` |
 | **Component API** | `library/api/v0.1.68__reference__components.md` |
 | **Core module API** | `library/api/v0.1.68__reference__core-modules.md` |
 | **Role definitions** | `team/explorer/{role}/ROLE__{role}.md` |
