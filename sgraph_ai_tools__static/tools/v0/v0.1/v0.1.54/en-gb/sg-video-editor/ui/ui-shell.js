@@ -100,6 +100,7 @@ export function mountShell({ host, state, api, getComposer, setComposer }) {
     let previewEl = null, timelineEl = null;
     let pending = null, activePending = null;
     let onCanvasPlayhead = null, devPanel = null, jsonPane = null, propertiesPane = null, messagesPane = null, overlayWire = null;
+    let onTimelineTest = null;
     let shortcutsPane = null, keyboardWire = null;
     /** Autosave handle — debounced writes + on-init restore prompt. */
     let autosaveHandle = null;
@@ -290,6 +291,28 @@ export function mountShell({ host, state, api, getComposer, setComposer }) {
             try { autosaveHandle && autosaveHandle.promptRestore(); } catch (_) {}
         }, 0);
         devPanel = mountDevPanel({ host, manifestUrl: './manifest.json' });
+
+        // ── Timeline stress test helpers ──────────────────────────────────────
+        function buildTestProject(durationSec) {
+            return {
+                width: 1920, height: 1080, fps: 30,
+                tracks: [{ id: 'test-track', kind: 'video', muted: false, locked: false,
+                    clips: [{ id: 'test-clip', assetId: 'test-asset',
+                        timelineStart: 0, inPoint: 0, outPoint: durationSec }] }],
+                assets: [{ id: 'test-asset', name: `test-${durationSec}s.mp4`,
+                    assetType: 'video', duration: durationSec, width: 1920, height: 1080 }],
+            };
+        }
+        function runTimelineTest(durationSec) {
+            if (!timelineEl) { console.log('[sgve] no timeline'); return; }
+            const proj = buildTestProject(durationSec);
+            const t0 = performance.now();
+            timelineEl.setProject(proj);
+            console.log(`[sgve] sgveTimelineTest(${durationSec}s) wall=${(performance.now() - t0).toFixed(1)}ms`);
+        }
+        try { window.sgveTimelineTest = runTimelineTest; } catch (_) {}
+        onTimelineTest = (e) => { runTimelineTest((e && e.detail && e.detail.durationSec) || 60); };
+        document.addEventListener('sgve:timeline-test', onTimelineTest);
     }
 
     mountInto().catch(err => emitErr('mountShell', err));
@@ -301,6 +324,8 @@ export function mountShell({ host, state, api, getComposer, setComposer }) {
         if (toastTimer) { clearTimeout(toastTimer); toastTimer = null; }
         try { window.removeEventListener('beforeunload', onBeforeUnload); } catch (_) {}
         try { document.removeEventListener('sgve:cancel-pending', onCancelPending); } catch (_) {}
+        try { document.removeEventListener('sgve:timeline-test', onTimelineTest); } catch (_) {}
+        try { delete window.sgveTimelineTest; } catch (_) {}
         try { document.removeEventListener('tool:toast', onToolToast); } catch (_) {}
         try { document.removeEventListener('tool:error', onToolError); } catch (_) {}
         try { state.removeEventListener('change', handleChange); } catch (_) {}

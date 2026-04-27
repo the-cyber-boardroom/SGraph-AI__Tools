@@ -8,20 +8,30 @@ import { renderLaneClips } from './timeline-lane-render.js';
 import { renderTrackHeader } from './timeline-track-headers.js';
 
 const TICK_TARGET_PX = 80;
+/** Hard cap on ruler ticks. Prevents thousands of DOM nodes for long videos
+ *  at high pps (e.g. 2hr video at 60px/s = 7200 ticks without this cap). */
+const MAX_RULER_TICKS = 120;
 /** Height of a single lane row in pixels. Kept in sync with the
  *  `--sgt-lane-height` CSS custom property in sg-timeline.css. Compact
  *  default since Round-9-I Task 2 (was 80). */
 export const LANE_HEIGHT = 44;
 
+console.log('[sgve-timeline] timeline-render.js v4 loaded (DocumentFragment + tick cap)');
+
 /**
- * Pick a tick interval (seconds) for the given pps.
+ * Pick a tick interval (seconds) for the given pps and total duration.
+ * The interval is the larger of the visual-density target and the cap-driven
+ * minimum, so we never render more than MAX_RULER_TICKS ticks.
  * @param {number} pps Pixels per second.
+ * @param {number} totalSec Total timeline duration in seconds.
  * @returns {number}
  */
-function pickTickInterval(pps) {
+function pickTickInterval(pps, totalSec) {
     const targetSec = TICK_TARGET_PX / Math.max(pps, 1);
-    const candidates = [0.1, 0.25, 0.5, 1, 2, 5, 10, 30, 60, 120, 300];
-    for (const c of candidates) if (c >= targetSec) return c;
+    const minForCap  = totalSec > 0 ? totalSec / MAX_RULER_TICKS : 0;
+    const effective  = Math.max(targetSec, minForCap);
+    const candidates = [0.1, 0.25, 0.5, 1, 2, 5, 10, 30, 60, 120, 300, 600, 1800, 3600];
+    for (const c of candidates) if (c >= effective) return c;
     return candidates[candidates.length - 1];
 }
 
@@ -40,12 +50,14 @@ export function computeSurfaceWidth(project, pps) {
     return Math.ceil(minSec * pps);
 }
 
-/** Render ruler ticks. */
+/** Render ruler ticks into rulerEl using a DocumentFragment (one live-DOM insert). */
 export function renderRuler(rulerEl, widthPx, pps) {
+    const t0 = performance.now();
     rulerEl.style.width = widthPx + 'px';
-    const interval = pickTickInterval(pps);
     const totalSec = widthPx / pps;
+    const interval = pickTickInterval(pps, totalSec);
     const frag = document.createDocumentFragment();
+    let tickCount = 0;
     for (let t = 0; t <= totalSec; t += interval) {
         const x = t * pps;
         const tick = document.createElement('div');
@@ -57,9 +69,12 @@ export function renderRuler(rulerEl, widthPx, pps) {
         label.style.left = x + 'px';
         label.textContent = fmtTime(t);
         frag.appendChild(label);
+        tickCount++;
     }
     rulerEl.innerHTML = '';
     rulerEl.appendChild(frag);
+    const ms = (performance.now() - t0).toFixed(1);
+    console.log(`[sgve-timeline] renderRuler: widthPx=${widthPx} pps=${pps} dur=${totalSec.toFixed(0)}s interval=${interval}s ticks=${tickCount} ${ms}ms`);
 }
 
 /**
