@@ -74,6 +74,14 @@ export function buildTrackMethods({ state }) {
         return { trackId: r.trackId, name: r.name };
     }
 
+    function renameClip(params = {}) {
+        const { clipId, name } = params;
+        if (!clipId) throw badArg('clipId required');
+        if (name != null && typeof name !== 'string') throw badArg('name must be a string');
+        const r = state.renameClip({ clipId, name: name == null ? '' : name });
+        return { clipId: r.clipId, name: r.name };
+    }
+
     /**
      * Set or clear a track's display colour (Round-9-I Task 3). Goes through
      * `state.getProject()` + `setTrackColorOp` (in-place mutation on the
@@ -98,6 +106,6 @@ export function buildTrackMethods({ state }) {
 
     return {
         addTrack, removeTrack, moveClipToTrack, reorderTracks,
-        setTrackMuted, setTrackLocked, renameTrack, setTrackColor,
+        setTrackMuted, setTrackLocked, renameTrack, renameClip, setTrackColor,
     };
 }

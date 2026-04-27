@@ -326,10 +326,18 @@ export function wireTimelineEvents(timelineEl, api, ctx) {
     timelineEl.addEventListener('sg-timeline:track-remove-requested', onTrackRemove);
     timelineEl.addEventListener('sg-timeline:track-mute-requested', onTrackMute);
     timelineEl.addEventListener('sg-timeline:track-lock-requested', onTrackLock);
+    function onClipRenamed(e) {
+        const d = e.detail || {};
+        if (!d.clipId) return;
+        Promise.resolve(api.renameClip({ clipId: d.clipId, name: d.name || '' }))
+            .catch(err => emitErr('renameClip', err));
+    }
+    timelineEl.addEventListener('sg-timeline:clip-renamed', onClipRenamed);
     timelineEl.addEventListener('sg-timeline:track-renamed', onTrackRenamed);
     timelineEl.addEventListener('sg-timeline:track-selected', onTrackSelected);
     timelineEl.addEventListener('sg-timeline:clip-track-changed', onClipTrackChange);
     return () => {
+        timelineEl.removeEventListener('sg-timeline:clip-renamed', onClipRenamed);
         timelineEl.removeEventListener('sg-timeline:clip-added', onAdded);
         timelineEl.removeEventListener('sg-timeline:clip-moved', onMoved);
         timelineEl.removeEventListener('sg-timeline:clip-trimmed', onTrimmed);
