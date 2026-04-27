@@ -54,7 +54,7 @@ export function paintTrackStack(cfg) {
     const { ctx, canvas, project, t, videos, getImage, advance } = cfg;
     paintBlack(ctx, canvas);
     const perTrack = findActiveClipsPerTrack(project, t);
-    const activeAssetIds = new Set();
+    const activeClipIds = new Set();
     for (const { clip } of perTrack) {
         if (!clip) continue;
         const tf = getClipTransform(clip);
@@ -66,14 +66,14 @@ export function paintTrackStack(cfg) {
             paintImage(ctx, canvas, getImage ? getImage(clip.assetId) : null, tf, cr);
             continue;
         }
-        const v = videos.get(clip.assetId);
+        const v = videos.get(clip.id);
         if (!v) continue;
-        activeAssetIds.add(clip.assetId);
+        activeClipIds.add(clip.id);
         if (advance) syncVideo(v, clip, t, true);
         if (v.readyState >= 2) paintVideo(ctx, canvas, v, tf, cr);
     }
-    pauseUnused(videos, activeAssetIds);
-    return { activeAssetIds, perTrack };
+    pauseUnused(videos, activeClipIds);
+    return { activeClipIds, perTrack };
 }
 
 /**
@@ -87,6 +87,6 @@ export function paintTrackStack(cfg) {
 export function resolveAudioSource(project, t, videos) {
     const top = findTopmostActiveAudioClip(project, t);
     if (!top) return { video: null, clipId: null };
-    const v = videos.get(top.clip.assetId) || null;
+    const v = videos.get(top.clip.id) || null;
     return { video: v, clipId: top.clip.id };
 }

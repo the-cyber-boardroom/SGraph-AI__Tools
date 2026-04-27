@@ -60,41 +60,44 @@ function waitForVideoFrame(video, cb) {
 }
 
 /**
- * Build a Map<assetId, HTMLVideoElement> covering every video clip on every
- * `kind: 'video'` track. Object URLs are returned in `urls` so callers can
- * revoke them on destroy.
+ * Build a Map<clipId, HTMLVideoElement> covering every video clip on every
+ * `kind: 'video'` track. Keyed by CLIP id (not asset id) so two clips that
+ * reference the same asset each get their own independent decoder — otherwise
+ * a second clip starting mid-timeline clobbers the first clip's currentTime
+ * and causes a black frame plus broken audio.
+ *
+ * Blob URLs are shared per asset (Map<assetId, url>) so the browser can
+ * satisfy both decoders from the same cached resource. URLs are returned in
+ * `urls` so callers can revoke them on destroy.
  *
  * Round-9-M memory fix: `preload='metadata'` (not `'auto'`). With a
- * high-resolution screen recording (e.g. 4K MP4) and `preload='auto'`, Chrome
- * eagerly decodes large stretches of the file the moment the element gets a
- * src — combined with the shell's destroy+recreate-on-every-mutation pattern
- * this can stack multiple in-flight decoders on the same blob and balloon
- * heap usage to multiple GB. `'metadata'` defers the heavy decode to the
- * first `currentTime` set / `play()` call, which the scheduler / `seek()`
- * path issues anyway when a clip becomes active.
+ * high-resolution screen recording and `preload='auto'`, Chrome eagerly
+ * decodes large stretches the moment the element gets a src, ballooning
+ * heap. `'metadata'` defers the heavy decode to the first play/seek.
  *
  * @param {object} project
  * @param {Map<string, Blob>} assets
  * @returns {{ videos: Map<string, HTMLVideoElement>, urls: Map<string, string> }}
  */
 function buildAllTrackVideos(project, assets) {
-    const videos = new Map();
-    const urls = new Map();
+    const videos = new Map(); // Map<clipId, HTMLVideoElement>
+    const urls = new Map();   // Map<assetId, string> — shared blob URLs
     for (const track of getVideoTracks(project)) {
         for (const clip of (track.clips || [])) {
-            if (videos.has(clip.assetId)) continue;
             const asset = getAssetById(project, clip.assetId);
             if (isImageAsset(asset)) continue;
             const blob = assets.get(clip.assetId);
             if (!blob) continue;
-            const url = URL.createObjectURL(blob);
+            // Share one blob URL per asset; create separate <video> per clip.
+            if (!urls.has(clip.assetId)) {
+                urls.set(clip.assetId, URL.createObjectURL(blob));
+            }
             const v = document.createElement('video');
-            v.src = url;
+            v.src = urls.get(clip.assetId);
             v.playsInline = true;
             v.preload = 'metadata';
             v.crossOrigin = 'anonymous';
-            videos.set(clip.assetId, v);
-            urls.set(clip.assetId, url);
+            videos.set(clip.id, v);
         }
     }
     return { videos, urls };
@@ -179,7 +182,7 @@ export function createPlayback({ project, assets, canvas, fps }) {
                 if (img && !img.complete) waitImage = img;
                 continue;
             }
-            const v = videos.get(clip.assetId);
+            const v = videos.get(clip.id);
             if (!v) continue;
             const local = clip.inPoint + (snapped - clip.timelineStart);
             try { v.currentTime = Math.max(0, local); } catch (_) {}
