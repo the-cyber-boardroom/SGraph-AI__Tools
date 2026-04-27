@@ -1,0 +1,96 @@
+/* sg-content-markdown — markdown renderer styles */
+:host {
+    display: block;
+    font-family: system-ui, -apple-system, sans-serif;
+    line-height: 1.6;
+    color: inherit;
+}
+
+.sgcm-content {
+    max-width: 100%;
+    overflow-wrap: break-word;
+}
+
+.sgcm-content h1,
+.sgcm-content h2,
+.sgcm-content h3 {
+    margin: 1.25em 0 0.5em;
+    line-height: 1.3;
+}
+
+.sgcm-content h1 { font-size: 1.75em; }
+.sgcm-content h2 { font-size: 1.4em;  }
+.sgcm-content h3 { font-size: 1.15em; }
+
+.sgcm-content p {
+    margin: 0.75em 0;
+}
+
+.sgcm-content code {
+    background: rgba(0,0,0,0.06);
+    padding: 0.1em 0.35em;
+    border-radius: 3px;
+    font-size: 0.9em;
+    font-family: ui-monospace, 'SF Mono', monospace;
+}
+
+.sgcm-content pre {
+    background: rgba(0,0,0,0.06);
+    padding: 1em;
+    border-radius: 6px;
+    overflow-x: auto;
+}
+
+.sgcm-content pre code {
+    background: none;
+    padding: 0;
+    font-size: 0.875em;
+}
+
+.sgcm-content blockquote {
+    border-left: 3px solid rgba(0,0,0,0.2);
+    margin: 0.75em 0;
+    padding-left: 1em;
+    opacity: 0.8;
+}
+
+.sgcm-content ul,
+.sgcm-content ol {
+    padding-left: 1.5em;
+    margin: 0.75em 0;
+}
+
+.sgcm-content li { margin: 0.25em 0; }
+
+.sgcm-content hr {
+    border: none;
+    border-top: 1px solid rgba(0,0,0,0.15);
+    margin: 1.5em 0;
+}
+
+.sgcm-content table {
+    border-collapse: collapse;
+    width: 100%;
+    margin: 0.75em 0;
+}
+
+.sgcm-content th,
+.sgcm-content td {
+    border: 1px solid rgba(0,0,0,0.15);
+    padding: 0.4em 0.75em;
+    text-align: left;
+}
+
+.sgcm-content th {
+    background: rgba(0,0,0,0.05);
+    font-weight: 600;
+}
+
+.sgcm-content a {
+    color: #0070f3;
+    text-decoration: none;
+}
+
+.sgcm-content a:hover {
+    text-decoration: underline;
+}
