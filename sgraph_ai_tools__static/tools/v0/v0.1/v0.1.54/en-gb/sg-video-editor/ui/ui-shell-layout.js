@@ -14,6 +14,7 @@ export function buildLayoutDescriptor(opts = {}) {
         { type: 'tab', id: 't-json',       title: 'JSON',       tag: 'div', locked: true, closable: false },
         { type: 'tab', id: 't-messages',   title: 'Messages',   tag: 'div', locked: true, closable: false },
         { type: 'tab', id: 't-config',     title: 'Config',     tag: 'div', locked: true, closable: false },
+        { type: 'tab', id: 't-perf',       title: 'Perf',       tag: 'div', locked: true, closable: false },
     ];
     if (opts && opts.withDebugTab) {
         rightTabs.push({ type: 'tab', id: 't-debug', title: 'Debug', tag: 'div', locked: true, closable: false });
@@ -97,7 +98,8 @@ export function resolvePanels(layout) {
     const messagesPanel = layout.getPanelElement('t-messages');
     const shortcutsPanel = layout.getPanelElement('t-shortcuts');
     const configPanel = layout.getPanelElement('t-config');
-    const debugPanel = layout.getPanelElement('t-debug');
+    const perfPanel   = layout.getPanelElement('t-perf');
+    const debugPanel  = layout.getPanelElement('t-debug');
     let previewEl = null;
     let timelineEl = null;
     if (assetsPanel) assetsPanel.className = 'sgve-panel-slot';
@@ -116,10 +118,12 @@ export function resolvePanels(layout) {
     if (messagesPanel) messagesPanel.className = 'sgve-panel-slot sgve-messages';
     if (shortcutsPanel) shortcutsPanel.className = 'sgve-panel-slot sgve-shortcuts';
     if (configPanel) configPanel.className = 'sgve-panel-slot sgve-config';
-    if (debugPanel) debugPanel.className = 'sgve-panel-slot sgve-debug';
+    if (perfPanel)   perfPanel.className   = 'sgve-panel-slot sgve-perf';
+    if (debugPanel)  debugPanel.className  = 'sgve-panel-slot sgve-debug';
     return {
         assetsPanel, previewPanel, timelinePanel,
-        jsonPanel, propertiesPanel, messagesPanel, shortcutsPanel, configPanel, debugPanel,
+        jsonPanel, propertiesPanel, messagesPanel, shortcutsPanel,
+        configPanel, perfPanel, debugPanel,
         previewEl, timelineEl,
     };
 }
