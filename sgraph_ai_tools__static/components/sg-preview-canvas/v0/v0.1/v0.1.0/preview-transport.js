@@ -17,7 +17,7 @@ export function fmtMmss(t) {
 /**
  * Build the transport bar DOM into a parent.
  * @param {HTMLElement} parent
- * @returns {{back: HTMLButtonElement, play: HTMLButtonElement, fwd: HTMLButtonElement, redraw: HTMLButtonElement, time: HTMLElement}}
+ * @returns {{back: HTMLButtonElement, play: HTMLButtonElement, fwd: HTMLButtonElement, redraw: HTMLButtonElement, scrubber: HTMLInputElement, time: HTMLElement}}
  */
 export function buildTransport(parent) {
     parent.innerHTML = '';
@@ -40,6 +40,14 @@ export function buildTransport(parent) {
     redraw.type = 'button';
     redraw.title = 'Redraw current frame';
     redraw.textContent = '↻'; // ↻
+    // Timeline scrubber — drag to seek through the clip
+    const scrubber = document.createElement('input');
+    scrubber.type = 'range';
+    scrubber.className = 'transport-scrubber';
+    scrubber.min = '0';
+    scrubber.max = '10000';
+    scrubber.value = '0';
+    scrubber.disabled = true; // enabled when a composer is attached
     const time = document.createElement('span');
     time.className = 'time';
     time.textContent = '00:00 / 00:00';
@@ -47,13 +55,14 @@ export function buildTransport(parent) {
     parent.appendChild(play);
     parent.appendChild(fwd);
     parent.appendChild(redraw);
+    parent.appendChild(scrubber);
     parent.appendChild(time);
-    return { back, play, fwd, redraw, time };
+    return { back, play, fwd, redraw, scrubber, time };
 }
 
 /**
  * Wire transport buttons to a composer handle.
- * @param {{back: HTMLButtonElement, play: HTMLButtonElement, fwd: HTMLButtonElement, redraw?: HTMLButtonElement}} els
+ * @param {{back: HTMLButtonElement, play: HTMLButtonElement, fwd: HTMLButtonElement, redraw?: HTMLButtonElement, scrubber?: HTMLInputElement}} els
  * @param {object} composer
  * @returns {() => void} dispose
  */
@@ -79,29 +88,58 @@ export function wireTransport(els, composer) {
     els.fwd.addEventListener('click', onFwd);
     els.play.addEventListener('click', onPlay);
     if (els.redraw) els.redraw.addEventListener('click', onRedraw);
+    const disposers = [];
+    if (els.scrubber) {
+        const onDown  = () => { els._scrubDragging = true; };
+        const onInput = () => {
+            const dur = composer.getDuration() || 0;
+            const t = (Number(els.scrubber.value) / 10000) * dur;
+            if (els.time) els.time.textContent = `${fmtMmss(t)} / ${fmtMmss(dur)}`;
+        };
+        const onChange = () => {
+            els._scrubDragging = false;
+            const dur = composer.getDuration() || 0;
+            composer.seek((Number(els.scrubber.value) / 10000) * dur);
+        };
+        const onUp = () => { els._scrubDragging = false; };
+        els.scrubber.addEventListener('pointerdown', onDown);
+        els.scrubber.addEventListener('input',       onInput);
+        els.scrubber.addEventListener('change',      onChange);
+        els.scrubber.addEventListener('pointerup',   onUp);
+        disposers.push(() => {
+            els.scrubber.removeEventListener('pointerdown', onDown);
+            els.scrubber.removeEventListener('input',       onInput);
+            els.scrubber.removeEventListener('change',      onChange);
+            els.scrubber.removeEventListener('pointerup',   onUp);
+            els._scrubDragging = false;
+        });
+    }
     return () => {
         els.back.removeEventListener('click', onBack);
         els.fwd.removeEventListener('click', onFwd);
         els.play.removeEventListener('click', onPlay);
         if (els.redraw) els.redraw.removeEventListener('click', onRedraw);
+        for (const d of disposers) d();
     };
 }
 
 /**
- * Update the time-readout span.
- * @param {{time: HTMLElement}} els
+ * Update the time-readout span and sync the scrubber thumb position.
+ * @param {{time: HTMLElement, scrubber?: HTMLInputElement, _scrubDragging?: boolean}} els
  * @param {number} cur
  * @param {number} dur
  */
 export function updateTime(els, cur, dur) {
     if (els && els.time) els.time.textContent = `${fmtMmss(cur)} / ${fmtMmss(dur)}`;
+    if (els && els.scrubber && !els._scrubDragging) {
+        els.scrubber.value = dur > 0 ? String(Math.round((cur / dur) * 10000)) : '0';
+    }
 }
 
 /**
- * Set enable/disable on the three playback transport buttons together.
- * The redraw button (if present) is intentionally left enabled at all times
- * — it's a cheap no-op when no composer is attached.
- * @param {{back: HTMLButtonElement, play: HTMLButtonElement, fwd: HTMLButtonElement, redraw?: HTMLButtonElement}} els
+ * Set enable/disable on the transport controls.
+ * The redraw button is intentionally left enabled at all times.
+ * @param {{back: HTMLButtonElement, play: HTMLButtonElement, fwd: HTMLButtonElement, redraw?: HTMLButtonElement, scrubber?: HTMLInputElement}} els
  * @param {boolean} enabled
  */
 export function setTransportEnabled(els, enabled) {
@@ -110,6 +148,7 @@ export function setTransportEnabled(els, enabled) {
     els.play.disabled = !enabled;
     els.fwd.disabled = !enabled;
     if (els.redraw) els.redraw.disabled = false;
+    if (els.scrubber) els.scrubber.disabled = !enabled;
 }
 
 /**
