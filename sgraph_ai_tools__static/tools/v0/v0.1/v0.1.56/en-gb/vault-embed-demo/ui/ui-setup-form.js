@@ -10,6 +10,9 @@
 
 import { parseVaultKey, deriveVaultKeys } from '/core/vault-client/v1/v1.2/v1.2.2/sg-vault-client.js'
 
+/** localStorage key for persisting vault config (never stores passphrase). */
+export const STORAGE_KEY = 'sg-vault-embed-demo-v1'
+
 /** @param {Uint8Array} bytes @returns {string} */
 function bytesToBase64Url(bytes) {
     const b64 = btoa(String.fromCharCode(...bytes))
@@ -98,14 +101,28 @@ const FORM_HTML = `
 /**
  * Mount the credential setup form into a container element.
  *
- * @param {{ container: HTMLElement, onConfig: (config: object) => void }} opts
+ * @param {{ container: HTMLElement, onConfig: (config: object) => void, savedConfig?: object|null }} opts
  */
-export function mountSetupForm({ container, onConfig }) {
+export function mountSetupForm({ container, onConfig, savedConfig = null }) {
     container.innerHTML = FORM_HTML
 
     const form      = container.querySelector('#cred-form')
     const errorEl   = container.querySelector('#form-error')
     const submitBtn = container.querySelector('#form-submit-btn')
+
+    // Pre-fill inputs from saved config (but never vault key / passphrase)
+    if (savedConfig) {
+        if (savedConfig.vaultId)  form.querySelector('#inp-vault-id').value  = savedConfig.vaultId
+        if (savedConfig.readKey)  form.querySelector('#inp-read-key').value  = savedConfig.readKey
+        if (savedConfig.endpoint) form.querySelector('#inp-endpoint').value  = savedConfig.endpoint
+        if (savedConfig.objectIds) {
+            const oi = savedConfig.objectIds
+            if (oi.hero)  form.querySelector('#inp-obj-hero').value  = oi.hero
+            if (oi.image) form.querySelector('#inp-obj-image').value = oi.image
+            if (oi.json)  form.querySelector('#inp-obj-json').value  = oi.json
+        }
+        if (savedConfig.manifestUrl) form.querySelector('#inp-manifest').value = savedConfig.manifestUrl
+    }
 
     form.addEventListener('submit', async (e) => {
         e.preventDefault()

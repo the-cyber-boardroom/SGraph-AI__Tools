@@ -8,136 +8,74 @@
     <link rel="stylesheet" href="./styles/vault-embed-demo.css">
 </head>
 <body>
+
 <div id="app">
 
-    <!-- Header -->
+    <!-- Slim header strip -->
     <header class="ved-header">
-        <h1 class="ved-title">SG/Send Public Vault Components — Live Demo</h1>
-        <p class="ved-subtitle">
-            Every byte you see below was fetched encrypted from
-            <code>send.sgraph.ai</code>, decrypted in your browser using the
-            public read_key shown in the credentials panel, and rendered by
-            these Web Components.
-        </p>
+        <span class="ved-title">SG/Send — Public Vault Embed Demo</span>
+        <span class="ved-subtitle">Encrypted → browser decrypted → rendered by Web Components</span>
     </header>
 
-    <!-- Layout: credentials + trace -->
-    <div class="ved-layout">
+    <!-- Two-column body: sidebar + sg-layout -->
+    <div class="ved-body">
 
-        <!-- Credentials panel — form is mounted here by main.js -->
-        <aside class="ved-credentials" id="credentials-panel">
-            <h2 class="ved-section-title">Demo Vault Credentials</h2>
+        <!-- Left sidebar -->
+        <aside class="ved-sidebar">
 
-            <!-- Setup form is injected here; cleared once credentials are entered -->
-            <div id="setup-form-container"></div>
+            <!-- Config / credentials section -->
+            <section class="ved-sidebar-section ved-sidebar-config">
+                <h2 class="ved-section-title">Demo Vault Credentials</h2>
 
-            <!-- Populated by mountCredentialsPanel() after form submit -->
-            <dl class="ved-creds-list" id="creds-display" hidden>
-                <dt>Vault ID</dt>
-                <dd class="demo-credentials__vault-id" id="cred-vault-id"></dd>
+                <!-- Setup form injected here by main.js; hidden once credentials restored -->
+                <div id="setup-form-container"></div>
 
-                <dt>Read Key</dt>
-                <dd class="demo-credentials read-key-value" id="cred-read-key"></dd>
+                <!-- Populated by mountCredentialsPanel() after vault is activated -->
+                <dl class="ved-creds-list" id="creds-display" hidden>
+                    <dt>Vault ID</dt>
+                    <dd id="cred-vault-id"></dd>
 
-                <dt>API Endpoint</dt>
-                <dd class="demo-credentials__endpoint" id="cred-endpoint"></dd>
-            </dl>
+                    <dt>Read Key</dt>
+                    <dd id="cred-read-key"></dd>
+
+                    <dt>API Endpoint</dt>
+                    <dd id="cred-endpoint"></dd>
+                </dl>
+            </section>
+
+            <!-- Vault tree section -->
+            <section class="ved-sidebar-section ved-sidebar-tree">
+                <h2 class="ved-section-title">Vault Files</h2>
+                <div class="ved-tree-wrap">
+                    <ved-vault-tree id="vault-tree"></ved-vault-tree>
+                </div>
+            </section>
+
         </aside>
 
-        <!-- Trace panel -->
-        <div class="ved-trace-container" id="trace-container">
-            <h2 class="ved-section-title">Event Trace</h2>
-            <sg-vault-trace id="main-trace" format="compact"></sg-vault-trace>
+        <!-- Right: sg-layout manages tabbed panels (Trace + dynamic file viewers) -->
+        <div class="ved-main">
+            <sg-layout id="ved-layout"></sg-layout>
         </div>
 
     </div>
 
-    <!-- Content sections — components are created dynamically by ui-dynamic-content.js -->
-    <main class="ved-main">
-
-        <section class="ved-section">
-            <h2 class="ved-section-title">Markdown Content</h2>
-            <p class="ved-desc">Fetched from vault, decrypted, rendered as markdown:</p>
-            <div class="ved-content-card" id="content-hero">
-                <p class="ved-waiting">Enter credentials above to load content.</p>
-            </div>
-        </section>
-
-        <section class="ved-section">
-            <h2 class="ved-section-title">Image Content</h2>
-            <p class="ved-desc">Decrypted from vault, rendered as image:</p>
-            <div class="ved-content-card" id="content-image">
-                <p class="ved-waiting">Enter credentials above to load content.</p>
-            </div>
-        </section>
-
-        <section class="ved-section">
-            <h2 class="ved-section-title">JSON Content</h2>
-            <p class="ved-desc">Decrypted from vault, rendered as formatted JSON:</p>
-            <div class="ved-content-card" id="content-json">
-                <p class="ved-waiting">Enter credentials above to load content.</p>
-            </div>
-        </section>
-
-        <section class="ved-section" id="manifest-section" hidden>
-            <h2 class="ved-section-title">Manifest Demo</h2>
-            <p class="ved-desc">
-                Using <code>&lt;sg-vault-manifest&gt;</code> to drive slot placeholders:
-            </p>
-            <div data-vault-slot="hero" class="ved-slot-placeholder">
-                <em>Slot: hero (loading…)</em>
-            </div>
-            <div data-vault-slot="build-info" class="ved-slot-placeholder">
-                <em>Slot: build-info (loading…)</em>
-            </div>
-        </section>
-
-        <section class="ved-section">
-            <h2 class="ved-section-title">How to Update Demo Content</h2>
-            <p class="ved-desc">
-                Run these <code>sgit</code> commands to update a vault object and the manifest:
-            </p>
-            <pre class="ved-code-block"><code>
-# Set up
-export DEMO_VAULT_KEY="your-passphrase:your-vault-id"
-sgit clone --sparse "$DEMO_VAULT_KEY" ./demo-vault
-
-# Write new content
-NEW_ID=$(echo "# Updated hero copy" | \
-  sgit write content/intro.md ./demo-vault)
-
-# Update manifest
-sgit read manifests/home.json ./demo-vault | \
-  jq ".slots.hero.object_id = \"$NEW_ID\"" | \
-  sgit write manifests/home.json ./demo-vault
-sgit push ./demo-vault
-
-# → Browser fetches new blob, decrypts, renders
-            </code></pre>
-        </section>
-
-        <section class="ved-section">
-            <a class="ved-source-link"
-               href="https://github.com/the-cyber-boardroom/SGraph-AI__Tools/tree/dev/sgraph_ai_tools__static/tools/v0/v0.1/v0.1.56/en-gb/vault-embed-demo/"
-               target="_blank" rel="noopener">
-                View Source on GitHub
-            </a>
-        </section>
-
-    </main>
-
 </div>
 
-<!-- Load all components -->
+<!-- Vault embed components -->
+<script type="module" src="/components/vault-embed/sg-vault-trace/v0/v0.1/v0.1.0/sg-vault-trace.js"></script>
 <script type="module" src="/components/vault-embed/sg-vault-key/v0/v0.1/v0.1.0/sg-vault-key.js"></script>
 <script type="module" src="/components/vault-embed/sg-vault-fetch/v0/v0.1/v0.1.0/sg-vault-fetch.js"></script>
 <script type="module" src="/components/vault-embed/sg-vault-content/v0/v0.1/v0.1.0/sg-vault-content.js"></script>
 <script type="module" src="/components/vault-embed/sg-vault-manifest/v0/v0.1/v0.1.0/sg-vault-manifest.js"></script>
-<script type="module" src="/components/vault-embed/sg-vault-trace/v0/v0.1/v0.1.0/sg-vault-trace.js"></script>
+
+<!-- Content renderer components -->
 <script type="module" src="/components/content/sg-content-markdown/v0/v0.1/v0.1.0/sg-content-markdown.js"></script>
 <script type="module" src="/components/content/sg-content-image/v0/v0.1/v0.1.0/sg-content-image.js"></script>
 <script type="module" src="/components/content/sg-content-json/v0/v0.1/v0.1.0/sg-content-json.js"></script>
+
 <!-- Tool entry point -->
 <script type="module" src="./ui/main.js"></script>
+
 </body>
 </html>

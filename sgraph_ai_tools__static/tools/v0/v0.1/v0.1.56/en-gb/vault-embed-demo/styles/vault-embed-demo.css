@@ -14,9 +14,14 @@
 
 *, *::before, *::after { box-sizing: border-box; }
 
-body {
+/* ── Full-height page ────────────────────────────────────────────────────── */
+html, body {
+    height: 100%;
     margin: 0;
-    padding: 0;
+    overflow: hidden;
+}
+
+body {
     background: var(--ved-bg);
     color: var(--ved-text);
     font-family: system-ui, -apple-system, 'Segoe UI', sans-serif;
@@ -24,40 +29,102 @@ body {
 }
 
 #app {
-    max-width: var(--ved-max-width);
-    margin: 0 auto;
-    padding: 2rem 1.5rem;
+    height: 100%;
+    display: flex;
+    flex-direction: column;
 }
 
-/* ── Header ─────────────────────────────────────────────────────────────── */
+/* ── Header strip ────────────────────────────────────────────────────────── */
 .ved-header {
-    margin-bottom: 2rem;
-    padding-bottom: 1.5rem;
+    flex-shrink: 0;
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    padding: 0.6rem 1.25rem;
     border-bottom: 1px solid var(--ved-border);
+    background: var(--ved-surface);
 }
 
 .ved-title {
-    font-size: 1.5rem;
+    font-size: 0.95rem;
     font-weight: 700;
-    margin: 0 0 0.5rem;
-    color: var(--ved-text);
+    margin: 0;
+    color: var(--ved-accent);
+    white-space: nowrap;
 }
 
 .ved-subtitle {
     color: var(--ved-muted);
+    font-size: 0.78rem;
     margin: 0;
-    font-size: 0.95rem;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
 }
 
-.ved-subtitle code {
-    background: rgba(255,255,255,0.06);
-    padding: 0.1em 0.35em;
-    border-radius: 3px;
-    font-family: ui-monospace, monospace;
-    font-size: 0.9em;
+/* ── Two-column body ─────────────────────────────────────────────────────── */
+.ved-body {
+    flex: 1;
+    display: grid;
+    grid-template-columns: 300px 1fr;
+    min-height: 0;
 }
 
-/* ── Layout ──────────────────────────────────────────────────────────────── */
+/* ── Sidebar ─────────────────────────────────────────────────────────────── */
+.ved-sidebar {
+    display: flex;
+    flex-direction: column;
+    border-right: 1px solid var(--ved-border);
+    overflow: hidden;
+    background: var(--ved-surface);
+}
+
+.ved-sidebar-section {
+    border-bottom: 1px solid var(--ved-border);
+}
+
+.ved-sidebar-config {
+    flex-shrink: 0;
+    overflow-y: auto;
+    padding: 0.85rem 1rem;
+    max-height: 55%;
+}
+
+.ved-sidebar-tree {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
+    padding: 0.75rem 1rem 0.5rem;
+    border-bottom: none;
+}
+
+.ved-tree-wrap {
+    flex: 1;
+    min-height: 0;
+    overflow: hidden;
+}
+
+ved-vault-tree {
+    display: block;
+    height: 100%;
+}
+
+/* ── Right main: sg-layout ───────────────────────────────────────────────── */
+.ved-main {
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+}
+
+sg-layout {
+    flex: 1;
+    display: block;
+    height: 100%;
+    min-height: 0;
+}
+
+/* ── Legacy layout class (kept for compatibility) ────────────────────────── */
 .ved-layout {
     display: grid;
     grid-template-columns: 1fr 2fr;
