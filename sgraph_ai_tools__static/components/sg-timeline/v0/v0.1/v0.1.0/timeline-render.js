@@ -42,22 +42,24 @@ export function computeSurfaceWidth(project, pps) {
 
 /** Render ruler ticks. */
 export function renderRuler(rulerEl, widthPx, pps) {
-    rulerEl.innerHTML = '';
     rulerEl.style.width = widthPx + 'px';
     const interval = pickTickInterval(pps);
     const totalSec = widthPx / pps;
+    const frag = document.createDocumentFragment();
     for (let t = 0; t <= totalSec; t += interval) {
         const x = t * pps;
         const tick = document.createElement('div');
         tick.className = 'tick';
         tick.style.left = x + 'px';
-        rulerEl.appendChild(tick);
+        frag.appendChild(tick);
         const label = document.createElement('div');
         label.className = 'tick-label';
         label.style.left = x + 'px';
         label.textContent = fmtTime(t);
-        rulerEl.appendChild(label);
+        frag.appendChild(label);
     }
+    rulerEl.innerHTML = '';
+    rulerEl.appendChild(frag);
 }
 
 /**
@@ -74,11 +76,11 @@ export function renderRuler(rulerEl, widthPx, pps) {
  * @returns {void}
  */
 export function renderLanes(lanesEl, project, widthPx, pps, selectedClipId, selectedTrackId) {
-    lanesEl.innerHTML = '';
     lanesEl.style.width = widthPx + 'px';
     const tracks = project ? getVideoTracks(project) : [];
-    if (!tracks.length) return;
+    if (!tracks.length) { lanesEl.innerHTML = ''; return; }
     const total = tracks.length;
+    const frag = document.createDocumentFragment();
     for (let i = tracks.length - 1; i >= 0; i--) {
         const track = tracks[i];
         const row = document.createElement('div');
@@ -99,8 +101,10 @@ export function renderLanes(lanesEl, project, widthPx, pps, selectedClipId, sele
         const header = renderTrackHeader(track, i, total, selectedTrackId);
         row.appendChild(header);
 
-        lanesEl.appendChild(row);
+        frag.appendChild(row);
     }
+    lanesEl.innerHTML = '';
+    lanesEl.appendChild(frag);
 }
 
 /** Render the playhead element (position only). */
