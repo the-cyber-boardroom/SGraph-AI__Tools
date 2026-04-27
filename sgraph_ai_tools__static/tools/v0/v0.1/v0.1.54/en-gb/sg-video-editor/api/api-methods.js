@@ -287,6 +287,7 @@ export function buildApiMethods({ state, getComposer, setComposer, hostEl }) {
         setClipColor, setClipTransform, setClipCrop,
         addShapeClip, addTextClip, setShapeProps, setTextProps,
         copyClip, pasteClip, hasClipboard,
+        renameClip: trackMethods.renameClip,
         renameProject,
         getProject, setProject,
         undo, redo, canUndo, canRedo,

@@ -9,6 +9,7 @@ export const SGT_EVENTS = Object.freeze({
     CLIP_DELETED: 'sg-timeline:clip-deleted',
     CLIP_SPLIT_REQUESTED: 'sg-timeline:clip-split',
     CLIP_COLOR_REQUESTED: 'sg-timeline:clip-color-requested',
+    CLIP_RENAMED: 'sg-timeline:clip-renamed',
     CLIP_UNDO_REQUESTED: 'sg-timeline:undo-requested',
     CLIP_REDO_REQUESTED: 'sg-timeline:redo-requested',
     PLAYHEAD_CHANGED: 'sg-timeline:playhead-changed',

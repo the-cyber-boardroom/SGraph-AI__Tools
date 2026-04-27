@@ -185,11 +185,51 @@ export function attachInteractions(root, getState, dispatch, hostEl) {
         }
     }
 
+    function onLanesDblClick(e) {
+        const clipEl = e.target.closest && e.target.closest('.clip');
+        if (!clipEl) return;
+        // Don't interfere with trim handles or delete button.
+        if (e.target.closest('[data-role="trim-left"]') || e.target.closest('[data-role="trim-right"]')
+            || e.target.closest('.clip__delete')) return;
+        e.preventDefault();
+        e.stopPropagation();
+        const clipId = clipEl.dataset.clipId;
+        if (!clipId) return;
+        const labelEl = clipEl.querySelector('.clip-label');
+        if (!labelEl || labelEl.querySelector('input')) return;
+        const original = labelEl.textContent || '';
+        const input = document.createElement('input');
+        input.type = 'text';
+        input.value = original;
+        input.className = 'clip-rename-input';
+        input.style.cssText = 'width:100%;box-sizing:border-box;background:rgba(0,0,0,.5);border:none;border-bottom:1px solid #7c3aed;color:#fff;font-size:inherit;padding:0 2px;outline:none';
+        let committed = false;
+        function commit(save) {
+            if (committed) return;
+            committed = true;
+            const next = input.value.trim();
+            if (save && next !== original.trim()) {
+                dispatch(SGT_EVENTS.CLIP_RENAMED, { clipId, name: next });
+            }
+            labelEl.textContent = save ? (next || original) : original;
+        }
+        input.addEventListener('keydown', (ev) => {
+            if (ev.key === 'Enter') { ev.preventDefault(); commit(true); input.blur(); }
+            else if (ev.key === 'Escape') { ev.preventDefault(); commit(false); input.blur(); }
+        });
+        input.addEventListener('blur', () => commit(true));
+        labelEl.textContent = '';
+        labelEl.appendChild(input);
+        input.focus();
+        input.select();
+    }
+
     const disposeDrop = attachDropAffordance(lanes, getState, dispatch, pxToTime);
     const disposeKeys = attachKeyboard(hostEl, getState, dispatch);
     const disposeHeaders = attachHeaderButtons(lanes, dispatch);
     lanes.addEventListener('pointerdown', onLanesPointerDown);
     lanes.addEventListener('click', onLanesClick);
+    lanes.addEventListener('dblclick', onLanesDblClick);
     ruler.addEventListener('pointerdown', onRulerPointerDown);
     window.addEventListener('pointermove', onPointerMove);
     window.addEventListener('pointerup', onPointerUp);
@@ -201,6 +241,7 @@ export function attachInteractions(root, getState, dispatch, hostEl) {
         disposeHeaders();
         lanes.removeEventListener('pointerdown', onLanesPointerDown);
         lanes.removeEventListener('click', onLanesClick);
+        lanes.removeEventListener('dblclick', onLanesDblClick);
         ruler.removeEventListener('pointerdown', onRulerPointerDown);
         window.removeEventListener('pointermove', onPointerMove);
         window.removeEventListener('pointerup', onPointerUp);

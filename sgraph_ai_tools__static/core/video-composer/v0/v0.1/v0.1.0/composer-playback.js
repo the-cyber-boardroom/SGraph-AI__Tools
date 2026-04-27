@@ -16,13 +16,14 @@ import { createImageRegistry } from './composer-images.js';
 
 /**
  * Wait until a video element has at least HAVE_CURRENT_DATA (readyState >= 2)
- * and its first frame is paintable, then invoke `cb`. Listens for `seeked`,
- * `loadeddata`, and `canplay` — but only invokes `cb` once `readyState >= 2`.
- * `seeked` can fire before frame data is available (readyState still 1) when the
- * browser considers the seek complete but hasn't decoded the first frame yet;
- * in that case we keep listening until one of the data-ready events fires.
- * Manual listener cleanup (no `{ once: true }`) is used so we stay subscribed
- * across an early `seeked` → `loadeddata` transition.
+ * and its first frame is paintable, then invoke `cb`.
+ *
+ * Chrome will NOT buffer frame data for a preload='metadata' video sitting at
+ * currentTime=0 — it considers itself "already there" (no displacement) and
+ * stops after loading metadata (readyState=1). We work around this by nudging
+ * currentTime by 1ms once metadata is available, forcing a real seek that
+ * triggers data loading. The nudge is imperceptible (< 1 video frame).
+ *
  * @param {HTMLVideoElement} video
  * @param {() => void} cb
  * @returns {void}
@@ -35,14 +36,27 @@ function waitForVideoFrame(video, cb) {
         if (done) return;
         if (video.readyState < 2) return; // seeked fired before frame data — keep waiting
         done = true;
-        video.removeEventListener('seeked',      run);
-        video.removeEventListener('loadeddata',  run);
-        video.removeEventListener('canplay',     run);
+        video.removeEventListener('seeked',     run);
+        video.removeEventListener('loadeddata', run);
+        video.removeEventListener('canplay',    run);
         cb();
+    }
+    function kickLoad() {
+        if (done) return;
+        // Nudge currentTime to force Chrome to buffer frame data. Without this,
+        // preload='metadata' at currentTime=0 stays at readyState=1 forever.
+        const t = video.currentTime;
+        const d = Number.isFinite(video.duration) && video.duration > 0 ? video.duration : Infinity;
+        video.currentTime = (t + 1e-3 < d) ? t + 1e-3 : Math.max(0, t - 1e-3);
     }
     video.addEventListener('seeked',     run);
     video.addEventListener('loadeddata', run);
     video.addEventListener('canplay',    run);
+    if (video.readyState < 1) {
+        video.addEventListener('loadedmetadata', kickLoad, { once: true });
+    } else {
+        kickLoad();
+    }
 }
 
 /**
