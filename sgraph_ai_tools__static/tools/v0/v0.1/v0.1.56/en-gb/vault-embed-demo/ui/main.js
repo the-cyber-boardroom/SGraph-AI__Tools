@@ -15,6 +15,7 @@ import { mountCredentialsPanel } from './ui-credentials-panel.js'
 import { mountTracePanel }       from './ui-trace-panel.js'
 import { buildVaultHandle }      from './ui-vault-keys.js'
 import { initLayout }            from './ui-layout.js'
+import './ved-cred-panel.js'
 import './ved-vault-tree.js'
 import './ved-file-viewer.js'
 
@@ -97,23 +98,24 @@ async function activate(config) {
 
 // ── Bootstrap ─────────────────────────────────────────────────────────────────
 
-const saved = loadSaved()
-
 initLayout()
-mountTracePanel({ traceEl: document.getElementById('main-trace') })
 
-if (saved && saved.vaultId && saved.readKey) {
-    // Skip form — restore immediately from localStorage
-    const formEl = document.getElementById('setup-form-container')
-    if (formEl) formEl.hidden = true
-    activate(saved)
-} else {
-    mountSetupForm({
-        container:   document.getElementById('setup-form-container'),
-        savedConfig: saved,
-        onConfig:    activate,
-    })
-}
+// ved-cred-panel connects inside sg-layout's setLayout() which runs in a
+// whenDefined microtask — wait for it before touching DOM inside the panel.
+document.addEventListener('ved:cred-panel-ready', () => {
+    const saved = loadSaved()
+    if (saved && saved.vaultId && saved.readKey) {
+        const formEl = document.getElementById('setup-form-container')
+        if (formEl) formEl.hidden = true
+        activate(saved)
+    } else {
+        mountSetupForm({
+            container:   document.getElementById('setup-form-container'),
+            savedConfig: null,
+            onConfig:    activate,
+        })
+    }
+}, { once: true })
 
 // Register SgToolApi (non-blocking)
 import('../api/vault-embed-demo-api.js')
