@@ -128,9 +128,9 @@ export function readPerfMemory() {
         const m = (typeof performance !== 'undefined') && performance.memory;
         if (!m) return null;
         return {
-            usedJSHeapBytes:  Number(m.usedJSHeapSize) || 0,
+            usedJSHeapBytes:  Number(m.usedJSHeapSize)  || 0,
             totalJSHeapBytes: Number(m.totalJSHeapSize) || 0,
-            jsHeapLimitBytes: Number(m.jsHeapLimit) || 0,
+            jsHeapLimitBytes: Number(m.jsHeapSizeLimit) || 0,
         };
     } catch (_) { return null; }
 }
