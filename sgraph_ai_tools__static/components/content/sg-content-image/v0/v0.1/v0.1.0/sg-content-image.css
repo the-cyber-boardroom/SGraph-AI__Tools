@@ -1,0 +1,10 @@
+/* sg-content-image — image renderer */
+:host {
+    display: block;
+}
+
+.sgci-img {
+    max-width: 100%;
+    height: auto;
+    display: block;
+}
