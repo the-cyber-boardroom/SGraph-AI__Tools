@@ -47,6 +47,29 @@ At significant project milestones, create a new versioned snapshot rather than o
 
 ---
 
+## Per-tool history files
+
+When a tool's row in `__2__tools.md` grows beyond ~5 KB, spin it out into its own history file under `tools/{tool-slug}/`:
+
+```
+team/explorer/librarian/reality/
+  tools/
+    sg-video-editor/
+      v0.1.54__rounds.md    ← one ## heading per round, all text verbatim
+```
+
+**Naming convention:** `{latest-tool-version}__rounds.md`  
+**File lifecycle:** one file per tool (not per version) — append new rounds to the same file as the tool moves through patch versions.  
+**Spin-out threshold:** once a tool row in `__2__tools.md` exceeds ~5 KB; leave smaller rows inline.
+
+When a row is spun out the inline cell in `__2__tools.md` becomes a 2-3 sentence headline + a relative link:
+
+```markdown
+| Tool Name | path | version | **STATUS** — One-line summary. See [full round history](./tools/tool-slug/v{ver}__rounds.md). |
+```
+
+---
+
 ## Maintained by
 
 Librarian role — Explorer team. See `team/explorer/librarian/ROLE__librarian.md`.
