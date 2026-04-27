@@ -1,6 +1,9 @@
 /** ui-shell-composer.js — composer rebuild + project shape helpers for ui-shell. */
 
 import { createComposer } from '/core/video-composer/v0/v0.1/v0.1.0/sg-video-composer.js';
+import {
+    isMemoryProbeEnabled, notifyVideoCreated, notifyVideoDisposed, debugLog,
+} from './debug/memory-probe.js';
 
 /** True if the flat composer-project has at least one clip on a video track. */
 export function hasAnyClip(flat) {
@@ -37,6 +40,11 @@ export function emitErr(step, err) {
 export function rebuildComposer(cfg) {
     const existing = cfg.getComposer();
     if (existing) {
+        // Round-9-M: track <video> disposals so the debug panel can show
+        // the create/dispose churn the destroy+recreate pattern produces.
+        if (isMemoryProbeEnabled() && typeof existing.getVideoAssetIds === 'function') {
+            for (const id of existing.getVideoAssetIds()) notifyVideoDisposed(id);
+        }
         try { cfg.previewEl && cfg.previewEl.detachComposer(); } catch (_) {}
         try { existing.destroy(); } catch (_) {}
         cfg.setComposer(null);
@@ -53,6 +61,11 @@ export function rebuildComposer(cfg) {
         });
         cfg.previewEl.attachComposer(c);
         cfg.setComposer(c);
+        if (isMemoryProbeEnabled() && typeof c.getVideoAssetIds === 'function') {
+            const ids = c.getVideoAssetIds();
+            for (const id of ids) notifyVideoCreated(id);
+            debugLog(`composer attached: videos=${ids.length}, assetIds=${JSON.stringify(ids)}`);
+        }
         const t = Number.isFinite(cfg.playheadHint) ? cfg.playheadHint : 0;
         try { if (typeof c.seek === 'function') c.seek(t); } catch (_) {}
     } catch (err) { emitErr('composer', err); }

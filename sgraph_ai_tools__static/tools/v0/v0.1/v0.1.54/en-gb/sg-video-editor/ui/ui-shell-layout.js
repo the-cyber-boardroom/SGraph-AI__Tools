@@ -2,9 +2,21 @@
 
 /**
  * Build the sg-layout descriptor: assets column on the left, preview+timeline column on the right.
+ *
+ * @param {{ withDebugTab?: boolean }} [opts] — when `withDebugTab` is true a "Debug" tab
+ * is appended to the right-hand stack (Round-9-M memory observability). Driven by
+ * the shell's `?debug=1` query string check.
  * @returns {object}
  */
-export function buildLayoutDescriptor() {
+export function buildLayoutDescriptor(opts = {}) {
+    const rightTabs = [
+        { type: 'tab', id: 't-properties', title: 'Properties', tag: 'div', locked: true, closable: false },
+        { type: 'tab', id: 't-json',       title: 'JSON',       tag: 'div', locked: true, closable: false },
+        { type: 'tab', id: 't-messages',   title: 'Messages',   tag: 'div', locked: true, closable: false },
+    ];
+    if (opts && opts.withDebugTab) {
+        rightTabs.push({ type: 'tab', id: 't-debug', title: 'Debug', tag: 'div', locked: true, closable: false });
+    }
     return {
         type: 'row', id: 'root', sizes: [0.20, 0.58, 0.22],
         children: [
@@ -22,12 +34,7 @@ export function buildLayoutDescriptor() {
                   { type: 'stack', id: 's-timeline', activeTab: 0,
                     tabs: [{ type: 'tab', id: 't-timeline', title: 'Timeline', tag: 'div', locked: true, closable: false }] },
               ] },
-            { type: 'stack', id: 's-right', activeTab: 0,
-              tabs: [
-                  { type: 'tab', id: 't-properties', title: 'Properties', tag: 'div', locked: true, closable: false },
-                  { type: 'tab', id: 't-json',       title: 'JSON',       tag: 'div', locked: true, closable: false },
-                  { type: 'tab', id: 't-messages',   title: 'Messages',   tag: 'div', locked: true, closable: false },
-              ] },
+            { type: 'stack', id: 's-right', activeTab: 0, tabs: rightTabs },
         ],
     };
 }
@@ -88,6 +95,7 @@ export function resolvePanels(layout) {
     const propertiesPanel = layout.getPanelElement('t-properties');
     const messagesPanel = layout.getPanelElement('t-messages');
     const shortcutsPanel = layout.getPanelElement('t-shortcuts');
+    const debugPanel = layout.getPanelElement('t-debug');
     let previewEl = null;
     let timelineEl = null;
     if (assetsPanel) assetsPanel.className = 'sgve-panel-slot';
@@ -105,9 +113,10 @@ export function resolvePanels(layout) {
     if (propertiesPanel) propertiesPanel.className = 'sgve-panel-slot sgve-properties';
     if (messagesPanel) messagesPanel.className = 'sgve-panel-slot sgve-messages';
     if (shortcutsPanel) shortcutsPanel.className = 'sgve-panel-slot sgve-shortcuts';
+    if (debugPanel) debugPanel.className = 'sgve-panel-slot sgve-debug';
     return {
         assetsPanel, previewPanel, timelinePanel,
-        jsonPanel, propertiesPanel, messagesPanel, shortcutsPanel,
+        jsonPanel, propertiesPanel, messagesPanel, shortcutsPanel, debugPanel,
         previewEl, timelineEl,
     };
 }
