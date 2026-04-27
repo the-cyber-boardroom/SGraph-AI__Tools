@@ -32,8 +32,31 @@ export async function probeVideoFile(file, { timeout = 10000, signal } = {}) {
         }
 
         v.addEventListener('loadedmetadata', () => {
-            const out = { duration: v.duration, width: v.videoWidth, height: v.videoHeight };
-            settle(() => resolve(out));
+            let duration = v.duration;
+            const width = v.videoWidth, height = v.videoHeight;
+            // Guard against a common MP4 muxer bug where the mvhd duration is
+            // written as raw audio-sample ticks (e.g. 48 000 ticks/s) but the
+            // movie time-scale field is left at 1, so Chrome reads ticks as seconds.
+            // Heuristic: if implied bitrate < 50 kbps, the duration is almost
+            // certainly in timescale units rather than real seconds.
+            if (Number.isFinite(duration) && file && file.size > 0) {
+                const maxPlausibleSec = file.size / 6250; // 50 kbps minimum floor
+                if (duration > maxPlausibleSec) {
+                    const raw = duration;
+                    let corrected = null;
+                    for (const ts of [48000, 44100, 90000, 1000]) {
+                        const c = raw / ts;
+                        if (c > 0 && c <= maxPlausibleSec) { corrected = c; break; }
+                    }
+                    if (corrected !== null) {
+                        console.warn(`[sgve] probe: raw duration ${raw.toFixed(0)} looks like timescale ticks — corrected to ${corrected.toFixed(2)}s (÷${Math.round(raw / corrected)})`);
+                        duration = corrected;
+                    } else {
+                        console.warn(`[sgve] probe: duration ${raw.toFixed(0)}s is suspiciously large for ${file.size}B file; using as-is`);
+                    }
+                }
+            }
+            settle(() => resolve({ duration, width, height }));
         }, { once: true });
 
         v.addEventListener('error', () => {
