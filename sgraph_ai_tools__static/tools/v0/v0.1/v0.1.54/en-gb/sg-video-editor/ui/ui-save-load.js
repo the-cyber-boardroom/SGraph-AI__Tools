@@ -178,6 +178,9 @@ export function mountSaveLoadControls({ host, api, getProject, onLoaded, onNewPr
             };
             await api.setProject({ project: blank });
             try { await api.discardAutosave(); } catch (_) {}
+            // Signal ui-shell to mark the blank project as the clean baseline
+            // so hasUnsavedChanges() returns false until the user actually edits.
+            document.dispatchEvent(new CustomEvent('sgve:new-project-created'));
             if (typeof onNewProject === 'function') onNewProject();
             await refresh();
         } catch (err) { emitErr('newProject', err); }
@@ -213,6 +216,11 @@ export function mountSaveLoadControls({ host, api, getProject, onLoaded, onNewPr
 
     async function refresh() {
         list.replaceChildren();
+        // Sync the dirty notice with actual persistence state (accurate after save/load/new)
+        try {
+            const r = await api.hasUnsavedChanges();
+            updateDirtyNotice(!!(r && (r.hasUnsavedChanges === true || r === true)));
+        } catch (_) {}
         const entries = await fetchSavedProjects();
         if (!entries.length) {
             const empty = document.createElement('div');
