@@ -18,7 +18,10 @@ import {
     saveProjectToStorage, loadProjectFromStorage,
     listSavedProjects, deleteSavedProject,
     writeAutosave, readAutosave, clearAutosave, autosaveIsNewer,
+    stripAssetsForStorage, __STORAGE_KEYS__,
 } from '../ui/state-storage.js';
+
+const { SOFT_BYTE_LIMIT } = __STORAGE_KEYS__;
 import {
     saveAsset, loadAsset, pruneOrphanedAssets,
     computeAssetStorageUsage,
@@ -137,6 +140,24 @@ export function buildStorageMethods({ state }) {
             ? params.name.trim()
             : (project.project && project.project.name) || 'Untitled';
         try {
+            // Pre-compute the JSON that will hit storage so we can run the
+            // byte-limit check before any async work, and — crucially — mark
+            // the project as saved BEFORE the IDB write.  Without this,
+            // a pending handleChange timer can fire during persistBlobsToIdb
+            // (which is genuinely async when there are video assets), see
+            // hasUnsavedChanges() return true, and re-show the "UNSAVED
+            // CHANGES" banner even though a save is in flight.
+            const preStripped = stripAssetsForStorage(project);
+            const preJson = JSON.stringify(preStripped);
+            if (preJson.length > SOFT_BYTE_LIMIT) {
+                throw Object.assign(
+                    new Error(`Project too large to save (${preJson.length} bytes > ${SOFT_BYTE_LIMIT})`),
+                    { code: 'too-large', byteSize: preJson.length, limit: SOFT_BYTE_LIMIT },
+                );
+            }
+            // Optimistic mark: any timer firing during the IDB write will
+            // see hasUnsavedChanges() = false.
+            state.markSaved(preJson);
             // 1. Push blobs to IDB FIRST. If IDB fails, surface the error
             //    before we mutate localStorage so we don't end up with an
             //    index entry pointing at lost pixels.

@@ -386,16 +386,17 @@ export function createState(initialProject) {
          *  chars of JSON). Returns false on a fresh-empty project, true after
          *  any mutation that hasn't been saved. */
         hasUnsavedChanges() {
-            if (lastSavedHash == null) {
-                // Pristine baseline: an empty default project counts as
-                // "no unsaved work" until the user makes a change.
-                if (project.assets.length === 0
-                    && project.tracks.every(t => !t || (t.clips && t.clips.length === 0))
-                    && (project.project.name || 'Untitled') === 'Untitled') {
-                    return false;
-                }
-                return true;
+            // A pristine blank project (no content, default name) is never
+            // considered dirty — there is nothing worth saving. This check
+            // runs before the hash comparison so that switching to a blank
+            // project via "New" never shows the unsaved-changes banner,
+            // regardless of what lastSavedHash points to.
+            if (project.assets.length === 0
+                && project.tracks.every(t => !t || (t.clips && t.clips.length === 0))
+                && (project.project.name || 'Untitled') === 'Untitled') {
+                return false;
             }
+            if (lastSavedHash == null) return true;
             return computeCurrentHash() !== lastSavedHash;
         },
 
