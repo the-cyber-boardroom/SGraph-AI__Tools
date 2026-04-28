@@ -118,4 +118,4 @@ document.addEventListener('ved:cred-panel-ready', () => {
 }, { once: true })
 
 // Register SgToolApi (non-blocking)
-import('../api/vault-embed-demo-api.js')
+import('../api/vault-peek-api.js')
