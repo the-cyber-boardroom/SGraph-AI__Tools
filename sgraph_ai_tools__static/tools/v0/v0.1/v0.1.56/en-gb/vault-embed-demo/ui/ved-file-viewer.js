@@ -331,7 +331,7 @@ class VedFileViewer extends HTMLElement {
     }
 
     connectedCallback() {
-        this._showMsg('No file loaded.')
+        this._shadow.innerHTML = `<style>${STYLES}</style>`
     }
 
     disconnectedCallback() {
