@@ -159,6 +159,67 @@ img {
     overflow: auto;
     padding: 1rem;
 }
+
+/* ── Loading card ── */
+.loading-card {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    flex: 1;
+    gap: 1.5rem;
+    padding: 2rem;
+}
+
+.loading-spinner {
+    width: 32px;
+    height: 32px;
+    border: 2px solid rgba(0,255,170,0.15);
+    border-top-color: #00ffaa;
+    border-radius: 50%;
+    animation: spin 0.75s linear infinite;
+}
+
+@keyframes spin { to { transform: rotate(360deg); } }
+
+.loading-info {
+    background: #1e293b;
+    border: 1px solid rgba(148,163,184,0.15);
+    border-radius: 8px;
+    padding: 1rem 1.25rem;
+    width: 100%;
+    max-width: 480px;
+    display: flex;
+    flex-direction: column;
+    gap: 0.55rem;
+}
+
+.loading-filename {
+    font-size: 0.95rem;
+    font-weight: 600;
+    color: #f1f5f9;
+    word-break: break-all;
+}
+
+.loading-rows {
+    display: grid;
+    grid-template-columns: max-content 1fr;
+    gap: 0.25rem 0.75rem;
+    font-size: 0.76rem;
+    font-family: ui-monospace, 'SF Mono', monospace;
+}
+
+.loading-key { color: #64748b; }
+.loading-val { color: #94a3b8; }
+.loading-val--method { color: #00ffaa; }
+
+.loading-status {
+    font-size: 0.78rem;
+    color: #64748b;
+    font-style: italic;
+    margin: 0;
+    text-align: center;
+}
 `
 
 /** PNG magic bytes */
@@ -243,6 +304,24 @@ function sniffType(bytes, name) {
     }
 }
 
+/**
+ * Guess MIME type from file extension alone (no magic bytes — used before download).
+ * @param {string} name filename
+ * @returns {string} guessed MIME or 'unknown'
+ */
+function guessTypeFromName(name) {
+    const ext = (name || '').split('.').pop().toLowerCase()
+    const map = {
+        pdf: 'application/pdf', json: 'application/json',
+        md: 'text/markdown', markdown: 'text/markdown',
+        js: 'text/javascript', html: 'text/html', htm: 'text/html',
+        css: 'text/css', txt: 'text/plain', sh: 'text/x-sh',
+        png: 'image/png', jpg: 'image/jpeg', jpeg: 'image/jpeg',
+        gif: 'image/gif', webp: 'image/webp', svg: 'image/svg+xml',
+    }
+    return map[ext] || 'unknown (detected after download)'
+}
+
 class VedFileViewer extends HTMLElement {
     constructor() {
         super()
@@ -294,12 +373,49 @@ class VedFileViewer extends HTMLElement {
     }
 
     /**
+     * Show a rich loading card with file metadata known before the download starts.
+     * @param {object} entry vault tree entry (name, blob_id, large)
+     */
+    _showLoading(entry) {
+        const name   = entry.name || 'Unknown file'
+        const type   = guessTypeFromName(name)
+        const method = entry.large ? 'Presigned S3 URL (large file)' : 'Direct API'
+        const blobId = entry.blob_id || '—'
+
+        this._shadow.innerHTML = `<style>${STYLES}</style>
+<div class="loading-card">
+    <div class="loading-spinner"></div>
+    <div class="loading-info">
+        <div class="loading-filename">${name}</div>
+        <div class="loading-rows">
+            <span class="loading-key">type</span>
+            <span class="loading-val">${type}</span>
+            <span class="loading-key">method</span>
+            <span class="loading-val loading-val--method">${method}</span>
+            <span class="loading-key">blob_id</span>
+            <span class="loading-val">${blobId}</span>
+        </div>
+    </div>
+    <p class="loading-status" id="ls">Fetching…</p>
+</div>`
+    }
+
+    /**
+     * Update the status line inside the loading card (no-op if card is gone).
+     * @param {string} text
+     */
+    _setLoadingStatus(text) {
+        const el = this._shadow.getElementById('ls')
+        if (el) el.textContent = text
+    }
+
+    /**
      * @param {object} entry vault tree entry with blob_id + name
      * @param {object} vault vault handle
      */
     async _load(entry, vault) {
         this._revokeBlobUrl()
-        this._showMsg('Fetching…')
+        this._showLoading(entry)
 
         const { vaultId } = vault.keys
         const blobId      = entry.blob_id
@@ -318,6 +434,7 @@ class VedFileViewer extends HTMLElement {
                 if (!isGatewayError) throw directErr
                 // Fallback: presigned URL for large files (bypasses API gateway limits)
                 const presignedApiUrl = `${vault.apiBaseUrl}/api/vault/presigned/read-url/${vaultId}/${encodeURIComponent(`bare/data/${blobId}`)}`
+                this._setLoadingStatus('Direct API limit hit — fetching via presigned S3 URL…')
                 this._emit('sg-vault-fetch:fetch-started', {
                     vaultId, objectId: blobId, url: presignedApiUrl,
                 })
@@ -326,6 +443,7 @@ class VedFileViewer extends HTMLElement {
 
             const fetchMs = performance.now() - t0
             const bytes   = new Uint8Array(buf)
+            this._setLoadingStatus('Decrypting…')
 
             this._emit('sg-vault-fetch:fetch-completed', {
                 vaultId, objectId: blobId, url: apiUrl,
