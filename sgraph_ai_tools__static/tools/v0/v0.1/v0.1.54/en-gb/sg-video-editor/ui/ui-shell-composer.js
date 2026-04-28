@@ -50,7 +50,19 @@ export function rebuildComposer(cfg) {
         cfg.setComposer(null);
     }
     const flat = cfg.state.toComposerProject();
-    if (!hasAnyClip(flat) || !cfg.previewEl) return;
+    if (!hasAnyClip(flat) || !cfg.previewEl) {
+        // No clips — clear the canvas so stale frames don't persist (e.g. after New project)
+        if (cfg.previewEl) {
+            try {
+                const canvas = cfg.previewEl.getCanvas();
+                if (canvas) {
+                    const ctx = canvas.getContext('2d');
+                    if (ctx) { ctx.fillStyle = '#000'; ctx.fillRect(0, 0, canvas.width, canvas.height); }
+                }
+            } catch (_) {}
+        }
+        return;
+    }
     const fps = Number.isFinite(flat.fps) ? flat.fps : 30;
     try {
         const c = createComposer({

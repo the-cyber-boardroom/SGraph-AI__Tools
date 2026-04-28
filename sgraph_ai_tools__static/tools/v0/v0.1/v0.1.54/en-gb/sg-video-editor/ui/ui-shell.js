@@ -104,6 +104,7 @@ export function mountShell({ host, state, api, getComposer, setComposer }) {
     /** Preview maximize overlay handle. */
     let maximizeHandle = null;
     let onTimelineTest = null;
+    let onNewProjectCreated = null;
     let shortcutsPane = null, keyboardWire = null;
     /** Autosave handle — debounced writes + on-init restore prompt. */
     let autosaveHandle = null;
@@ -348,6 +349,14 @@ export function mountShell({ host, state, api, getComposer, setComposer }) {
         try { window.sgveTimelineTest = runTimelineTest; } catch (_) {}
         onTimelineTest = (e) => { runTimelineTest((e && e.detail && e.detail.durationSec) || 60); };
         document.addEventListener('sgve:timeline-test', onTimelineTest);
+
+        // When a new blank project is created, stamp the clean baseline so
+        // hasUnsavedChanges() stays false until the user actually edits.
+        onNewProjectCreated = () => {
+            try { state.markSaved(); } catch (_) {}
+            document.dispatchEvent(new CustomEvent('sgve:state-changed', { detail: { isDirty: false } }));
+        };
+        document.addEventListener('sgve:new-project-created', onNewProjectCreated);
     }
 
     mountInto().catch(err => emitErr('mountShell', err));
@@ -360,6 +369,7 @@ export function mountShell({ host, state, api, getComposer, setComposer }) {
         try { window.removeEventListener('beforeunload', onBeforeUnload); } catch (_) {}
         try { document.removeEventListener('sgve:cancel-pending', onCancelPending); } catch (_) {}
         try { document.removeEventListener('sgve:timeline-test', onTimelineTest); } catch (_) {}
+        try { document.removeEventListener('sgve:new-project-created', onNewProjectCreated); } catch (_) {}
         try { delete window.sgveTimelineTest; } catch (_) {}
         try { document.removeEventListener('tool:toast', onToolToast); } catch (_) {}
         try { document.removeEventListener('tool:error', onToolError); } catch (_) {}
