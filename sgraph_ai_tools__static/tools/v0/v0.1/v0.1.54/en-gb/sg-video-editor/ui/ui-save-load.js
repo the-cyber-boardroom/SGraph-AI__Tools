@@ -1,19 +1,18 @@
 /** ui-save-load.js — Save / Save As / Load / Delete / New controls.
  *
  * Mounts as a single block inside the Project section of the Properties pane.
- * Uses native `confirm()` / `prompt()` for the few yes-no / one-line inputs;
- * a custom modal could swap in later without touching the API surface.
  *
- * Only deals with DOM + browser dialogs. All persistence calls go through the
- * SgToolApi (`api.saveProject`, `api.loadProject`, …).
+ * Dirty notice: listens for `sgve:state-changed` (dispatched by ui-shell after
+ * every debounced state mutation) to show/hide the "UNSAVED CHANGES" banner.
+ * The banner also carries a "Save now" shortcut so the user never has to hunt
+ * for the Save button.
  *
- * Round-9-J: every call to a SgToolApi method goes through `await` because
- * SgToolApi._invoke is itself async — callers MUST await even if the
- * registered impl is synchronous, otherwise we read a Promise as if it were
- * the raw value (the bug that hid the saved-projects list in Round-9-H).
+ * All persistence calls go through the SgToolApi (`api.saveProject`, …).
+ * Round-9-J: every SgToolApi call is awaited — even sync impls wrap in Promise.
  */
 
 import { slugify } from './state-storage.js';
+import { showConfirm } from './ui-confirm.js';
 
 function emitErr(step, err) {
     document.dispatchEvent(new CustomEvent('tool:error', {
@@ -23,13 +22,7 @@ function emitErr(step, err) {
 
 /**
  * Flush any focused text input (e.g. the inline-rename Name field) by blurring
- * it. Inputs created via `inlineRenameInput` commit on `blur` — without this
- * the user's pending rename is still in the DOM input but not yet in the
- * project model, so a click-Save-without-blur would save under the OLD name
- * and the toast would announce the OLD name. Blur is synchronous, so the
- * follow-on `getProject()` reads the updated value.
- *
- * Tolerant of `document.activeElement === null` (some shadow-DOM contexts).
+ * it so a pending rename commits before we read the project name.
  */
 function flushFocusedInput() {
     if (typeof document === 'undefined') return;
@@ -54,7 +47,7 @@ function fmtBytes(n) {
     if (!Number.isFinite(n)) return '?';
     if (n < 1024) return `${n} B`;
     if (n < 1024 * 1024) return `${(n / 1024).toFixed(1)} KB`;
-    return `${(n / 1024 / 1024).toFixed(2)} MB`;
+    return `${(n / 1024 / 1024).toFixed(1)} MB`;
 }
 
 /** Build a button with the standard properties-pane styling. */
@@ -85,7 +78,20 @@ export function mountSaveLoadControls({ host, api, getProject, onLoaded, onNewPr
     const wrap = document.createElement('div');
     wrap.className = 'sgve-saveload';
 
-    // Top row: Save / Save As / New
+    // ── Dirty notice (hidden until state changes) ─────────────────────────
+    const dirtyNotice = document.createElement('div');
+    dirtyNotice.className = 'sgve-unsaved-notice';
+    dirtyNotice.hidden = true;
+    dirtyNotice.innerHTML = '<span class="sgve-unsaved-notice__icon">⚠</span><span class="sgve-unsaved-notice__text">Unsaved changes</span>';
+    const saveNowBtn = document.createElement('button');
+    saveNowBtn.type = 'button';
+    saveNowBtn.className = 'sgve-unsaved-notice__btn';
+    saveNowBtn.textContent = 'Save now';
+    saveNowBtn.addEventListener('click', () => onSaveClick());
+    dirtyNotice.appendChild(saveNowBtn);
+    wrap.appendChild(dirtyNotice);
+
+    // ── Top row: Save / Save As / New ─────────────────────────────────────
     const topRow = document.createElement('div');
     topRow.className = 'sgve-saveload__row';
     topRow.appendChild(btn('Save', 'primary', onSaveClick));
@@ -93,14 +99,17 @@ export function mountSaveLoadControls({ host, api, getProject, onLoaded, onNewPr
     topRow.appendChild(btn('New', 'secondary', onNewClick));
     wrap.appendChild(topRow);
 
-    // Saved-projects list (rendered on refresh).
+    // ── Saved-projects list ───────────────────────────────────────────────
     const list = document.createElement('div');
     list.className = 'sgve-saveload__list';
     wrap.appendChild(list);
 
     host.appendChild(wrap);
 
-    /** Resolve the saved-projects list, awaiting the SgToolApi promise. */
+    function updateDirtyNotice(isDirty) {
+        dirtyNotice.hidden = !isDirty;
+    }
+
     async function fetchSavedProjects() {
         try {
             const r = await api.listSavedProjects();
@@ -110,20 +119,13 @@ export function mountSaveLoadControls({ host, api, getProject, onLoaded, onNewPr
 
     async function onSaveClick() {
         try {
-            // Round-9-K Item 1: flush any focused rename input BEFORE reading
-            // the project name. Otherwise a user who types a new name and
-            // clicks Save without first blurring sees a toast with the OLD
-            // name (the inline-rename input only commits on Enter / blur).
             flushFocusedInput();
             const project = getProject();
             const name = (project && project.project && project.project.name) || 'Untitled';
-            const existing = await fetchSavedProjects();
-            const slug = slugify(name);
-            const overwrite = existing.some(p => p && (p.slug === slug || p.name === name));
-            if (overwrite) {
-                if (!confirm(`A saved project named "${name}" exists. Overwrite?`)) return;
-            }
+            // Save silently — no overwrite confirmation when saving the current project.
             await api.saveProject({ name });
+            updateDirtyNotice(false);
+            document.dispatchEvent(new CustomEvent('sgve:project-saved'));
             await refresh();
         } catch (err) { emitErr('saveProject', err); }
     }
@@ -136,16 +138,19 @@ export function mountSaveLoadControls({ host, api, getProject, onLoaded, onNewPr
             const next = prompt('Save project as…', current);
             if (next == null) return;
             const trimmed = String(next).trim() || 'Untitled';
-            // Apply rename to the in-memory project so the display reflects
-            // the user's choice. Then save under the new name.
             try { await api.renameProject({ name: trimmed }); }
             catch (err) { emitErr('renameProject', err); return; }
             const existing = await fetchSavedProjects();
             const overwrite = existing.some(p => p && p.name === trimmed);
             if (overwrite) {
-                if (!confirm(`A saved project named "${trimmed}" exists. Overwrite?`)) return;
+                const ok = await showConfirm(
+                    `A saved project named "${trimmed}" already exists. Overwrite it?`,
+                    { title: 'Overwrite project?', confirmLabel: 'Overwrite', danger: true });
+                if (!ok) return;
             }
             await api.saveProject({ name: trimmed });
+            updateDirtyNotice(false);
+            document.dispatchEvent(new CustomEvent('sgve:project-saved'));
             await refresh();
         } catch (err) { emitErr('saveProject', err); }
     }
@@ -155,9 +160,11 @@ export function mountSaveLoadControls({ host, api, getProject, onLoaded, onNewPr
             const r = await api.hasUnsavedChanges();
             const dirty = !!(r && (r.hasUnsavedChanges === true || r === true));
             if (dirty) {
-                if (!confirm('Discard unsaved changes and start a new project?')) return;
+                const ok = await showConfirm(
+                    'You have unsaved changes. Start a new project anyway?',
+                    { title: 'Discard unsaved changes?', confirmLabel: 'Discard & start new', danger: true });
+                if (!ok) return;
             }
-            // Replace via setProject. Build a fresh blank wrapped project.
             const blank = {
                 schemaVersion: '0.1.0',
                 project: {
@@ -181,7 +188,10 @@ export function mountSaveLoadControls({ host, api, getProject, onLoaded, onNewPr
             const r = await api.hasUnsavedChanges();
             const dirty = !!(r && (r.hasUnsavedChanges === true || r === true));
             if (dirty) {
-                if (!confirm('Discard unsaved changes and load this project?')) return;
+                const ok = await showConfirm(
+                    'You have unsaved changes. Load this project anyway?',
+                    { title: 'Discard unsaved changes?', confirmLabel: 'Discard & load', danger: true });
+                if (!ok) return;
             }
             await api.loadProject({ slug });
             try { await api.discardAutosave(); } catch (_) {}
@@ -192,7 +202,10 @@ export function mountSaveLoadControls({ host, api, getProject, onLoaded, onNewPr
 
     async function onDeleteRowClick(slug, name) {
         try {
-            if (!confirm(`Delete saved project "${name}"? This cannot be undone.`)) return;
+            const ok = await showConfirm(
+                `"${name}" will be permanently deleted and cannot be recovered.`,
+                { title: 'Delete saved project?', confirmLabel: 'Delete', danger: true });
+            if (!ok) return;
             await api.deleteSavedProject({ slug });
             await refresh();
         } catch (err) { emitErr('deleteSavedProject', err); }
@@ -231,11 +244,20 @@ export function mountSaveLoadControls({ host, api, getProject, onLoaded, onNewPr
         }
     }
 
+    // Listen for state-changed events dispatched by ui-shell (debounced).
+    function onSgveStateChanged(e) {
+        if (e.detail && typeof e.detail.isDirty === 'boolean') {
+            updateDirtyNotice(e.detail.isDirty);
+        }
+    }
+    document.addEventListener('sgve:state-changed', onSgveStateChanged);
+
     refresh();
 
     return {
         refresh,
         destroy() {
+            document.removeEventListener('sgve:state-changed', onSgveStateChanged);
             try { wrap.remove(); } catch (_) {}
         },
     };

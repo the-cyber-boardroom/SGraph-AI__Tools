@@ -205,6 +205,10 @@ export function mountShell({ host, state, api, getComposer, setComposer }) {
             syncHistoryFlags();
             if (editorConfig.get('previewEnabled')) rebuild();
             if (editorConfig.get('overlayEnabled') && overlayWire) overlayWire.pushActive();
+            // Notify the save/load panel so it can show/hide the dirty notice.
+            document.dispatchEvent(new CustomEvent('sgve:state-changed', {
+                detail: { isDirty: state.hasUnsavedChanges() },
+            }));
         }, 100);
     }
 
