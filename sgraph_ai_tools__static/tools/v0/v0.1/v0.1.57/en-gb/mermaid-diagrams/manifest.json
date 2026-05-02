@@ -1,0 +1,87 @@
+{
+    "id": "mermaid-diagrams",
+    "name": "Mermaid Diagrams",
+    "slug": "mermaid-diagrams",
+    "description": "Create, edit and render Mermaid diagrams in your browser. 8 built-in examples cover flowchart, sequence, class, state, ER, Gantt, mind map and git graph. Live preview, zoom, fullscreen and SVG export.",
+    "icon": "🧜",
+    "version": "0.1.57",
+    "status": "live",
+    "category": "developer",
+    "keywords": ["mermaid", "diagram", "flowchart", "sequence", "class", "state", "ER", "gantt", "mindmap", "gitgraph", "svg", "visualisation"],
+    "locale": "en-gb",
+    "loader": [
+        { "phase": 1, "type": "css", "path": "/components/tokens/v1/v1.0/v1.0.0/sg-tokens.css" },
+        { "phase": 1, "type": "css", "path": "./styles/mermaid-diagrams.css" },
+        { "phase": 2, "type": "js",  "path": "/core/sg-layout/v0.1.0/sg-layout.js" },
+        { "phase": 2, "type": "js",  "path": "/components/sg-mermaid-render/v0/v0.1/v0.1.0/sg-mermaid-render.js" },
+        { "phase": 2, "type": "js",  "path": "/components/sg-mermaid-editor/v0/v0.1/v0.1.0/sg-mermaid-editor.js" },
+        { "phase": 2, "type": "js",  "path": "/components/sg-mermaid-demos/v0/v0.1/v0.1.0/sg-mermaid-demos.js" },
+        { "phase": 2, "type": "js",  "path": "/components/tool-api/sg-tool-api-explorer/v0/v0.1/v0.1.0/sg-tool-api-explorer.js" },
+        { "phase": 2, "type": "js",  "path": "/components/tool-api/sg-tool-api-console/v0/v0.1/v0.1.0/sg-tool-api-console.js" },
+        { "phase": 2, "type": "js",  "path": "/components/tool-api/sg-tool-api-manifest/v0/v0.1/v0.1.0/sg-tool-api-manifest.js" },
+        { "phase": 3, "type": "js",  "path": "./api/mermaid-api.js", "entry": true }
+    ],
+    "dependencies": {
+        "core": [
+            { "module": "sg-layout",       "path": "/core/sg-layout/v0.1.0/sg-layout.js" },
+            { "module": "sg-tool-api",     "path": "/core/sg-tool-api/v0/v0.1/v0.1.0/sg-tool-api.js" },
+            { "module": "manifest-loader", "path": "/core/manifest-loader/v0/v0.1/v0.1.0/manifest-loader.js" }
+        ],
+        "components": [
+            { "module": "sg-mermaid-render", "path": "/components/sg-mermaid-render/v0/v0.1/v0.1.0/sg-mermaid-render.js" },
+            { "module": "sg-mermaid-editor", "path": "/components/sg-mermaid-editor/v0/v0.1/v0.1.0/sg-mermaid-editor.js" },
+            { "module": "sg-mermaid-demos",  "path": "/components/sg-mermaid-demos/v0/v0.1/v0.1.0/sg-mermaid-demos.js" }
+        ],
+        "external": [
+            { "module": "mermaid", "url": "https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.esm.min.mjs" }
+        ]
+    },
+    "api": {
+        "version": "0.1.0",
+        "global": "window.__tool",
+        "events": ["tool:ready"],
+        "actions": {
+            "render": {
+                "description": "Render Mermaid markup and return the SVG string",
+                "params": [{ "name": "markup", "type": "string" }],
+                "returns": "Promise<{ svg: string, markup: string }>",
+                "async": true
+            },
+            "getMarkup": {
+                "description": "Get the current editor markup",
+                "returns": "string"
+            },
+            "setMarkup": {
+                "description": "Set editor markup and trigger a render",
+                "params": [{ "name": "markup", "type": "string" }]
+            },
+            "loadDemo": {
+                "description": "Load a built-in demo by id",
+                "params": [{ "name": "id", "type": "string" }],
+                "returns": "{ id, type, label, markup }"
+            },
+            "getDemos": {
+                "description": "List all built-in demo ids and labels",
+                "returns": "Array<{ id, type, label, description }>"
+            },
+            "exportSvg": {
+                "description": "Get the current rendered SVG as a string",
+                "returns": "string | null"
+            },
+            "exportPng": {
+                "description": "Rasterise the current SVG to a PNG data URL",
+                "returns": "Promise<string | null>",
+                "async": true
+            },
+            "getState": {
+                "description": "Current tool state snapshot",
+                "returns": "{ markup: string, hasRendered: boolean, theme: string }"
+            }
+        }
+    },
+    "skills": {
+        "human":   "./SKILL-human.md",
+        "browser": "./SKILL-browser.md",
+        "api":     "./SKILL-api.md"
+    }
+}

@@ -1,0 +1,56 @@
+/* Mermaid Diagrams tool — layout styles */
+
+html, body {
+    margin: 0; padding: 0; height: 100%;
+    background: #0a0a18; color: #e2e8f0;
+    font-family: system-ui, -apple-system, sans-serif;
+    overflow: hidden;
+}
+body { display: flex; flex-direction: column; }
+
+#layout-wrap {
+    flex: 1; overflow: hidden;
+    display: flex; flex-direction: column; min-height: 0;
+}
+
+/* Panel base — every sg-layout tab content fills its slot */
+.md-panel {
+    height: 100%; display: flex; flex-direction: column;
+    min-height: 0; overflow: hidden; box-sizing: border-box;
+}
+
+/* Render panel — extra padding, full-height renderer */
+.md-render-panel {
+    height: 100%; display: flex; flex-direction: column; min-height: 0;
+    padding: 12px; box-sizing: border-box; background: #0a0a18;
+}
+
+sg-mermaid-render {
+    flex: 1; min-height: 0; display: block;
+}
+
+/* Editor panel */
+.md-editor-panel {
+    height: 100%; display: flex; flex-direction: column;
+    min-height: 0; padding: 10px; box-sizing: border-box; background: #0a0a18;
+}
+
+sg-mermaid-editor {
+    flex: 1; min-height: 0; display: flex; flex-direction: column;
+}
+
+/* Demos panel */
+.md-demos-panel {
+    height: 100%; display: flex; flex-direction: column;
+    min-height: 0; overflow: hidden; background: #0a0a18;
+}
+
+sg-mermaid-demos { flex: 1; min-height: 0; display: flex; flex-direction: column; }
+
+/* Prevent FOUC on custom elements */
+sg-mermaid-render:not(:defined),
+sg-mermaid-editor:not(:defined),
+sg-mermaid-demos:not(:defined) {
+    display: block; min-height: 40px;
+    background: #0a0a18; border-radius: 6px;
+}
