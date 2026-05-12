@@ -18,6 +18,15 @@ For agents and developers embedding vault content via cross-origin imports from 
 | [Vault Quick Start](api/v0.1.92__vault__quick-start.md) | Common subset (the vault-peek pattern): `<sg-vault-content>`, key + fetch + renderer composition, manifests, trace panel, CORS notes, end-to-end example |
 | [Vault Full Inventory](api/v0.1.92__vault__full-inventory.md) | Every vault artefact: 7 core modules, 5 read-only embed components, 3 content renderers, 10 interactive components, 6 tools — with pinned CDN URLs, attributes, events, exports |
 
+## sg-layout — Consumer-Agent Guides
+
+For agents and developers building tools on top of `<sg-layout>` (the fractal panel/window custom element used by every tool on tools.sgraph.ai), imported over CORS from `https://tools.sgraph.ai`.
+
+| Document | Contents |
+|----------|----------|
+| [sg-layout Quick Start](api/v0.1.92__sg-layout__quick-start.md) | Common patterns: layout JSON tree, 5 methods you'll actually use, the `layout.events` bus (not `addEventListener`!), theming via CSS custom properties, end-to-end example |
+| [sg-layout Full Inventory](api/v0.1.92__sg-layout__full-inventory.md) | Every method (15), every `SGL_EVENTS` constant (18) with detail shapes and dispatch info, the layout JSON schema, drag-to-dock zones, lock model, shadow DOM classes, all CSS variables |
+
 ## Architecture
 
 | Document | Contents |
