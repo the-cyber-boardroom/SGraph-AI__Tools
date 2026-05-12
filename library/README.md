@@ -6,8 +6,17 @@ Reference materials for all agents. Start here when you need to look something u
 
 | Document | Contents |
 |----------|----------|
-| [Component API Catalogue](api/v0.1.68__reference__components.md) | All 50+ components across 20 families: elements, attributes, events, versions |
-| [Core Module API Reference](api/v0.1.68__reference__core-modules.md) | All 15 core module families: exports, type signatures |
+| [Component API Catalogue](api/v0.1.68__reference__components.md) | All 50+ components across 20 families: elements, attributes, events, versions. **Vault sections are stale — use the two vault guides below.** |
+| [Core Module API Reference](api/v0.1.68__reference__core-modules.md) | All 15 core module families: exports, type signatures. **Vault sections are stale — use the two vault guides below.** |
+
+## Vault — Consumer-Agent Guides
+
+For agents and developers embedding vault content via cross-origin imports from `https://tools.sgraph.ai`.
+
+| Document | Contents |
+|----------|----------|
+| [Vault Quick Start](api/v0.1.92__vault__quick-start.md) | Common subset (the vault-peek pattern): `<sg-vault-content>`, key + fetch + renderer composition, manifests, trace panel, CORS notes, end-to-end example |
+| [Vault Full Inventory](api/v0.1.92__vault__full-inventory.md) | Every vault artefact: 7 core modules, 5 read-only embed components, 3 content renderers, 10 interactive components, 6 tools — with pinned CDN URLs, attributes, events, exports |
 
 ## Architecture
 

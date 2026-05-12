@@ -204,6 +204,8 @@ This enables headless Playwright testing, agentic driving, and console scripting
 | **Architecture guide** | `library/architecture/v0.1.68__guide__three-tier-architecture.md` |
 | **JS Tool API** | `library/api/v0.1.91__tool-api__index.md` |
 | **Static asset catalogue** | `library/catalogue/v0.1.91__catalogue__index.md` |
-| **Component API** | `library/api/v0.1.68__reference__components.md` |
-| **Core module API** | `library/api/v0.1.68__reference__core-modules.md` |
+| **Component API** | `library/api/v0.1.68__reference__components.md` (vault sections stale — see vault guides below) |
+| **Core module API** | `library/api/v0.1.68__reference__core-modules.md` (vault sections stale — see vault guides below) |
+| **Vault — Quick Start (consumer agents)** | `library/api/v0.1.92__vault__quick-start.md` — common subset (vault-peek pattern) for embedding vault content over CORS |
+| **Vault — Full Inventory (consumer agents)** | `library/api/v0.1.92__vault__full-inventory.md` — every vault module, component, and tool with pinned CDN URLs |
 | **Role definitions** | `team/explorer/{role}/ROLE__{role}.md` |
