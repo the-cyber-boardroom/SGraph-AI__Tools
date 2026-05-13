@@ -21,17 +21,18 @@ import { SgToolApi }         from '/core/sg-tool-api/v0/v0.1/v0.1.0/sg-tool-api.
 import { initShell }          from '../ui/ui-shell.js';
 import { initLayout }         from '../ui/aw-layout.js';
 
-// ── lb_* tool schemas (sent to Ollama / OpenRouter via tools:[]) ──────────────
-
-/** JSON schemas for the lb_* tools registered by sg-local-bridge. */
-const LB_TOOL_SCHEMAS = [
-    { type:'function', function:{ name:'lb_read_file', description:'Read a text file from the workspace.', parameters:{ type:'object', properties:{ path:{ type:'string', description:'File path relative to workspace' } }, required:['path'] } } },
-    { type:'function', function:{ name:'lb_write_file', description:'Write content to a file (creates directories).', parameters:{ type:'object', properties:{ path:{ type:'string' }, content:{ type:'string' } }, required:['path','content'] } } },
-    { type:'function', function:{ name:'lb_delete_file', description:'Delete a file from the workspace.', parameters:{ type:'object', properties:{ path:{ type:'string' } }, required:['path'] } } },
-    { type:'function', function:{ name:'lb_list_folder', description:'List files and folders in a directory.', parameters:{ type:'object', properties:{ path:{ type:'string' }, recursive:{ type:'boolean' } }, required:['path'] } } },
-    { type:'function', function:{ name:'lb_run_bash', description:'Run a bash command in the workspace container.', parameters:{ type:'object', properties:{ command:{ type:'string' }, cwd:{ type:'string' }, timeout_s:{ type:'number' } }, required:['command'] } } },
-    { type:'function', function:{ name:'lb_fetch_url', description:'Fetch a URL and return the response body.', parameters:{ type:'object', properties:{ url:{ type:'string' }, method:{ type:'string', enum:['GET','POST','PUT','DELETE'] }, headers:{ type:'object' }, body:{ type:'string' } }, required:['url'] } } },
-];
+// ── lb_* first-required-param index (for arg normalisation) ──────────────────
+// Maps tool name → first required parameter name.
+// Used to fix LLM responses that emit `arguments` as a bare JSON string
+// (e.g. '"pwd"') instead of a JSON object (e.g. '{"command":"pwd"}').
+const LB_FIRST_REQUIRED = {
+    lb_read_file:   'path',
+    lb_write_file:  'path',
+    lb_delete_file: 'path',
+    lb_list_folder: 'path',
+    lb_run_bash:    'command',
+    lb_fetch_url:   'url',
+};
 
 // ── Element references ────────────────────────────────────────────────────────
 
@@ -125,12 +126,25 @@ bus?.addEventListener('llm:system-prompt', (e) => {
     bus.__sgLlmChatHistory?.setSystemPrompt(content);
 });
 
-// Register lb_* schemas in sg-tool-definition once the bridge connects.
-bus?.addEventListener('sg-local-bridge:status', () => {
-    if (toolDef && typeof toolDef.addTool === 'function') {
-        for (const def of LB_TOOL_SCHEMAS) toolDef.addTool(def);
+// Arg normalisation middleware — intercepts llm:tool-calls (capture phase).
+// Some LLMs (e.g. Qwen 2.5) emit `arguments` as a bare JSON string such as
+// '"pwd"' instead of a proper JSON object '{"command":"pwd"}'. This mutates
+// each tool call's arguments before sg-tool-runner processes them.
+bus?.addEventListener('llm:tool-calls', (e) => {
+    const toolCalls = e.detail?.toolCalls;
+    if (!Array.isArray(toolCalls)) return;
+    for (const tc of toolCalls) {
+        const fn = tc?.function;
+        if (!fn?.arguments) continue;
+        let parsed;
+        try { parsed = JSON.parse(fn.arguments); } catch { continue; }
+        if (parsed !== null && typeof parsed === 'object' && !Array.isArray(parsed)) continue;
+        const firstParam = LB_FIRST_REQUIRED[fn.name];
+        if (firstParam && (typeof parsed === 'string' || typeof parsed === 'number')) {
+            fn.arguments = JSON.stringify({ [firstParam]: String(parsed) });
+        }
     }
-}, { once: true });
+}, true); // CAPTURE — fires before sg-tool-runner's listener
 
 // Tool injection middleware — intercepts llm:send (capture phase), stops it,
 // re-fires with tools:[] so Ollama enters function-calling mode.

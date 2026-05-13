@@ -9,14 +9,7 @@
  * @module aw-tool-tester
  * @version 0.1.58
  */
-// @dev @architect: I'm going to do a code review on this file where I'm going to be capturing
-    // a good number of patterns and code guidance that I would like to be applied to the rest of the code base
-    // this should be extratted to a number of guidance and coding standard files so that the agents working on this code base can view them and follow them
-    // once this guidance has been processed and understood, please remove all my comments
 
-// @dev this file should be placed inside a folder (for this component) which will hold all files related to it (we are service these static files from a CDN so it is fast)
-    // all CSS and HTML should be placed in separate files inside this component's folder
-    // we should also try to reuse css files which as long as they are part of this tools repo they are easy tp import (this is specially for common css entries, we want to make sure there is level of consistency , and eventually easy to themme)
 const CSS = `
 :host { display:flex; flex-direction:column; height:100%; overflow:hidden;
         background:#0d0d1a; font-family:system-ui,sans-serif; font-size:12px; color:#94a3b8; }
@@ -88,17 +81,11 @@ const CSS = `
 .tt-result-pre.err { border-color:#7f1d1d; color:#fca5a5; }
 `;
 
-// @dev this class should use the base class the sgraph_ai_tools__static/components/base/v1/v1.0/v1.0.0/sg-component.js
-    // which provides a good number of utils classes , like classes to load the css and html
-    // the name of this class should be Aw_Tool_Tester (vs AwToolTester)
 export class AwToolTester extends HTMLElement {
-    // @dev @architect: method overides like this one, should have very little code. they should be calling other methods whose intent (and side effects) are captured in the method name. Basically It should be possible to read the methods called from a method and understand what is going on
     connectedCallback() {
         if (this._init) return;
         this._init = true;
         this.attachShadow({ mode: 'open' });
-        // @dev good example of html that should not be here , but should be in a separate file
-            // also (this very important) , we need to make this code easy to i18n , which means that all strings need to be variables (even if to start with, they are consts in this file)
         this.shadowRoot.innerHTML = `<style>${CSS}</style>
             <div class="tt-toolbar">
                 <span class="tt-title">Tool Tester</span>
@@ -108,23 +95,10 @@ export class AwToolTester extends HTMLElement {
                 <div class="tt-empty">Loading tools…</div>
             </div>`;
 
-        // @dev @architect we need to create and use util js classes that help to make the code much easier to write , maintain and understand (and it is ok to hardcode a number of oppinionated standards and convertions
-        // like the code below could be refactored to:
-            // sg_tools.add_event_listerner('.tt-reload','click', () => this._load());
-        // or
-            // sg_tools.add_event_listerner__click('.tt-reload', () => this._load());
-        // or
-            // this.sg_tools.add_event_listerner__click('.tt-reload', this._load);
-        // or
-            // this.on__click('.tt-reload', 'load')
-        // or even
-            // this.load__on_click('.tt-reload')
-        // the idea is to make the code as easy to read and as 'explicit' as possible (i.e. we should be over indexing in readbility, intent and explainability
         this.shadowRoot.querySelector('.tt-reload').addEventListener('click', () => this._load());
 
         // Load once tools and bridge are ready
         const bus = this._bus();
-        // @dev the code below is another example of a line that is doing too much in one line (and we should make the code more explict)
         bus.addEventListener('sg-local-bridge:status', () => setTimeout(() => this._load(), 300), { once: true });
         this._load();
     }
