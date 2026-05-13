@@ -1,0 +1,144 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>sg-local-bridge demo</title>
+<style>
+  body { font-family: system-ui, sans-serif; background: #0d0d1a; color: #e2e8f0; margin: 0; padding: 24px; }
+  h1   { font-size: 1.2rem; color: #4ade80; margin: 0 0 16px; }
+  h2   { font-size: 0.9rem; color: #94a3b8; margin: 16px 0 8px; text-transform: uppercase; letter-spacing: 0.05em; }
+  #status-box { padding: 12px 16px; border-radius: 8px; background: #1e1e2e; border: 1px solid #334155; margin-bottom: 16px; font-size: 0.85rem; }
+  #status-box.ok    { border-color: #4ade80; }
+  #status-box.error { border-color: #f87171; }
+  #tools-list { list-style: none; margin: 0; padding: 0; display: flex; flex-wrap: wrap; gap: 8px; }
+  #tools-list li { display: flex; gap: 6px; align-items: center; }
+  button { padding: 6px 12px; border-radius: 6px; border: 1px solid #334155; background: #1e293b; color: #94a3b8; cursor: pointer; font-size: 0.8rem; }
+  button:hover { background: #334155; color: #e2e8f0; }
+  #result-box { margin-top: 16px; padding: 12px 16px; border-radius: 8px; background: #1e1e2e; border: 1px solid #334155; font-family: monospace; font-size: 0.78rem; white-space: pre-wrap; max-height: 320px; overflow-y: auto; color: #94a3b8; }
+  .dot { width: 8px; height: 8px; border-radius: 50%; background: #475569; display: inline-block; margin-right: 6px; }
+  .dot.ok    { background: #4ade80; }
+  .dot.error { background: #f87171; }
+</style>
+</head>
+<body>
+
+<h1>sg-local-bridge developer demo</h1>
+
+<!-- ── Stub sg-tool-runner ─────────────────────────────────────────────── -->
+<script>
+class StubToolRunner extends HTMLElement {
+    constructor() { super(); this._registry = new Map(); }
+    connectedCallback() {
+        // Render registered tools list after a tick (tools registered after connect)
+        setTimeout(() => this._render(), 100);
+    }
+    /** @param {string} name @param {function} fn */
+    register(name, fn) {
+        this._registry.set(name, fn);
+        this._render();
+    }
+    /** @param {string} name @param {Object} args */
+    async execute(name, args) {
+        const fn = this._registry.get(name);
+        if (!fn) throw new Error(`Unknown tool: ${name}`);
+        return fn(args);
+    }
+    get toolNames() { return [...this._registry.keys()]; }
+    _render() {
+        const list = document.getElementById('tools-list');
+        if (!list) return;
+        list.innerHTML = '';
+        if (this._registry.size === 0) {
+            list.innerHTML = '<li style="color:#475569">No tools registered yet.</li>';
+            return;
+        }
+        const testArgs = {
+            lb_read_file:   { path: 'README.md' },
+            lb_write_file:  { path: 'demo-test.txt', content: 'Hello from demo!\n' },
+            lb_delete_file: { path: 'demo-test.txt' },
+            lb_list_folder: { path: '.' },
+            lb_run_bash:    { command: 'echo hello from bash && pwd' },
+            lb_fetch_url:   { url: 'https://httpbin.org/get' },
+        };
+        for (const name of this._registry.keys()) {
+            const li  = document.createElement('li');
+            const btn = document.createElement('button');
+            btn.textContent = `▶ ${name}`;
+            btn.title = JSON.stringify(testArgs[name] ?? {});
+            btn.onclick = async () => {
+                const box = document.getElementById('result-box');
+                box.textContent = `Calling ${name}…`;
+                try {
+                    const t0  = Date.now();
+                    const res = await this.execute(name, testArgs[name] ?? {});
+                    box.textContent = `[${name}] ${Date.now() - t0}ms\n\n${JSON.stringify(res, null, 2)}`;
+                } catch (err) {
+                    box.textContent = `[${name}] ERROR\n\n${err.message}\n${JSON.stringify({ errorCode: err.errorCode, detail: err.detail, status: err.status }, null, 2)}`;
+                }
+            };
+            li.appendChild(btn);
+            list.appendChild(li);
+        }
+    }
+}
+customElements.define('sg-tool-runner', StubToolRunner);
+</script>
+
+<!-- ── Bus + components ───────────────────────────────────────────────────── -->
+<div data-llm-bus id="bus">
+  <sg-tool-runner id="runner"></sg-tool-runner>
+  <sg-local-bridge
+    endpoint="http://localhost:8000"
+    workspace="/workspace"
+    auto-connect
+    id="bridge">
+  </sg-local-bridge>
+</div>
+
+<!-- ── Status display ─────────────────────────────────────────────────────── -->
+<h2>Bridge status</h2>
+<div id="status-box"><span class="dot" id="dot"></span><span id="status-text">Connecting…</span></div>
+
+<h2>Registered tools <small style="color:#475569;font-size:0.75em">(click to invoke with test args)</small></h2>
+<ul id="tools-list"><li style="color:#475569">Waiting for bridge…</li></ul>
+
+<h2>Last result</h2>
+<div id="result-box">—</div>
+
+<!-- ── Load component + wire events ──────────────────────────────────────── -->
+<script type="module">
+import './sg-local-bridge.js';
+
+const bus       = document.getElementById('bus');
+const dot       = document.getElementById('dot');
+const statusTxt = document.getElementById('status-text');
+const statusBox = document.getElementById('status-box');
+
+bus.addEventListener('sg-local-bridge:status', (e) => {
+    const { ok, version, workspace, latency_ms } = e.detail;
+    dot.className = 'dot ok';
+    statusBox.className = 'ok';
+    statusTxt.textContent = `Connected · v${version} · ${workspace} · ${latency_ms}ms`;
+    // Re-render tool runner list after tools are registered
+    setTimeout(() => document.getElementById('runner')._render(), 50);
+});
+
+bus.addEventListener('sg-local-bridge:error', (e) => {
+    dot.className = 'dot error';
+    statusBox.className = 'error';
+    statusTxt.textContent = `Error: ${e.detail.message}`;
+    document.getElementById('tools-list').innerHTML =
+        '<li style="color:#f87171">Bridge unreachable — start sgraph_bridge first.</li>';
+});
+
+bus.addEventListener('sg-local-bridge:tool-call', (e) => {
+    const box = document.getElementById('result-box');
+    const { name, ms } = e.detail;
+    // Prepend a log line without replacing the full result
+    const prev = box.textContent;
+    box.textContent = `[event] sg-local-bridge:tool-call · ${name} · ${ms}ms\n\n${prev}`;
+});
+</script>
+
+</body>
+</html>
