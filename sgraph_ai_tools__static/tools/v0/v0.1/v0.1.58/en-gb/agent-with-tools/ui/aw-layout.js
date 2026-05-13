@@ -28,8 +28,9 @@ const LAYOUT = {
         },
         {
             type: 'column',
-            sizes: [0.45, 0.25, 0.30],
+            sizes: [0.32, 0.36, 0.17, 0.15],
             children: [
+                { type: 'stack', tabs: [{ tag: 'sg-llm-connection',  title: 'Connection' }] },
                 { type: 'stack', tabs: [{ tag: 'sg-tool-definition', title: 'Tools' }] },
                 { type: 'stack', tabs: [{ tag: 'aw-bridge-panel',    title: 'Bridge' }] },
                 { type: 'stack', tabs: [{ tag: 'aw-model-panel',     title: 'Model' }] },

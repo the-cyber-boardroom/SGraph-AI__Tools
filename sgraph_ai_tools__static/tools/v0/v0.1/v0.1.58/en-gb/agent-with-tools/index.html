@@ -22,13 +22,9 @@
     </style>
 </head>
 <body>
-    <!-- Header: title + connection widget (outside sg-layout so it stays visible) -->
+    <!-- Header: title + bridge status dot -->
     <header class="aw-header">
         <span class="aw-title">🛠️ Agent with Tools</span>
-        <!-- sg-llm-connection is positioned outside sg-layout to prevent viewport overflow -->
-        <div class="aw-conn-wrapper">
-            <sg-llm-connection></sg-llm-connection>
-        </div>
         <span id="bridge-status" class="aw-bridge-dot" title="Bridge not connected">●</span>
     </header>
 
