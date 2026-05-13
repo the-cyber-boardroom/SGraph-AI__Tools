@@ -1,0 +1,59 @@
+<!DOCTYPE html>
+<html lang="en-GB">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Agent with Tools — tools.sgraph.ai</title>
+    <meta name="description" content="Browser-based chat agent that reads/writes files, runs bash commands, and fetches URLs on your local machine via a lightweight Docker bridge. Works with Ollama (offline) or OpenRouter (cloud).">
+
+    <script type="module">
+        import { loadManifest } from '/core/manifest-loader/v0/v0.1/v0.1.0/manifest-loader.js';
+        await loadManifest('./manifest.json');
+    </script>
+
+    <style>
+        html, body {
+            margin: 0; padding: 0; height: 100%;
+            background: #0a0a18; color: #e2e8f0;
+            font-family: system-ui, sans-serif;
+            overflow: hidden;
+        }
+        body { display: flex; flex-direction: column; }
+    </style>
+</head>
+<body>
+    <header class="aw-header">
+        <span class="aw-title">🛠️ Agent with Tools</span>
+        <sg-llm-connection></sg-llm-connection>
+        <span id="bridge-status" class="aw-bridge-dot" title="Bridge not connected">●</span>
+    </header>
+
+    <main data-llm-bus class="aw-grid">
+        <section class="aw-chat">
+            <sg-llm-chat-history></sg-llm-chat-history>
+            <sg-llm-chat-input></sg-llm-chat-input>
+            <div id="loop-strip" class="aw-loop-strip"></div>
+        </section>
+
+        <aside class="aw-side">
+            <sg-tool-definition></sg-tool-definition>
+            <div id="bridge-panel" class="aw-panel"></div>
+            <div id="model-panel" class="aw-panel"></div>
+        </aside>
+
+        <!-- headless engines -->
+        <sg-llm-request provider="ollama" model="qwen2.5-coder:7b"></sg-llm-request>
+        <sg-tool-runner id="runner" builtins="none"></sg-tool-runner>
+        <sg-local-bridge endpoint="http://localhost:8000"
+                         workspace="/workspace"
+                         auto-connect></sg-local-bridge>
+        <sg-agentic-loop max-iterations="15" cost-budget="0.50"></sg-agentic-loop>
+    </main>
+
+    <section class="aw-dev-panel">
+        <sg-tool-api-explorer></sg-tool-api-explorer>
+        <sg-tool-api-console></sg-tool-api-console>
+        <sg-tool-api-manifest></sg-tool-api-manifest>
+    </section>
+</body>
+</html>
