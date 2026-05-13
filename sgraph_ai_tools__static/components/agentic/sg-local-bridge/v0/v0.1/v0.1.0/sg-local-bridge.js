@@ -30,6 +30,105 @@ import {
 
 const ALL_TOOLS = ['lb_read_file', 'lb_write_file', 'lb_delete_file', 'lb_list_folder', 'lb_run_bash', 'lb_fetch_url'];
 
+// ── Tool schemas (OpenAI function format) ─────────────────────────────────────
+// Used to register lb_* tools with sg-tool-definition so they appear in the
+// Tools panel and are included in the tool_calls payload sent to the LLM.
+
+const LB_TOOL_SCHEMAS = {
+    lb_read_file: {
+        type: 'function',
+        function: {
+            name: 'lb_read_file',
+            description: 'Read a text file from the workspace.',
+            parameters: {
+                type: 'object',
+                properties: {
+                    path: { type: 'string', description: 'File path relative to workspace root' },
+                },
+                required: ['path'],
+            },
+        },
+    },
+    lb_write_file: {
+        type: 'function',
+        function: {
+            name: 'lb_write_file',
+            description: 'Write content to a file in the workspace (creates missing directories).',
+            parameters: {
+                type: 'object',
+                properties: {
+                    path:        { type: 'string',  description: 'File path relative to workspace root' },
+                    content:     { type: 'string',  description: 'Text content to write' },
+                    create_dirs: { type: 'boolean', description: 'Create parent directories if missing (default: true)' },
+                },
+                required: ['path', 'content'],
+            },
+        },
+    },
+    lb_delete_file: {
+        type: 'function',
+        function: {
+            name: 'lb_delete_file',
+            description: 'Delete a file from the workspace.',
+            parameters: {
+                type: 'object',
+                properties: {
+                    path: { type: 'string', description: 'File path relative to workspace root' },
+                },
+                required: ['path'],
+            },
+        },
+    },
+    lb_list_folder: {
+        type: 'function',
+        function: {
+            name: 'lb_list_folder',
+            description: 'List files and folders in a workspace directory.',
+            parameters: {
+                type: 'object',
+                properties: {
+                    path:      { type: 'string',  description: 'Directory path relative to workspace root' },
+                    recursive: { type: 'boolean', description: 'List subdirectories recursively (default: false)' },
+                },
+                required: ['path'],
+            },
+        },
+    },
+    lb_run_bash: {
+        type: 'function',
+        function: {
+            name: 'lb_run_bash',
+            description: 'Run a bash command inside the Docker container workspace.',
+            parameters: {
+                type: 'object',
+                properties: {
+                    command:   { type: 'string', description: 'Shell command to execute' },
+                    cwd:       { type: 'string', description: 'Working directory relative to workspace root (default: workspace root)' },
+                    timeout_s: { type: 'number', description: 'Timeout in seconds (default: 30)' },
+                },
+                required: ['command'],
+            },
+        },
+    },
+    lb_fetch_url: {
+        type: 'function',
+        function: {
+            name: 'lb_fetch_url',
+            description: 'Fetch a URL from inside the Docker container and return the response body.',
+            parameters: {
+                type: 'object',
+                properties: {
+                    url:     { type: 'string', description: 'URL to fetch' },
+                    method:  { type: 'string', description: 'HTTP method (default: GET)' },
+                    headers: { type: 'object', description: 'Request headers as key-value pairs' },
+                    body:    { type: 'string', description: 'Request body for POST/PUT' },
+                },
+                required: ['url'],
+            },
+        },
+    },
+};
+
 // ── Component ─────────────────────────────────────────────────────────────────
 
 export class SgLocalBridge extends HTMLElement {
@@ -120,19 +219,11 @@ export class SgLocalBridge extends HTMLElement {
     }
 
     /**
-     * Perform the actual runner.register() calls for each enabled tool.
+     * Perform the actual runner.register() calls for each enabled tool,
+     * then push the lb_* schemas into sg-tool-definition so the Tools panel
+     * shows them and sg-llm-request includes them in the Ollama API payload.
      * @param {Element} runner - sg-tool-runner element
      * @private
-     *
-     * TODO P7: sg-tool-definition does NOT know about lb_* tools registered here.
-     * It only shows BUILTIN_TOOL_DEFS (list_folder/read_file/…) from sg-tool-runner
-     * plus TEMPLATE_TOOL_DEFS baked into its own source. It has no listener for
-     * sg-local-bridge registration events. To fix, either:
-     *   a) dispatch a "sg-tool-definition:add-tool" event for each lb_* schema after
-     *      calling runner.register(), or
-     *   b) give sg-tool-definition a sg-tool-runner reference and call addTool()
-     *      directly after registration.
-     * Until then, lb_* tools are usable by the LLM but invisible in the Tools panel UI.
      */
     _doRegister(runner) {
         const ep  = this._endpoint;
@@ -171,6 +262,31 @@ export class SgLocalBridge extends HTMLElement {
 
         if (names.includes('lb_fetch_url'))
             wrap('lb_fetch_url',   ({ url, method, headers, body }) => fetchUrl(ep, url, method ?? 'GET', headers ?? {}, body ?? '', tms));
+
+        this._pushToToolDef(names);
+    }
+
+    /**
+     * Push lb_* schemas into sg-tool-definition so the Tools panel and the
+     * Ollama API payload include them. Waits for the element if not yet defined.
+     * @param {string[]} names - Tool names that were registered
+     * @private
+     */
+    _pushToToolDef(names) {
+        const push = (td) => {
+            for (const name of names) {
+                if (LB_TOOL_SCHEMAS[name]) td.addTool(LB_TOOL_SCHEMAS[name]);
+            }
+        };
+        const td = this._bus.querySelector('sg-tool-definition');
+        if (td && typeof td.addTool === 'function') {
+            push(td);
+        } else {
+            customElements.whenDefined('sg-tool-definition').then(() => {
+                const el = this._bus.querySelector('sg-tool-definition');
+                if (el && typeof el.addTool === 'function') push(el);
+            });
+        }
     }
 
     // ── Helpers ─────────────────────────────────────────────────────────────
