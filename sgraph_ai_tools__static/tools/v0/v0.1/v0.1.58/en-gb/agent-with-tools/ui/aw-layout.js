@@ -41,12 +41,14 @@ const LAYOUT = {
                     tabs: [
                         { tag: 'aw-demo-panel',  title: 'Demo' },
                         { tag: 'aw-step-tracer', title: 'Tracer' },
+                        { tag: 'aw-llm-log',     title: 'LLM Log' },
                     ],
                 },
                 {
                     type: 'stack',
                     tabs: [
                         { tag: 'aw-execution-inspector', title: 'Queue' },
+                        { tag: 'aw-execution-log',       title: 'Exec Log' },
                         { tag: 'sg-llm-connection',      title: 'Connection' },
                         { tag: 'sg-tool-definition',     title: 'Tools' },
                     ],

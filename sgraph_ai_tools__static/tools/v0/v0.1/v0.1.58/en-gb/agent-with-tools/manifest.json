@@ -35,6 +35,8 @@
         { "phase": 2, "type": "js",  "path": "./ui/aw-pipeline-view.js" },
         { "phase": 2, "type": "js",  "path": "./ui/aw-loop-coordinator.js" },
         { "phase": 2, "type": "js",  "path": "./ui/aw-demo-panel.js" },
+        { "phase": 2, "type": "js",  "path": "./ui/aw-execution-log.js" },
+        { "phase": 2, "type": "js",  "path": "./ui/aw-llm-log.js" },
         { "phase": 3, "type": "js",  "path": "./api/agent-with-tools-api.js", "entry": true }
     ],
     "dependencies": {
