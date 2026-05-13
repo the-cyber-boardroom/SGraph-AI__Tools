@@ -6,7 +6,8 @@
  *   ├─ column [25% / 75%]
  *   │  ├─ stack: aw-system-prompt (System Prompt tab)
  *   │  └─ stack: aw-chat-pane    (Chat tab, locked)
- *   └─ column [15% / 8% / 22% / 20% / 15% / 12% / 8%]
+ *   └─ column [20% / 13% / 8% / 20% / 18% / 10% / 07% / 04%]
+ *      ├─ stack: aw-demo-panel        (Demo tab)
  *      ├─ stack: sg-llm-connection    (Connection tab)
  *      ├─ stack: aw-pipeline-view     (Pipeline tab)
  *      ├─ stack: aw-execution-inspector (Queue tab)
@@ -38,9 +39,10 @@ const LAYOUT = {
         },
         {
             type: 'column',
-            sizes: [0.15, 0.08, 0.22, 0.20, 0.15, 0.12, 0.08],
+            sizes: [0.20, 0.13, 0.08, 0.20, 0.18, 0.10, 0.07, 0.04],
             children: [
-                { type: 'stack', tabs: [{ tag: 'sg-llm-connection',      title: 'Connection' }] },
+                { type: 'stack', tabs: [{ tag: 'aw-demo-panel',           title: 'Demo' }] },
+                { type: 'stack', tabs: [{ tag: 'sg-llm-connection',       title: 'Connection' }] },
                 { type: 'stack', tabs: [{ tag: 'aw-pipeline-view',        title: 'Pipeline' }] },
                 { type: 'stack', tabs: [{ tag: 'aw-execution-inspector',  title: 'Queue' }] },
                 { type: 'stack', tabs: [{ tag: 'aw-step-tracer',          title: 'Tracer' }] },
