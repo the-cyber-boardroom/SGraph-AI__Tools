@@ -39,9 +39,10 @@ const LAYOUT = {
                 {
                     type: 'stack',
                     tabs: [
-                        { tag: 'aw-demo-panel',  title: 'Demo' },
-                        { tag: 'aw-step-tracer', title: 'Tracer' },
-                        { tag: 'aw-llm-log',     title: 'LLM Log' },
+                        { tag: 'aw-demo-panel',      title: 'Demo' },
+                        { tag: 'aw-step-tracer',     title: 'Tracer' },
+                        { tag: 'aw-llm-log',         title: 'LLM Log' },
+                        { tag: 'aw-turn-inspector',  title: 'Turns' },
                     ],
                 },
                 {
@@ -49,6 +50,7 @@ const LAYOUT = {
                     tabs: [
                         { tag: 'aw-execution-inspector', title: 'Queue' },
                         { tag: 'aw-execution-log',       title: 'Exec Log' },
+                        { tag: 'aw-tool-tester',         title: 'Tester' },
                         { tag: 'sg-llm-connection',      title: 'Connection' },
                         { tag: 'sg-tool-definition',     title: 'Tools' },
                     ],

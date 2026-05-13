@@ -65,6 +65,7 @@ export class AwExecutionLog extends HTMLElement {
         super();
         this.attachShadow({ mode: 'open' });
         this._entries = [];
+        this._pending = new Map(); // toolCallId → entry
         this._seq = 0;
     }
 
@@ -74,30 +75,55 @@ export class AwExecutionLog extends HTMLElement {
         this._render();
         const bus = this._bus();
 
-        bus.addEventListener('sg-local-bridge:tool-call', (e) => {
-            const { name, args, result, ms } = e.detail ?? {};
-            this._append({
-                seq:    ++this._seq,
-                ts:     new Date(),
-                name:   name ?? '?',
-                ms:     ms ?? 0,
-                args:   args ?? {},
-                result: result,
-                error:  null,
-            });
+        // Create pending entries when LLM dispatches tool calls (args available here)
+        bus.addEventListener('llm:tool-calls', (e) => {
+            if (e._fromInspector) return; // don't double-log inspector re-dispatches
+            const { toolCalls } = e.detail ?? {};
+            if (!toolCalls?.length) return;
+            for (const tc of toolCalls) {
+                const args = (() => { try { return JSON.parse(tc.function?.arguments ?? '{}'); } catch { return { _raw: tc.function?.arguments }; } })();
+                const entry = {
+                    seq:    ++this._seq,
+                    ts:     new Date(),
+                    name:   tc.function?.name ?? '?',
+                    id:     tc.id,
+                    ms:     null,
+                    args,
+                    result: null,
+                    error:  null,
+                    status: 'running',
+                    rowEl:  null,
+                };
+                this._pending.set(tc.id, entry);
+                this._append(entry);
+            }
         });
 
-        bus.addEventListener('sg-local-bridge:error', (e) => {
-            const { name, error, ms } = e.detail ?? {};
-            this._append({
-                seq:    ++this._seq,
-                ts:     new Date(),
-                name:   name ?? '?',
-                ms:     ms ?? 0,
-                args:   e.detail?.args ?? {},
-                result: null,
-                error:  String(error ?? 'unknown error'),
-            });
+        // Success path with timing: sg-local-bridge:tool-call (bubbles:false, dispatched on bus)
+        bus.addEventListener('sg-local-bridge:tool-call', (e) => {
+            const { name, result, ms } = e.detail ?? {};
+            for (const [id, entry] of this._pending) {
+                if (entry.name === name && entry.status === 'running') {
+                    entry.ms = ms ?? null;
+                    entry.result = result;
+                    entry.status = 'done';
+                    this._pending.delete(id);
+                    this._updateRow(entry);
+                    break;
+                }
+            }
+        });
+
+        // Reliable fallback: sg-tool-runner fires llm:tool-result for every call (success AND error)
+        bus.addEventListener('llm:tool-result', (e) => {
+            const { toolCallId, result, error } = e.detail ?? {};
+            const entry = this._pending.get(toolCallId);
+            if (!entry || entry.status !== 'running') return;
+            entry.result = result ?? null;
+            entry.error  = error ?? null;
+            entry.status = error ? 'error' : 'done';
+            this._pending.delete(toolCallId);
+            this._updateRow(entry);
         });
     }
 
@@ -114,6 +140,7 @@ export class AwExecutionLog extends HTMLElement {
 
         this.shadowRoot.querySelector('.el-clear').addEventListener('click', () => {
             this._entries = [];
+            this._pending.clear();
             this._seq = 0;
             this._refreshCount();
             const body = this.shadowRoot.getElementById('el-body');
@@ -131,43 +158,51 @@ export class AwExecutionLog extends HTMLElement {
         this._refreshCount();
     }
 
+    _updateRow(entry) {
+        const row = entry.rowEl;
+        if (!row) return;
+        const statusEl = row.querySelector('[data-status]');
+        const durEl    = row.querySelector('[data-dur]');
+        const resEl    = row.querySelector('[data-result]');
+        if (statusEl) {
+            statusEl.className = entry.error ? 'el-err' : 'el-ok';
+            statusEl.textContent = entry.error ? '✗' : '✓';
+        }
+        if (durEl && entry.ms != null) durEl.textContent = `${entry.ms}ms`;
+        if (resEl) {
+            resEl.className = `el-pre ${entry.error ? 'err' : 'ok'}`;
+            resEl.textContent = entry.error ? `Error: ${entry.error}` : _jsonStr(entry.result);
+        }
+    }
+
     _makeRow(entry) {
         const row = document.createElement('div');
         row.className = 'el-row';
+        entry.rowEl = row;
 
         const hh = String(entry.ts.getHours()).padStart(2, '0');
         const mm = String(entry.ts.getMinutes()).padStart(2, '0');
         const ss = String(entry.ts.getSeconds()).padStart(2, '0');
         const ms3 = String(entry.ts.getMilliseconds()).padStart(3, '0');
         const timeStr = `${hh}:${mm}:${ss}.${ms3}`;
-        const durStr  = `${entry.ms}ms`;
-        const statusEl = entry.error
-            ? `<span class="el-err">✗</span>`
-            : `<span class="el-ok">✓</span>`;
-
-        const argsStr   = _jsonStr(entry.args);
-        const resultStr = entry.error
-            ? `Error: ${entry.error}`
-            : _jsonStr(entry.result);
-        const resultClass = entry.error ? 'err' : 'ok';
 
         row.innerHTML = `
             <div class="el-head">
                 <span class="el-seq">#${entry.seq}</span>
                 <span class="el-time">${timeStr}</span>
                 <span class="el-name">${_esc(entry.name)}</span>
-                <span class="el-dur">${durStr}</span>
-                ${statusEl}
+                <span class="el-dur" data-dur>${entry.ms != null ? entry.ms + 'ms' : '…'}</span>
+                <span class="el-ok" data-status>${entry.status === 'running' ? '…' : (entry.error ? '✗' : '✓')}</span>
                 <span class="el-arrow">▶</span>
             </div>
             <div class="el-body-detail">
                 <div class="el-section">
                     <div class="el-label">Args</div>
-                    <pre class="el-pre">${_esc(argsStr)}</pre>
+                    <pre class="el-pre">${_esc(_jsonStr(entry.args))}</pre>
                 </div>
                 <div class="el-section">
                     <div class="el-label">Result</div>
-                    <pre class="el-pre ${resultClass}">${_esc(resultStr)}</pre>
+                    <pre class="el-pre" data-result>${entry.status === 'running' ? 'waiting…' : _esc(entry.error ? `Error: ${entry.error}` : _jsonStr(entry.result))}</pre>
                 </div>
             </div>`;
 
