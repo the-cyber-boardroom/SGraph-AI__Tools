@@ -197,24 +197,36 @@ api.register('clearChat', () => {
 
 // ── Boot sequence ─────────────────────────────────────────────────────────────
 
-// Ollama default fix: if sg-llm-connection has not yet fired llm:connected
-// (i.e. no saved sg-llm-config in localStorage, or the page just loaded),
-// dispatch a synthetic llm:connected for Ollama so sg-llm-request doesn't
-// fall through to its hardcoded 'openrouter' fallback.
-// Root cause: sg-llm-request reads provider only from this._config (set by
-// llm:connected); it never reads the provider="ollama" HTML attribute.
-// If the user previously saved OpenRouter in localStorage, sg-llm-connection
-// will auto-connect with that. Clear localStorage key 'sg-llm-config' to reset.
-(function _ensureOllamaDefault() {
+// Respond to late mounts (e.g. aw-system-prompt created by sg-layout after boot)
+// by re-dispatching the current system prompt on request.
+bus?.addEventListener('llm:request-system-prompt', () => {
+    _pushSystemTurn();
+});
+
+// Persist last connection (provider + model + baseUrl) to localStorage so the
+// next visit restores the user's choice without having to reconnect manually.
+const LAST_CONN_KEY = 'agent-with-tools:last-connection';
+bus?.addEventListener('llm:connected', (e) => {
+    const { provider, model, baseUrl } = e.detail || {};
+    if (!provider) return;
+    try {
+        localStorage.setItem(LAST_CONN_KEY, JSON.stringify({ provider, model, baseUrl }));
+    } catch { /* localStorage unavailable — skip */ }
+});
+
+// Boot-time default: prefer saved sg-llm-config (handled by sg-llm-connection
+// auto-connect); else our remembered last connection; else Ollama.
+(function _ensureConnectionDefault() {
     try {
         const stored = JSON.parse(localStorage.getItem('sg-llm-config') || 'null');
-        // Only inject default when no saved config exists at all.
-        if (!stored) {
-            bus?.dispatchEvent(new CustomEvent('llm:connected', {
-                detail: { provider: 'ollama', model: 'qwen2.5-coder:7b', baseUrl: '', apiKey: '' },
-                bubbles: true, composed: true,
-            }));
-        }
+        if (stored) return; // sg-llm-connection will auto-connect with this
+        const last = JSON.parse(localStorage.getItem(LAST_CONN_KEY) || 'null');
+        const detail = last && last.provider
+            ? { provider: last.provider, model: last.model || '', baseUrl: last.baseUrl || '', apiKey: '' }
+            : { provider: 'ollama', model: 'qwen2.5-coder:7b', baseUrl: '', apiKey: '' };
+        bus?.dispatchEvent(new CustomEvent('llm:connected', {
+            detail, bubbles: true, composed: true,
+        }));
     } catch { /* localStorage unavailable — skip */ }
 }());
 
