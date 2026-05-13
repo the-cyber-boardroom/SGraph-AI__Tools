@@ -9,7 +9,12 @@
  * @module aw-tool-tester
  * @version 0.1.58
  */
+// @dev @architect: I'm going to do a code review on this file where I'm going to be capturing
+    // a good number of patterns and code guidance that I would like to be applied to the rest of the code base
+    // this should be extrated to a number of guidance and coding standard files so that the agents working on this code base can view them and follow them
 
+// @dev this file should be placed inside a folder (for this component) which will hold all files related to it (we are service these static files from a CDN so it is fast)
+    // all CSS and HTML should be placed in separate files inside this component's folder
 const CSS = `
 :host { display:flex; flex-direction:column; height:100%; overflow:hidden;
         background:#0d0d1a; font-family:system-ui,sans-serif; font-size:12px; color:#94a3b8; }
@@ -81,6 +86,8 @@ const CSS = `
 .tt-result-pre.err { border-color:#7f1d1d; color:#fca5a5; }
 `;
 
+// @dev this class should use the base class the sgraph_ai_tools__static/components/base/v1/v1.0/v1.0.0/sg-component.js
+    // which provides a good number of utils classes , like classes to load the css and html
 export class AwToolTester extends HTMLElement {
     connectedCallback() {
         if (this._init) return;

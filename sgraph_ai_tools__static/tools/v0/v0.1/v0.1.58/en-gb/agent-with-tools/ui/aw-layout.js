@@ -18,7 +18,7 @@
  * @version 0.1.58
  */
 
-import { SGL_EVENTS } from 'https://tools.sgraph.ai/core/sg-layout/v0.1.0/sg-layout-events.js';
+import { SGL_EVENTS } from '/core/sg-layout/v0.1.0/sg-layout-events.js';
 
 const LAYOUT = {
     type: 'row',
