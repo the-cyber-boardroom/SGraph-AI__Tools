@@ -15,6 +15,7 @@
 
 // @dev this file should be placed inside a folder (for this component) which will hold all files related to it (we are service these static files from a CDN so it is fast)
     // all CSS and HTML should be placed in separate files inside this component's folder
+    // asd
 const CSS = `
 :host { display:flex; flex-direction:column; height:100%; overflow:hidden;
         background:#0d0d1a; font-family:system-ui,sans-serif; font-size:12px; color:#94a3b8; }
