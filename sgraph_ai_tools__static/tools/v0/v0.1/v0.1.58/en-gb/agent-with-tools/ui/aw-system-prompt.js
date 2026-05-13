@@ -88,6 +88,10 @@ export class AwSystemPrompt extends HTMLElement {
             this._original = text;
             this._textarea.value = text;
         });
+        // Ask the api for the current prompt — it may have fired before we mounted.
+        bus.dispatchEvent(new CustomEvent('llm:request-system-prompt', {
+            bubbles: false, composed: false,
+        }));
     }
 
     _apply() {
