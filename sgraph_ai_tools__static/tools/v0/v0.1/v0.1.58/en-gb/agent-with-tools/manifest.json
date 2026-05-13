@@ -26,6 +26,7 @@
         { "phase": 2, "type": "js",  "path": "/components/tool-api/sg-tool-api-console/v0/v0.1/v0.1.0/sg-tool-api-console.js" },
         { "phase": 2, "type": "js",  "path": "/components/tool-api/sg-tool-api-manifest/v0/v0.1/v0.1.0/sg-tool-api-manifest.js" },
         { "phase": 2, "type": "js",  "path": "./ui/aw-chat-pane.js" },
+        { "phase": 2, "type": "js",  "path": "./ui/aw-system-prompt.js" },
         { "phase": 2, "type": "js",  "path": "./ui/aw-bridge-panel.js" },
         { "phase": 2, "type": "js",  "path": "./ui/aw-model-panel.js" },
         { "phase": 3, "type": "js",  "path": "./api/agent-with-tools-api.js", "entry": true }

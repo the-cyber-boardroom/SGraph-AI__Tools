@@ -23,8 +23,12 @@ const LAYOUT = {
     sizes: [0.62, 0.38],
     children: [
         {
-            type: 'stack',
-            tabs: [{ tag: 'aw-chat-pane', title: 'Chat', locked: true }],
+            type: 'column',
+            sizes: [0.25, 0.75],
+            children: [
+                { type: 'stack', tabs: [{ tag: 'aw-system-prompt', title: 'System Prompt' }] },
+                { type: 'stack', tabs: [{ tag: 'aw-chat-pane',     title: 'Chat', locked: true }] },
+            ],
         },
         {
             type: 'column',
