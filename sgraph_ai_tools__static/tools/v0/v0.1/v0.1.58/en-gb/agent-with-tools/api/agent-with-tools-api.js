@@ -106,6 +106,15 @@ bus?.addEventListener('llm:tool-defs-changed', () => {
     _loadSystemPrompt().catch(() => {});
 });
 
+// Forward llm:system-prompt to sg-llm-chat-history so the system turn is
+// included in every llm:send assembled by chat history.
+// Also keeps _systemPrompt in sync when Apply fires from aw-system-prompt.
+bus?.addEventListener('llm:system-prompt', (e) => {
+    const content = e.detail?.content ?? '';
+    _systemPrompt = content;
+    bus.__sgLlmChatHistory?.setSystemPrompt(content);
+});
+
 // ── JSON-in-content shim (Phase 4) ───────────────────────────────────────────
 // Intercepts llm:request-complete for Ollama models (e.g. mistral:7b, codellama:7b)
 // that embed tool calls as JSON in `content` instead of native `tool_calls`.
@@ -217,6 +226,10 @@ api.register('clearChat', () => {
         }
     } catch { /* localStorage unavailable — skip */ }
 }());
+
+// Once aw-chat-pane connects inside sg-layout, re-push the system prompt so
+// sg-llm-chat-history (which owns llm:send) picks it up via setSystemPrompt().
+bus?.addEventListener('aw-chat-pane:ready', () => _pushSystemTurn(), { once: true });
 
 await _loadSystemPrompt();
 api.activate();
