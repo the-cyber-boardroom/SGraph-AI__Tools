@@ -21,17 +21,19 @@ import { SgToolApi }         from '/core/sg-tool-api/v0/v0.1/v0.1.0/sg-tool-api.
 import { initShell }          from '../ui/ui-shell.js';
 import { initLayout }         from '../ui/aw-layout.js';
 
-// ── lb_* first-required-param index (for arg normalisation) ──────────────────
-// Maps tool name → first required parameter name.
-// Used to fix LLM responses that emit `arguments` as a bare JSON string
-// (e.g. '"pwd"') instead of a JSON object (e.g. '{"command":"pwd"}').
-const LB_FIRST_REQUIRED = {
-    lb_read_file:   'path',
-    lb_write_file:  'path',
-    lb_delete_file: 'path',
-    lb_list_folder: 'path',
-    lb_run_bash:    'command',
-    lb_fetch_url:   'url',
+// ── lb_* required-param index (for arg normalisation) ────────────────────────
+// Maps tool name → ordered list of required parameter names.
+// Used to fix LLM responses that:
+//   (a) emit `arguments` as a bare JSON string (e.g. '"pwd"' → {command:"pwd"})
+//   (b) emit an object but cram multiple positional values into the first param
+//       (e.g. {path:'hello.txt", "content"'} → {path:"hello.txt", content:"content"})
+const LB_REQUIRED_PARAMS = {
+    lb_read_file:   ['path'],
+    lb_write_file:  ['path', 'content'],
+    lb_delete_file: ['path'],
+    lb_list_folder: ['path'],
+    lb_run_bash:    ['command'],
+    lb_fetch_url:   ['url'],
 };
 
 // ── Element references ────────────────────────────────────────────────────────
@@ -127,21 +129,45 @@ bus?.addEventListener('llm:system-prompt', (e) => {
 });
 
 // Arg normalisation middleware — intercepts llm:tool-calls (capture phase).
-// Some LLMs (e.g. Qwen 2.5) emit `arguments` as a bare JSON string such as
-// '"pwd"' instead of a proper JSON object '{"command":"pwd"}'. This mutates
-// each tool call's arguments before sg-tool-runner processes them.
+// Fixes two classes of malformed LLM output before sg-tool-runner processes them:
+//   (a) Bare primitive: '"pwd"' → {"command":"pwd"}
+//   (b) Object missing required params: {"path":'a", "b"'} → {"path":"a","content":"b"}
 bus?.addEventListener('llm:tool-calls', (e) => {
     const toolCalls = e.detail?.toolCalls;
     if (!Array.isArray(toolCalls)) return;
     for (const tc of toolCalls) {
         const fn = tc?.function;
         if (!fn?.arguments) continue;
+        const required = LB_REQUIRED_PARAMS[fn.name];
+        if (!required) continue;
+
         let parsed;
         try { parsed = JSON.parse(fn.arguments); } catch { continue; }
-        if (parsed !== null && typeof parsed === 'object' && !Array.isArray(parsed)) continue;
-        const firstParam = LB_FIRST_REQUIRED[fn.name];
-        if (firstParam && (typeof parsed === 'string' || typeof parsed === 'number')) {
-            fn.arguments = JSON.stringify({ [firstParam]: String(parsed) });
+
+        // Case (a): bare string/number — map to first required param
+        if (typeof parsed === 'string' || typeof parsed === 'number') {
+            fn.arguments = JSON.stringify({ [required[0]]: String(parsed) });
+            continue;
+        }
+
+        // Case (b): valid object but some required params are missing
+        if (parsed !== null && typeof parsed === 'object' && !Array.isArray(parsed)) {
+            const missing = required.filter(k => !(k in parsed));
+            if (!missing.length) continue; // all required params present — OK
+
+            // Try to split the first required param's value at escaped-quote boundaries
+            // e.g. 'hello.txt", "Hello from Agent' → ['hello.txt', 'Hello from Agent']
+            const firstVal = parsed[required[0]];
+            if (typeof firstVal === 'string') {
+                const parts = firstVal.split(/["“”]?\s*,\s*["“”]?/);
+                if (parts.length >= required.length) {
+                    const fixed = { ...parsed };
+                    for (let i = 0; i < required.length; i++) {
+                        fixed[required[i]] = parts[i].replace(/^["'\s]+|["'\s]+$/g, '');
+                    }
+                    fn.arguments = JSON.stringify(fixed);
+                }
+            }
         }
     }
 }, true); // CAPTURE — fires before sg-tool-runner's listener

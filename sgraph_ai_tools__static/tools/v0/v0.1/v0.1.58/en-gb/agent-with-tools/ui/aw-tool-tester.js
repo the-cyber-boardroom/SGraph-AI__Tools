@@ -97,9 +97,11 @@ export class AwToolTester extends HTMLElement {
 
         this.shadowRoot.querySelector('.tt-reload').addEventListener('click', () => this._load());
 
-        // Load once tools and bridge are ready
+        // Reload whenever tool definitions change (covers bridge connect at any time)
         const bus = this._bus();
-        bus.addEventListener('sg-local-bridge:status', () => setTimeout(() => this._load(), 300), { once: true });
+        bus.addEventListener('llm:tool-defs-changed', () => this._load());
+        // Also reload 300ms after bridge status in case schemas arrive slightly after
+        bus.addEventListener('sg-local-bridge:status', () => setTimeout(() => this._load(), 300));
         this._load();
     }
 
