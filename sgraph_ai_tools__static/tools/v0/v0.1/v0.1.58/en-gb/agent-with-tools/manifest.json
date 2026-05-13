@@ -29,6 +29,11 @@
         { "phase": 2, "type": "js",  "path": "./ui/aw-system-prompt.js" },
         { "phase": 2, "type": "js",  "path": "./ui/aw-bridge-panel.js" },
         { "phase": 2, "type": "js",  "path": "./ui/aw-model-panel.js" },
+        { "phase": 2, "type": "js",  "path": "./ui/aw-tool-extractor.js" },
+        { "phase": 2, "type": "js",  "path": "./ui/aw-execution-inspector.js" },
+        { "phase": 2, "type": "js",  "path": "./ui/aw-step-tracer.js" },
+        { "phase": 2, "type": "js",  "path": "./ui/aw-pipeline-view.js" },
+        { "phase": 2, "type": "js",  "path": "./ui/aw-loop-coordinator.js" },
         { "phase": 3, "type": "js",  "path": "./api/agent-with-tools-api.js", "entry": true }
     ],
     "dependencies": {

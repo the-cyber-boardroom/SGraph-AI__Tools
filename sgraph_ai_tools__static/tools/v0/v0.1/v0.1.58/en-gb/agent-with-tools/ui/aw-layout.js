@@ -3,11 +3,17 @@
  *
  * Layout:
  *   row [62% / 38%]
- *   ├─ stack: aw-chat-pane (Chat tab, locked)
- *   └─ column [45% / 25% / 30%]
- *      ├─ stack: sg-tool-definition (Tools tab)
- *      ├─ stack: aw-bridge-panel   (Bridge tab)
- *      └─ stack: aw-model-panel    (Model tab)
+ *   ├─ column [25% / 75%]
+ *   │  ├─ stack: aw-system-prompt (System Prompt tab)
+ *   │  └─ stack: aw-chat-pane    (Chat tab, locked)
+ *   └─ column [15% / 8% / 22% / 20% / 15% / 12% / 8%]
+ *      ├─ stack: sg-llm-connection    (Connection tab)
+ *      ├─ stack: aw-pipeline-view     (Pipeline tab)
+ *      ├─ stack: aw-execution-inspector (Queue tab)
+ *      ├─ stack: aw-step-tracer       (Tracer tab)
+ *      ├─ stack: sg-tool-definition   (Tools tab)
+ *      ├─ stack: aw-bridge-panel      (Bridge tab)
+ *      └─ stack: aw-model-panel       (Model tab)
  *
  * All custom elements remain within the [data-llm-bus] element so
  * bus event bubbling continues to work.
@@ -32,12 +38,15 @@ const LAYOUT = {
         },
         {
             type: 'column',
-            sizes: [0.32, 0.36, 0.17, 0.15],
+            sizes: [0.15, 0.08, 0.22, 0.20, 0.15, 0.12, 0.08],
             children: [
-                { type: 'stack', tabs: [{ tag: 'sg-llm-connection',  title: 'Connection' }] },
-                { type: 'stack', tabs: [{ tag: 'sg-tool-definition', title: 'Tools' }] },
-                { type: 'stack', tabs: [{ tag: 'aw-bridge-panel',    title: 'Bridge' }] },
-                { type: 'stack', tabs: [{ tag: 'aw-model-panel',     title: 'Model' }] },
+                { type: 'stack', tabs: [{ tag: 'sg-llm-connection',      title: 'Connection' }] },
+                { type: 'stack', tabs: [{ tag: 'aw-pipeline-view',        title: 'Pipeline' }] },
+                { type: 'stack', tabs: [{ tag: 'aw-execution-inspector',  title: 'Queue' }] },
+                { type: 'stack', tabs: [{ tag: 'aw-step-tracer',          title: 'Tracer' }] },
+                { type: 'stack', tabs: [{ tag: 'sg-tool-definition',      title: 'Tools' }] },
+                { type: 'stack', tabs: [{ tag: 'aw-bridge-panel',         title: 'Bridge' }] },
+                { type: 'stack', tabs: [{ tag: 'aw-model-panel',          title: 'Model' }] },
             ],
         },
     ],

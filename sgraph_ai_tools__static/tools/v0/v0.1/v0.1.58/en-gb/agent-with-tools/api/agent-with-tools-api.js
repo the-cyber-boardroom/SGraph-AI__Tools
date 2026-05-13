@@ -20,8 +20,18 @@
 import { SgToolApi }         from '/core/sg-tool-api/v0/v0.1/v0.1.0/sg-tool-api.js';
 import { initShell }          from '../ui/ui-shell.js';
 import { initLayout }         from '../ui/aw-layout.js';
-import { normaliseToolCalls, isJsonInContent }
-    from '/components/agentic/sg-local-bridge/v0/v0.1/v0.1.0/sg-local-bridge-shim.js';
+
+// ── lb_* tool schemas (sent to Ollama / OpenRouter via tools:[]) ──────────────
+
+/** JSON schemas for the lb_* tools registered by sg-local-bridge. */
+const LB_TOOL_SCHEMAS = [
+    { type:'function', function:{ name:'lb_read_file', description:'Read a text file from the workspace.', parameters:{ type:'object', properties:{ path:{ type:'string', description:'File path relative to workspace' } }, required:['path'] } } },
+    { type:'function', function:{ name:'lb_write_file', description:'Write content to a file (creates directories).', parameters:{ type:'object', properties:{ path:{ type:'string' }, content:{ type:'string' } }, required:['path','content'] } } },
+    { type:'function', function:{ name:'lb_delete_file', description:'Delete a file from the workspace.', parameters:{ type:'object', properties:{ path:{ type:'string' } }, required:['path'] } } },
+    { type:'function', function:{ name:'lb_list_folder', description:'List files and folders in a directory.', parameters:{ type:'object', properties:{ path:{ type:'string' }, recursive:{ type:'boolean' } }, required:['path'] } } },
+    { type:'function', function:{ name:'lb_run_bash', description:'Run a bash command in the workspace container.', parameters:{ type:'object', properties:{ command:{ type:'string' }, cwd:{ type:'string' }, timeout_s:{ type:'number' } }, required:['command'] } } },
+    { type:'function', function:{ name:'lb_fetch_url', description:'Fetch a URL and return the response body.', parameters:{ type:'object', properties:{ url:{ type:'string' }, method:{ type:'string', enum:['GET','POST','PUT','DELETE'] }, headers:{ type:'object' }, body:{ type:'string' } }, required:['url'] } } },
+];
 
 // ── Element references ────────────────────────────────────────────────────────
 
@@ -115,36 +125,31 @@ bus?.addEventListener('llm:system-prompt', (e) => {
     bus.__sgLlmChatHistory?.setSystemPrompt(content);
 });
 
-// ── JSON-in-content shim (Phase 4) ───────────────────────────────────────────
-// Intercepts llm:request-complete for Ollama models (e.g. mistral:7b, codellama:7b)
-// that embed tool calls as JSON in `content` instead of native `tool_calls`.
-// Captures the messages sent on llm:send, then — when a response arrives with empty
-// tool_calls but parseable JSON-in-content — synthesises and re-dispatches llm:tool-calls
-// so sg-tool-runner processes it identically to a native tool-call response.
+// Register lb_* schemas in sg-tool-definition once the bridge connects.
+bus?.addEventListener('sg-local-bridge:status', () => {
+    if (toolDef && typeof toolDef.addTool === 'function') {
+        for (const def of LB_TOOL_SCHEMAS) toolDef.addTool(def);
+    }
+}, { once: true });
 
-/** @type {Array|null} Last messages array sent via llm:send (for shim context). */
-let _lastSentMessages = null;
-
+// Tool injection middleware — intercepts llm:send (capture phase), stops it,
+// re-fires with tools:[] so Ollama enters function-calling mode.
 bus?.addEventListener('llm:send', (e) => {
-    _lastSentMessages = e.detail?.messages ?? null;
-});
-
-bus?.addEventListener('llm:request-complete', (e) => {
-    const { content, toolCalls } = e.detail ?? {};
-    // Only activate shim when native tool_calls are absent/empty
-    if (Array.isArray(toolCalls) && toolCalls.length > 0) return;
-    if (!content) return;
-
-    const synthetic = normaliseToolCalls({ content });
-    if (!isJsonInContent({ content })) return;
-
-    bus.dispatchEvent(new CustomEvent('llm:tool-calls', {
-        detail: { toolCalls: synthetic.tool_calls, messages: _lastSentMessages ?? [] },
+    if (e._toolsInjected) return;
+    e.stopImmediatePropagation();
+    const tools = (toolDef && typeof toolDef.getActiveTools === 'function')
+        ? toolDef.getActiveTools() : [];
+    const enhanced = new CustomEvent('llm:send', {
+        detail: { ...e.detail, tools: tools.length ? tools : undefined,
+                  tool_choice: tools.length ? 'auto' : undefined },
         bubbles: true, composed: true,
-    }));
-});
+    });
+    enhanced._toolsInjected = true;
+    bus.dispatchEvent(enhanced);
+}, true); // CAPTURE — fires before sg-llm-request's bubble listener
 
 // ── Chat promise plumbing ─────────────────────────────────────────────────────
+// NOTE: temporary loop wiring removed — replaced by aw-loop-coordinator (P6).
 
 let _chatResolve = null;
 
