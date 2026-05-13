@@ -37,6 +37,8 @@
         { "phase": 2, "type": "js",  "path": "./ui/aw-demo-panel.js" },
         { "phase": 2, "type": "js",  "path": "./ui/aw-execution-log.js" },
         { "phase": 2, "type": "js",  "path": "./ui/aw-llm-log.js" },
+        { "phase": 2, "type": "js",  "path": "./ui/aw-turn-inspector.js" },
+        { "phase": 2, "type": "js",  "path": "./ui/aw-tool-tester.js" },
         { "phase": 3, "type": "js",  "path": "./api/agent-with-tools-api.js", "entry": true }
     ],
     "dependencies": {

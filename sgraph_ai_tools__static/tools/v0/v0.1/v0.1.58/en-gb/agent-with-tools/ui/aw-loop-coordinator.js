@@ -25,7 +25,11 @@ export class AwLoopCoordinator extends HTMLElement {
         });
 
         bus.addEventListener('llm:tool-results-complete', (e) => {
-            const { messages } = e.detail ?? {};
+            const { results, messages } = e.detail ?? {};
+
+            // Inject a tool-results bubble into chat (fires for both success AND error)
+            _injectResultsBubble(bus, results, messages);
+
             this._iter += 1;
 
             if (this._iter >= this._maxIter) {
@@ -42,20 +46,6 @@ export class AwLoopCoordinator extends HTMLElement {
                 bubbles: true, composed: true,
             }));
         });
-
-        // Inject a compact tool-result bubble into the chat history so the user
-        // can see what was executed without having to open the Queue panel.
-        bus.addEventListener('sg-local-bridge:tool-call', (e) => {
-            const { name, args, result, ms } = e.detail ?? {};
-            const hist = bus.__sgLlmChatHistory;
-            if (!hist || typeof hist._addBubble !== 'function') return;
-
-            const argStr = (() => { try { return JSON.stringify(args ?? {}); } catch { return '{}'; } })();
-            const resRaw = (() => { try { return typeof result === 'string' ? result : JSON.stringify(result ?? null); } catch { return String(result ?? ''); } })();
-            const resStr = resRaw.length > 400 ? resRaw.slice(0, 400) + '…' : resRaw;
-            const text   = `**🔧 ${name}** · ${ms ?? '?'}ms\n\`\`\`\n${argStr}\n\`\`\`\n**Result:** \`${resStr}\``;
-            hist._addBubble('assistant', text, [], []);
-        });
     }
 
     _bus() {
@@ -66,3 +56,30 @@ export class AwLoopCoordinator extends HTMLElement {
 }
 
 customElements.define('aw-loop-coordinator', AwLoopCoordinator);
+
+// ── helpers ────────────────────────────────────────────────────────────────────
+
+/**
+ * Inject a compact tool-results summary bubble into sg-llm-chat-history.
+ * Uses the semi-private _addBubble API on bus.__sgLlmChatHistory.
+ * Works for both success and error results (no dependency on sg-local-bridge:tool-call).
+ */
+function _injectResultsBubble(bus, results, messages) {
+    const hist = bus.__sgLlmChatHistory;
+    if (!hist?._addBubble || !results?.length) return;
+
+    // Recover args from the assistant's tool_calls message in the updated array
+    const toolCallMsg = [...(messages ?? [])].reverse().find(m => m.role === 'assistant' && m.tool_calls);
+
+    const lines = results.map(r => {
+        const tc     = toolCallMsg?.tool_calls?.find(t => t.id === r.toolCallId);
+        const args   = tc?.function?.arguments ?? '{}';
+        const ok     = !r.error;
+        const resRaw = ok
+            ? (() => { try { const s = JSON.stringify(r.result ?? null); return s.length > 400 ? s.slice(0, 400) + '…' : s; } catch { return String(r.result); } })()
+            : r.error;
+        return `**${ok ? '✓' : '✗'} ${r.name}**\n\`\`\`json\n${args}\n\`\`\`\n→ \`${resRaw}\``;
+    });
+
+    hist._addBubble('assistant', lines.join('\n\n---\n\n'), [], []);
+}

@@ -72,15 +72,16 @@ export class AwExecutionInspector extends HTMLElement {
             }
         }, true);
 
-        // Mark cards done when bridge confirms execution
+        // Mark cards done when bridge fires (success path only — no event on HTTP errors)
         bus.addEventListener('sg-local-bridge:tool-call', (e) => {
             const { name, result } = e.detail ?? {};
-            for (const [, card] of this._cards) {
-                if (card.call.function?.name === name && card.state === 'running') {
-                    this._setCardState(card, result === undefined || result?.error ? 'error' : 'done');
-                    break;
-                }
-            }
+            this._resolveCard(name, result?.error ? 'error' : 'done');
+        });
+
+        // Fallback: sg-tool-runner fires llm:tool-result for EVERY result including errors
+        bus.addEventListener('llm:tool-result', (e) => {
+            const { name, error } = e.detail ?? {};
+            this._resolveCard(name, error ? 'error' : 'done');
         });
     }
 
@@ -168,6 +169,15 @@ export class AwExecutionInspector extends HTMLElement {
         const badge = card.el.querySelector('.badge');
         badge.className = `badge ${state}`;
         badge.textContent = state;
+    }
+
+    _resolveCard(name, state) {
+        for (const [, card] of this._cards) {
+            if (card.call.function?.name === name && card.state === 'running') {
+                this._setCardState(card, state);
+                break;
+            }
+        }
     }
 
     _refreshEmpty() {
