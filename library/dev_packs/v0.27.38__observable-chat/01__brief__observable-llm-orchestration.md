@@ -1,0 +1,219 @@
+# Observable LLM Orchestration: Graph-Based Conversations and Visibility-First Tool Use
+
+**version** v0.27.38
+**date** 12 May 2026
+**from** Human (project lead — Dinis Cruz)
+**to** Developer (lead), @Dev
+**type** Dev brief
+**source** Original upload `localagentbrief.md` style document, transcribed into this dev pack for self-contained access. The authoritative copy lives under the human's uploads; this is a working copy.
+
+---
+
+## What This Is
+
+A tool for executing LLM chats with tools (the same surface as Claude desktop, Codex, Cursor) but with deep visibility into what is actually happening. Every prompt sent, every token compressed, every tool definition included, every routing decision made: all visible, all queryable, all influenceable.
+
+This is not "another chat UI." It is a chat UI that treats observability as a first-class feature instead of an afterthought. The orchestration layer is the product; the chat is just one surface on it.
+
+## The Problem We Are Solving
+
+A few months trying to run open source models locally taught me three things:
+
+1. **The models work.** Open source models are good enough to run real workflows.
+2. **The local setup is painful but solvable.** I have it working; it takes 10 minutes to build.
+3. **The actual bottleneck is not the model. It is the orchestration around it.**
+
+The orchestration problems show up the same way for local and remote models, because they are not model problems. They are visibility problems:
+
+| Problem | Why It Hurts |
+|---------|--------------|
+| Tool definitions bloat the context window | Sending 15-50K of tool definitions on every request is wasteful and slow |
+| Compression is opaque | History gets compressed; you do not see what was lost; you cannot influence the decision |
+| Routing decisions are hidden | Why did the model pick this tool? Why did it skip the obvious one? Black box. |
+| Conversations are linear | Real reasoning is a graph (facts, hypotheses, contradictions); flat history loses structure |
+| Token cost is invisible at the moment of cost | You discover cost in retrospect, not before the request |
+| Errors are unactionable | "Model returned malformed JSON" tells you nothing about what to change |
+
+Existing tools (Claude desktop, Cursor, ChatGPT) are great products but they hide all of this. The trade-off they make is reasonable for most users. It is wrong for the user who wants to operate the system, not just use it.
+
+## The Core Design Principles
+
+### 1. Over-Index on Visibility
+
+Every prompt, every response, every tool call, every compression decision, every routing choice is captured and rendered. Not as a debug log buried in a file. As a first-class part of the UI.
+
+If you cannot see what the system did, you cannot improve it. The system should reveal everything by default; the user opts into less visibility if they want a calmer view.
+
+### 2. The Halfway House Between One-Shot and Multi-Turn
+
+The ideal end state is the one-shot prompt: provide all relevant context, get one optimal response, done. Stateless, debuggable, reproducible.
+
+The current state of most LLM tools is open-ended multi-turn chat: history accumulates, gets compressed, context is unclear, reproducibility is poor.
+
+This tool sits between the two. It is multi-turn (because real workflows need iteration) but it makes each turn behave like a one-shot: explicit context, visible compression, reproducible inputs. You get the interaction model of chat with the discipline of one-shot.
+
+### 3. Active, Not Passive, Observability
+
+The current pattern (MITM proxy, traffic capture) is passive: watch what happens, log it. The proxy cannot do anything; it cannot intervene; it cannot help.
+
+This tool is active. As a conversation runs, parallel processes:
+
+- Analyse the request and suggest compression strategies
+- Score the relevance of available tools to decide which to include
+- Extract facts, hypotheses, and decisions from the conversation
+- Compute an estimated cost and latency before sending
+- Surface contradictions with earlier turns
+
+Some of this is computed locally; some uses lightweight model calls in parallel. The point is that observation is not just recording; it is reasoning about what is happening.
+
+### 4. The Conversation Is a Graph
+
+A chat is currently rendered as a sequential list of messages. This is the wrong primitive for real reasoning.
+
+A real conversation contains:
+
+- Facts established (what is true)
+- Hypotheses raised (what might be true)
+- Opinions expressed (what I think)
+- Analyses performed (what follows from the facts)
+- Decisions made (what we are doing)
+- Open questions (what we do not know yet)
+
+These have relationships: a hypothesis is refuted by a fact, a decision rests on an analysis, an analysis depends on three facts. The natural representation is a graph, not a list.
+
+This tool maintains the graph alongside the linear chat. The chat surface shows the latest exchange; the graph surface shows the structure of the reasoning. The model's context is constructed from the graph (the relevant facts, the active hypotheses, the recent decisions), not from the linear history.
+
+## What the Tool Has Already
+
+The proof of concept exists:
+
+- A Docker image that gives the agent bash access, filesystem access, and vault access
+- Tool definitions that work
+- A working open source model running locally
+
+What is missing is the orchestration layer: the visibility, the compression visibility, the graph, the parallel analysis. That is what this brief defines.
+
+## The Components
+
+### Component 1: The Prompt Inspector
+
+For every request about to go to a model, the inspector renders:
+
+- The full prompt text, with sections labelled (system, history, tools, user message)
+- Token count per section
+- Estimated cost
+- A diff against the previous request (what changed)
+- An option to edit before sending
+
+The user sees exactly what they are paying for, every time. They can intervene if they want, accept if they do not.
+
+### Component 2: The Compression Workbench
+
+When history needs to be compressed (token limit, cost optimisation, attention focus), the workbench:
+
+- Shows the full history alongside the proposed compressed version
+- Highlights what was kept, what was summarised, what was dropped
+- Explains the reasoning ("dropped tool call 4 because its output was used in turn 7")
+- Lets the user override (mark something must-keep or must-drop)
+- Saves the user's overrides as a pattern for future compression
+
+This is the opposite of how compression works today (silent, opaque, uninfluenceable). Here it is a visible decision the user owns.
+
+### Component 3: The Tool Router
+
+Instead of always sending all tool definitions, the router scores each tool's likely relevance to the current request and includes only the top N. Visible to the user with the scores. Editable. The user can pin tools to always include or always exclude for the current session.
+
+The router reduces the 50K of tool definitions to maybe 5K of relevant ones. Faster requests, lower cost, less attention noise.
+
+### Component 4: The Conversation Graph
+
+Alongside the linear chat, a graph view:
+
+- Nodes for facts, hypotheses, decisions, questions
+- Edges for support, contradiction, derivation
+- Filters for "what is currently relevant," "what has been resolved," "what is open"
+- The model's context for the next request is built from the graph, not from the linear scrollback
+
+Building the graph happens in parallel with the chat. Each turn, a small extraction model identifies new nodes and edges and adds them. The main chat continues uninterrupted.
+
+### Component 5: The Parallel Analyst
+
+For every user message, optionally fire parallel model calls that:
+
+- Suggest a better phrasing of the question
+- Identify ambiguity that could be clarified before sending
+- Search the existing graph for relevant prior context
+- Estimate whether the request needs tools and which ones
+
+These run on cheaper models so the cost is modest. The user sees the suggestions; the main request goes ahead anyway, possibly informed by the suggestions.
+
+### Component 6: The Replay Surface
+
+Every request and response is captured with full context. The user can:
+
+- Replay an old request with a different model
+- Replay an old request with modified tools
+- Compare responses side by side
+- Build regression tests from real workflow turns
+
+This is how the tool becomes its own development environment: every session produces fixtures for the next session.
+
+## Connection to the Vault Model
+
+The conversation graph is stored as a vault. **A vault can hold many conversations organised into user-defined folders** (locked decision, 13 May 2026 — supersedes the original "one vault per conversation" framing). The graph state is versioned. The compression decisions are auditable.
+
+This means:
+
+- A conversation can be shared (vault read key — or per-conversation export)
+- A conversation can be forked (clone the vault, continue independently)
+- A conversation can be merged back (commit history makes this real)
+- A conversation can be archived and re-opened months later (the graph survives intact)
+
+The vault is the right primitive because the requirements (versioning, encryption, sharing, structured content) are the same requirements vaults already solve. The chat tool is the SG/App rendering the vault.
+
+## The Use Cases This Unlocks
+
+| Use Case | How the Tool Enables It |
+|----------|------------------------|
+| Long-running engineering work | The graph carries decisions across days; compression keeps cost down without losing intent |
+| Cost-sensitive workloads | The inspector shows cost before send; the router cuts tool overhead; cheaper models for sub-tasks |
+| Auditable AI usage in regulated industries | Every prompt, response, and compression decision is logged with reasoning |
+| Local model development | Real visibility into what the local model is doing; you can debug without external services |
+| Multi-agent collaboration | Two agents working on the same conversation graph can see each other's contributions |
+| Reproducibility | Replay any request with the exact original context |
+| Teaching | A learner can see exactly what an expert's prompts look like, why compression chose what it did |
+
+## Build Sequence (original brief — superseded by `07__phases`)
+
+| Phase | Components | Why First |
+|-------|-----------|-----------|
+| Phase 1 | Prompt inspector, replay surface | Visibility before optimisation; capture before analysis |
+| Phase 2 | Compression workbench | The most painful current problem |
+| Phase 3 | Tool router | Direct cost and latency win |
+| Phase 4 | Conversation graph (basic) | Foundation for richer features |
+| Phase 5 | Parallel analyst | Opportunistic, runs on cheaper models |
+| Phase 6 | Graph queries and visualisations | Compounds with more usage |
+
+Each phase produces a working tool. Phase 1 alone is more useful than what I use today.
+
+## Acceptance Criteria
+
+| # | Criterion | Verification |
+|---|-----------|-------------|
+| 1 | Every outgoing request is renderable before send (prompt inspector) | Open inspector, see full prompt with sections labelled, token counts, estimated cost |
+| 2 | User can edit a request before sending | Modify the prompt in the inspector, request goes with the edit |
+| 3 | Compression decisions are visible and editable | When history compresses, see what was kept/dropped/summarised with reasoning |
+| 4 | User can override compression decisions | Mark a turn must-keep; subsequent compressions respect it |
+| 5 | Tool router includes only relevant tools by default | Request with 50 available tools sends only the top 5-10 most relevant |
+| 6 | Conversation graph is maintained alongside linear chat | Graph view shows facts, hypotheses, decisions; updates as conversation progresses |
+| 7 | Model context is built from graph, not linear history | Compare context size: graph-built vs linear-built; graph version smaller and more focused |
+| 8 | Parallel analyst suggestions appear in UI without blocking main request | Send a message, see analyst suggestions arrive while main response generates |
+| 9 | Any past request is replayable with modified parameters | Pick a request from history, change model or tools, replay, compare responses |
+| 10 | Conversations are stored as vaults | Each conversation is a folder under a vault; commit history shows every turn |
+| 11 | Conversation vault can be shared via read key | Generate a read key, another user opens the conversation read-only |
+| 12 | Tool works with local models (Ollama, vLLM) as well as remote (Anthropic, OpenAI) | Same tool, different model backend, same UI and capabilities |
+| 13 | Phase 1 (inspector + replay) ships first as standalone useful tool | Phase 1 release is itself a tool I would use daily |
+
+---
+
+This document is released under the Creative Commons Attribution 4.0 International licence (CC BY 4.0).
