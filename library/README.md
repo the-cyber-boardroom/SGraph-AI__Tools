@@ -51,4 +51,4 @@ For agents and developers building tools on top of `<sg-layout>` (the fractal pa
 
 | Document | Contents |
 |----------|----------|
-| [Image & Video Processing](dev_packs/from_team__send/v0.19.1__image-video-processing-tools/README.md) | 11 source documents on media capabilities |
+| [Image & Video Processing](dev_packs/v0.19.1__image-video-processing-tools/README.md) | 11 source documents on media capabilities |
