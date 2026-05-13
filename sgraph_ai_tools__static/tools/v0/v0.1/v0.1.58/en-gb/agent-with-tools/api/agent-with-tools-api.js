@@ -17,8 +17,10 @@
  * @version 0.1.58
  */
 
-import { SgToolApi } from '/core/sg-tool-api/v0/v0.1/v0.1.0/sg-tool-api.js';
-import { initShell }  from '../ui/ui-shell.js';
+import { SgToolApi }         from '/core/sg-tool-api/v0/v0.1/v0.1.0/sg-tool-api.js';
+import { initShell }          from '../ui/ui-shell.js';
+import { normaliseToolCalls, isJsonInContent }
+    from '/components/agentic/sg-local-bridge/v0/v0.1/v0.1.0/sg-local-bridge-shim.js';
 
 // ── Element references ────────────────────────────────────────────────────────
 
@@ -101,6 +103,35 @@ bus?.addEventListener('llm:tool-defs-changed', () => {
         .replace(/^## Available tools[\s\S]*?(?=\n##|$)/m, `## Available tools\n\n${toolList}`);
     // Fall back to full reload on mismatch
     _loadSystemPrompt().catch(() => {});
+});
+
+// ── JSON-in-content shim (Phase 4) ───────────────────────────────────────────
+// Intercepts llm:request-complete for Ollama models (e.g. mistral:7b, codellama:7b)
+// that embed tool calls as JSON in `content` instead of native `tool_calls`.
+// Captures the messages sent on llm:send, then — when a response arrives with empty
+// tool_calls but parseable JSON-in-content — synthesises and re-dispatches llm:tool-calls
+// so sg-tool-runner processes it identically to a native tool-call response.
+
+/** @type {Array|null} Last messages array sent via llm:send (for shim context). */
+let _lastSentMessages = null;
+
+bus?.addEventListener('llm:send', (e) => {
+    _lastSentMessages = e.detail?.messages ?? null;
+});
+
+bus?.addEventListener('llm:request-complete', (e) => {
+    const { content, toolCalls } = e.detail ?? {};
+    // Only activate shim when native tool_calls are absent/empty
+    if (Array.isArray(toolCalls) && toolCalls.length > 0) return;
+    if (!content) return;
+
+    const synthetic = normaliseToolCalls({ content });
+    if (!isJsonInContent({ content })) return;
+
+    bus.dispatchEvent(new CustomEvent('llm:tool-calls', {
+        detail: { toolCalls: synthetic.tool_calls, messages: _lastSentMessages ?? [] },
+        bubbles: true, composed: true,
+    }));
 });
 
 // ── Chat promise plumbing ─────────────────────────────────────────────────────
