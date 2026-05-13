@@ -94,6 +94,8 @@ window.__tool.setModel('anthropic/claude-3-haiku')
 - **Context window** — very long sessions (many tool calls + large file reads) may approach the model's context limit (~32k tokens for `qwen2.5-coder:7b`). Use `window.__tool.clearChat()` to start fresh.
 - **Streaming** — responses stream token-by-token. Long bash commands or large file operations will take time; the loop status strip shows the current iteration.
 - **JSON-in-content fallback** — models like `mistral:7b` and `codellama:7b` need the Phase 4 shim to parse tool calls embedded in content. Until Phase 4 ships, use `qwen2.5-coder:7b` or `llama3.1:8b`.
+- **OpenRouter default (was a bug, now fixed)** — `sg-llm-request` does not read the `provider="ollama"` HTML attribute; it only uses the provider set by `llm:connected` events from `sg-llm-connection`. On first visit (no localStorage), a synthetic `llm:connected` for Ollama is injected at boot. If you previously saved an OpenRouter config, `sg-llm-connection` auto-connects with that instead. To reset: open DevTools → Application → Local Storage → clear the `sg-llm-config` key, then reload.
+- **Tools panel shows VFS built-ins, not lb_* tools (TODO P7)** — `sg-tool-definition` is populated from `sg-tool-runner`'s `BUILTIN_TOOL_DEFS` (VFS tools: `list_folder`, `read_file`, etc.) rather than from `sg-local-bridge`'s runtime registrations. The actual `lb_*` tools still work — the LLM uses them correctly — but they are not visible in the Tools panel. This is a known limitation pending a future fix (see TODO P7 comment in `sg-local-bridge.js`).
 
 ---
 

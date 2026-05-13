@@ -41,18 +41,30 @@
 
 /* Tooltip on hover — set via JS via title attribute */
 
-/* ── Main grid ────────────────────────────────────────────────────────────── */
+/* ── Main area (wraps sg-layout + headless engines) ───────────────────────── */
 
-.aw-grid {
-    display: grid;
-    grid-template-columns: 1.6fr 1fr;
-    grid-template-rows: 1fr;
-    gap: 0 12px;
+.aw-main {
     flex: 1;
     min-height: 0;
-    padding: 12px;
-    box-sizing: border-box;
-    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+    position: relative;
+}
+
+/* sg-layout root: fills the main area */
+.aw-layout-root {
+    display: block;
+    width: 100%;
+    flex: 1;
+    min-height: 0;
+}
+
+/* Connection widget wrapper: keep popup inside viewport */
+.aw-conn-wrapper {
+    position: relative;
+}
+.aw-conn-wrapper sg-llm-connection {
+    display: block;
 }
 
 /* headless engine elements: keep them out of the flow */
@@ -63,21 +75,12 @@ sg-agentic-loop {
     display: none;
 }
 
-/* ── Chat column ──────────────────────────────────────────────────────────── */
-
-.aw-chat {
-    display: flex;
-    flex-direction: column;
-    min-height: 0;
-    gap: 8px;
-}
+/* ── Chat pane (inside sg-layout tab) ────────────────────────────────────── */
 
 sg-llm-chat-history {
     flex: 1;
     min-height: 0;
     display: block;
-    border: 1px solid var(--color-border-subtle, #1a1a3a);
-    border-radius: 6px;
     overflow: hidden;
 }
 
@@ -118,17 +121,9 @@ sg-llm-chat-input {
 .aw-loop-strip button.ls-stop    { border-color: #fc8181; color: #fc8181; }
 .aw-loop-strip button.ls-approve { border-color: #48bb78; color: #48bb78; }
 
-/* ── Sidebar ──────────────────────────────────────────────────────────────── */
+/* ── Sidebar panels (inside sg-layout tabs) ──────────────────────────────── */
 
-.aw-side {
-    display: flex;
-    flex-direction: column;
-    gap: 10px;
-    min-height: 0;
-    overflow-y: auto;
-}
-
-sg-tool-definition { flex-shrink: 0; display: block; }
+sg-tool-definition { display: block; width: 100%; height: 100%; }
 
 .aw-panel {
     flex-shrink: 0;

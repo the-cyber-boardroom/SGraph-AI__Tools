@@ -19,6 +19,7 @@
 
 import { SgToolApi }         from '/core/sg-tool-api/v0/v0.1/v0.1.0/sg-tool-api.js';
 import { initShell }          from '../ui/ui-shell.js';
+import { initLayout }         from '../ui/aw-layout.js';
 import { normaliseToolCalls, isJsonInContent }
     from '/components/agentic/sg-local-bridge/v0/v0.1/v0.1.0/sg-local-bridge-shim.js';
 
@@ -196,6 +197,28 @@ api.register('clearChat', () => {
 
 // ── Boot sequence ─────────────────────────────────────────────────────────────
 
+// Ollama default fix: if sg-llm-connection has not yet fired llm:connected
+// (i.e. no saved sg-llm-config in localStorage, or the page just loaded),
+// dispatch a synthetic llm:connected for Ollama so sg-llm-request doesn't
+// fall through to its hardcoded 'openrouter' fallback.
+// Root cause: sg-llm-request reads provider only from this._config (set by
+// llm:connected); it never reads the provider="ollama" HTML attribute.
+// If the user previously saved OpenRouter in localStorage, sg-llm-connection
+// will auto-connect with that. Clear localStorage key 'sg-llm-config' to reset.
+(function _ensureOllamaDefault() {
+    try {
+        const stored = JSON.parse(localStorage.getItem('sg-llm-config') || 'null');
+        // Only inject default when no saved config exists at all.
+        if (!stored) {
+            bus?.dispatchEvent(new CustomEvent('llm:connected', {
+                detail: { provider: 'ollama', model: 'qwen2.5-coder:7b', baseUrl: '', apiKey: '' },
+                bubbles: true, composed: true,
+            }));
+        }
+    } catch { /* localStorage unavailable — skip */ }
+}());
+
 await _loadSystemPrompt();
 api.activate();
 initShell(bus, api);
+initLayout();

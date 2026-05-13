@@ -12,6 +12,7 @@
     "loader": [
         { "phase": 1, "type": "css", "path": "/components/tokens/v1/v1.0/v1.0.0/sg-tokens.css" },
         { "phase": 1, "type": "css", "path": "./styles/agent-with-tools.css" },
+        { "phase": 2, "type": "js",  "path": "https://tools.sgraph.ai/core/sg-layout/v0.1.0/sg-layout.js" },
         { "phase": 2, "type": "js",  "path": "/components/llm/sg-llm-connection/v0/v0.1/v0.1.4/sg-llm-connection.js" },
         { "phase": 2, "type": "js",  "path": "/components/llm/sg-llm-request/v0/v0.1/v0.1.6/sg-llm-request.js" },
         { "phase": 2, "type": "js",  "path": "/components/llm/sg-llm-chat-input/v0/v0.1/v0.1.5/sg-llm-chat-input.js" },
@@ -24,6 +25,9 @@
         { "phase": 2, "type": "js",  "path": "/components/tool-api/sg-tool-api-explorer/v0/v0.1/v0.1.0/sg-tool-api-explorer.js" },
         { "phase": 2, "type": "js",  "path": "/components/tool-api/sg-tool-api-console/v0/v0.1/v0.1.0/sg-tool-api-console.js" },
         { "phase": 2, "type": "js",  "path": "/components/tool-api/sg-tool-api-manifest/v0/v0.1/v0.1.0/sg-tool-api-manifest.js" },
+        { "phase": 2, "type": "js",  "path": "./ui/aw-chat-pane.js" },
+        { "phase": 2, "type": "js",  "path": "./ui/aw-bridge-panel.js" },
+        { "phase": 2, "type": "js",  "path": "./ui/aw-model-panel.js" },
         { "phase": 3, "type": "js",  "path": "./api/agent-with-tools-api.js", "entry": true }
     ],
     "dependencies": {

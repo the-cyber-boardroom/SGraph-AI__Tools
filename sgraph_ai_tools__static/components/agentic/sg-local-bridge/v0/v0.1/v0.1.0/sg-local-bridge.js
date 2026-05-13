@@ -123,6 +123,16 @@ export class SgLocalBridge extends HTMLElement {
      * Perform the actual runner.register() calls for each enabled tool.
      * @param {Element} runner - sg-tool-runner element
      * @private
+     *
+     * TODO P7: sg-tool-definition does NOT know about lb_* tools registered here.
+     * It only shows BUILTIN_TOOL_DEFS (list_folder/read_file/…) from sg-tool-runner
+     * plus TEMPLATE_TOOL_DEFS baked into its own source. It has no listener for
+     * sg-local-bridge registration events. To fix, either:
+     *   a) dispatch a "sg-tool-definition:add-tool" event for each lb_* schema after
+     *      calling runner.register(), or
+     *   b) give sg-tool-definition a sg-tool-runner reference and call addTool()
+     *      directly after registration.
+     * Until then, lb_* tools are usable by the LLM but invisible in the Tools panel UI.
      */
     _doRegister(runner) {
         const ep  = this._endpoint;

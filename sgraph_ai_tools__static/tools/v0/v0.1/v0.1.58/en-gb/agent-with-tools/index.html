@@ -22,26 +22,23 @@
     </style>
 </head>
 <body>
+    <!-- Header: title + connection widget (outside sg-layout so it stays visible) -->
     <header class="aw-header">
         <span class="aw-title">🛠️ Agent with Tools</span>
-        <sg-llm-connection></sg-llm-connection>
+        <!-- sg-llm-connection is positioned outside sg-layout to prevent viewport overflow -->
+        <div class="aw-conn-wrapper">
+            <sg-llm-connection></sg-llm-connection>
+        </div>
         <span id="bridge-status" class="aw-bridge-dot" title="Bridge not connected">●</span>
     </header>
 
-    <main data-llm-bus class="aw-grid">
-        <section class="aw-chat">
-            <sg-llm-chat-history></sg-llm-chat-history>
-            <sg-llm-chat-input></sg-llm-chat-input>
-            <div id="loop-strip" class="aw-loop-strip"></div>
-        </section>
+    <!-- Bus boundary wraps sg-layout + headless engines so events can bubble correctly -->
+    <main data-llm-bus class="aw-main">
 
-        <aside class="aw-side">
-            <sg-tool-definition></sg-tool-definition>
-            <div id="bridge-panel" class="aw-panel"></div>
-            <div id="model-panel" class="aw-panel"></div>
-        </aside>
+        <!-- sg-layout hosts all visible panels -->
+        <sg-layout id="aw-layout" class="aw-layout-root"></sg-layout>
 
-        <!-- headless engines -->
+        <!-- headless engines — kept outside sg-layout (no visual panel needed) -->
         <sg-llm-request provider="ollama" model="qwen2.5-coder:7b"></sg-llm-request>
         <sg-tool-runner id="runner" builtins="none"></sg-tool-runner>
         <sg-local-bridge endpoint="http://localhost:8000"
@@ -50,6 +47,7 @@
         <sg-agentic-loop max-iterations="15" cost-budget="0.50"></sg-agentic-loop>
     </main>
 
+    <!-- Dev panel strip (shown by JS when user opens the footer) -->
     <section class="aw-dev-panel">
         <sg-tool-api-explorer></sg-tool-api-explorer>
         <sg-tool-api-console></sg-tool-api-console>
