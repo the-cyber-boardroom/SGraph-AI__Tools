@@ -42,6 +42,20 @@ export class AwLoopCoordinator extends HTMLElement {
                 bubbles: true, composed: true,
             }));
         });
+
+        // Inject a compact tool-result bubble into the chat history so the user
+        // can see what was executed without having to open the Queue panel.
+        bus.addEventListener('sg-local-bridge:tool-call', (e) => {
+            const { name, args, result, ms } = e.detail ?? {};
+            const hist = bus.__sgLlmChatHistory;
+            if (!hist || typeof hist._addBubble !== 'function') return;
+
+            const argStr = (() => { try { return JSON.stringify(args ?? {}); } catch { return '{}'; } })();
+            const resRaw = (() => { try { return typeof result === 'string' ? result : JSON.stringify(result ?? null); } catch { return String(result ?? ''); } })();
+            const resStr = resRaw.length > 400 ? resRaw.slice(0, 400) + '…' : resRaw;
+            const text   = `**🔧 ${name}** · ${ms ?? '?'}ms\n\`\`\`\n${argStr}\n\`\`\`\n**Result:** \`${resStr}\``;
+            hist._addBubble('assistant', text, [], []);
+        });
     }
 
     _bus() {
