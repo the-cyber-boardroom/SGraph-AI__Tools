@@ -43,6 +43,11 @@ export class RecordingConfig {
          *  'screen' — audio from the shared tab/screen (getDisplayMedia audio constraint)
          *  'none'   — no audio
          * @type {'mic'|'screen'|'none'} */
+        // Design note: mode strings already encode an audio on/off bit (e.g. 'screen+audio'
+        // vs 'screen'), and audioSource encodes the same choice differently. The intended
+        // invariant is: mode's audio flag === (audioSource !== 'none'). Both fields are kept
+        // in sync by _applyModeState() in ui-controls.js; the pipeline reads audioSource for
+        // routing and ignores the redundancy rather than trying to derive one from the other.
         this.audioSource        = 'mic';
     }
 }

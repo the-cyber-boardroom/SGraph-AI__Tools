@@ -234,7 +234,7 @@ export async function startPreview() {
     if (!flags.camera) throw new Error('Preview not available for screen-only modes');
 
     try {
-        const stream = await getCameraStream({ audio: flags.audio });
+        const stream = await getCameraStream({ audio: flags.audio && config.audioSource === 'mic' });
         state.previewStream = stream;
         state.previewStop   = () => stream.getTracks().forEach(t => t.stop());
 
@@ -324,8 +324,16 @@ export async function startPipeline() {
         // used exclusively by MediaRecorder.
         let rawViz = null;
         if (flags.viz && config.vizProvider) {
-            if (!rawAudio) throw new Error('Viz modes require an audio source — mode configuration error');
-            session._vizAudioClone = rawAudio.clone();
+            // When audioSource='screen', mic rawAudio is null — use the screen stream's
+            // audio tracks instead. A new MediaStream wrapper is needed because clone()
+            // on a non-cloneable screen track throws in some browsers.
+            const vizAudioStream = config.audioSource === 'screen'
+                ? (rawScreen ? new MediaStream(rawScreen.getAudioTracks()) : null)
+                : rawAudio;
+            if (!vizAudioStream || vizAudioStream.getAudioTracks().length === 0) {
+                throw new Error('Viz modes require an audio source — mode configuration error');
+            }
+            session._vizAudioClone = vizAudioStream.clone();
             rawViz = await config.vizProvider.start(session._vizAudioClone, config.fps);
         }
 
