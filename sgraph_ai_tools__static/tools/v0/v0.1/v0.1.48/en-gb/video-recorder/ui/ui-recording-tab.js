@@ -41,7 +41,7 @@ const REGEN_SPEEDS = [
  * @param {{ vizWasHidden?: boolean, vizMode?: string, onRegenerate?: (mode: string) => Promise<Blob> }} [opts]
  */
 export function initRecordingTab(container, primaryBlob, blobs, durationMs, sizeBytes, name, opts = {}) {
-    const { vizWasHidden = false, vizMode = 'smooth-eq', onRegenerate = null } = opts;
+    const { vizWasHidden = false, vizMode = 'smooth-eq', onRegenerate = null, audioSource = 'mic' } = opts;
     const safeName = _sanitize(name);
     const savedToken = localStorage.getItem('sgraph-send-token') ?? '';
 
@@ -136,11 +136,12 @@ export function initRecordingTab(container, primaryBlob, blobs, durationMs, size
     // ── Download buttons ──────────────────────────────────────────────────────
 
     const dlBtns = container.querySelector('#dl-btns');
+    const audioLabel = audioSource === 'screen' ? '⬇ Audio (tab)' : '⬇ Audio (mic)';
     const TRACKS = [
-        { key: 'combined', label: '⬇ Combined', primary: true },
-        { key: 'screen',   label: '⬇ Screen',   primary: false },
-        { key: 'camera',   label: '⬇ Camera',   primary: false },
-        { key: 'audio',    label: '⬇ Audio',    primary: false },
+        { key: 'combined', label: '⬇ Combined',  primary: true },
+        { key: 'screen',   label: '⬇ Screen',    primary: false },
+        { key: 'camera',   label: '⬇ Camera',    primary: false },
+        { key: 'audio',    label: audioLabel,     primary: false },
     ];
 
     for (const track of TRACKS) {

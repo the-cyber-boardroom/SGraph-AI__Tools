@@ -37,6 +37,7 @@ interface RecordingConfig {
   videoBitsPerSecond: number;
   audioBitsPerSecond: number;
   pipOptions:         { position: 'tr'|'tl'|'br'|'bl'; scale: number };
+  audioSource:        'mic' | 'screen' | 'none';  // mutually exclusive; 'screen' requires Screen mode
 }
 
 interface RecordingStatus {
@@ -59,7 +60,7 @@ All events fire on `window`.
 | `tool:mode:set` | `{ mode }` | mode changed |
 | `tool:preview:start` | `{ hasVideo, mode, stream }` | preview stream acquired |
 | `tool:preview:stop` | `{}` | preview stopped |
-| `tool:record:start` | `{ fps, width, height, format }` | MediaRecorder starts |
+| `tool:record:start` | `{ fps, width, height, format, tracks, audioSource }` | MediaRecorder starts |
 | `tool:record:pause` | `{}` | recording paused |
 | `tool:record:resume` | `{}` | recording resumed |
 | `tool:record:stop` | `{ durationMs, sizeBytes }` | MediaRecorder stops |
