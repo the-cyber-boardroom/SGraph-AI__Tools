@@ -38,6 +38,12 @@ export class RecordingConfig {
          *  'shorts'    — vertical 9:16 canvas with title, screen, camera, footer
          * @type {'landscape'|'shorts'} */
         this.layout             = 'landscape';
+        /** Audio source — mutually exclusive, pick one.
+         *  'mic'    — microphone / camera audio (default)
+         *  'screen' — audio from the shared tab/screen (getDisplayMedia audio constraint)
+         *  'none'   — no audio
+         * @type {'mic'|'screen'|'none'} */
+        this.audioSource        = 'mic';
     }
 }
 

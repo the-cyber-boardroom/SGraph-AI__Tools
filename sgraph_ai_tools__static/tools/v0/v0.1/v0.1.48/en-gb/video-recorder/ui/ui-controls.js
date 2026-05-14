@@ -5,7 +5,7 @@
  *
  * Mode is derived from three independent toggles:
  *   useScreen  — bool
- *   useAudio   — bool
+ *   audioSource — 'none'|'mic'|'screen'
  *   camViz     — 'none' | 'camera' | 'viz'
  *
  * Post-recording downloads/share live in ui-recording-tab.js.
@@ -17,7 +17,8 @@ import { SGA_RECORDER } from '../api/recorder-events.js';
 
 // ── Mode derivation ───────────────────────────────────────────────────────────
 
-function _deriveMode(useScreen, useAudio, camViz) {
+function _deriveMode(useScreen, audioSource, camViz) {
+    const useAudio = audioSource !== 'none';
     if (camViz === 'viz')    return useScreen ? 'screen+viz+audio' : 'viz+audio';
     if (useScreen && camViz === 'camera' && useAudio) return 'camera+screen+audio';
     if (useScreen && camViz === 'camera')             return 'camera+screen';
@@ -29,11 +30,10 @@ function _deriveMode(useScreen, useAudio, camViz) {
     return 'audio'; // fallback — must record something
 }
 
-/** Parse config.mode back into the three toggle state values. */
+/** Parse config.mode into screen + camera/viz toggle state. audioSource is read directly from config. */
 function _parseModeState(mode) {
     return {
         useScreen: mode.includes('screen') && !mode.startsWith('viz'),
-        useAudio:  mode.includes('audio') || mode.startsWith('viz'),
         camViz:    mode.includes('camera') ? 'camera' : (mode.includes('viz') ? 'viz' : 'none'),
     };
 }
@@ -78,7 +78,12 @@ export function initControls(container, state, config, api, emit) {
                             <span class="mode-col__icon">🎙</span>
                             <span class="mode-col__name">Audio</span>
                         </div>
-                        <button class="mode-col__toggle" id="toggle-audio">Off</button>
+                        <div class="mode-col__opts" id="audio-opts">
+                            <button class="mode-col__opt" data-audio="none">Off</button>
+                            <button class="mode-col__opt" data-audio="mic">Mic</button>
+                            <button class="mode-col__opt" data-audio="screen" id="audio-opt-screen"
+                                    title="Captures audio from the tab or screen you share. Works best when sharing a browser tab — tick 'Share tab audio' in the picker.">Tab</button>
+                        </div>
                     </div>
 
                     <div class="mode-col mode-col--cam" id="col-cam">
@@ -170,7 +175,8 @@ export function initControls(container, state, config, api, emit) {
 
     const nameInput      = container.querySelector('#rec-name');
     const toggleScreen   = container.querySelector('#toggle-screen');
-    const toggleAudio    = container.querySelector('#toggle-audio');
+    const audioOpts      = container.querySelector('#audio-opts');
+    const audioOptScreen = container.querySelector('#audio-opt-screen');
     const camOpts        = container.querySelector('#cam-opts');
     const vizStyleRow    = container.querySelector('#row-viz-style');
     const vizStyleSelect = container.querySelector('#viz-style-select');
@@ -191,16 +197,27 @@ export function initControls(container, state, config, api, emit) {
 
     // ── Mode builder state ────────────────────────────────────────────────────
 
-    let { useScreen, useAudio, camViz } = _parseModeState(config.mode);
+    let { useScreen, camViz } = _parseModeState(config.mode);
+    let audioSource = config.audioSource ?? 'mic';
 
     function _applyModeState() {
-        config.mode = _deriveMode(useScreen, useAudio, camViz);
+        // Auto-revert Tab audio to Mic when Screen is turned off
+        if (!useScreen && audioSource === 'screen') {
+            audioSource        = 'mic';
+            config.audioSource = 'mic';
+        }
+
+        config.mode        = _deriveMode(useScreen, audioSource, camViz);
+        config.audioSource = audioSource;
 
         toggleScreen.textContent = useScreen ? 'On' : 'Off';
         toggleScreen.classList.toggle('mode-col__toggle--on', useScreen);
 
-        toggleAudio.textContent = useAudio ? 'On' : 'Off';
-        toggleAudio.classList.toggle('mode-col__toggle--on', useAudio);
+        // Audio 3-state: highlight active option; disable Tab when Screen is off
+        audioOpts.querySelectorAll('.mode-col__opt').forEach(btn => {
+            btn.classList.toggle('mode-col__opt--active', btn.dataset.audio === audioSource);
+        });
+        audioOptScreen.disabled = !useScreen;
 
         camOpts.querySelectorAll('.mode-col__opt').forEach(btn => {
             btn.classList.toggle('mode-col__opt--active', btn.dataset.cam === camViz);
@@ -233,9 +250,10 @@ export function initControls(container, state, config, api, emit) {
         _applyModeState();
     });
 
-    toggleAudio.addEventListener('click', () => {
-        if (toggleAudio.disabled) return;
-        useAudio = !useAudio;
+    audioOpts.addEventListener('click', (e) => {
+        const btn = e.target.closest('.mode-col__opt');
+        if (!btn || btn.disabled) return;
+        audioSource = btn.dataset.audio;
         _applyModeState();
     });
 
@@ -308,7 +326,10 @@ export function initControls(container, state, config, api, emit) {
 
     function _lockModeBuilder(locked) {
         toggleScreen.disabled = locked || !screenOk;
-        toggleAudio.disabled  = locked;
+        audioOpts.querySelectorAll('.mode-col__opt').forEach(b => {
+            // Tab button has an extra disabled condition (Screen must be on) — preserve that when unlocking
+            b.disabled = locked || (b.dataset.audio === 'screen' && !useScreen);
+        });
         camOpts.querySelectorAll('.mode-col__opt').forEach(b => {
             b.disabled = locked || (b.dataset.cam === 'camera' && !cameraOk);
         });

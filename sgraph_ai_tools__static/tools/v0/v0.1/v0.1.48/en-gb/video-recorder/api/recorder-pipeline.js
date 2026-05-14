@@ -287,7 +287,7 @@ export async function startPipeline() {
         // path of the user gesture (getDisplayMedia restriction).
         let rawScreen = null;
         if (flags.screen) {
-            rawScreen = await getScreenStream({ audio: false });
+            rawScreen = await getScreenStream({ audio: config.audioSource === 'screen' });
             _watchTracks('screen', rawScreen);
         }
 
@@ -300,15 +300,16 @@ export async function startPipeline() {
                 state.previewStream = null;
                 state.previewStop   = null;
             } else {
-                rawCamera   = await getCameraStream({ audio: flags.audio });
+                rawCamera   = await getCameraStream({ audio: flags.audio && config.audioSource === 'mic' });
                 needsWarmUp = true; // fresh sensor — allow auto-exposure to settle
             }
             _watchTracks('camera', rawCamera);
         }
 
         // Standalone audio (screen+audio, audio-only, and viz+audio modes)
+        // Only when mic is the selected source — screen audio is carried by rawScreen instead.
         let rawAudio = null;
-        if (flags.audio && !flags.camera) {
+        if (flags.audio && !flags.camera && config.audioSource === 'mic') {
             rawAudio = await getAudioStream();
         }
 
@@ -336,11 +337,14 @@ export async function startPipeline() {
 
         // ── Start independent MediaRecorders ───────────────────────────────
 
-        // Audio tracks shared across all recorder decisions below
-        const audioTracks = [
-            ...(rawCamera ? rawCamera.getAudioTracks() : []),
-            ...(rawAudio  ? rawAudio.getAudioTracks()  : []),
-        ];
+        // Audio tracks shared across all recorder decisions below.
+        // Screen-source audio comes from the screen stream; mic-source comes from camera/standalone.
+        const audioTracks = config.audioSource === 'screen'
+            ? (rawScreen ? rawScreen.getAudioTracks() : [])
+            : [
+                ...(rawCamera ? rawCamera.getAudioTracks() : []),
+                ...(rawAudio  ? rawAudio.getAudioTracks()  : []),
+              ];
 
         // Whether a combined (composite) output is viable for this mode
         const willHaveCombined =
@@ -428,11 +432,12 @@ export async function startPipeline() {
         const trackSettings = videoTrack?.getSettings() ?? {};
 
         _dispatchOnWindow(SGA_RECORDER.RECORD_START, {
-            fps:    trackSettings.frameRate ?? config.fps,
-            width:  trackSettings.width     ?? 0,
-            height: trackSettings.height    ?? 0,
-            format: getBestMimeType(),
-            tracks: session.recorderNames,
+            fps:         trackSettings.frameRate ?? config.fps,
+            width:       trackSettings.width     ?? 0,
+            height:      trackSettings.height    ?? 0,
+            format:      getBestMimeType(),
+            tracks:      session.recorderNames,
+            audioSource: config.audioSource,
         });
 
     } catch (err) {
