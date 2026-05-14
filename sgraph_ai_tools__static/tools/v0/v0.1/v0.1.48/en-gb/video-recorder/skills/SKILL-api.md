@@ -12,6 +12,8 @@
 | `startPreview` | `{}` | `{}` | yes |
 | `stopPreview` | `{}` | `{}` | no |
 | `startRecording` | `{ format?: 'webm'\|'mp4' }` | `{}` | yes |
+| `pauseRecording` | `{}` | `{}` | no |
+| `resumeRecording` | `{}` | `{}` | no |
 | `stopRecording` | `{}` | `{ durationMs, sizeBytes }` | yes |
 | `newRecording` | `{}` | `{}` | no |
 | `saveSendFile` | `{ filename?: string, accessToken?: string }` | `{ token, shareUrl }` | yes |
@@ -38,7 +40,7 @@ interface RecordingConfig {
 }
 
 interface RecordingStatus {
-  status:     'idle'|'requesting-permissions'|'recording'|'stopped'|'saving'|'error';
+  status:     'idle'|'requesting-permissions'|'recording'|'paused'|'stopped'|'saving'|'error';
   mode:       RecordingMode;
   durationMs: number;
   sizeBytes:  number;
@@ -58,6 +60,8 @@ All events fire on `window`.
 | `tool:preview:start` | `{ hasVideo, mode, stream }` | preview stream acquired |
 | `tool:preview:stop` | `{}` | preview stopped |
 | `tool:record:start` | `{ fps, width, height, format }` | MediaRecorder starts |
+| `tool:record:pause` | `{}` | recording paused |
+| `tool:record:resume` | `{}` | recording resumed |
 | `tool:record:stop` | `{ durationMs, sizeBytes }` | MediaRecorder stops |
 | `tool:reset` | `{}` | newRecording() called |
 | `tool:save:progress` | `{ target, percent, message }` | upload in progress |
@@ -73,6 +77,6 @@ Pass `accessToken` explicitly to override: `window.__tool.saveSendFile({ accessT
 window.__tool.meta.getMethods()  // ['connect','setMode','startPreview',…]
 window.__tool.meta.getVersion()  // { api: '0.1.0', ui: '0.1.48', content: '0.1.0' }
 window.__tool.meta.getEvents()   // ['tool:ready','tool:preview:start',…]
-window.__tool.meta.health()      // { status: 'ready', methodCount: 12, … }
+window.__tool.meta.health()      // { status: 'ready', methodCount: 14, … }
 window.__tool.meta.getLog()      // last 500 API call log entries
 ```

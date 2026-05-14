@@ -118,6 +118,9 @@ export function initControls(container, state, config, api, emit) {
                 <button id="btn-record" class="ctrl-btn ctrl-btn--record">
                     ● Start Recording
                 </button>
+                <button id="btn-pause" class="ctrl-btn ctrl-btn--pause" style="display:none" disabled>
+                    ⏸ Pause
+                </button>
                 <button id="btn-stop" class="ctrl-btn ctrl-btn--stop" disabled>
                     ■ Stop
                 </button>
@@ -177,12 +180,14 @@ export function initControls(container, state, config, api, emit) {
     const layoutGroup    = container.querySelector('#layout-group');
     const btnPreview     = container.querySelector('#btn-preview');
     const btnRecord      = container.querySelector('#btn-record');
+    const btnPause       = container.querySelector('#btn-pause');
     const btnStop        = container.querySelector('#btn-stop');
     const timerEl        = container.querySelector('#rec-timer');
     const statusEl       = container.querySelector('#ctrl-status');
     const recSize        = container.querySelector('#rec-size');
 
     let timerInterval = null;
+    let elapsed = 0;
 
     // ── Mode builder state ────────────────────────────────────────────────────
 
@@ -372,12 +377,17 @@ export function initControls(container, state, config, api, emit) {
         try {
             await api.startRecording({ format: config.format });
 
-            let elapsed = 0;
+            elapsed = 0;
             timerEl.textContent = '0s';
             timerInterval = setInterval(() => {
                 elapsed++;
                 timerEl.textContent = `${elapsed}s`;
             }, 1000);
+
+            btnPause.style.display = '';
+            btnPause.disabled      = false;
+            btnPause.textContent   = '⏸ Pause';
+            btnPause.classList.remove('is-paused');
 
             if (recSize?.reset) recSize.reset();
             statusEl.textContent = 'Recording…';
@@ -395,8 +405,9 @@ export function initControls(container, state, config, api, emit) {
     // ── Stop ──────────────────────────────────────────────────────────────────
 
     btnStop.addEventListener('click', async () => {
-        if (state.status !== 'recording') return;
+        if (state.status !== 'recording' && state.status !== 'paused') return;
         btnStop.disabled     = true;
+        btnPause.disabled    = true;
         statusEl.textContent = 'Stopping…';
         try {
             await api.stopRecording();
@@ -405,6 +416,36 @@ export function initControls(container, state, config, api, emit) {
             btnRecord.disabled   = false;
             nameInput.disabled   = false;
         }
+    });
+
+    // ── Pause / Resume ────────────────────────────────────────────────────────
+
+    btnPause.addEventListener('click', () => {
+        if (state.status === 'recording') {
+            api.pauseRecording();
+        } else if (state.status === 'paused') {
+            api.resumeRecording();
+        }
+    });
+
+    window.addEventListener(SGA_RECORDER.RECORD_PAUSE, () => {
+        clearInterval(timerInterval);
+        timerInterval        = null;
+        btnPause.textContent = '▶ Resume';
+        btnPause.classList.add('is-paused');
+        statusEl.style.color = '#d97706';
+        statusEl.textContent = 'Paused';
+    });
+
+    window.addEventListener(SGA_RECORDER.RECORD_RESUME, () => {
+        timerInterval = setInterval(() => {
+            elapsed++;
+            timerEl.textContent = `${elapsed}s`;
+        }, 1000);
+        btnPause.textContent = '⏸ Pause';
+        btnPause.classList.remove('is-paused');
+        statusEl.style.color = '';
+        statusEl.textContent = 'Recording…';
     });
 
     // ── TRACK_LOST — show immediate warning banner ────────────────────────────
@@ -438,8 +479,12 @@ export function initControls(container, state, config, api, emit) {
 
     window.addEventListener(SGA_RECORDER.RECORD_STOP, (e) => {
         clearInterval(timerInterval);
-        timerInterval      = null;
-        btnStop.disabled   = true;
+        timerInterval          = null;
+        btnStop.disabled       = true;
+        btnPause.style.display = 'none';
+        btnPause.disabled      = true;
+        btnPause.textContent   = '⏸ Pause';
+        btnPause.classList.remove('is-paused');
         btnRecord.disabled = false;
         _lockModeBuilder(false);
         nameInput.disabled = false;
@@ -454,10 +499,14 @@ export function initControls(container, state, config, api, emit) {
 
     window.addEventListener(SGA_RECORDER.RESET, () => {
         clearInterval(timerInterval);
-        timerInterval = null;
-        btnRecord.disabled   = false;
-        btnStop.disabled     = true;
-        nameInput.disabled   = false;
+        timerInterval          = null;
+        btnRecord.disabled     = false;
+        btnStop.disabled       = true;
+        btnPause.style.display = 'none';
+        btnPause.disabled      = true;
+        btnPause.textContent   = '⏸ Pause';
+        btnPause.classList.remove('is-paused');
+        nameInput.disabled     = false;
         _lockModeBuilder(false);
         _enableOptions(true);
         timerEl.textContent  = '0s';
