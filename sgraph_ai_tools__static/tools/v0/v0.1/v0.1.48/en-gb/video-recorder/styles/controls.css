@@ -97,6 +97,18 @@
 }
 .ctrl-btn--stop:hover:not(:disabled) { background: #ef4444; }
 
+.ctrl-btn--pause {
+    background: #d97706;
+    color: #fff;
+    border: none;
+}
+.ctrl-btn--pause:hover:not(:disabled) { background: #b45309; }
+.ctrl-btn--pause.is-paused {
+    background: #0d9488;
+    color: #fff;
+}
+.ctrl-btn--pause.is-paused:hover:not(:disabled) { background: #0f766e; }
+
 .ctrl-row--post {
     flex-direction: column;
     gap: 8px;

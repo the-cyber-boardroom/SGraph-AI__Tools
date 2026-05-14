@@ -9,7 +9,7 @@
  */
 
 import { SgToolApi }                                             from '/core/sg-tool-api/v0/v0.1/v0.1.0/sg-tool-api.js';
-import { config, state, startPipeline, stopPipeline,
+import { config, state, startPipeline, stopPipeline, pausePipeline, resumePipeline,
          startPreview, stopPreview, resetPipeline }              from './recorder-pipeline.js';
 import { RecordingConfig }                                       from './recorder-state.js';
 import { SGA_RECORDER }                                          from './recorder-events.js';
@@ -94,6 +94,24 @@ async function startRecording({ format } = {}) {
  */
 async function stopRecording() {
     return stopPipeline();
+}
+
+/**
+ * Pause an active recording. Timer stops; chunks stop arriving until resumed.
+ * @returns {{}}
+ */
+function pauseRecording() {
+    pausePipeline();
+    return {};
+}
+
+/**
+ * Resume a paused recording.
+ * @returns {{}}
+ */
+function resumeRecording() {
+    resumePipeline();
+    return {};
 }
 
 /**
@@ -185,8 +203,10 @@ api
     .register('setMode',        setMode,          { async: false, events: [SGA_RECORDER.MODE_SET] })
     .register('startPreview',   startPreviewApi,  { async: true,  events: [SGA_RECORDER.PREVIEW_START] })
     .register('stopPreview',    stopPreviewApi,   { async: false, events: [SGA_RECORDER.PREVIEW_STOP] })
-    .register('startRecording', startRecording,   { async: true,  events: [SGA_RECORDER.RECORD_START] })
-    .register('stopRecording',  stopRecording,    { async: true,  events: [SGA_RECORDER.RECORD_STOP] })
+    .register('startRecording',  startRecording,   { async: true,  events: [SGA_RECORDER.RECORD_START] })
+    .register('pauseRecording',  pauseRecording,   { async: false, events: [SGA_RECORDER.RECORD_PAUSE] })
+    .register('resumeRecording', resumeRecording,  { async: false, events: [SGA_RECORDER.RECORD_RESUME] })
+    .register('stopRecording',   stopRecording,    { async: true,  events: [SGA_RECORDER.RECORD_STOP] })
     .register('newRecording',   newRecording,     { async: false, events: [SGA_RECORDER.RESET] })
     .register('saveSendFile',   saveSendFileApi,  { async: true,  events: [SGA_RECORDER.SAVE_PROGRESS, SGA_RECORDER.SAVE_COMPLETE] })
     .register('saveFolder',     saveFolderApi,    { async: true,  events: [SGA_RECORDER.SAVE_PROGRESS, SGA_RECORDER.SAVE_COMPLETE] })

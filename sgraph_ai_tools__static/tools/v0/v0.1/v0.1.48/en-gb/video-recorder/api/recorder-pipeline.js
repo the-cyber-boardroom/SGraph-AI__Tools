@@ -455,7 +455,7 @@ export async function startPipeline() {
  * @returns {Promise<{ durationMs: number, sizeBytes: number }>}
  */
 export async function stopPipeline() {
-    if (state.status !== 'recording') throw new Error('No active recording');
+    if (state.status !== 'recording' && state.status !== 'paused') throw new Error('No active recording');
 
     const session = _session;
     _session = null;
@@ -468,7 +468,12 @@ export async function stopPipeline() {
         // Tear down PiP canvas compositor after recorders have flushed their data
         if (session._pipStop) { session._pipStop(); session._pipStop = null; }
 
-        const durationMs = Date.now() - state.startedAt;
+        // Exclude time spent paused from the recorded duration
+        let totalPausedMs = state.pausedDurationMs;
+        if (state.status === 'paused' && state.lastPausedAt) {
+            totalPausedMs += Date.now() - state.lastPausedAt;
+        }
+        const durationMs = Date.now() - state.startedAt - totalPausedMs;
 
         // Patch WebM duration metadata — MediaRecorder writes Duration=0 in the EBML
         // header; fix it so players and upload platforms read the correct length.
@@ -525,6 +530,36 @@ export async function stopPipeline() {
 }
 
 /**
+ * Pause all active MediaRecorders without ending the recording.
+ * The elapsed timer in the UI should be paused separately via the RECORD_PAUSE event.
+ * Fires tool:record:pause.
+ */
+export function pausePipeline() {
+    if (state.status !== 'recording') throw new Error('Cannot pause — not recording');
+    for (const [, rec] of _session._recorders) {
+        if (rec.state === 'recording') rec.pause();
+    }
+    state.lastPausedAt = Date.now();
+    state.status = 'paused';
+    _dispatchOnWindow(SGA_RECORDER.RECORD_PAUSE, {});
+}
+
+/**
+ * Resume all paused MediaRecorders and accumulate the paused interval.
+ * Fires tool:record:resume.
+ */
+export function resumePipeline() {
+    if (state.status !== 'paused') throw new Error('Cannot resume — not paused');
+    for (const [, rec] of _session._recorders) {
+        if (rec.state === 'paused') rec.resume();
+    }
+    state.pausedDurationMs += Date.now() - state.lastPausedAt;
+    state.lastPausedAt = null;
+    state.status = 'recording';
+    _dispatchOnWindow(SGA_RECORDER.RECORD_RESUME, {});
+}
+
+/**
  * Reset state for a new recording. Stops any active preview or stale session.
  */
 export function resetPipeline() {
@@ -547,7 +582,7 @@ export function resetPipeline() {
 function _watchTracks(sourceName, stream) {
     stream.getTracks().forEach(track => {
         track.addEventListener('ended', () => {
-            if (state.status !== 'recording') return;
+            if (state.status !== 'recording' && state.status !== 'paused') return;
 
             _dispatchOnWindow(SGA_RECORDER.TRACK_LOST, {
                 source: sourceName,

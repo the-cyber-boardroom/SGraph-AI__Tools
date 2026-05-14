@@ -6,7 +6,7 @@
  */
 
 /**
- * @typedef {'idle'|'requesting-permissions'|'recording'|'stopped'|'saving'|'error'} RecordingStatus
+ * @typedef {'idle'|'requesting-permissions'|'recording'|'paused'|'stopped'|'saving'|'error'} RecordingStatus
  */
 
 export class RecordingConfig {
@@ -57,9 +57,13 @@ export class RecordingState {
          *  @type {{ camera?: MediaStream, screen?: MediaStream, audio?: MediaStream }} */
         this.streams       = {};
 
-        this.durationMs    = 0;
-        this.sizeBytes     = 0;
-        this.startedAt     = null;
+        this.durationMs       = 0;
+        this.sizeBytes        = 0;
+        this.startedAt        = null;
+        /** Total milliseconds spent paused during this recording. @type {number} */
+        this.pausedDurationMs = 0;
+        /** Timestamp when the current pause began (null when not paused). @type {number|null} */
+        this.lastPausedAt     = null;
 
         /** Stream shown in the live preview panel during recording. @type {MediaStream|null} */
         this.stream        = null;
@@ -82,10 +86,12 @@ export class RecordingState {
         this.blob          = null;
         this.blobs         = {};
         this.streams       = {};
-        this.durationMs    = 0;
-        this.sizeBytes     = 0;
-        this.startedAt     = null;
-        this.stream        = null;
+        this.durationMs       = 0;
+        this.sizeBytes        = 0;
+        this.startedAt        = null;
+        this.pausedDurationMs = 0;
+        this.lastPausedAt     = null;
+        this.stream           = null;
         this.mediaRecorder = null;
         this.previewStream = null;
         this.previewStop   = null;
