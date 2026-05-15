@@ -62,6 +62,23 @@ function _withTimeout(promise, ms, label) {
     ]);
 }
 
+/**
+ * Choose the best video mime type, preferring avc3 over avc1.
+ * avc1 stores codec params in the container header and cannot handle mid-stream
+ * resolution changes (e.g. captured window resize); the browser logs an error and
+ * may terminate the recorder. avc3 (in-band SPS/PPS) tolerates this transparently.
+ * @returns {string}
+ */
+function _getVideoMimeType() {
+    const best = getBestMimeType();
+    if (best.includes('avc1')) {
+        // Replace avc1[.profile] with avc3[.profile] — same codec, different parameter delivery
+        const avc3 = best.replace(/avc1(\.[a-fA-F0-9]+)?/, 'avc3$1');
+        if (MediaRecorder.isTypeSupported(avc3)) return avc3;
+    }
+    return best;
+}
+
 // ─── RecordingSession ─────────────────────────────────────────────────────────
 //
 // Encapsulates all mutable state for a single recording run so nothing leaks
@@ -88,7 +105,7 @@ class RecordingSession {
         const isAudioOnly = stream.getVideoTracks().length === 0;
         const mimeType    = isAudioOnly
             ? (MediaRecorder.isTypeSupported('audio/webm;codecs=opus') ? 'audio/webm;codecs=opus' : 'audio/webm')
-            : getBestMimeType();
+            : _getVideoMimeType();
         const opts = isAudioOnly
             ? { mimeType, audioBitsPerSecond: config.audioBitsPerSecond }
             : { mimeType, videoBitsPerSecond: config.videoBitsPerSecond, audioBitsPerSecond: config.audioBitsPerSecond };
@@ -114,7 +131,10 @@ class RecordingSession {
             const msg = e.error?.message ?? 'Unknown MediaRecorder error';
             console.error(`[recorder:${name}]`, msg, e.error);
             _dispatchOnWindow(SGA_RECORDER.ERROR, { step: `recorder:${name}`, message: msg });
-            if (state.status === 'recording') {
+            // Guard: _session is nulled at the top of stopPipeline before it awaits,
+            // so a second concurrent call here would crash on null.stopAll(). Skip if
+            // stopPipeline is already in flight.
+            if (state.status === 'recording' && _session) {
                 console.warn(`[pipeline] recorder:${name} fatal error — auto-stopping pipeline`);
                 stopPipeline().catch(err =>
                     console.error('[pipeline] auto-stop after recorder error failed:', err)
@@ -603,11 +623,14 @@ function _watchTracks(sourceName, stream) {
             });
 
             if (track.kind === 'video') {
-                // Video loss makes the recording unusable — stop immediately.
                 console.warn(`[pipeline] ${sourceName} video track ended unexpectedly — stopping`);
-                stopPipeline().catch(err =>
-                    console.error('[pipeline] auto-stop after track loss failed:', err)
-                );
+                // Guard against re-entry: _session is nulled before stopPipeline awaits,
+                // so a concurrent call from onerror or another track would crash on null.stopAll().
+                if (_session) {
+                    stopPipeline().catch(err =>
+                        console.error('[pipeline] auto-stop after track loss failed:', err)
+                    );
+                }
             } else {
                 console.warn(`[pipeline] ${sourceName} audio track ended unexpectedly`);
             }
