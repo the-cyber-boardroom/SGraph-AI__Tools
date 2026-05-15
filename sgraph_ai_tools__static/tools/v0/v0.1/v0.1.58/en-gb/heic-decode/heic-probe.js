@@ -8,28 +8,29 @@
  * THROWAWAY probe. Not a shipped module. Lives under team/explorer/dev/probes/.
  *
  * Library strategy (per plan §2.2 / §8):
- *   1. PRIMARY  — libheif-js WASM, ESM-from-CDN, lazy import().
- *   2. FALLBACK — heic2any (single UMD file from CDN) if libheif ESM won't load.
- * The probe tries libheif first and automatically falls back, reporting which
- * path actually worked.
+ *   1. PRIMARY  — heic-to (ESM-native, actively maintained, clean named exports).
+ *   2. FALLBACK — libheif-js WASM ESM bundle if heic-to won't load.
+ * The probe tries heic-to first and automatically falls back, reporting which
+ * path actually worked. heic2any@0.0.4 was evaluated and rejected — its UMD
+ * wrapper crashes with "module is not defined" in modern browsers.
  *
  * @module heic-probe
  */
 
 import * as sgImage from '../../../../../core/image/v1/v1.0/v1.0.0/sg-image.js';
 
-// libheif-js ships a bundled ESM build. The `libheif/libheif-bundle.mjs`
-// entry inlines the WASM as base64 so there is no separate .wasm fetch and
-// no cross-origin worker — simplest possible lazy-load.
-const LIBHEIF_CDN_URL = 'https://cdn.jsdelivr.net/npm/libheif-js@1.18.2/libheif/libheif-bundle.mjs';
+// heic-to: ESM with named exports { heicTo, isHeic }. ~2.7 MB single bundle.
+const HEIC_TO_CDN_URL = 'https://cdn.jsdelivr.net/npm/heic-to@1.4.2/dist/heic-to.min.js';
 
-// heic2any fallback — single UMD file, attaches `heic2any` to window.
-const HEIC2ANY_CDN_URL = 'https://cdn.jsdelivr.net/npm/heic2any@0.0.4/dist/heic2any.min.js';
+// libheif-js fallback: bundled ESM build at `libheif-wasm/libheif-bundle.mjs`
+// inlines the WASM as base64 so there is no separate .wasm fetch and no
+// cross-origin worker.
+const LIBHEIF_CDN_URL = 'https://cdn.jsdelivr.net/npm/libheif-js@1.18.2/libheif-wasm/libheif-bundle.mjs';
 
+/** @type {{heicTo: Function, isHeic: Function}|null} cached heic-to module */
+let _heicTo = null;
 /** @type {object|null} cached libheif module instance */
 let _libheif = null;
-/** @type {Function|null} cached heic2any function */
-let _heic2any = null;
 
 // ---------------------------------------------------------------------------
 // DOM wiring
@@ -80,12 +81,29 @@ function setStatus(state, text) {
 // ---------------------------------------------------------------------------
 
 /**
- * Lazy-load libheif-js as an ES module from the CDN.
+ * Lazy-load heic-to as an ES module from the CDN (primary path).
+ * @returns {Promise<{heicTo: Function, isHeic: Function}>}
+ */
+async function loadHeicTo() {
+    if (_heicTo) return _heicTo;
+    log(`Loading heic-to ESM from CDN: ${HEIC_TO_CDN_URL}`);
+    const t0 = performance.now();
+    const mod = await import(/* webpackIgnore: true */ HEIC_TO_CDN_URL);
+    if (typeof mod.heicTo !== 'function') {
+        throw new Error('heic-to loaded but heicTo export is not a function');
+    }
+    _heicTo = { heicTo: mod.heicTo, isHeic: mod.isHeic };
+    log(`heic-to loaded in ${(performance.now() - t0).toFixed(0)} ms`, 'ok');
+    return _heicTo;
+}
+
+/**
+ * Lazy-load libheif-js as an ES module from the CDN (fallback path).
  * @returns {Promise<object>} the libheif module instance
  */
 async function loadLibheif() {
     if (_libheif) return _libheif;
-    log(`Loading libheif-js ESM from CDN: ${LIBHEIF_CDN_URL}`);
+    log(`Falling back to libheif-js ESM from CDN: ${LIBHEIF_CDN_URL}`);
     const t0 = performance.now();
     const mod = await import(/* webpackIgnore: true */ LIBHEIF_CDN_URL);
     // The bundle exports a default factory (or attaches `libheif`); normalise.
@@ -96,35 +114,31 @@ async function loadLibheif() {
     return _libheif;
 }
 
-/**
- * Lazy-load heic2any as a classic UMD script from the CDN (fallback path).
- * @returns {Promise<Function>} the heic2any function
- */
-async function loadHeic2any() {
-    if (_heic2any) return _heic2any;
-    log(`Falling back to heic2any UMD from CDN: ${HEIC2ANY_CDN_URL}`);
-    const t0 = performance.now();
-    await new Promise((resolve, reject) => {
-        const s = document.createElement('script');
-        s.src = HEIC2ANY_CDN_URL;
-        s.onload = resolve;
-        s.onerror = () => reject(new Error('heic2any script failed to load'));
-        document.head.appendChild(s);
-    });
-    if (typeof window.heic2any !== 'function') {
-        throw new Error('heic2any loaded but window.heic2any is not a function');
-    }
-    _heic2any = window.heic2any;
-    log(`heic2any loaded in ${(performance.now() - t0).toFixed(0)} ms`, 'ok');
-    return _heic2any;
-}
-
 // ---------------------------------------------------------------------------
 // Decode paths
 // ---------------------------------------------------------------------------
 
 /**
- * Decode a HEIC file to a canvas using libheif-js.
+ * Decode a HEIC file to a canvas using heic-to (primary).
+ * heic-to converts to a JPEG/PNG blob; we load that into a canvas.
+ * @param {File} file
+ * @returns {Promise<{canvas: HTMLCanvasElement, width: number, height: number, lib: string}>}
+ */
+async function decodeWithHeicTo(file) {
+    const { heicTo } = await loadHeicTo();
+    const outBlob = await heicTo({ blob: file, type: 'image/jpeg', quality: 0.95 });
+    const info = await sgImage.getImageInfo(
+        new File([outBlob], 'decoded.jpg', { type: 'image/jpeg' })
+    );
+    const canvas = document.createElement('canvas');
+    canvas.width = info.width;
+    canvas.height = info.height;
+    canvas.getContext('2d').drawImage(info.image, 0, 0);
+    return { canvas, width: info.width, height: info.height, lib: 'heic-to' };
+}
+
+/**
+ * Decode a HEIC file to a canvas using libheif-js (fallback).
  * @param {File} file
  * @returns {Promise<{canvas: HTMLCanvasElement, width: number, height: number, lib: string}>}
  */
@@ -166,24 +180,6 @@ async function decodeWithLibheif(file) {
     return { canvas, width, height, lib: 'libheif-js' };
 }
 
-/**
- * Decode a HEIC file to a canvas using heic2any (fallback).
- * heic2any converts to a PNG/JPEG blob; we load that into a canvas.
- * @param {File} file
- * @returns {Promise<{canvas: HTMLCanvasElement, width: number, height: number, lib: string}>}
- */
-async function decodeWithHeic2any(file) {
-    const heic2any = await loadHeic2any();
-    const outBlob = await heic2any({ blob: file, toType: 'image/png' });
-    const blob = Array.isArray(outBlob) ? outBlob[0] : outBlob;
-    const info = await sgImage.getImageInfo(new File([blob], 'decoded.png', { type: 'image/png' }));
-    const canvas = document.createElement('canvas');
-    canvas.width = info.width;
-    canvas.height = info.height;
-    canvas.getContext('2d').drawImage(info.image, 0, 0);
-    return { canvas, width: info.width, height: info.height, lib: 'heic2any' };
-}
-
 // ---------------------------------------------------------------------------
 // Probe orchestration
 // ---------------------------------------------------------------------------
@@ -210,17 +206,17 @@ async function runProbe(file) {
     let result = null;
     const tDecode0 = performance.now();
 
-    // Path 1: libheif-js (primary).
+    // Path 1: heic-to (primary).
     try {
-        result = await decodeWithLibheif(file);
-    } catch (errLibheif) {
-        log(`libheif-js path failed: ${errLibheif.message}`, 'err');
-        // Path 2: heic2any (fallback).
+        result = await decodeWithHeicTo(file);
+    } catch (errHeicTo) {
+        log(`heic-to path failed: ${errHeicTo.message}`, 'err');
+        // Path 2: libheif-js (fallback).
         try {
-            result = await decodeWithHeic2any(file);
-        } catch (errHeic2any) {
-            log(`heic2any fallback also failed: ${errHeic2any.message}`, 'err');
-            setStatus('fail', 'FAIL — both libheif-js and heic2any could not decode this file');
+            result = await decodeWithLibheif(file);
+        } catch (errLibheif) {
+            log(`libheif-js fallback also failed: ${errLibheif.message}`, 'err');
+            setStatus('fail', 'FAIL — both heic-to and libheif-js could not decode this file');
             return;
         }
     }
