@@ -108,8 +108,8 @@
   <div class="card">
     <h2>What this probe gates</h2>
     <ul>
-      <li>Primary library: <code>libheif-js</code> WASM, ESM-from-CDN, lazy <code>import()</code>.</li>
-      <li>Fallback: <code>heic2any</code> UMD-from-CDN — used automatically if libheif ESM fails.</li>
+      <li>Primary library: <code>heic-to</code> ESM-from-CDN, lazy <code>import()</code>.</li>
+      <li>Fallback: <code>libheif-js</code> WASM ESM-from-CDN — used automatically if heic-to fails.</li>
       <li>PASS = decode to canvas + JPEG/WebP export all succeed. Watch the log for which library actually worked and the load/decode timings.</li>
       <li>If this passes, <code>core/sg-heic</code> can be built (plan Phase 1).</li>
     </ul>
