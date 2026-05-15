@@ -163,7 +163,7 @@ async function directUpload(ciphertext, transferId, sendUrl, accessToken, onProg
  *
  * Steps:
  *   1. POST /api/transfers/create      → registers the transfer
- *   2. POST /api/presigned/initiate    → { uploadId, urls: [...] }
+ *   2. POST /api/presigned/initiate    → { upload_id, part_urls: [...], part_size }
  *   3. PUT each part to its presigned URL (max 5 concurrent)
  *   4. POST /api/presigned/complete    → done
  *
@@ -206,8 +206,11 @@ async function multipartUpload(ciphertext, transferId, sendUrl, accessToken, onP
   const initData = await initRes.json();
   console.log('[SG/Send] presigned/initiate response:', initData);
 
-  const uploadId = initData.uploadId ?? initData.upload_id;
-  const urls     = initData.urls ?? initData.presigned_urls ?? initData.signed_urls ?? initData.upload_urls;
+  const uploadId        = initData.uploadId ?? initData.upload_id;
+  const urls            = initData.urls ?? initData.presigned_urls ?? initData.signed_urls ?? initData.upload_urls ?? initData.part_urls;
+  // Server may dictate a different part size than our client default (e.g. 10 MB vs 5 MB).
+  // Always use the server's value — it allocated each presigned URL for that exact byte range.
+  const effectivePartSize = initData.part_size ?? initData.partSize ?? PART_SIZE;
 
   if (!Array.isArray(urls) || urls.length === 0) {
     throw new Error(`Multipart initiate response missing URLs — got keys: ${Object.keys(initData).join(', ')}`);
@@ -216,8 +219,8 @@ async function multipartUpload(ciphertext, transferId, sendUrl, accessToken, onP
   // Step 3 — upload parts in parallel (max MAX_CONCURRENT)
   let completedParts = 0;
   const tasks = urls.map((url, i) => () => {
-    const start = i * PART_SIZE;
-    const end   = Math.min(start + PART_SIZE, totalSize);
+    const start = i * effectivePartSize;
+    const end   = Math.min(start + effectivePartSize, totalSize);
     const chunk = ciphertext.slice(start, end);
 
     return uploadPart(url, chunk).then(etag => {
