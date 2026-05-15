@@ -1,0 +1,72 @@
+{
+    "id": "heic-converter",
+    "name": "HEIC Converter",
+    "slug": "heic-converter",
+    "description": "Batch-convert iPhone HEIC/HEIF photos to WebP, JPEG, PNG, or AVIF — entirely in your browser. Drop the files, pick a format, download.",
+    "icon": "🖼",
+    "version": "0.1.0",
+    "status": "alpha",
+    "category": "media",
+    "keywords": ["heic", "heif", "iphone", "convert", "webp", "jpeg", "png", "avif", "image", "browser"],
+    "locale": "en-gb",
+    "dependencies": {
+        "core": [
+            { "module": "sg-tool-api",      "path": "/core/sg-tool-api/v0/v0.1/v0.1.0/sg-tool-api.js" },
+            { "module": "manifest-loader",  "path": "/core/manifest-loader/v0/v0.1/v0.1.0/manifest-loader.js" },
+            { "module": "sg-heic",          "path": "/core/sg-heic/v0/v0.1/v0.1.0/sg-heic.js" },
+            { "module": "sg-image",         "path": "/core/image/v1/v1.0/v1.0.0/sg-image.js" }
+        ],
+        "components": [
+            { "module": "sg-tool-api-explorer", "path": "/components/tool-api/sg-tool-api-explorer/v0/v0.1/v0.1.0/sg-tool-api-explorer.js" },
+            { "module": "sg-tool-api-console",  "path": "/components/tool-api/sg-tool-api-console/v0/v0.1/v0.1.0/sg-tool-api-console.js" },
+            { "module": "sg-tool-api-manifest", "path": "/components/tool-api/sg-tool-api-manifest/v0/v0.1/v0.1.0/sg-tool-api-manifest.js" }
+        ]
+    },
+    "loader": [
+        { "phase": 1, "type": "css", "path": "/components/tokens/v1/v1.0/v1.0.0/sg-tokens.css" },
+        { "phase": 1, "type": "css", "path": "./styles/heic-converter.css" },
+        { "phase": 2, "type": "js",  "path": "/components/tool-api/sg-tool-api-explorer/v0/v0.1/v0.1.0/sg-tool-api-explorer.js" },
+        { "phase": 2, "type": "js",  "path": "/components/tool-api/sg-tool-api-console/v0/v0.1/v0.1.0/sg-tool-api-console.js" },
+        { "phase": 2, "type": "js",  "path": "/components/tool-api/sg-tool-api-manifest/v0/v0.1/v0.1.0/sg-tool-api-manifest.js" },
+        { "phase": 3, "type": "js",  "entry": true, "path": "./api/heic-converter-api.js" }
+    ],
+    "api": {
+        "version": "0.1.0",
+        "global": "window.__tool",
+        "note": "Live after tool:ready. In-memory queue; no persistence. HEIC decode lazy-loads heic-to (primary) or libheif-js (fallback) from CDN. JSZip is lazy-loaded only when Download all as ZIP is invoked.",
+        "actions": {
+            "addFiles":       { "description": "Add HEIC/HEIF files to the queue. Non-HEIC files are returned in `skipped`. Duplicates (same name+size) are skipped." },
+            "getItems":       { "description": "Return the current queue as a serialisable array (no Files/Blobs)." },
+            "setFormat":      { "description": "Set the output MIME: image/webp | image/jpeg | image/png | image/avif." },
+            "setQuality":     { "description": "Set the encode quality 0..1 (ignored for PNG)." },
+            "convertOne":     { "description": "Decode + re-encode a single queued item. Emits hc:item:started/progress/complete/error." },
+            "convertAll":     { "description": "Convert every queued or errored item sequentially. Emits hc:batch:started + hc:batch:complete." },
+            "downloadOne":    { "description": "Trigger a browser download of one completed item." },
+            "downloadAllZip": { "description": "Bundle every completed item into a ZIP via JSZip and download." },
+            "reset":          { "description": "Clear the queue and revoke any held object URLs." }
+        },
+        "events": [
+            { "name": "tool:ready",        "when": "activate() called",        "detail": "{ instanceId, tool, version }" },
+            { "name": "hc:items:added",    "when": "addFiles resolves",        "detail": "{ addedIds, skipped }" },
+            { "name": "hc:item:started",   "when": "convertOne begins",        "detail": "{ id }" },
+            { "name": "hc:item:progress",  "when": "decode/encode/done phase", "detail": "{ id, stage, pct }" },
+            { "name": "hc:item:complete",  "when": "convertOne resolves",      "detail": "{ id, outputSize, outputType }" },
+            { "name": "hc:item:error",     "when": "convertOne rejects",       "detail": "{ id, error }" },
+            { "name": "hc:batch:started",  "when": "convertAll begins",        "detail": "{ count }" },
+            { "name": "hc:batch:complete", "when": "convertAll resolves",      "detail": "{ ok, failed }" },
+            { "name": "hc:format:changed", "when": "setFormat",                "detail": "{ format }" },
+            { "name": "hc:quality:changed","when": "setQuality",               "detail": "{ quality }" },
+            { "name": "hc:reset",          "when": "reset",                    "detail": "{}" }
+        ],
+        "skills": {
+            "human":   "./skills/SKILL__human.md",
+            "browser": "./skills/SKILL__browser.md",
+            "api":     "./skills/SKILL__api.md"
+        }
+    },
+    "skills": {
+        "human":   "./skills/SKILL__human.md",
+        "browser": "./skills/SKILL__browser.md",
+        "api":     "./skills/SKILL__api.md"
+    }
+}
