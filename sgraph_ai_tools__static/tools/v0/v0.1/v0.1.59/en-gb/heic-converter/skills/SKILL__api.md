@@ -1,9 +1,9 @@
 # HEIC Converter — API Capability Spec
 
 **Tool:** heic-converter
-**Version:** ui=0.1.0, api=0.1.0, content=0.1.0
+**Version:** ui=0.2.0, api=0.2.0, content=0.2.0
 **Instance ID:** `heic-converter:root`
-**Environment:** browser only (HTTPS or localhost required — HEIC libraries are lazy-loaded from CDN)
+**Environment:** browser only (HTTPS or localhost required — HEIC + FFmpeg libraries are lazy-loaded from CDN)
 **Registry key:** `window.__tool` / `window.__tools['heic-converter:root']`
 
 ---
@@ -41,21 +41,44 @@ Wait pattern:
 
 ### addFiles
 
-Add HEIC/HEIF files to the queue. Non-HEIC files are dropped and reported in `skipped`. Duplicates (same name + size) are also skipped.
+Add HEIC/HEIF stills OR videos (mp4/mov/m4v) to the queue. Unsupported files are dropped and reported in `skipped`. Duplicates are also skipped. After adding, Live Photo dedup is re-evaluated over the whole queue.
 
 ```
-signature:   addFiles({ files }) -> Promise<{ added: string[], skipped: Array<{name, reason}> }>
+signature:   addFiles({ files }) | addFiles({ entries }) -> Promise<{ added: string[], skipped: Array<{name, reason}> }>
 async:       true
-params:
-  files     File[] | FileList    HEIC/HEIF files to add. Plain File objects work
-                                  (e.g. from a fetched Blob wrapped via new File).
+params (one of):
+  files     File[] | FileList    HEIC/HEIF/video files to add (flat). Each file's
+                                  `webkitRelativePath` is honoured if present.
+  entries   Array<{file, relativePath}>   folder form — `relativePath` is the
+                                  folder-relative path mirrored into the ZIP.
 returns:
   added     string[]              IDs of newly-queued items, e.g. ['hc-1', 'hc-2']
-  skipped   Array<{name,reason}>  reason: 'not-heic' or 'duplicate'
+  skipped   Array<{name,reason}>  reason: 'not-supported' or 'duplicate'
 events:
   hc:items:added                  { addedIds, skipped }
+  hc:item:skipped                 { id, reason: 'live-photo-duplicate' }  (per deduped video)
 errors:
   none — bad files end up in `skipped`, not thrown.
+notes:
+  - A file is accepted if sgHeic.isHeic(file) OR isVideoFile(file) (mp4/mov/m4v).
+  - Videos are tagged kind:'video'; HEIC kind:'heic'.
+```
+
+### setLivePhotoDedup
+
+Toggle Live Photo dedup. A "Live Photo pair" is a still (HEIC/JPG) and a video sharing a basename (case-insensitive).
+
+```
+signature:   setLivePhotoDedup({ enabled }) -> { enabled }
+async:       false
+params:
+  enabled   boolean   true (default): the motion clip of each pair is marked
+                       status:'skipped' (skippedReason:'live-photo-duplicate')
+                       and excluded from the ZIP. false: those clips are also
+                       frame-extracted. Standalone videos are ALWAYS converted.
+events:
+  hc:livephoto:dedup   { enabled }
+  hc:item:skipped      { id, reason } (when enabling re-marks paired videos)
 ```
 
 ### getItems
@@ -66,17 +89,20 @@ Return a serialisable snapshot of the queue (no Files, no Blobs).
 signature:   getItems() -> Array<itemSummary>
 async:       false
 returns: Array of:
-  id          string   'hc-N'
-  name        string   original filename
-  sizeBytes   number   source file size
-  status      string   'queued' | 'running' | 'done' | 'error'
-  error       string   null when no error
-  outputType  string   MIME of converted output, null until 'done'
-  outputSize  number   bytes of converted blob, null until 'done'
-  outputName  string   suggested download filename, null until 'done'
-  width       number   decoded pixel width, null until 'done'
-  height      number   decoded pixel height, null until 'done'
-  decodeLib   string   'heic-to' or 'libheif-js', null until 'done'
+  id            string   'hc-N'
+  name          string   original filename
+  kind          string   'heic' | 'video'
+  relativePath  string   folder-relative path, null when added flat
+  sizeBytes     number   source file size
+  status        string   'queued' | 'running' | 'done' | 'error' | 'skipped'
+  skippedReason string   'live-photo-duplicate' when skipped, else null
+  error         string   null when no error
+  outputType    string   MIME of converted output, null until 'done'
+  outputSize    number   bytes of converted blob, null until 'done'
+  outputName    string   suggested download filename, null until 'done'
+  width         number   decoded pixel width, null until 'done'
+  height        number   decoded pixel height, null until 'done'
+  decodeLib     string   'heic-to' | 'libheif-js' (HEIC) | 'video' (frame), null until 'done'
 ```
 
 ### setFormat
@@ -111,7 +137,7 @@ events:
 
 ### convertOne
 
-Decode + re-encode a single queued item using the current format/quality.
+Convert a single queued item using the current format/quality. HEIC items are decoded + re-encoded; video items have their first frame extracted (and re-encoded). Both paths re-encode from pixels, so the output carries no source metadata.
 
 ```
 signature:   convertOne({ id }) -> Promise<{ id, outputType, outputSize }>
@@ -121,16 +147,19 @@ params:
 errors:
   Error{ code: 'unknown-item' } if id not in queue
   Error{ code: 'busy' }          if item is already running
-  Error{ code: 'heic-decode-failed' } if both heic-to AND libheif-js fail
+  Error{ code: 'heic-decode-failed' } if both heic-to AND libheif-js fail (HEIC)
+  Error (generic) if video frame extraction fails on both the <video> and FFmpeg paths
 events:
   hc:item:started     { id }
   hc:item:progress    { id, stage: 'decode'|'encode'|'done', pct }
   hc:item:complete    { id, outputSize, outputType }
   hc:item:error       { id, error }   (also rejects the Promise)
 notes:
-  - JPEG output: alpha is flattened to a white background before encode.
-  - First call of the session lazy-loads heic-to (~2.7MB) from CDN.
-  - On failure, decodeLib reports which decoder was tried last.
+  - JPEG output: alpha is flattened to a white background before encode (HEIC path).
+  - First HEIC call of the session lazy-loads heic-to (~2.7MB) from CDN.
+  - Video items: web-friendly .mp4 uses a native <video> element; HEVC .mov falls
+    back to FFmpeg WASM (~30MB lazy-loaded once). The FFmpeg load ratio is surfaced
+    via hc:item:progress (stage:'decode', pct). Frame extracted at t=0.
 ```
 
 ### convertAll
@@ -177,8 +206,12 @@ errors:
   Error{ code: 'empty' } if there are no completed items to pack
   Error if JSZip fails to load (network / CDN problem)
 notes:
-  - Duplicate output names are de-duplicated by appending -2, -3, ...
-  - The download filename is `heic-converter-YYYY-MM-DD.zip`.
+  - When a folder was dropped/picked, the ZIP mirrors the folder structure
+    (each file's relativePath, with the extension swapped to the chosen format)
+    and the ZIP is named after the top-level folder. Otherwise it falls back to
+    a flat layout named `heic-converter-YYYY-MM-DD.zip`.
+  - Skipped (Live Photo duplicate) items are excluded.
+  - Duplicate output paths are de-duplicated by appending -2, -3, ...
 ```
 
 ### reset
@@ -205,10 +238,12 @@ hc:item:started         convertOne begins                  { instanceId, id }
 hc:item:progress        decode / encode / done             { instanceId, id, stage, pct }
 hc:item:complete        convertOne resolves                { instanceId, id, outputSize, outputType }
 hc:item:error           convertOne rejects                 { instanceId, id, error }
+hc:item:skipped         an item is deduped                 { instanceId, id, reason }
 hc:batch:started        convertAll begins                  { instanceId, count }
 hc:batch:complete       convertAll resolves                { instanceId, ok, failed }
 hc:format:changed       setFormat                          { instanceId, format }
 hc:quality:changed      setQuality                         { instanceId, quality }
+hc:livephoto:dedup      setLivePhotoDedup                  { instanceId, enabled }
 hc:reset                reset                              { instanceId }
 ```
 
@@ -271,6 +306,11 @@ core:
   manifest-loader  /core/manifest-loader/v0/v0.1/v0.1.0/manifest-loader.js
   sg-heic          /core/sg-heic/v0/v0.1/v0.1.0/sg-heic.js
   sg-image         /core/image/v1/v1.0/v1.0.0/sg-image.js
+  sg-video-frames  /core/sg-video-frames/v0/v0.1/v0.1.0/sg-video-frames.js
+  sg-video         /core/video/v1/v1.0/v1.0.1/sg-video.js   (FFmpeg loader, used by sg-video-frames)
+
+tool-local helper:
+  live-photo       ./api/live-photo.js   (groupLivePhotos — basename pairing)
 
 components:
   sg-tool-api-explorer    /components/tool-api/sg-tool-api-explorer/v0/v0.1/v0.1.0/
@@ -279,17 +319,29 @@ components:
 
 lazy-loaded from CDN (on demand):
   heic-to       https://cdn.jsdelivr.net/npm/heic-to@1.4.2/dist/heic-to.min.js
-  libheif-js    https://cdn.jsdelivr.net/npm/libheif-js@1.18.2/libheif-wasm/libheif-bundle.mjs   (fallback only)
+  libheif-js    https://cdn.jsdelivr.net/npm/libheif-js@1.18.2/libheif-wasm/libheif-bundle.mjs   (HEIC fallback only)
+  FFmpeg core   https://unpkg.com/@ffmpeg/core@0.12.6/...   (only for HEVC .mov frame extraction)
   JSZip         https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js   (only when downloadAllZip is called)
 ```
 
 ## Known limitations
 
 ```
-heic-only-dropzone:
-  addFiles rejects non-HEIC inputs by returning them in `skipped`. This is by
-  design — for general image conversion the upcoming `photo-pack` tool will
-  accept the full mixed-pack input shape.
+supported-inputs:
+  addFiles accepts HEIC/HEIF stills + videos (mp4/mov/m4v). Anything else is
+  returned in `skipped` (reason 'not-supported').
+
+first-frame-only:
+  Videos yield only their first frame (t=0). Choosing a different frame and
+  outputting a compressed full video are planned for the `photo-pack` tool.
+
+hevc-mov-slow:
+  iPhone .MOV (HEVC) cannot be decoded by the browser's <video> element on most
+  desktops, so it uses FFmpeg WASM — a ~30MB one-time lazy load plus a few
+  seconds per frame.
+
+live-photo-pairing-by-name:
+  Pairing is by case-insensitive basename. Renamed files may not pair.
 
 primary-image-only:
   Multi-image HEIC files (rare iOS bursts) yield only the primary image.

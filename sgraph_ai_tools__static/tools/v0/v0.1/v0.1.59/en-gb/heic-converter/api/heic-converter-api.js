@@ -36,7 +36,7 @@ export async function init(manifest) {
 
     const api = new SgToolApi({
         name: 'heic-converter',
-        version: { api: '0.1.0', ui: '0.1.0', content: '0.1.0' },
+        version: { api: '0.2.0', ui: '0.2.0', content: '0.2.0' },
         panelId: 'root',
         manifest: './manifest.json',
         skills: (manifest && manifest.skills) || {},
@@ -50,15 +50,16 @@ export async function init(manifest) {
     const output  = buildOutputMethods({ state });
 
     api
-        .register('addFiles',       convert.addFiles,       { async: true,  sanitiseParams: fileSanitiser })
-        .register('getItems',       convert.getItems,       { async: false, sanitiseParams: passthrough })
-        .register('setFormat',      convert.setFormat,      { async: false, sanitiseParams: passthrough })
-        .register('setQuality',     convert.setQuality,     { async: false, sanitiseParams: passthrough })
-        .register('convertOne',     convert.convertOne,     { async: true,  sanitiseParams: passthrough })
-        .register('convertAll',     convert.convertAll,     { async: true,  sanitiseParams: passthrough })
-        .register('downloadOne',    output.downloadOne,     { async: true,  sanitiseParams: passthrough })
-        .register('downloadAllZip', output.downloadAllZip,  { async: true,  sanitiseParams: passthrough })
-        .register('reset',          convert.reset,          { async: false, sanitiseParams: passthrough });
+        .register('addFiles',           convert.addFiles,           { async: true,  sanitiseParams: fileSanitiser })
+        .register('getItems',           convert.getItems,           { async: false, sanitiseParams: passthrough })
+        .register('setFormat',          convert.setFormat,          { async: false, sanitiseParams: passthrough })
+        .register('setQuality',         convert.setQuality,         { async: false, sanitiseParams: passthrough })
+        .register('setLivePhotoDedup',  convert.setLivePhotoDedup,  { async: false, sanitiseParams: passthrough })
+        .register('convertOne',         convert.convertOne,         { async: true,  sanitiseParams: passthrough })
+        .register('convertAll',         convert.convertAll,         { async: true,  sanitiseParams: passthrough })
+        .register('downloadOne',        output.downloadOne,         { async: true,  sanitiseParams: passthrough })
+        .register('downloadAllZip',     output.downloadAllZip,      { async: true,  sanitiseParams: passthrough })
+        .register('reset',              convert.reset,              { async: false, sanitiseParams: passthrough });
 
     api.activate();
 

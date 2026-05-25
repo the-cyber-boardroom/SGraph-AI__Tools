@@ -62,6 +62,24 @@
 .hc-dropzone__notice[data-kind="error"] { color: #f87171; }
 .hc-dropzone__notice[data-kind="warn"]  { color: #fbbf24; }
 
+.hc-link-btn {
+    background: none; border: none; padding: 0;
+    color: #93b4ff; font: inherit; cursor: pointer; text-decoration: underline;
+}
+.hc-link-btn:hover { color: #c7d6ff; }
+
+/* Metadata-removal reassurance ------------------------------------------- */
+.hc-meta-note {
+    margin-top: 12px;
+    padding: 10px 12px;
+    background: #13251c;
+    border: 1px solid #1f3b29;
+    border-radius: 8px;
+    color: #8fd6ad;
+    font-size: 0.85rem;
+    line-height: 1.4;
+}
+
 /* Settings ---------------------------------------------------------------- */
 .hc-formats {
     border: 1px solid #1f2444;
@@ -91,6 +109,11 @@
 .hc-quality__value { color: #94a3b8; font-variant-numeric: tabular-nums; }
 .hc-quality input[type="range"] { width: 100%; }
 .hc-quality__hint { font-size: 0.8rem; color: #94a3b8; margin-top: 4px; }
+
+/* Live Photo toggle ------------------------------------------------------- */
+.hc-livephoto { margin-bottom: 18px; }
+.hc-check { display: flex; align-items: center; gap: 8px; cursor: pointer; }
+.hc-check__label { color: #e2e8f0; font-size: 0.95rem; }
 
 .hc-actions { display: flex; flex-wrap: wrap; gap: 10px; }
 
@@ -129,6 +152,29 @@
 .hc-row--done { border-color: #1f3b29; }
 .hc-row--error { border-color: #4a1f23; }
 .hc-row--running { border-color: #2d3464; }
+.hc-row--skipped { border-color: #2d3464; opacity: 0.6; }
+
+/* Kind badge + folder path ------------------------------------------------ */
+.hc-badge {
+    display: inline-block;
+    font-size: 0.66rem;
+    font-weight: 700;
+    letter-spacing: 0.04em;
+    padding: 1px 6px;
+    border-radius: 4px;
+    vertical-align: middle;
+    margin-right: 4px;
+}
+.hc-badge--heic  { background: #1f2444; color: #93b4ff; }
+.hc-badge--video { background: #2a1f44; color: #c79bff; }
+.hc-row__path {
+    margin-top: 2px;
+    color: #64748b;
+    font-size: 0.78rem;
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+    max-width: 460px;
+}
+.hc-row__status--skip { color: #94a3b8; }
 
 .hc-row__thumb {
     width: 64px; height: 64px;

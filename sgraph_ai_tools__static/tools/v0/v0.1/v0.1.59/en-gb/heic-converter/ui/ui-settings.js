@@ -52,6 +52,18 @@ export function mountSettings({ root, state, api }) {
                    value="${Math.round(state.getQuality() * 100)}">
             <div class="hc-quality__hint">Applies to JPEG, WebP and AVIF. PNG is lossless.</div>
         </div>
+        <div class="hc-livephoto">
+            <label class="hc-check">
+                <input type="checkbox" id="hc-livephoto"
+                       ${state.getLivePhotoDedup() ? '' : 'checked'}>
+                <span class="hc-check__label">Extract frames from Live Photo motion clips too</span>
+            </label>
+            <div class="hc-quality__hint">
+                Off (default): the motion clip of a Live Photo is dropped and only the
+                still is kept. On: a still frame is also extracted from the motion clip.
+                Standalone videos are always turned into a still frame.
+            </div>
+        </div>
         <div class="hc-actions">
             <button type="button" id="hc-convert-all" class="hc-btn hc-btn--primary">
                 Convert all
@@ -63,6 +75,7 @@ export function mountSettings({ root, state, api }) {
 
     const qSlider = root.querySelector('#hc-quality');
     const qValue = root.querySelector('#hc-quality-value');
+    const livePhotoChk = root.querySelector('#hc-livephoto');
     const btnAll = root.querySelector('#hc-convert-all');
     const btnZip = root.querySelector('#hc-download-zip');
     const btnReset = root.querySelector('#hc-reset');
@@ -77,6 +90,11 @@ export function mountSettings({ root, state, api }) {
         const pct = Number(e.target.value);
         qValue.textContent = `${pct}%`;
         try { api.setQuality({ quality: pct / 100 }); } catch (err) { console.error('[hc] setQuality', err); }
+    }
+    function onLivePhotoChange(e) {
+        // Checkbox = "extract motion clips too"; dedup is the inverse.
+        try { api.setLivePhotoDedup({ enabled: !e.target.checked }); }
+        catch (err) { console.error('[hc] setLivePhotoDedup', err); }
     }
     function setBusy(b) {
         btnAll.disabled = b;
@@ -98,6 +116,7 @@ export function mountSettings({ root, state, api }) {
 
     radios.forEach((r) => r.addEventListener('change', onFormatChange));
     qSlider.addEventListener('input', onQualityInput);
+    livePhotoChk.addEventListener('change', onLivePhotoChange);
     btnAll.addEventListener('click', onConvertAll);
     btnZip.addEventListener('click', onDownloadZip);
     btnReset.addEventListener('click', onReset);
@@ -106,6 +125,7 @@ export function mountSettings({ root, state, api }) {
         destroy() {
             radios.forEach((r) => r.removeEventListener('change', onFormatChange));
             qSlider.removeEventListener('input', onQualityInput);
+            livePhotoChk.removeEventListener('change', onLivePhotoChange);
             btnAll.removeEventListener('click', onConvertAll);
             btnZip.removeEventListener('click', onDownloadZip);
             btnReset.removeEventListener('click', onReset);

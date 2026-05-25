@@ -30,8 +30,10 @@ export function mountShell({ host, state, api }) {
         <div class="hc-title">
             <h1>HEIC Converter</h1>
             <p class="hc-subtitle">
-                Convert iPhone HEIC photos to WebP, JPEG, PNG or AVIF — entirely in your browser.
-                Files never leave this page.
+                Convert iPhone HEIC photos and videos to clean WebP, JPEG, PNG or AVIF images —
+                entirely in your browser. Drop a whole Google Photos folder; videos become a
+                still frame and Live Photo clips are de-duplicated. Files never leave this page,
+                and all original metadata (including GPS) is stripped.
             </p>
         </div>
     `;

@@ -6,33 +6,40 @@ How to drive the tool from Playwright, a console script, or any agent that talks
 
 ```
 #heic-converter-root           the tool root
-#hc-drop                       the dropzone — click to open file picker
-#hc-file                       the hidden <input type=file>; set .files to inject
+#hc-drop                       the dropzone — click to open the file picker
+#hc-file                       the hidden <input type=file multiple>; set .files to inject
+#hc-folder                     the hidden <input type=file webkitdirectory>; folder pick
+#hc-pick-folder                "pick a folder" link button inside the dropzone
 input[name="hc-format"]        4 radios; value="image/webp" | "image/jpeg" | "image/png" | "image/avif"
 #hc-quality                    range input, value 1-100 (= quality * 100)
 #hc-quality-value              live percentage display
+#hc-livephoto                  checkbox — CHECKED = also extract Live Photo motion clips (dedup OFF)
 #hc-convert-all                primary action button
 #hc-download-zip               "Download all as ZIP" button
 #hc-reset                      "Clear queue" button
 #hc-count                      count of items in the queue
 #hc-empty                      "no files yet" placeholder (hidden when queue is non-empty)
 .hc-row[data-id="<id>"]        one row per queued item
+.hc-badge--heic / .hc-badge--video   per-row kind badge (HEIC / VIDEO → still)
+.hc-row__path                  per-row folder-relative path (when a folder was dropped)
 button[data-action="convert"][data-id="<id>"]   per-row convert/retry button
 button[data-action="download"][data-id="<id>"]  per-row download button (after conversion)
 button[data-action="remove"][data-id="<id>"]    per-row remove (×) button
-.hc-dropzone__notice           transient warning/info ("Skipped: foo (not-heic)" etc.)
+.hc-dropzone__notice           transient warning/info ("Added 8; skipped 1: foo (not-supported)" etc.)
+.hc-meta-note                  always-on metadata-removal reassurance banner
 ```
 
 ## Adding files
 
-The dropzone supports three modes:
+The dropzone supports several modes:
 
-1. **Click + file picker.** Click `#hc-drop` (or focus + Enter / Space) — fires the hidden `<input type=file>` click. From Playwright, prefer setting input.files directly:
+1. **Click + file picker.** Click `#hc-drop` (or focus + Enter / Space) — fires the hidden `<input type=file multiple>` click (accepts HEIC + video). From Playwright, prefer setting input.files directly:
    ```js
-   await page.setInputFiles('#hc-file', ['/path/to/photo1.heic', '/path/to/photo2.heic'])
+   await page.setInputFiles('#hc-file', ['/path/to/photo1.heic', '/path/to/clip.mp4'])
    ```
-2. **Drag + drop.** Dispatch `dragover` / `drop` events with a `DataTransfer` carrying the files. Most automation frameworks expose helpers (`page.dispatchEvent`).
-3. **JS API.** `await window.__tool.addFiles({ files: [file1, file2] })` — easiest from a console script. See `SKILL__api.md`.
+2. **Folder pick.** Click `#hc-pick-folder`, which fires `#hc-folder` (a `webkitdirectory` input). Each file's `webkitRelativePath` is preserved and mirrored into the output ZIP.
+3. **Drag + drop (files or a folder).** Dispatch `dragover` / `drop` events with a `DataTransfer`. Dropping a folder uses `DataTransferItem.webkitGetAsEntry()` to recurse the directory tree. Most automation frameworks expose helpers (`page.dispatchEvent`).
+4. **JS API.** `await window.__tool.addFiles({ files: [file1, file2] })` or `addFiles({ entries: [{file, relativePath}] })` — easiest from a console script. See `SKILL__api.md`.
 
 After files are added the queue rows appear; verify with:
 ```js
@@ -52,6 +59,19 @@ Quality slider:
 const s = document.querySelector('#hc-quality');
 s.value = 70; s.dispatchEvent(new Event('input', { bubbles: true }));
 ```
+
+Live Photo dedup (checkbox is the INVERSE of dedup — checked = extract motion clips too):
+```js
+const c = document.querySelector('#hc-livephoto');
+c.checked = true; c.dispatchEvent(new Event('change', { bubbles: true }));
+// equivalently: window.__tool.setLivePhotoDedup({ enabled: false });
+```
+
+## Live Photos and videos
+
+- Rows carry a kind badge: `.hc-badge--heic` or `.hc-badge--video`.
+- When dedup is on (default), the motion clip of a Live Photo pair gets `status: 'skipped'` and class `hc-row--skipped`; it is excluded from the ZIP.
+- HEVC `.mov` extraction falls back to FFmpeg WASM and reports load progress via `hc:item:progress` (`stage: 'decode'`, `pct`).
 
 ## Conversions
 

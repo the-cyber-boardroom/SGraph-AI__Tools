@@ -8,12 +8,15 @@
  * Item shape:
  * {
  *   id, file (File), name, sizeBytes,
- *   status: 'queued' | 'running' | 'done' | 'error',
+ *   kind: 'heic' | 'video',
+ *   relativePath?: string,   // folder-relative path (mirrored into the ZIP)
+ *   status: 'queued' | 'running' | 'done' | 'error' | 'skipped',
+ *   skippedReason?: string,  // e.g. 'live-photo-duplicate'
  *   error?: string,
  *   outputBlob?: Blob, outputType?: string, outputName?: string, outputSize?: number,
  *   thumbnailUrl?: string,   // objectURL of the converted blob (revoke on reset)
  *   width?: number, height?: number,
- *   decodeLib?: 'heic-to' | 'libheif-js',
+ *   decodeLib?: 'heic-to' | 'libheif-js' | 'video' | 'ffmpeg',
  * }
  *
  * @module heic-converter/state
@@ -24,7 +27,7 @@
  *   addEventListener: Function, removeEventListener: Function,
  *   getItems: () => Array,
  *   getItem: (id: string) => object|null,
- *   addFile: (file: File) => string|null,
+ *   addFile: (file: File, meta?: object) => string|null,
  *   updateItem: (id: string, patch: object) => void,
  *   removeItem: (id: string) => void,
  *   reset: () => void,
@@ -32,6 +35,10 @@
  *   setFormat: (format: string) => void,
  *   getQuality: () => number,
  *   setQuality: (q: number) => void,
+ *   getLivePhotoDedup: () => boolean,
+ *   setLivePhotoDedup: (enabled: boolean) => void,
+ *   getFolderName: () => string|null,
+ *   setFolderName: (name: string) => void,
  * }}
  */
 export function createState() {
@@ -44,6 +51,9 @@ export function createState() {
     let nextId = 1;
     let format = 'image/webp';
     let quality = 0.85;
+    let livePhotoDedup = true;
+    /** @type {string|null} top-level folder name when a folder was dropped/picked */
+    let folderName = null;
 
     function emit(kind, extra) {
         target.dispatchEvent(new CustomEvent('change', {
@@ -60,9 +70,13 @@ export function createState() {
         return items.find((it) => it.id === id) || null;
     }
 
-    function addFile(file) {
+    function addFile(file, meta = {}) {
         if (!file) return null;
-        const key = `${file.name || 'file'}::${file.size || 0}`;
+        const relativePath = meta.relativePath || file.webkitRelativePath || '';
+        // Dedupe on relativePath when present (two folders may hold same name).
+        const key = relativePath
+            ? `${relativePath}::${file.size || 0}`
+            : `${file.name || 'file'}::${file.size || 0}`;
         if (seen.has(key)) return null;
         seen.add(key);
         const id = `hc-${nextId++}`;
@@ -71,6 +85,8 @@ export function createState() {
             file,
             name: file.name || `file-${id}`,
             sizeBytes: file.size || 0,
+            kind: meta.kind || 'heic',
+            relativePath: relativePath || undefined,
             status: 'queued',
         });
         emit('added', { id });
@@ -96,7 +112,10 @@ export function createState() {
         if (it.thumbnailUrl) {
             try { URL.revokeObjectURL(it.thumbnailUrl); } catch (_) { /* ignore */ }
         }
-        seen.delete(`${it.name}::${it.sizeBytes}`);
+        const key = it.relativePath
+            ? `${it.relativePath}::${it.sizeBytes}`
+            : `${it.name}::${it.sizeBytes}`;
+        seen.delete(key);
         items.splice(idx, 1);
         emit('removed', { id });
     }
@@ -109,6 +128,7 @@ export function createState() {
         }
         items.length = 0;
         seen.clear();
+        folderName = null;
         emit('reset');
     }
 
@@ -126,6 +146,20 @@ export function createState() {
         emit('quality', { quality });
     }
 
+    function getLivePhotoDedup() { return livePhotoDedup; }
+    function setLivePhotoDedup(enabled) {
+        livePhotoDedup = !!enabled;
+        emit('livePhotoDedup', { enabled: livePhotoDedup });
+    }
+
+    function getFolderName() { return folderName; }
+    function setFolderName(name) {
+        if (typeof name === 'string' && name) {
+            folderName = name;
+            emit('folder', { folderName });
+        }
+    }
+
     return {
         addEventListener: target.addEventListener.bind(target),
         removeEventListener: target.removeEventListener.bind(target),
@@ -139,5 +173,9 @@ export function createState() {
         setFormat,
         getQuality,
         setQuality,
+        getLivePhotoDedup,
+        setLivePhotoDedup,
+        getFolderName,
+        setFolderName,
     };
 }

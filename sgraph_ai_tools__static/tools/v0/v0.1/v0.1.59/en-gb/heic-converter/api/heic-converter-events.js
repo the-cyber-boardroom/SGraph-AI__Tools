@@ -27,6 +27,10 @@ export const HC_EVENTS = Object.freeze({
     FORMAT_CHANGED:    'hc:format:changed',
     /** Quality slider changed. detail: { quality } */
     QUALITY_CHANGED:   'hc:quality:changed',
+    /** Live Photo dedup toggle changed. detail: { enabled } */
+    LIVE_PHOTO_DEDUP:  'hc:livephoto:dedup',
+    /** An item was skipped (not converted). detail: { id, reason } */
+    ITEM_SKIPPED:      'hc:item:skipped',
     /** Items queue reset. detail: {} */
     RESET:             'hc:reset',
 });

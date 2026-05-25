@@ -7,7 +7,14 @@
  * @module heic-converter/api-output
  */
 
+import { outputPathFor } from './api-convert.js';
+
 const JSZIP_CDN_URL = 'https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js';
+
+/** Sanitise a folder name for use as a ZIP filename. */
+function safeZipBase(name) {
+    return String(name || '').replace(/[\\/:*?"<>|]+/g, '_').trim() || 'heic-converter';
+}
 
 /** @type {Promise<void>|null} cached pending load */
 let _jszipLoad = null;
@@ -89,10 +96,15 @@ export function buildOutputMethods({ state }) {
         const JSZip = globalThis.JSZip;
         if (!JSZip) throw new Error('JSZip not available after load');
         const zip = new JSZip();
-        // Disambiguate any duplicate output names by appending the item id.
+        // Disambiguate any duplicate output names by appending an index.
         const namesSeen = new Map();
         for (const it of completed) {
-            let name = it.outputName || `${it.id}.bin`;
+            // Mirror the source folder structure when a relativePath was
+            // captured (folder drop / pick); otherwise fall back to a flat
+            // filename. The extension is swapped to the chosen output format.
+            let name = it.relativePath
+                ? outputPathFor(it.relativePath, it.outputType)
+                : (it.outputName || `${it.id}.bin`);
             if (namesSeen.has(name)) {
                 const i = namesSeen.get(name) + 1;
                 namesSeen.set(name, i);
@@ -104,7 +116,12 @@ export function buildOutputMethods({ state }) {
             zip.file(name, it.outputBlob);
         }
         const blob = await zip.generateAsync({ type: 'blob' });
-        downloadBlob(blob, `heic-converter-${new Date().toISOString().slice(0, 10)}.zip`);
+        // Name the ZIP after the dropped folder when known.
+        const folderName = (state.getFolderName && state.getFolderName()) || null;
+        const base = folderName
+            ? safeZipBase(folderName)
+            : `heic-converter-${new Date().toISOString().slice(0, 10)}`;
+        downloadBlob(blob, `${base}.zip`);
         return { ok: true, count: completed.length, zipSize: blob.size };
     }
 

@@ -2,19 +2,21 @@
     "id": "heic-converter",
     "name": "HEIC Converter",
     "slug": "heic-converter",
-    "description": "Batch-convert iPhone HEIC/HEIF photos to WebP, JPEG, PNG, or AVIF — entirely in your browser. Drop the files, pick a format, download.",
+    "description": "Convert a whole Google Photos folder of iPhone HEIC stills + videos into clean WebP/JPEG/PNG/AVIF images, entirely in your browser. Videos become a still frame, Live Photo motion clips are de-duplicated, and all original metadata (incl. GPS) is stripped.",
     "icon": "🖼",
-    "version": "0.1.0",
+    "version": "0.2.0",
     "status": "alpha",
     "category": "media",
-    "keywords": ["heic", "heif", "iphone", "convert", "webp", "jpeg", "png", "avif", "image", "browser"],
+    "keywords": ["heic", "heif", "iphone", "convert", "webp", "jpeg", "png", "avif", "image", "browser", "video", "mov", "mp4", "live-photo", "folder", "google-photos", "metadata", "gps"],
     "locale": "en-gb",
     "dependencies": {
         "core": [
             { "module": "sg-tool-api",      "path": "/core/sg-tool-api/v0/v0.1/v0.1.0/sg-tool-api.js" },
             { "module": "manifest-loader",  "path": "/core/manifest-loader/v0/v0.1/v0.1.0/manifest-loader.js" },
             { "module": "sg-heic",          "path": "/core/sg-heic/v0/v0.1/v0.1.0/sg-heic.js" },
-            { "module": "sg-image",         "path": "/core/image/v1/v1.0/v1.0.0/sg-image.js" }
+            { "module": "sg-image",         "path": "/core/image/v1/v1.0/v1.0.0/sg-image.js" },
+            { "module": "sg-video-frames",  "path": "/core/sg-video-frames/v0/v0.1/v0.1.0/sg-video-frames.js" },
+            { "module": "sg-video",         "path": "/core/video/v1/v1.0/v1.0.1/sg-video.js" }
         ],
         "components": [
             { "module": "sg-tool-api-explorer", "path": "/components/tool-api/sg-tool-api-explorer/v0/v0.1/v0.1.0/sg-tool-api-explorer.js" },
@@ -31,32 +33,35 @@
         { "phase": 3, "type": "js",  "entry": true, "path": "./api/heic-converter-api.js" }
     ],
     "api": {
-        "version": "0.1.0",
+        "version": "0.2.0",
         "global": "window.__tool",
-        "note": "Live after tool:ready. In-memory queue; no persistence. HEIC decode lazy-loads heic-to (primary) or libheif-js (fallback) from CDN. JSZip is lazy-loaded only when Download all as ZIP is invoked.",
+        "note": "Live after tool:ready. In-memory queue; no persistence. Accepts HEIC/HEIF stills AND videos (mp4/mov/m4v), plus whole folders (folder pick or folder drop via the FileSystem Entry API). HEIC decode lazy-loads heic-to (primary) or libheif-js (fallback). Video first-frame extraction uses a native <video> element for web-friendly mp4 and falls back to FFmpeg WASM (lazy-loaded) for HEVC .mov. Every output is re-encoded from pixels so original metadata (incl. GPS) is removed. JSZip is lazy-loaded only when Download all as ZIP is invoked; the ZIP mirrors the source folder structure and is named after the dropped folder.",
         "actions": {
-            "addFiles":       { "description": "Add HEIC/HEIF files to the queue. Non-HEIC files are returned in `skipped`. Duplicates (same name+size) are skipped." },
-            "getItems":       { "description": "Return the current queue as a serialisable array (no Files/Blobs)." },
-            "setFormat":      { "description": "Set the output MIME: image/webp | image/jpeg | image/png | image/avif." },
-            "setQuality":     { "description": "Set the encode quality 0..1 (ignored for PNG)." },
-            "convertOne":     { "description": "Decode + re-encode a single queued item. Emits hc:item:started/progress/complete/error." },
-            "convertAll":     { "description": "Convert every queued or errored item sequentially. Emits hc:batch:started + hc:batch:complete." },
-            "downloadOne":    { "description": "Trigger a browser download of one completed item." },
-            "downloadAllZip": { "description": "Bundle every completed item into a ZIP via JSZip and download." },
-            "reset":          { "description": "Clear the queue and revoke any held object URLs." }
+            "addFiles":          { "description": "Add HEIC/HEIF stills OR videos (mp4/mov/m4v) to the queue. Accepts either `{files}` (flat) or `{entries:[{file,relativePath}]}` (folder). Unsupported files are returned in `skipped` (reason 'not-supported'); duplicates are skipped. Re-evaluates Live Photo dedup after adding." },
+            "getItems":          { "description": "Return the current queue as a serialisable array (no Files/Blobs). Each item includes `kind` ('heic'|'video'), `relativePath`, `status` ('queued'|'running'|'done'|'error'|'skipped') and `skippedReason`." },
+            "setFormat":         { "description": "Set the output MIME: image/webp | image/jpeg | image/png | image/avif." },
+            "setQuality":        { "description": "Set the encode quality 0..1 (ignored for PNG)." },
+            "setLivePhotoDedup": { "description": "Toggle Live Photo dedup. enabled=true (default) drops the motion clip of a Live Photo pair (a video sharing a basename with a still). enabled=false also frame-extracts those clips. Standalone videos are always converted." },
+            "convertOne":        { "description": "Convert one queued item: HEIC → decode+re-encode; video → first-frame extraction (FFmpeg path for HEVC .mov surfaces load ratio via hc:item:progress). Emits hc:item:started/progress/complete/error." },
+            "convertAll":        { "description": "Re-apply Live Photo dedup, then convert every queued or errored (non-skipped) item sequentially. Emits hc:batch:started + hc:batch:complete." },
+            "downloadOne":       { "description": "Trigger a browser download of one completed item." },
+            "downloadAllZip":    { "description": "Bundle every completed item into a ZIP via JSZip and download. Mirrors the source folder structure (extension swapped to the chosen format) and names the ZIP after the dropped folder. Skipped items are excluded." },
+            "reset":             { "description": "Clear the queue, the folder name, and revoke any held object URLs." }
         },
         "events": [
-            { "name": "tool:ready",        "when": "activate() called",        "detail": "{ instanceId, tool, version }" },
-            { "name": "hc:items:added",    "when": "addFiles resolves",        "detail": "{ addedIds, skipped }" },
-            { "name": "hc:item:started",   "when": "convertOne begins",        "detail": "{ id }" },
-            { "name": "hc:item:progress",  "when": "decode/encode/done phase", "detail": "{ id, stage, pct }" },
-            { "name": "hc:item:complete",  "when": "convertOne resolves",      "detail": "{ id, outputSize, outputType }" },
-            { "name": "hc:item:error",     "when": "convertOne rejects",       "detail": "{ id, error }" },
-            { "name": "hc:batch:started",  "when": "convertAll begins",        "detail": "{ count }" },
-            { "name": "hc:batch:complete", "when": "convertAll resolves",      "detail": "{ ok, failed }" },
-            { "name": "hc:format:changed", "when": "setFormat",                "detail": "{ format }" },
-            { "name": "hc:quality:changed","when": "setQuality",               "detail": "{ quality }" },
-            { "name": "hc:reset",          "when": "reset",                    "detail": "{}" }
+            { "name": "tool:ready",         "when": "activate() called",        "detail": "{ instanceId, tool, version }" },
+            { "name": "hc:items:added",     "when": "addFiles resolves",        "detail": "{ addedIds, skipped }" },
+            { "name": "hc:item:started",    "when": "convertOne begins",        "detail": "{ id }" },
+            { "name": "hc:item:progress",   "when": "decode/encode/done phase", "detail": "{ id, stage, pct }" },
+            { "name": "hc:item:complete",   "when": "convertOne resolves",      "detail": "{ id, outputSize, outputType }" },
+            { "name": "hc:item:error",      "when": "convertOne rejects",       "detail": "{ id, error }" },
+            { "name": "hc:item:skipped",    "when": "an item is deduped",       "detail": "{ id, reason }" },
+            { "name": "hc:batch:started",   "when": "convertAll begins",        "detail": "{ count }" },
+            { "name": "hc:batch:complete",  "when": "convertAll resolves",      "detail": "{ ok, failed }" },
+            { "name": "hc:format:changed",  "when": "setFormat",                "detail": "{ format }" },
+            { "name": "hc:quality:changed", "when": "setQuality",               "detail": "{ quality }" },
+            { "name": "hc:livephoto:dedup", "when": "setLivePhotoDedup",        "detail": "{ enabled }" },
+            { "name": "hc:reset",           "when": "reset",                    "detail": "{}" }
         ],
         "skills": {
             "human":   "./skills/SKILL__human.md",

@@ -23,6 +23,12 @@ function rowHtml(item) {
         : '';
     const dims = (item.width && item.height) ? `${item.width}×${item.height}` : '';
     const lib = item.decodeLib ? `<span class="hc-row__lib">via ${item.decodeLib}</span>` : '';
+    const kindBadge = item.kind === 'video'
+        ? `<span class="hc-badge hc-badge--video">VIDEO → still</span>`
+        : `<span class="hc-badge hc-badge--heic">HEIC</span>`;
+    const pathLine = (item.relativePath && item.relativePath.includes('/'))
+        ? `<div class="hc-row__path" title="${item.relativePath}">${item.relativePath}</div>`
+        : '';
     const thumb = item.thumbnailUrl
         ? `<img class="hc-row__thumb" alt="" src="${item.thumbnailUrl}">`
         : `<div class="hc-row__thumb hc-row__thumb--empty" aria-hidden="true">⌛</div>`;
@@ -34,6 +40,10 @@ function rowHtml(item) {
         actions = `<span class="hc-row__status hc-row__status--running">Converting…</span>`;
     } else if (item.status === 'done') {
         actions = `<button type="button" class="hc-btn hc-btn--small hc-btn--primary" data-action="download" data-id="${item.id}">Download</button>`;
+    } else if (item.status === 'skipped') {
+        const why = item.skippedReason === 'live-photo-duplicate'
+            ? 'Live Photo clip — skipped' : 'Skipped';
+        actions = `<span class="hc-row__status hc-row__status--skip">${why}</span>`;
     } else if (item.status === 'error') {
         actions = `<span class="hc-row__status hc-row__status--err" title="${item.error || ''}">Error</span>
                    <button type="button" class="hc-btn hc-btn--small" data-action="convert" data-id="${item.id}">Retry</button>`;
@@ -43,7 +53,8 @@ function rowHtml(item) {
         <div class="hc-row hc-row--${item.status}" data-id="${item.id}">
             ${thumb}
             <div class="hc-row__meta">
-                <div class="hc-row__name" title="${item.name}">${item.name}</div>
+                <div class="hc-row__name" title="${item.name}">${kindBadge} ${item.name}</div>
+                ${pathLine}
                 <div class="hc-row__details">
                     <span>${sizeFrom} → ${sizeTo}</span>
                     ${ratio ? `<span class="hc-row__ratio">${ratio}</span>` : ''}
@@ -70,7 +81,7 @@ export function mountResults({ root, state, api }) {
         <h2 class="hc-panel__title">
             Queue <span class="hc-panel__count" id="hc-count">0</span>
         </h2>
-        <div class="hc-empty" id="hc-empty">No files yet — drop some HEIC files above to get started.</div>
+        <div class="hc-empty" id="hc-empty">No files yet — drop HEIC photos, videos, or a whole folder above to get started.</div>
         <div class="hc-rows" id="hc-rows"></div>
     `;
 
