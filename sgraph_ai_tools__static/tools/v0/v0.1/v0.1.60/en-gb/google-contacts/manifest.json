@@ -1,0 +1,77 @@
+{
+    "id": "google-contacts",
+    "name": "Google Contacts",
+    "slug": "google-contacts",
+    "description": "Read the contacts you have saved in your Google account, entirely in your browser. Pure client-side OAuth (Google Identity Services token client) + direct People API calls + JSON export. Nothing is uploaded anywhere.",
+    "icon": "👥",
+    "version": "0.1.0",
+    "status": "alpha",
+    "category": "misc",
+    "keywords": ["google", "contacts", "people", "oauth", "gis", "address-book", "browser", "export", "json"],
+    "locale": "en-gb",
+    "dependencies": {
+        "core": [
+            { "module": "sg-tool-api",      "path": "/core/sg-tool-api/v0/v0.1/v0.1.0/sg-tool-api.js" },
+            { "module": "manifest-loader",  "path": "/core/manifest-loader/v0/v0.1/v0.1.0/manifest-loader.js" },
+            { "module": "sg-google-auth",   "path": "/core/sg-google-auth/v0/v0.1/v0.1.0/sg-google-auth.js" },
+            { "module": "sg-google-people", "path": "/core/sg-google-people/v0/v0.1/v0.1.0/sg-google-people.js" }
+        ],
+        "components": [
+            { "module": "sg-tool-api-explorer", "path": "/components/tool-api/sg-tool-api-explorer/v0/v0.1/v0.1.0/sg-tool-api-explorer.js" },
+            { "module": "sg-tool-api-console",  "path": "/components/tool-api/sg-tool-api-console/v0/v0.1/v0.1.0/sg-tool-api-console.js" },
+            { "module": "sg-tool-api-manifest", "path": "/components/tool-api/sg-tool-api-manifest/v0/v0.1/v0.1.0/sg-tool-api-manifest.js" }
+        ]
+    },
+    "loader": [
+        { "phase": 1, "type": "css", "path": "/components/tokens/v1/v1.0/v1.0.0/sg-tokens.css" },
+        { "phase": 1, "type": "css", "path": "./styles/google-contacts.css" },
+        { "phase": 2, "type": "js",  "path": "/components/tool-api/sg-tool-api-explorer/v0/v0.1/v0.1.0/sg-tool-api-explorer.js" },
+        { "phase": 2, "type": "js",  "path": "/components/tool-api/sg-tool-api-console/v0/v0.1/v0.1.0/sg-tool-api-console.js" },
+        { "phase": 2, "type": "js",  "path": "/components/tool-api/sg-tool-api-manifest/v0/v0.1/v0.1.0/sg-tool-api-manifest.js" },
+        { "phase": 3, "type": "js",  "entry": true, "path": "./api/google-contacts-api.js" }
+    ],
+    "api": {
+        "version": "0.1.0",
+        "global":  "window.__tool",
+        "note": "Live after tool:ready. The OAuth Client ID is persisted to localStorage under 'sg-google-contacts:clientId' (it is public by design); the short-lived access token stays in memory only. Contacts loaded via /people/me/connections (max 1000 per page, auto-paginated) and normalised into a flat shape. Search is client-side filtering over the loaded set.",
+        "scope":   "https://www.googleapis.com/auth/contacts.readonly",
+        "actions": {
+            "connect":        { "description": "Store a Google OAuth Client ID (Web type) so signIn() knows which app to use. Persists to localStorage." },
+            "signIn":         { "description": "Open the GIS consent popup and obtain an access token for the contacts.readonly scope. Pass { prompt: 'consent' } to force the dialog even when a previous grant exists." },
+            "signOut":        { "description": "Revoke the current access token, clear contacts from memory." },
+            "getAuthStatus":  { "description": "Snapshot of connected/signedIn/expiresAt/scope." },
+            "loadContacts":   { "description": "Pull every page of /people/me/connections, normalise each Person, store in memory. Emits gc:contacts:page per page." },
+            "getContacts":    { "description": "Return the in-memory contacts (optionally { query } for client-side filter, { limit } to cap)." },
+            "getContact":     { "description": "Look up a single contact by id (resourceName)." },
+            "searchContacts": { "description": "Update the in-memory filter and return the matching subset. Same query syntax as getContacts." },
+            "selectContact":  { "description": "Mark a contact as selected (drives the detail view). Pass null to clear." },
+            "clearContacts":  { "description": "Drop the in-memory contact list and filter (does NOT sign out)." },
+            "exportJson":     { "description": "Download the loaded (or filtered/selected) contacts as a JSON file. Strips the raw People API Person by default; pass { includeRaw: true } to keep it." }
+        },
+        "events": [
+            { "name": "tool:ready",         "when": "activate() called",        "detail": "{ instanceId, tool, version }" },
+            { "name": "gc:auth:connected",  "when": "connect resolves",         "detail": "{ instanceId, clientId }" },
+            { "name": "gc:auth:signed-in",  "when": "signIn resolves",          "detail": "{ instanceId, expiresAt, scope }" },
+            { "name": "gc:auth:signed-out", "when": "signOut resolves",         "detail": "{ instanceId }" },
+            { "name": "gc:auth:error",      "when": "signIn rejects",           "detail": "{ instanceId, message, code }" },
+            { "name": "gc:contacts:loading","when": "loadContacts begins",      "detail": "{ instanceId }" },
+            { "name": "gc:contacts:page",   "when": "each page resolves",       "detail": "{ instanceId, page, pageCount, soFar, total }" },
+            { "name": "gc:contacts:loaded", "when": "loadContacts resolves",    "detail": "{ instanceId, count }" },
+            { "name": "gc:contacts:error",  "when": "loadContacts rejects",     "detail": "{ instanceId, message, code }" },
+            { "name": "gc:contacts:cleared","when": "clearContacts",            "detail": "{ instanceId }" },
+            { "name": "gc:filter:changed",  "when": "searchContacts",           "detail": "{ instanceId, query }" },
+            { "name": "gc:selection:changed","when": "selectContact",            "detail": "{ instanceId, id }" },
+            { "name": "gc:export:complete", "when": "exportJson resolves",      "detail": "{ instanceId, format, count, filename }" }
+        ],
+        "skills": {
+            "human":   "./skills/SKILL__human.md",
+            "browser": "./skills/SKILL__browser.md",
+            "api":     "./skills/SKILL__api.md"
+        }
+    },
+    "skills": {
+        "human":   "./skills/SKILL__human.md",
+        "browser": "./skills/SKILL__browser.md",
+        "api":     "./skills/SKILL__api.md"
+    }
+}

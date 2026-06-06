@@ -1,0 +1,140 @@
+/* google-contacts — dark palette aligned with the rest of tools.sgraph.ai */
+
+#google-contacts-root {
+    max-width: 1100px;
+    margin: 0 auto;
+    padding: 24px 20px 60px;
+    display: flex; flex-direction: column; gap: 18px;
+}
+
+/* ── topbar ──────────────────────────────────────────────────────────── */
+.gc-topbar h1 {
+    font-size: 26px; font-weight: 700; margin: 0 0 6px;
+    color: #e2e8f0; letter-spacing: -.01em;
+}
+.gc-subtitle {
+    font-size: 13.5px; color: #94a3b8; margin: 0; max-width: 800px; line-height: 1.55;
+}
+
+/* ── shared panel ────────────────────────────────────────────────────── */
+.gc-panel {
+    background: #0f0f24;
+    border: 1px solid #1f2440;
+    border-radius: 10px;
+    padding: 16px 18px;
+}
+.gc-panel--toolbar { padding: 10px 12px; }
+.gc-panel--dev     { background: transparent; border: none; padding: 0; }
+
+h2 { font-size: 14px; font-weight: 600; margin: 0 0 10px; color: #cbd5e1; letter-spacing: .03em; text-transform: uppercase; }
+
+.gc-note         { font-size: 13px; color: #94a3b8; line-height: 1.55; margin: 0 0 12px; }
+.gc-note--small  { font-size: 11.5px; color: #64748b; margin-top: 10px; }
+.gc-note a       { color: #4ecdc4; text-decoration: none; }
+.gc-note a:hover { text-decoration: underline; }
+
+/* ── form ────────────────────────────────────────────────────────────── */
+.gc-form { display: flex; flex-direction: column; gap: 12px; }
+.gc-label {
+    display: flex; flex-direction: column; gap: 6px;
+    font-size: 11px; color: #94a3b8; text-transform: uppercase; letter-spacing: .06em;
+}
+.gc-input {
+    background: #0a0a18; border: 1px solid #2d3748; border-radius: 6px;
+    color: #e2e8f0; padding: 9px 12px; font-size: 14px; font-family: inherit;
+    transition: border-color .15s;
+}
+.gc-input:focus { outline: none; border-color: #4ecdc4; }
+.gc-input--search { flex: 1; max-width: 360px; }
+
+.gc-row { display: flex; align-items: center; gap: 12px; }
+
+/* ── connect signed-in strip ─────────────────────────────────────────── */
+.gc-connect--signed-in { display: flex; align-items: center; gap: 12px; }
+.gc-connect__meta      { flex: 1; font-size: 13px; color: #94a3b8; }
+.gc-pill {
+    font-size: 10.5px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase;
+    padding: 3px 9px; border-radius: 12px;
+}
+.gc-pill--ok { background: rgba(78, 205, 196, .14); color: #4ecdc4; }
+
+/* ── buttons ─────────────────────────────────────────────────────────── */
+.gc-btn {
+    font-family: inherit; font-size: 13px; font-weight: 600;
+    padding: 8px 16px; border-radius: 6px; cursor: pointer;
+    transition: all .15s; border: 1px solid transparent;
+}
+.gc-btn:disabled { opacity: .5; cursor: not-allowed; }
+.gc-btn--primary { background: #4ecdc4; color: #0a0a18; }
+.gc-btn--primary:not(:disabled):hover { background: #6ed7d0; }
+.gc-btn--ghost   { background: transparent; color: #94a3b8; border-color: #2d3748; }
+.gc-btn--ghost:not(:disabled):hover { color: #4ecdc4; border-color: #4ecdc4; }
+
+.gc-err { color: #f87171; font-size: 12.5px; }
+
+/* ── toolbar ─────────────────────────────────────────────────────────── */
+.gc-toolbar {
+    display: flex; flex-wrap: wrap; align-items: center; gap: 10px;
+}
+.gc-count { font-size: 12.5px; color: #94a3b8; margin-left: auto; }
+.gc-count strong { color: #e2e8f0; font-weight: 700; }
+
+/* ── contacts split view ─────────────────────────────────────────────── */
+.gc-empty {
+    text-align: center; padding: 36px 18px; color: #64748b; font-size: 14px;
+}
+.gc-split {
+    display: grid; grid-template-columns: 320px 1fr; gap: 18px;
+    min-height: 420px;
+}
+@media (max-width: 720px) {
+    .gc-split { grid-template-columns: 1fr; }
+}
+
+.gc-list {
+    list-style: none; padding: 0; margin: 0;
+    max-height: 560px; overflow-y: auto;
+    border: 1px solid #1f2440; border-radius: 8px;
+    background: #0a0a18;
+}
+.gc-row {
+    display: flex; align-items: center; gap: 10px; padding: 10px 12px;
+    border-bottom: 1px solid #14182e; cursor: pointer; transition: background .12s;
+}
+.gc-row:last-child { border-bottom: none; }
+.gc-row:hover { background: #14182e; }
+.gc-row--selected { background: rgba(78, 205, 196, .08); }
+.gc-row--selected .gc-row__name { color: #4ecdc4; }
+
+.gc-row__main { display: flex; flex-direction: column; min-width: 0; flex: 1; }
+.gc-row__name { font-size: 13.5px; font-weight: 600; color: #e2e8f0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.gc-row__sub  { font-size: 11.5px; color: #64748b; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+.gc-avatar {
+    flex-shrink: 0; width: 32px; height: 32px; border-radius: 50%;
+    background: #1a1a3a; color: #94a3b8;
+    display: inline-flex; align-items: center; justify-content: center;
+    font-size: 11px; font-weight: 700; letter-spacing: .04em; overflow: hidden;
+}
+.gc-avatar img { width: 100%; height: 100%; object-fit: cover; }
+.gc-avatar--lg { width: 56px; height: 56px; font-size: 18px; }
+
+.gc-detail .gc-card {
+    background: #0a0a18; border: 1px solid #1f2440; border-radius: 8px;
+    padding: 18px 20px;
+}
+.gc-card__head { display: flex; align-items: center; gap: 14px; margin-bottom: 18px; }
+.gc-card__name { font-size: 18px; font-weight: 700; margin: 0; color: #e2e8f0; }
+.gc-card__role { font-size: 13px; color: #94a3b8; margin: 4px 0 0; }
+
+.gc-fields { margin: 0; display: grid; grid-template-columns: 100px 1fr; gap: 6px 16px; font-size: 13px; }
+.gc-fields dt { color: #64748b; font-size: 11px; text-transform: uppercase; letter-spacing: .06em; padding-top: 3px; }
+.gc-fields dd { margin: 0; color: #cbd5e1; line-height: 1.55; }
+.gc-fields dd div + div { margin-top: 2px; }
+
+/* ── developer panel ─────────────────────────────────────────────────── */
+.gc-dev          { background: #0f0f24; border: 1px solid #1f2440; border-radius: 10px; padding: 0 16px; }
+.gc-dev__summary { padding: 12px 0; cursor: pointer; font-size: 12.5px; color: #94a3b8; letter-spacing: .03em; }
+.gc-dev[open] .gc-dev__summary { border-bottom: 1px solid #1f2440; margin-bottom: 12px; }
+.gc-dev__grid    { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; padding-bottom: 14px; }
+@media (max-width: 900px) { .gc-dev__grid { grid-template-columns: 1fr; } }
