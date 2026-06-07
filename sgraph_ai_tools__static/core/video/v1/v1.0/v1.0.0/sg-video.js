@@ -304,19 +304,54 @@ async function _getFetchFile() {
     return _fetchFile;
 }
 
+/** Mount point inside ffmpeg's virtual FS for the WORKERFS input. */
+const _INPUT_MOUNT_DIR = '/inputs';
+
 /**
- * Write a File/Blob to FFmpeg's virtual filesystem.
+ * Mount the source file into FFmpeg's virtual filesystem via WORKERFS.
+ *
+ * Unlike `writeFile`, WORKERFS reads bytes on demand through FileReaderSync
+ * inside the FFmpeg worker — the full file never has to fit in the WASM
+ * heap (capped at ~2 GB). This is what makes processing of multi-GB iPhone
+ * clips possible in the browser.
  *
  * @param {import('@ffmpeg/ffmpeg').FFmpeg} ffmpeg
- * @param {string} name - Filename in virtual FS
  * @param {File|Blob} file
+ * @returns {Promise<string>} Path inside the virtual FS to pass to `-i`.
+ * @private
+ */
+async function _mountInputFile(ffmpeg, file) {
+    // Make sure the mount point exists. createDir throws if the directory
+    // is already present (e.g. left over from a previous run); ignore that.
+    try { await ffmpeg.createDir(_INPUT_MOUNT_DIR); } catch (_e) { /* may already exist */ }
+
+    // Best-effort unmount in case a previous run left the dir mounted.
+    try { await ffmpeg.unmount(_INPUT_MOUNT_DIR); } catch (_e) { /* not mounted */ }
+
+    if (file instanceof File && file.name) {
+        await ffmpeg.mount('WORKERFS', { files: [file] }, _INPUT_MOUNT_DIR);
+        return `${_INPUT_MOUNT_DIR}/${file.name}`;
+    }
+
+    // Bare Blob (no name) — use the `blobs` form with a synthetic name.
+    const name = 'input';
+    await ffmpeg.mount(
+        'WORKERFS',
+        { blobs: [{ name, data: file }] },
+        _INPUT_MOUNT_DIR,
+    );
+    return `${_INPUT_MOUNT_DIR}/${name}`;
+}
+
+/**
+ * Unmount the WORKERFS mount created by `_mountInputFile`.
+ *
+ * @param {import('@ffmpeg/ffmpeg').FFmpeg} ffmpeg
  * @returns {Promise<void>}
  * @private
  */
-async function _writeInputFile(ffmpeg, name, file) {
-    const fetchFile = await _getFetchFile();
-    const data = await fetchFile(file);
-    await ffmpeg.writeFile(name, data);
+async function _unmountInputFile(ffmpeg) {
+    try { await ffmpeg.unmount(_INPUT_MOUNT_DIR); } catch (_e) { /* ignore */ }
 }
 
 /**
@@ -455,41 +490,42 @@ export async function splitVideo(ffmpeg, file, segments, onSegmentComplete) {
         ? inputName.substring(0, inputName.lastIndexOf('.'))
         : inputName;
 
-    await _writeInputFile(ffmpeg, inputName, file);
+    const inputPath = await _mountInputFile(ffmpeg, file);
 
     const results = [];
 
-    for (let i = 0; i < segments.length; i++) {
-        const { start, end } = segments[i];
-        const outputName = `${baseName}_segment_${i + 1}${ext}`;
+    try {
+        for (let i = 0; i < segments.length; i++) {
+            const { start, end } = segments[i];
+            const outputName = `${baseName}_segment_${i + 1}${ext}`;
 
-        await ffmpeg.exec([
-            '-ss', String(start),
-            '-to', String(end),
-            '-i', inputName,
-            '-c', 'copy',
-            '-avoid_negative_ts', 'make_zero',
-            outputName,
-        ]);
+            await ffmpeg.exec([
+                '-ss', String(start),
+                '-to', String(end),
+                '-i', inputPath,
+                '-c', 'copy',
+                '-avoid_negative_ts', 'make_zero',
+                outputName,
+            ]);
 
-        const mimeType = _mimeFromFilename(outputName);
-        const blob = await _readAndCleanup(ffmpeg, outputName, mimeType);
+            const mimeType = _mimeFromFilename(outputName);
+            const blob = await _readAndCleanup(ffmpeg, outputName, mimeType);
 
-        results.push({
-            blob,
-            filename: outputName,
-            startTime: start,
-            endTime: end,
-            duration: end - start,
-        });
+            results.push({
+                blob,
+                filename: outputName,
+                startTime: start,
+                endTime: end,
+                duration: end - start,
+            });
 
-        if (typeof onSegmentComplete === 'function') {
-            onSegmentComplete(i, segments.length);
+            if (typeof onSegmentComplete === 'function') {
+                onSegmentComplete(i, segments.length);
+            }
         }
+    } finally {
+        await _unmountInputFile(ffmpeg);
     }
-
-    // Clean up input file
-    await ffmpeg.deleteFile(inputName);
 
     return results;
 }
@@ -523,21 +559,23 @@ export async function trimVideo(ffmpeg, file, start, end) {
         : inputName;
     const outputName = `${baseName}_trimmed${ext}`;
 
-    await _writeInputFile(ffmpeg, inputName, file);
+    const inputPath = await _mountInputFile(ffmpeg, file);
+    let blob;
+    try {
+        await ffmpeg.exec([
+            '-ss', String(start),
+            '-to', String(end),
+            '-i', inputPath,
+            '-c', 'copy',
+            '-avoid_negative_ts', 'make_zero',
+            outputName,
+        ]);
 
-    await ffmpeg.exec([
-        '-ss', String(start),
-        '-to', String(end),
-        '-i', inputName,
-        '-c', 'copy',
-        '-avoid_negative_ts', 'make_zero',
-        outputName,
-    ]);
-
-    const mimeType = _mimeFromFilename(outputName);
-    const blob = await _readAndCleanup(ffmpeg, outputName, mimeType);
-
-    await ffmpeg.deleteFile(inputName);
+        const mimeType = _mimeFromFilename(outputName);
+        blob = await _readAndCleanup(ffmpeg, outputName, mimeType);
+    } finally {
+        await _unmountInputFile(ffmpeg);
+    }
 
     return {
         blob,
@@ -571,29 +609,28 @@ export async function extractAudio(ffmpeg, file) {
         : inputName;
     const outputName = `${baseName}_audio.m4a`;
 
-    await _writeInputFile(ffmpeg, inputName, file);
-
-    const exitCode = await ffmpeg.exec([
-        '-i', inputName,
-        '-vn',
-        '-c:a', 'copy',
-        outputName,
-    ]);
-
-    if (exitCode !== 0) {
-        await ffmpeg.deleteFile(inputName);
-        throw new Error('extractAudio: FFmpeg failed — the file may not contain an audio stream.');
-    }
-
+    const inputPath = await _mountInputFile(ffmpeg, file);
     let blob;
     try {
-        blob = await _readAndCleanup(ffmpeg, outputName, 'audio/mp4');
-    } catch (_e) {
-        await ffmpeg.deleteFile(inputName);
-        throw new Error('extractAudio: no audio output produced — the file may not contain an audio stream.');
-    }
+        const exitCode = await ffmpeg.exec([
+            '-i', inputPath,
+            '-vn',
+            '-c:a', 'copy',
+            outputName,
+        ]);
 
-    await ffmpeg.deleteFile(inputName);
+        if (exitCode !== 0) {
+            throw new Error('extractAudio: FFmpeg failed — the file may not contain an audio stream.');
+        }
+
+        try {
+            blob = await _readAndCleanup(ffmpeg, outputName, 'audio/mp4');
+        } catch (_e) {
+            throw new Error('extractAudio: no audio output produced — the file may not contain an audio stream.');
+        }
+    } finally {
+        await _unmountInputFile(ffmpeg);
+    }
 
     return {
         blob,
@@ -625,30 +662,29 @@ export async function extractVideo(ffmpeg, file) {
         : inputName;
     const outputName = `${baseName}_video${ext}`;
 
-    await _writeInputFile(ffmpeg, inputName, file);
-
-    const exitCode = await ffmpeg.exec([
-        '-i', inputName,
-        '-an',
-        '-c:v', 'copy',
-        outputName,
-    ]);
-
-    if (exitCode !== 0) {
-        await ffmpeg.deleteFile(inputName);
-        throw new Error('extractVideo: FFmpeg failed — the file may not contain a video stream.');
-    }
-
+    const inputPath = await _mountInputFile(ffmpeg, file);
     let blob;
     try {
-        const mimeType = _mimeFromFilename(outputName);
-        blob = await _readAndCleanup(ffmpeg, outputName, mimeType);
-    } catch (_e) {
-        await ffmpeg.deleteFile(inputName);
-        throw new Error('extractVideo: no video output produced — the file may not contain a video stream.');
-    }
+        const exitCode = await ffmpeg.exec([
+            '-i', inputPath,
+            '-an',
+            '-c:v', 'copy',
+            outputName,
+        ]);
 
-    await ffmpeg.deleteFile(inputName);
+        if (exitCode !== 0) {
+            throw new Error('extractVideo: FFmpeg failed — the file may not contain a video stream.');
+        }
+
+        try {
+            const mimeType = _mimeFromFilename(outputName);
+            blob = await _readAndCleanup(ffmpeg, outputName, mimeType);
+        } catch (_e) {
+            throw new Error('extractVideo: no video output produced — the file may not contain a video stream.');
+        }
+    } finally {
+        await _unmountInputFile(ffmpeg);
+    }
 
     return {
         blob,
