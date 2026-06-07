@@ -1,6 +1,6 @@
 [tool.poetry]
 name        = "sgraph-ai-tools"
-version     = "v0.2.60"
+version     = "v0.2.61"
 description = "SGraph_AI__Tools"
 readme      = "README.md"
 license     = "Apache-2.0"
