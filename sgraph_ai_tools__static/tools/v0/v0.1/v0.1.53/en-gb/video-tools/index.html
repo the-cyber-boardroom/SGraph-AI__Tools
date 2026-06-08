@@ -178,6 +178,41 @@
         .setup-complete.failed {
             color: #ef5350;
         }
+
+        /* Large-file notice + error display */
+        .size-note {
+            margin: 0.75rem 0;
+            padding: 0.75rem 1rem;
+            background: rgba(255, 167, 38, 0.08);
+            border: 1px solid rgba(255, 167, 38, 0.3);
+            border-radius: var(--sg-radius);
+            color: #ffcc80;
+            font-size: 0.8125rem;
+            line-height: 1.5;
+        }
+
+        .error-box {
+            margin: 1rem 0;
+            padding: 1rem;
+            background: rgba(239, 83, 80, 0.08);
+            border: 1px solid rgba(239, 83, 80, 0.4);
+            border-radius: var(--sg-radius);
+            color: #ef9a9a;
+            font-size: 0.875rem;
+            line-height: 1.5;
+        }
+
+        .error-box strong {
+            display: block;
+            margin-bottom: 0.25rem;
+            color: #ffcdd2;
+        }
+
+        .error-box .error-hint {
+            margin-top: 0.5rem;
+            color: var(--sg-text-muted);
+            font-size: 0.8125rem;
+        }
     </style>
 </head>
 <body>
@@ -214,6 +249,19 @@
             label="Drop a video or audio file here, or click to select"
             accept="video/*,audio/*,.mp4,.webm,.mov,.avi,.mkv,.mp3,.aac,.m4a,.wav,.ogg">
         </sg-upload-dropzone>
+
+        <div id="size-note" class="size-note" hidden></div>
+
+        <div id="splitter-error" class="error-box" hidden>
+            <strong>Processing failed</strong>
+            <span id="splitter-error-msg"></span>
+            <div class="error-hint">
+                Very large files (over ~1&nbsp;GB) can exhaust the browser's memory.
+                If this keeps happening, try trimming the clip on your phone first,
+                or use a desktop browser. Your file is never uploaded — see the browser
+                console for technical details.
+            </div>
+        </div>
 
         <div id="splitter-section" class="splitter-section">
             <script type="module" src="/components/video-splitter/v1/v1.0/v1.0.0/sg-video-splitter.js"></script>
@@ -340,6 +388,18 @@
             }
         })
 
+        // ── Error + size-note surfaces ───────────────────────
+
+        const sizeNote = document.getElementById('size-note')
+        const errorBox = document.getElementById('splitter-error')
+        const errorMsg = document.getElementById('splitter-error-msg')
+        const LARGE_FILE_BYTES = 500 * 1024 * 1024 // 500 MB
+
+        function _formatSize(bytes) {
+            if (bytes >= 1024 * 1024 * 1024) return (bytes / 1024 / 1024 / 1024).toFixed(1) + ' GB'
+            return Math.round(bytes / 1024 / 1024) + ' MB'
+        }
+
         // ── File selected → load into splitter ───────────────
 
         dropzone.addEventListener('files-selected', (e) => {
@@ -350,8 +410,31 @@
             splitterSection.classList.add('visible')
             sendSection.classList.remove('visible')
             sendDrop.reset()
+            errorBox.hidden = true
+
+            if (file.size > LARGE_FILE_BYTES) {
+                sizeNote.textContent = `Large file (${_formatSize(file.size)}). ` +
+                    `Processing happens locally in this tab — your file never leaves the browser, ` +
+                    `but it may take several minutes to load and process. Keep this tab in the foreground.`
+                sizeNote.hidden = false
+            } else {
+                sizeNote.hidden = true
+            }
 
             splitter.loadVideo(file)
+        })
+
+        // Splitter errored → make it visible (previously swallowed)
+        splitter.addEventListener('sg-split-error', (e) => {
+            const detail = e.detail || {}
+            errorMsg.textContent = detail.message || 'Something went wrong while processing this file.'
+            errorBox.hidden = false
+            console.error('[video-tools] split error', detail.error || detail)
+        })
+
+        // New split run starting → clear any prior error
+        splitter.addEventListener('sg-split-start', () => {
+            errorBox.hidden = true
         })
 
         // Splitter completes → offer results to sg-send-drop
@@ -379,6 +462,8 @@
             sendSection.classList.remove('visible')
             dropzone.style.display = ''
             sendDrop.reset()
+            sizeNote.hidden = true
+            errorBox.hidden = true
         })
     </script>
 </body>
