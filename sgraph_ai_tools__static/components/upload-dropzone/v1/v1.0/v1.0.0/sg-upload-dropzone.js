@@ -39,7 +39,25 @@ class SgUploadDropzone extends SgComponent {
 
     onReady() {
         this._renderLabel()
+        this._syncInputAttrs()
         this._updateState('idle')
+    }
+
+    // Mirror `accept` and `multiple` onto the inner <input> BEFORE the picker
+    // opens. Without this, iOS Safari opens a bare picker and may grey out
+    // valid media (notably HEVC .MOV from the Photos library).
+    _syncInputAttrs() {
+        const accept = this.getAttribute('accept')
+        if (accept) {
+            this._fileInput.setAttribute('accept', accept)
+        } else {
+            this._fileInput.removeAttribute('accept')
+        }
+        if (this.hasAttribute('multiple')) {
+            this._fileInput.setAttribute('multiple', '')
+        } else {
+            this._fileInput.removeAttribute('multiple')
+        }
     }
 
     bindElements() {
@@ -135,13 +153,6 @@ class SgUploadDropzone extends SgComponent {
 
         if (!multiple) {
             files = [files[0]]
-        }
-
-        if (accept) {
-            this._fileInput.setAttribute('accept', accept)
-        }
-        if (multiple) {
-            this._fileInput.setAttribute('multiple', '')
         }
 
         const accepted = []
@@ -244,6 +255,7 @@ class SgUploadDropzone extends SgComponent {
     attributeChangedCallback(name, oldVal, newVal) {
         if (!this._isReady || oldVal === newVal) return
         if (name === 'label') this._renderLabel()
+        if (name === 'accept' || name === 'multiple') this._syncInputAttrs()
     }
 }
 
