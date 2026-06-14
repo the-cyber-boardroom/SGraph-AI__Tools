@@ -9,6 +9,8 @@
  * @module audio-transcribe/ui-model
  */
 
+import { listModels } from '../api/audio-models.js';
+
 const STORAGE_KEY = 'sg-openrouter-mgmt-key';
 
 /** Escape for HTML attribute/text. */
@@ -20,7 +22,10 @@ function esc(s) { return String(s == null ? '' : s).replace(/&/g, '&amp;').repla
  * @returns {{ destroy: () => void }}
  */
 export function mountModel({ root, state, api }) {
-    const models = api.listModels();
+    // Render from the pure, synchronous model list. NB: api.listModels() (the
+    // SgToolApi action) returns a Promise — every registered action is async —
+    // so it must not be used directly where a synchronous array is expected.
+    const models = listModels();
     const active = state.getActiveModel();
 
     const options = models.map((m) => {
