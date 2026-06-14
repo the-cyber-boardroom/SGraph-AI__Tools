@@ -12,18 +12,23 @@
  * working.
  *
  * Model ids + pricing drift — `cost` is approximate and labelled as such.
+ * The available chat-path ids were verified against OpenRouter's live model
+ * catalogue (https://openrouter.ai/api/v1/models) on 2026-06-14. The two gated
+ * STT ids are Phase-2 placeholders and are NOT yet verified — they go through a
+ * dedicated `/audio/transcriptions` module that does not exist yet.
  *
  * @module audio-transcribe/audio-models
  */
 
 /** Default model (cheapest fast audio-capable chat model on the chat path). */
-export const DEFAULT_MODEL = 'google/gemini-2.5-flash';
+export const DEFAULT_MODEL = 'google/gemini-3.5-flash';
 
 /** Ordered list of curated model ids. */
 export const AUDIO_MODEL_IDS = Object.freeze([
-    'google/gemini-2.5-flash',
-    'openai/gpt-4o-audio-preview',
-    'openai/gpt-4o-mini-audio-preview',
+    'google/gemini-3.5-flash',
+    'google/gemini-3.1-flash-lite',
+    'google/gemini-3-pro-preview',
+    'openai/gpt-audio',
     'openai/whisper-large-v3',
     'openai/gpt-4o-transcribe',
 ]);
@@ -34,10 +39,11 @@ export const AUDIO_MODEL_IDS = Object.freeze([
  * @type {Readonly<Record<string, { label: string, cost: string, speed: string, path: string, available: boolean }>>}
  */
 export const MODEL_METADATA = Object.freeze({
-    'google/gemini-2.5-flash':            { label: 'Gemini 2.5 Flash',   cost: 'low',    speed: 'fast',   path: 'chat input_audio',         available: true },
-    'openai/gpt-4o-audio-preview':        { label: 'GPT-4o Audio',       cost: 'medium', speed: 'medium', path: 'chat input_audio',         available: true },
-    'openai/gpt-4o-mini-audio-preview':   { label: 'GPT-4o Mini Audio',  cost: 'low',    speed: 'fast',   path: 'chat input_audio',         available: true },
-    'openai/whisper-large-v3':            { label: 'Whisper Large v3 (STT — coming soon)', cost: 'low',    speed: 'fast',   path: '/audio/transcriptions',    available: false },
+    'google/gemini-3.5-flash':            { label: 'Gemini 3.5 Flash',      cost: 'low',    speed: 'fast',   path: 'chat input_audio',         available: true },
+    'google/gemini-3.1-flash-lite':       { label: 'Gemini 3.1 Flash Lite', cost: 'low',    speed: 'fast',   path: 'chat input_audio',         available: true },
+    'google/gemini-3-pro-preview':        { label: 'Gemini 3 Pro',          cost: 'high',   speed: 'medium', path: 'chat input_audio',         available: true },
+    'openai/gpt-audio':                   { label: 'GPT Audio',             cost: 'high',   speed: 'medium', path: 'chat input_audio',         available: true },
+    'openai/whisper-large-v3':            { label: 'Whisper Large v3 (STT — coming soon)',  cost: 'low',    speed: 'fast',   path: '/audio/transcriptions',    available: false },
     'openai/gpt-4o-transcribe':           { label: 'GPT-4o Transcribe (STT — coming soon)', cost: 'medium', speed: 'medium', path: '/audio/transcriptions',    available: false },
 });
 
