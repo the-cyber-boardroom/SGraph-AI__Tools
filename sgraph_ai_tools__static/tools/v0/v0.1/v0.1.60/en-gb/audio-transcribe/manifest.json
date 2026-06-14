@@ -13,23 +13,27 @@
         "core": [
             { "module": "sg-tool-api",       "path": "/core/sg-tool-api/v0/v0.1/v0.1.0/sg-tool-api.js" },
             { "module": "manifest-loader",   "path": "/core/manifest-loader/v0/v0.1/v0.1.0/manifest-loader.js" },
+            { "module": "sg-layout",         "path": "/core/sg-layout/v0.1.0/sg-layout.js" },
             { "module": "sg-audio",          "path": "/core/sg-audio/v0/v0.1/v0.1.0/sg-audio.js" },
             { "module": "sg-audio-decode",   "path": "/core/sg-audio-decode/v0/v0.1/v0.1.0/sg-audio-decode.js" },
             { "module": "sg-wasm-cache",     "path": "/core/sg-wasm-cache/v0/v0.1/v0.1.0/sg-wasm-cache.js" }
         ],
         "components": [
-            { "module": "sg-llm-request",       "path": "/components/llm/sg-llm-request/v0/v0.1/v0.1.6/sg-llm-request.js" },
-            { "module": "sg-send-drop",         "path": "/components/send-drop/v1/v1.0/v1.0.0/sg-send-drop.js" },
-            { "module": "sg-tool-api-explorer", "path": "/components/tool-api/sg-tool-api-explorer/v0/v0.1/v0.1.0/sg-tool-api-explorer.js" },
-            { "module": "sg-tool-api-console",  "path": "/components/tool-api/sg-tool-api-console/v0/v0.1/v0.1.0/sg-tool-api-console.js" },
-            { "module": "sg-tool-api-manifest", "path": "/components/tool-api/sg-tool-api-manifest/v0/v0.1/v0.1.0/sg-tool-api-manifest.js" }
+            { "module": "sg-llm-request",          "path": "/components/llm/sg-llm-request/v0/v0.1/v0.1.6/sg-llm-request.js" },
+            { "module": "sg-send-drop",            "path": "/components/send-drop/v1/v1.0/v1.0.0/sg-send-drop.js" },
+            { "module": "sg-openrouter-key-stats", "path": "/components/openrouter/sg-openrouter-key-stats/v0/v0.1/v0.1.0/sg-openrouter-key-stats.js" },
+            { "module": "sg-tool-api-explorer",    "path": "/components/tool-api/sg-tool-api-explorer/v0/v0.1/v0.1.0/sg-tool-api-explorer.js" },
+            { "module": "sg-tool-api-console",     "path": "/components/tool-api/sg-tool-api-console/v0/v0.1/v0.1.0/sg-tool-api-console.js" },
+            { "module": "sg-tool-api-manifest",    "path": "/components/tool-api/sg-tool-api-manifest/v0/v0.1/v0.1.0/sg-tool-api-manifest.js" }
         ]
     },
     "loader": [
         { "phase": 1, "type": "css", "path": "/components/tokens/v1/v1.0/v1.0.0/sg-tokens.css" },
         { "phase": 1, "type": "css", "path": "./styles/audio-transcribe.css" },
+        { "phase": 2, "type": "js",  "path": "/core/sg-layout/v0.1.0/sg-layout.js" },
         { "phase": 2, "type": "js",  "path": "/components/llm/sg-llm-request/v0/v0.1/v0.1.6/sg-llm-request.js" },
         { "phase": 2, "type": "js",  "path": "/components/send-drop/v1/v1.0/v1.0.0/sg-send-drop.js" },
+        { "phase": 2, "type": "js",  "path": "/components/openrouter/sg-openrouter-key-stats/v0/v0.1/v0.1.0/sg-openrouter-key-stats.js" },
         { "phase": 2, "type": "js",  "path": "/components/tool-api/sg-tool-api-explorer/v0/v0.1/v0.1.0/sg-tool-api-explorer.js" },
         { "phase": 2, "type": "js",  "path": "/components/tool-api/sg-tool-api-console/v0/v0.1/v0.1.0/sg-tool-api-console.js" },
         { "phase": 2, "type": "js",  "path": "/components/tool-api/sg-tool-api-manifest/v0/v0.1/v0.1.0/sg-tool-api-manifest.js" },

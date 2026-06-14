@@ -135,7 +135,7 @@ export async function init(manifest) {
 
     api.activate();
 
-    if (host) mountShell({ host, state, api });
+    if (host) await mountShell({ host, state, api });
 
     return api;
 }

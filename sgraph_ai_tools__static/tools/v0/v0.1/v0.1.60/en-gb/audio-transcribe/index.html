@@ -13,14 +13,15 @@
 
     <style>
         html, body {
-            margin: 0; padding: 0;
+            margin: 0; padding: 0; height: 100%;
             background: #0a0a18; color: #e2e8f0;
             font-family: system-ui, -apple-system, sans-serif;
-            min-height: 100%;
+            overflow: hidden;
         }
+        body { display: flex; flex-direction: column; }
     </style>
 </head>
 <body>
-    <main id="audio-transcribe-root"></main>
+    <main id="audio-transcribe-root" style="flex:1;min-height:0;"></main>
 </body>
 </html>

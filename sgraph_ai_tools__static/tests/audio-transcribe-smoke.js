@@ -417,9 +417,20 @@ function installFakeDom() {
             set(t, p, v) { if (p === 'innerHTML') t._html = String(v); else t[p] = v; return true; },
         });
     }
+    // sg-layout is a custom element; provide a stub that fires LAYOUT_READY
+    // synchronously and hands back a fresh (tracked) light-DOM panel per tab id.
+    function layoutStub() {
+        const stub = {
+            style: {},
+            events: { on: (_evt, cb) => { cb(); } },
+            setLayout() {}, activateTab() {}, appendChild() {},
+            getPanelElement: (id) => { const e = el(`panel-${id}`); created.push(e); return e; },
+        };
+        return stub;
+    }
     const doc = {
-        body: el('body'),
-        createElement: (tag) => { const e = el(tag); created.push(e); return e; },
+        body: el('body'), head: el('head'),
+        createElement: (tag) => { const e = tag === 'sg-layout' ? layoutStub() : el(tag); created.push(e); return e; },
         querySelector: () => el('q'), querySelectorAll: () => [],
         addEventListener() {}, removeEventListener() {}, dispatchEvent() { return true; },
     };
@@ -451,7 +462,10 @@ await test('mountShell boots the full UI against the REAL SgToolApi without thro
         const { api, state } = await buildRealApi();
         const { mountShell } = await import(`file://${TOOL}/ui/ui-shell.js`);
         let threw = null;
-        try { mountShell({ host: dom.host, state, api }); } catch (e) { threw = e; }
+        // devPanel:false skips the footer dev panel (DOM-heavy, browser-only;
+        // covered by the Playwright boot-smoke). The sg-layout + panel mount path
+        // — where the regression bug lived — is still fully exercised.
+        try { await mountShell({ host: dom.host, state, api, devPanel: false }); } catch (e) { threw = e; }
         assert.equal(threw, null, threw && (threw.stack || threw.message));
         // Regression guard for the ui-model.js api.listModels() Promise bug:
         // the model panel must have rendered its full <option> list.

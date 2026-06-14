@@ -65,11 +65,21 @@ async function run() {
         try { assert(hasTool, 'window.__tool is published'); }
         catch (e) { fail('window.__tool is published', e); }
 
-        // [3] Model selector actually rendered (the panel that crashed before).
+        // [3] sg-layout mounted and the model selector rendered (the panel that
+        //     crashed before). The <select> is light-DOM (slotted), so it is
+        //     queryable from document even though its tab is not the active one.
+        try {
+            const hasLayout = await page.evaluate(() => !!document.querySelector('sg-layout'));
+            assert(hasLayout, 'sg-layout mounted');
+        } catch (e) { fail('sg-layout mounted', e); }
         try {
             const optionCount = await page.evaluate(() => document.querySelectorAll('#at-model-select option').length);
             assert(optionCount >= 1, 'model <select> rendered options', `got ${optionCount}`);
         } catch (e) { fail('model <select> rendered options', e); }
+        try {
+            const hasCost = await page.evaluate(() => !!document.querySelector('sg-openrouter-key-stats'));
+            assert(hasCost, 'cost view (sg-openrouter-key-stats) present');
+        } catch (e) { fail('cost view present', e); }
 
         // [4] SgToolApi wrapper contract: actions are always thenables.
         if (hasTool) {

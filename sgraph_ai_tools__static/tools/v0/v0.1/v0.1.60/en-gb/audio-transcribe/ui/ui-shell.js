@@ -1,68 +1,122 @@
 /**
- * ui-shell — assembles the audio-transcribe page layout.
+ * ui-shell — assembles the audio-transcribe page with sg-layout.
  *
- * Single-column linear flow: source → queue → model → bundle/send → dev panel.
- * No sg-layout (five simple panels). Wires each child panel into the host.
- * The <sg-llm-request> engine is appended by the api entry before mountShell.
+ * Structure (host = #audio-transcribe-root, a flex column):
+ *   slim header (title + version)
+ *   toolArea → <sg-layout> row:
+ *       left stack  (40%): 🎙 Source · 🎚 Model & Cost · 📦 Bundle & Send
+ *       right stack (60%): 📋 Queue
+ *   bottom JS-API dev panel (footer bar + collapsible Skills/Explorer/Console/Manifest)
+ *
+ * The <sg-llm-request> engine the api entry appended to the host is preserved
+ * (the host carries [data-llm-bus]); the cost view (<sg-openrouter-key-stats>)
+ * lives inside the Model panel — a light-DOM (slotted) descendant of the host,
+ * so it resolves the same bus and reacts to the `llm:connected` event.
  *
  * @module audio-transcribe/ui-shell
  */
 
+import { SGL_EVENTS } from '../../../../../../../core/sg-layout/v0.1.0/sg-layout-events.js';
 import { mountSource } from './ui-source.js';
 import { mountQueue } from './ui-queue.js';
 import { mountModel } from './ui-model.js';
 import { mountBundle } from './ui-bundle.js';
-import { mountDevPanel } from './ui-dev-panel.js';
+import { buildDevPanel } from '../dev-panel.js';
+
+const PANEL_BASE = 'height:100%;overflow:hidden;display:flex;flex-direction:column;min-height:0;background:#0a0a18;box-sizing:border-box;';
+
+/** Create a padded, scrollable mount wrapper inside a layout panel. */
+function panelScroll(panelEl) {
+    panelEl.style.cssText = PANEL_BASE;
+    const wrap = document.createElement('div');
+    wrap.style.cssText = 'flex:1;min-height:0;overflow-y:auto;padding:14px 16px;box-sizing:border-box;';
+    panelEl.appendChild(wrap);
+    return wrap;
+}
 
 /**
  * Mount the tool shell into a host element.
- * @param {{ host: HTMLElement, state: object, api: object }} opts
- * @returns {{ destroy: () => void }}
+ * @param {{ host: HTMLElement, state: object, api: object, devPanel?: boolean }} opts
+ * @returns {Promise<{ destroy: () => void }>}
  */
-export function mountShell({ host, state, api }) {
+export async function mountShell({ host, state, api, devPanel = true }) {
     if (!host) return { destroy() {} };
 
-    // Keep the <sg-llm-request> engine that the api entry appended.
+    // Preserve the <sg-llm-request> engine the api entry appended to the host.
     const engine = host.querySelector('sg-llm-request');
     host.innerHTML = '';
-    if (engine) host.appendChild(engine);
+    host.style.cssText = 'display:flex;flex-direction:column;height:100vh;min-height:0;overflow:hidden;';
+    if (engine) { engine.style.display = 'none'; host.appendChild(engine); }
 
     const v = (api && api._version) || {};
-    const vLabel = v.api ? `v${v.api}` : '';
-
-    const topbar = document.createElement('header');
-    topbar.className = 'at-topbar';
-    topbar.innerHTML = `
-        <h1>Audio Transcribe ${vLabel ? `<span class="at-version" title="tool version">${vLabel}</span>` : ''}</h1>
-        <p class="at-subtitle">
-            Record from your mic or drop many audio files — including WhatsApp
-            <code>.opus</code> voice notes — and transcribe each to text with
-            curated OpenRouter models, entirely in your browser. Batch queue with
-            per-row status and retry. Audio is sent to OpenRouter for
-            transcription (unlike the local-only voice-memo tool); decoding of
-            <code>.opus</code> happens in your browser on every browser, Safari
-            included.
-        </p>
+    const header = document.createElement('header');
+    header.className = 'at-topbar';
+    header.style.cssText = 'flex-shrink:0;padding:10px 16px 8px;';
+    header.innerHTML = `
+        <h1 style="margin:0;font-size:1.15rem;color:#f1f5f9;">Audio Transcribe ${v.api ? `<span class="at-version" title="tool version">v${v.api}</span>` : ''}</h1>
+        <p class="at-subtitle" style="margin:2px 0 0;">Record or drop many audio files (incl. WhatsApp <code>.opus</code>) and transcribe each via curated OpenRouter models — in your browser.</p>
     `;
-    host.appendChild(topbar);
+    host.appendChild(header);
 
-    const sourceRoot = section('at-panel at-panel--source');
-    const queueRoot  = section('at-panel at-panel--queue');
-    const modelRoot  = section('at-panel at-panel--model');
-    const bundleRoot = section('at-panel at-panel--bundle');
-    const devRoot    = section('at-panel at-panel--dev');
-    for (const el of [sourceRoot, queueRoot, modelRoot, bundleRoot, devRoot]) host.appendChild(el);
+    const toolArea = document.createElement('div');
+    toolArea.style.cssText = 'flex:1;min-height:0;overflow:hidden;display:flex;flex-direction:column;';
+    host.appendChild(toolArea);
 
-    /** @param {string} cls */
-    function section(cls) { const s = document.createElement('section'); s.className = cls; return s; }
+    const layout = document.createElement('sg-layout');
+    layout.style.cssText = 'width:100%;height:100%;display:block;';
+    toolArea.appendChild(layout);
+
+    await new Promise((resolve) => layout.events.on(SGL_EVENTS.LAYOUT_READY, resolve));
+
+    layout.setLayout({
+        type: 'row', id: 'main', sizes: [0.4, 0.6],
+        children: [
+            {
+                type: 'stack', id: 's-left', activeTab: 0,
+                tabs: [
+                    { type: 'tab', id: 't-source', title: '🎙 Source',       tag: 'div', locked: true, closable: false },
+                    { type: 'tab', id: 't-model',  title: '🎚 Model & Cost',  tag: 'div', locked: true, closable: false },
+                    { type: 'tab', id: 't-bundle', title: '📦 Bundle & Send', tag: 'div', locked: true, closable: false },
+                ],
+            },
+            {
+                type: 'stack', id: 's-right', activeTab: 0,
+                tabs: [
+                    { type: 'tab', id: 't-queue', title: '📋 Queue', tag: 'div', locked: true, closable: false },
+                ],
+            },
+        ],
+    });
+
+    await new Promise((resolve) => layout.events.on(SGL_EVENTS.LAYOUT_READY, resolve));
+
+    const sourceWrap = panelScroll(layout.getPanelElement('t-source'));
+    const modelWrap  = panelScroll(layout.getPanelElement('t-model'));
+    const bundleWrap = panelScroll(layout.getPanelElement('t-bundle'));
+    const queueWrap  = panelScroll(layout.getPanelElement('t-queue'));
+
+    // Model panel: the model/key controls, then the cost view below them.
+    const modelMount = document.createElement('div');
+    modelWrap.appendChild(modelMount);
+
+    const costSection = document.createElement('section');
+    costSection.className = 'at-panel at-cost';
+    costSection.style.cssText = 'margin-top:18px;';
+    costSection.innerHTML = `<h2 class="at-panel__title">OpenRouter usage &amp; cost</h2>
+        <p class="at-cost__hint" style="color:#94a3b8;font-size:0.8rem;margin:0 0 8px;">Live from your key once connected — usage, limit and remaining credit.</p>`;
+    const keyStats = document.createElement('sg-openrouter-key-stats');
+    keyStats.style.cssText = 'display:block;';
+    costSection.appendChild(keyStats);
+    modelWrap.appendChild(costSection);
 
     const m = [
-        mountModel({ root: modelRoot, state, api }),
-        mountSource({ root: sourceRoot, state, api }),
-        mountQueue({ root: queueRoot, state, api }),
-        mountBundle({ root: bundleRoot, state, api }),
-        mountDevPanel({ root: devRoot, api }),
+        mountSource({ root: sourceWrap, state, api }),
+        mountModel({ root: modelMount, state, api }),
+        mountBundle({ root: bundleWrap, state, api }),
+        mountQueue({ root: queueWrap, state, api }),
     ];
+
+    if (devPanel) buildDevPanel(host);
 
     return {
         destroy() { m.forEach((x) => x && x.destroy && x.destroy()); host.innerHTML = ''; },
