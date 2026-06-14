@@ -27,10 +27,13 @@ export function mountShell({ host, state, api }) {
     host.innerHTML = '';
     if (engine) host.appendChild(engine);
 
+    const v = (api && api._version) || {};
+    const vLabel = v.api ? `v${v.api}` : '';
+
     const topbar = document.createElement('header');
     topbar.className = 'at-topbar';
     topbar.innerHTML = `
-        <h1>Audio Transcribe</h1>
+        <h1>Audio Transcribe ${vLabel ? `<span class="at-version" title="tool version">${vLabel}</span>` : ''}</h1>
         <p class="at-subtitle">
             Record from your mic or drop many audio files — including WhatsApp
             <code>.opus</code> voice notes — and transcribe each to text with

@@ -65,7 +65,7 @@ export async function init(manifest) {
 
     const api = new SgToolApi({
         name: 'audio-transcribe',
-        version: { api: '0.1.0', ui: '0.1.0', content: '0.1.0' },
+        version: { api: '0.1.1', ui: '0.1.1', content: '0.1.0' },
         panelId: 'root',
         manifest: './manifest.json',
         skills: (manifest && manifest.skills) || {},

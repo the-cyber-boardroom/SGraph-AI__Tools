@@ -315,6 +315,45 @@ await test('sendViaSgSend surfaces { code: send-auth-required } when no token', 
     await assert.rejects(() => h.send.sendViaSgSend({}), (e) => e.code === 'send-auth-required');
 });
 
+// ── Recording guards (mic path, injected recorder) ─────────────────────────────
+await test('addFiles rejects 0-byte files as empty', async () => {
+    const h = buildHarness();
+    const res = await h.source.addFiles({ files: [fakeFile('empty.mp3', 'audio/mpeg', new Uint8Array(0))] });
+    assert.equal(res.added.length, 0);
+    assert.equal(res.rejected[0].code, 'empty');
+    assert.equal(h.state.getItems().length, 0);
+});
+
+await test('stopRecording throws { code: empty-recording } and enqueues nothing when no data captured', async () => {
+    const state = createState({ defaultModel: DEFAULT_MODEL });
+    const events = [];
+    const emit = (name, detail) => events.push({ name, detail });
+    // Mock recorder that never delivers a segment (mimics a mobile 0-byte stop).
+    const recorder = { startRecording: async () => ({ mimeType: 'audio/webm' }), stopRecording: async () => {} };
+    const source = buildSourceMethods({ state, emit, recorder });
+    await source.startRecording({});
+    await assert.rejects(() => source.stopRecording(), (e) => e.code === 'empty-recording');
+    assert.equal(state.getItems().length, 0, 'no empty item enqueued');
+});
+
+await test('stopRecording concatenates delivered chunks into a single item', async () => {
+    const state = createState({ defaultModel: DEFAULT_MODEL });
+    const emit = () => {};
+    const rec = {
+        _onSeg: null,
+        startRecording: async (opts) => { rec._onSeg = opts.onSegment; return { mimeType: 'audio/webm' }; },
+        // Deliver the final chunk during stop (before it resolves), as the real flush does.
+        stopRecording: async () => { rec._onSeg({ blob: new Blob([new Uint8Array([1, 2, 3, 4, 5])], { type: 'audio/webm' }) }); },
+    };
+    const source = buildSourceMethods({ state, emit, recorder: rec });
+    await source.startRecording({});
+    // Simulate a couple of periodic chunks arriving mid-recording.
+    rec._onSeg({ blob: new Blob([new Uint8Array([9, 9])], { type: 'audio/webm' }) });
+    const r = await source.stopRecording();
+    assert.equal(r.sizeBytes, 7, 'all delivered chunks (2 + 5 bytes) concatenated');
+    assert.equal(state.getItems().length, 1);
+});
+
 // ── Integration: real SgToolApi + UI mount ─────────────────────────────────────
 // The tests above build a hand-wired harness and never touch the real SgToolApi
 // or the DOM mount path — which is exactly how the "models.map is not a function"
