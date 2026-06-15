@@ -240,38 +240,27 @@ await test('transcribeAll records per-item errors + supports retry', async () =>
     assert.equal(errItem.status, 'error');
 });
 
-await test('transcribeAll keeps per-item transcripts distinct under the shared-bus transport', async () => {
-    // Reproduces the identical-transcript bug: the real transport bridges to one
-    // shared <sg-llm-request> and resolves on the NEXT llm:request-complete with
-    // NO correlation id. The fake server below makes item "two" reply FIRST, so
-    // if two items transcribed concurrently the first reply would resolve BOTH.
-    // Serial batch (DEFAULT_CONCURRENCY=1) must keep them distinct.
+await test('transcribeAll (parallel) routes each item its own transcript even when they finish out of order', async () => {
+    // The real transport is now isolated/correlated (each request resolves its
+    // OWN result). 'two' finishes FIRST; the PARALLEL batch (DEFAULT_CONCURRENCY>1)
+    // must still assign each result to the right item. The shared-bus cross-talk
+    // this used to guard is now covered at the browser level by the parallel
+    // Playwright smoke test against the real <sg-llm-request>.
     const state = createState({ defaultModel: DEFAULT_MODEL });
     state.setActiveModel(DEFAULT_MODEL);
-    const emit = () => {};
-    const bus = new EventTarget();
-    bus.addEventListener('llm:send', (e) => {
-        const part = e.detail.messages[0].content.find((c) => c.type === 'binary_file');
-        const name = part && part.name;
-        const delay = name && name.includes('two') ? 1 : 15; // "two" finishes first
-        setTimeout(() => bus.dispatchEvent(new CustomEvent('llm:request-complete', { detail: { content: `text:${name}` } })), delay);
-    });
     const sendToLlm = (req) => new Promise((resolve) => {
-        const onDone = (ev) => { bus.removeEventListener('llm:request-complete', onDone); resolve({ content: ev.detail.content }); };
-        bus.addEventListener('llm:request-complete', onDone);
-        bus.dispatchEvent(new CustomEvent('llm:send', { detail: { messages: req.messages, model: req.model } }));
+        const part = req.messages[0].content.find((c) => c.type === 'binary_file');
+        const name = part && part.name;
+        setTimeout(() => resolve({ content: `text:${name}` }), name && name.includes('two') ? 1 : 15);
     });
-    const transcribe = buildTranscribeMethods({ state, emit, sendToLlm, getActiveModel: () => state.getActiveModel() });
-    const batch = buildBatchMethods({ state, emit, transcribeItem: transcribe.transcribeItem });
+    const transcribe = buildTranscribeMethods({ state, emit: () => {}, sendToLlm, getActiveModel: () => state.getActiveModel() });
+    const batch = buildBatchMethods({ state, emit: () => {}, transcribeItem: transcribe.transcribeItem });
     state.addItem(fakeFile('one.mp3', 'audio/mpeg'), { name: 'one.mp3', mimeType: 'audio/mpeg', origin: 'file' });
     state.addItem(fakeFile('two.mp3', 'audio/mpeg'), { name: 'two.mp3', mimeType: 'audio/mpeg', origin: 'file' });
     await batch.transcribeAll();
     const items = state.getItems();
-    const t1 = items.find((i) => i.name === 'one.mp3').transcript;
-    const t2 = items.find((i) => i.name === 'two.mp3').transcript;
-    assert.equal(t1, 'text:one.mp3', 'item one kept its own transcript');
-    assert.equal(t2, 'text:two.mp3', 'item two kept its own transcript');
-    assert.notEqual(t1, t2, 'transcripts must not cross-talk between items');
+    assert.equal(items.find((i) => i.name === 'one.mp3').transcript, 'text:one.mp3', 'item one kept its own transcript');
+    assert.equal(items.find((i) => i.name === 'two.mp3').transcript, 'text:two.mp3', 'item two kept its own transcript');
 });
 
 await test('fetchGenerationCost parses total_cost from the generation endpoint', async () => {

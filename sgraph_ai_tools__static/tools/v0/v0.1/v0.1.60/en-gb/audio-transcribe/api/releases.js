@@ -16,6 +16,16 @@
 /** @type {ReadonlyArray<Release>} */
 export const RELEASES = Object.freeze([
     {
+        version: '0.1.7',
+        date: '2026-06-15',
+        summary: 'Parallel "Transcribe all" + model list cleanup.',
+        changes: [
+            '"Transcribe all" now runs in PARALLEL (a 4-wide worker pool) — safe with the isolated transport, and much faster for many files.',
+            'Removed google/gemini-3-pro-preview — OpenRouter has no active endpoints for it (it 404\'d).',
+            'Added nvidia/nemotron-3-nano-omni (free) — a free audio-input model, handy for testing without spend.',
+        ],
+    },
+    {
         version: '0.1.6',
         date: '2026-06-15',
         summary: 'Confirm + guard the concurrent-transcription cross-talk fix.',

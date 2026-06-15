@@ -4,10 +4,10 @@
  * Transcribes every `queued`/`error` item via the injected `transcribeItem`
  * (from api-transcribe), so retry and the per-row pipeline share one code path.
  *
- * Concurrency defaults to 1 (serial) to be gentle on OpenRouter rate limits —
- * NOT for correctness. As of v0.1.5 the transport is isolated (each request gets
- * its own <sg-llm-request>), so running in parallel no longer cross-talks; a
- * caller can raise the cap via `transcribeAll({ concurrency })`.
+ * "Transcribe all" runs in PARALLEL (a small worker pool). This is safe since
+ * v0.1.5: the transport is isolated — each request gets its own <sg-llm-request>
+ * — so concurrent requests don't cross-talk. The cap keeps us friendly to
+ * OpenRouter rate limits; a caller can override via `transcribeAll({ concurrency })`.
  *
  * (History: pre-0.1.5 a single shared <sg-llm-request> dropped a second
  * concurrent send via its _busy guard while BOTH waiting promises resolved on
@@ -19,8 +19,8 @@
 
 import { AT_EVENTS } from './audio-transcribe-events.js';
 
-/** Default concurrency cap (serial by default for rate-limit friendliness; safe to raise since v0.1.5). */
-export const DEFAULT_CONCURRENCY = 1;
+/** Default parallel worker count for "Transcribe all" (safe since v0.1.5's isolated transport). */
+export const DEFAULT_CONCURRENCY = 4;
 
 /**
  * Build the batch methods.

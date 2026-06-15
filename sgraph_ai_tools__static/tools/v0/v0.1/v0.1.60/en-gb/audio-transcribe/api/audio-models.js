@@ -27,8 +27,8 @@ export const DEFAULT_MODEL = 'google/gemini-3.5-flash';
 export const AUDIO_MODEL_IDS = Object.freeze([
     'google/gemini-3.5-flash',
     'google/gemini-3.1-flash-lite',
-    'google/gemini-3-pro-preview',
     'openai/gpt-audio',
+    'nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free',
     'openai/whisper-large-v3',
     'openai/gpt-4o-transcribe',
 ]);
@@ -41,8 +41,8 @@ export const AUDIO_MODEL_IDS = Object.freeze([
 export const MODEL_METADATA = Object.freeze({
     'google/gemini-3.5-flash':            { label: 'Gemini 3.5 Flash',      cost: 'low',    speed: 'fast',   path: 'chat input_audio',         available: true },
     'google/gemini-3.1-flash-lite':       { label: 'Gemini 3.1 Flash Lite', cost: 'low',    speed: 'fast',   path: 'chat input_audio',         available: true },
-    'google/gemini-3-pro-preview':        { label: 'Gemini 3 Pro',          cost: 'high',   speed: 'medium', path: 'chat input_audio',         available: true },
     'openai/gpt-audio':                   { label: 'GPT Audio',             cost: 'high',   speed: 'medium', path: 'chat input_audio',         available: true },
+    'nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free': { label: 'Nemotron Nano Omni (free)', cost: 'free', speed: 'medium', path: 'chat input_audio', available: true },
     'openai/whisper-large-v3':            { label: 'Whisper Large v3 (STT — coming soon)',  cost: 'low',    speed: 'fast',   path: '/audio/transcriptions',    available: false },
     'openai/gpt-4o-transcribe':           { label: 'GPT-4o Transcribe (STT — coming soon)', cost: 'medium', speed: 'medium', path: '/audio/transcriptions',    available: false },
 });
