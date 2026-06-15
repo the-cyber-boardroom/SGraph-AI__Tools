@@ -27,6 +27,8 @@ export const AT_EVENTS = Object.freeze({
     TRANSCRIBE_COMPLETE:'at:transcribe:complete',
     /** A single transcription failed. detail: { id, error } */
     TRANSCRIBE_ERROR:   'at:transcribe:error',
+    /** One LLM request/response (provenance). detail: the exchange record. */
+    LLM_EXCHANGE:       'at:llm:exchange',
     /** Batch transcription started. detail: { total } */
     BATCH_STARTED:      'at:batch:started',
     /** Batch progress (one item finished). detail: { done, total } */

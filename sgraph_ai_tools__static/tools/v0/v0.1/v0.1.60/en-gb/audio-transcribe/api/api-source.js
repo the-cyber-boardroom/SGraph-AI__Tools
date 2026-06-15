@@ -151,6 +151,9 @@ export function buildSourceMethods({ state, emit, recorder }) {
         return { removed: true };
     }
 
+    /** @returns {MediaStream|null} the live mic stream while recording (for the viz). */
+    function getRecordingStream() { return active && active.session ? active.session.stream : null; }
+
     /** @returns {Array<object>} serialisable queue snapshot. */
     function getItems() { return state.getItems(); }
 
@@ -164,5 +167,5 @@ export function buildSourceMethods({ state, emit, recorder }) {
         return {};
     }
 
-    return { addFiles, startRecording, stopRecording, removeItem, getItems, getItem, clearAll };
+    return { addFiles, startRecording, stopRecording, getRecordingStream, removeItem, getItems, getItem, clearAll };
 }

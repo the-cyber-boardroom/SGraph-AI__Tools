@@ -4,20 +4,23 @@
  * Transcribes every `queued`/`error` item via the injected `transcribeItem`
  * (from api-transcribe), so retry and the per-row pipeline share one code path.
  *
- * Concurrency is 1 (strictly serial) BY DESIGN. The tool's real LLM transport
- * bridges to a single shared <sg-llm-request> on one DOM bus and resolves on the
- * next `llm:request-complete` event — it has NO request/response correlation id.
- * Running two transcriptions at once therefore lets the first response resolve
- * BOTH in-flight calls, so two different audio files come back with the SAME
- * transcript. Until the transport can correlate responses, keep this at 1.
+ * "Transcribe all" runs in PARALLEL (a small worker pool). This is safe since
+ * v0.1.5: the transport is isolated — each request gets its own <sg-llm-request>
+ * — so concurrent requests don't cross-talk. The cap keeps us friendly to
+ * OpenRouter rate limits; a caller can override via `transcribeAll({ concurrency })`.
+ *
+ * (History: pre-0.1.5 a single shared <sg-llm-request> dropped a second
+ * concurrent send via its _busy guard while BOTH waiting promises resolved on
+ * the one response — so two files got the same transcript and only ONE
+ * /chat/completions request fired. The isolated transport fixes that root cause.)
  *
  * @module audio-transcribe/api-batch
  */
 
 import { AT_EVENTS } from './audio-transcribe-events.js';
 
-/** Default concurrency cap. MUST stay 1 with the uncorrelated shared-bus transport (see module note). */
-export const DEFAULT_CONCURRENCY = 1;
+/** Default parallel worker count for "Transcribe all" (safe since v0.1.5's isolated transport). */
+export const DEFAULT_CONCURRENCY = 4;
 
 /**
  * Build the batch methods.

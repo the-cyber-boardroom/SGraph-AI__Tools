@@ -3,6 +3,14 @@
 The tool exposes the mandatory `SgToolApi` surface. After `tool:ready`, all
 actions are callable on `window.__tool`.
 
+> **Full docs:** see `../README.md` for architecture, the complete action table,
+> events, models, cost, testing, and dev guidance. Most-used additions since
+> v0.1.0: `setApiKey({apiKey,model?})` (configure the key headlessly),
+> `transcribeModels({id,models[]})` (parallel multi-model → one version each),
+> `getCostSummary()` (per-file + per-session cost), `getExchanges()` (provenance
+> log), `loadSample({id})`, `getReleases()`. Items now carry `versions[]`
+> (re-transcribe keeps history; top-level fields mirror the selected version).
+
 ## Lifecycle
 
 - `window.__tool` is published when `activate()` runs; the `tool:ready` window event fires `{ instanceId, tool:'audio-transcribe', version }`.

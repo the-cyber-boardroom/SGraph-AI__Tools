@@ -16,6 +16,43 @@
 /** @type {ReadonlyArray<Release>} */
 export const RELEASES = Object.freeze([
     {
+        version: '0.1.9',
+        date: '2026-06-15',
+        summary: 'Live recording waveform.',
+        changes: [
+            'New: a live waveform/spectrum (reusing sg-audio-viz — the same component the video-recorder uses) shows while you record from the mic, so you can see audio is being captured. It hides when you stop. Best-effort: recording still works if the viz can\'t start.',
+        ],
+    },
+    {
+        version: '0.1.8',
+        date: '2026-06-15',
+        summary: 'More models, setApiKey API, debug/provenance panel.',
+        changes: [
+            'Added more audio models to try: Gemini 3 Flash (preview), Gemini 3.1 Flash Lite (preview), GPT Audio Mini, GPT-4o Audio, Voxtral Small 24B, MiMo v2 Omni. (Some ids may not be live — those show as a graceful error version so you can see which work.)',
+            'API: setApiKey({ apiKey, model }) configures the OpenRouter key programmatically (persists + connects) — for agentic / headless callers.',
+            'New: "🔎 Debug · provenance" tab (right side) + getExchanges() API — every LLM request/response this session: model, prompt, audio file, transcript, tokens, cost, generation id, and the raw OpenRouter response. Audio bytes are never shown.',
+        ],
+    },
+    {
+        version: '0.1.7',
+        date: '2026-06-15',
+        summary: 'Parallel "Transcribe all" + model list cleanup.',
+        changes: [
+            '"Transcribe all" now runs in PARALLEL (a 4-wide worker pool) — safe with the isolated transport, and much faster for many files.',
+            'Removed google/gemini-3-pro-preview — OpenRouter has no active endpoints for it (it 404\'d).',
+            'Added nvidia/nemotron-3-nano-omni (free) — a free audio-input model, handy for testing without spend.',
+        ],
+    },
+    {
+        version: '0.1.6',
+        date: '2026-06-15',
+        summary: 'Confirm + guard the concurrent-transcription cross-talk fix.',
+        changes: [
+            'Confirmed the deeper root cause of the "same transcript / only one /chat/completions request" bug: the shared <sg-llm-request> dropped a second concurrent send (its _busy guard) while both promises resolved on the one response. The v0.1.5 isolated transport fixes it.',
+            'Added a browser regression test (tests/playwright/audio-transcribe-parallel-smoke.js): two concurrent transcriptions must make two completions requests and return distinct transcripts. Verified passing.',
+        ],
+    },
+    {
         version: '0.1.5',
         date: '2026-06-15',
         summary: 'Advanced mode — version history, parallel multi-model, cost roll-ups.',

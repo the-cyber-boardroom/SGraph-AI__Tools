@@ -18,7 +18,7 @@ const ACCEPT = 'audio/*,.opus,.ogg,.oga,.m4a,.aac,.flac,.wav,.mp3,.webm';
  * @param {{ root: HTMLElement, state: object, api: object }} opts
  * @returns {{ destroy: () => void }}
  */
-export function mountSource({ root, api }) {
+export function mountSource({ root, api, getRecordingStream }) {
     root.innerHTML = `
         <h2 class="at-panel__title">Source</h2>
         <div class="at-dropzone" id="at-drop" tabindex="0" role="button"
@@ -31,6 +31,9 @@ export function mountSource({ root, api }) {
         <div class="at-record-row">
             <button type="button" class="at-btn primary" id="at-rec-btn">● Record</button>
             <span class="at-rec-timer" id="at-rec-timer" hidden>00:00</span>
+        </div>
+        <div class="at-viz" id="at-viz" hidden>
+            <sg-audio-viz id="at-viz-el" mode="smooth-eq"></sg-audio-viz>
         </div>
         <div class="at-record-row">
             <label for="at-sample" style="font-size:0.85rem;color:#94a3b8;">Sample</label>
@@ -51,6 +54,25 @@ export function mountSource({ root, api }) {
     const notice = root.querySelector('#at-notice');
     const sampleSel = root.querySelector('#at-sample');
     const sampleBtn = root.querySelector('#at-sample-load');
+    const vizWrap = root.querySelector('#at-viz');
+    const vizEl = root.querySelector('#at-viz-el');
+
+    /** Start the live waveform (best-effort — recording works without it). */
+    async function startViz() {
+        try {
+            const stream = getRecordingStream && getRecordingStream();
+            if (!stream || !vizEl) return;
+            vizWrap.hidden = false;
+            if (vizEl.whenReady) await vizEl.whenReady();
+            vizEl.setMode && vizEl.setMode('smooth-eq');
+            if (vizEl.setSource) await vizEl.setSource(stream);
+            vizEl.start && vizEl.start();
+        } catch (_) { /* viz is decorative */ }
+    }
+    function stopViz() {
+        try { vizEl && vizEl.stop && vizEl.stop(); } catch (_) { /* */ }
+        if (vizWrap) vizWrap.hidden = true;
+    }
 
     async function onLoadSample() {
         sampleBtn.disabled = true;
@@ -103,6 +125,7 @@ export function mountSource({ root, api }) {
                 timer.hidden = false;
                 timer.textContent = '00:00';
                 tick = setInterval(() => { timer.textContent = fmtTime(Date.now() - startedAt); }, 250);
+                startViz();
             } catch (err) { showNotice(`Record failed: ${err.message}`, 'error'); }
         } else {
             recBtn.disabled = true;
@@ -111,6 +134,7 @@ export function mountSource({ root, api }) {
                 showNotice(`Recorded ${r.name}`, 'info');
             } catch (err) { showNotice(`Stop failed: ${err.message}`, 'error'); }
             finally {
+                stopViz();
                 recording = false;
                 recBtn.disabled = false;
                 recBtn.textContent = '● Record';
@@ -144,6 +168,7 @@ export function mountSource({ root, api }) {
     return {
         destroy() {
             if (tick) clearInterval(tick);
+            try { vizEl && vizEl.destroy && vizEl.destroy(); } catch (_) { /* */ }
             dz.removeEventListener('click', onPick);
             dz.removeEventListener('keydown', onKey);
             input.removeEventListener('change', onFileChange);

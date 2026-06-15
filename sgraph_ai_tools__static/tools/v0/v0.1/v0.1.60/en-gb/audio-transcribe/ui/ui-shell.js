@@ -22,6 +22,7 @@ import { mountQueue } from './ui-queue.js';
 import { mountModel } from './ui-model.js';
 import { mountBundle } from './ui-bundle.js';
 import { mountItemPanel } from './ui-item-panel.js';
+import { mountDebug } from './ui-debug.js';
 import { buildDevPanel } from '../dev-panel.js';
 
 const PANEL_BASE = 'height:100%;overflow:hidden;display:flex;flex-direction:column;min-height:0;background:#0a0a18;box-sizing:border-box;';
@@ -40,7 +41,7 @@ function panelScroll(panelEl) {
  * @param {{ host: HTMLElement, state: object, api: object, devPanel?: boolean }} opts
  * @returns {Promise<{ destroy: () => void }>}
  */
-export async function mountShell({ host, state, api, devPanel = true }) {
+export async function mountShell({ host, state, api, devPanel = true, getRecordingStream }) {
     if (!host) return { destroy() {} };
 
     // Preserve the <sg-llm-request> engine the api entry appended to the host.
@@ -88,6 +89,7 @@ export async function mountShell({ host, state, api, devPanel = true }) {
                 type: 'stack', id: 's-right', activeTab: 0,
                 tabs: [
                     { type: 'tab', id: 't-queue', title: '📋 Queue', tag: 'div', locked: false, closable: false },
+                    { type: 'tab', id: 't-debug', title: '🔎 Debug', tag: 'div', locked: false, closable: false },
                 ],
             },
         ],
@@ -97,6 +99,7 @@ export async function mountShell({ host, state, api, devPanel = true }) {
     const modelWrap  = panelScroll(layout.getPanelElement('t-model'));
     const bundleWrap = panelScroll(layout.getPanelElement('t-bundle'));
     const queueWrap  = panelScroll(layout.getPanelElement('t-queue'));
+    const debugWrap  = panelScroll(layout.getPanelElement('t-debug'));
 
     // Model panel: the model/key controls, then the cost view below them.
     const modelMount = document.createElement('div');
@@ -160,10 +163,11 @@ export async function mountShell({ host, state, api, devPanel = true }) {
     });
 
     const m = [
-        mountSource({ root: sourceWrap, state, api }),
+        mountSource({ root: sourceWrap, state, api, getRecordingStream }),
         mountModel({ root: modelMount, state, api }),
         mountBundle({ root: bundleWrap, state, api }),
         mountQueue({ root: queueWrap, state, api, openItem }),
+        mountDebug({ root: debugWrap, api }),
     ];
 
     if (devPanel) buildDevPanel(host);

@@ -4,7 +4,7 @@
     "slug": "audio-transcribe",
     "description": "Record from the mic OR drag/drop many local audio files (including WhatsApp .opus voice notes), then transcribe each to text using curated OpenRouter audio models — entirely in your browser. Batch queue with per-row status and retry, bundle the session's audio and/or transcripts into a .zip, and optionally send an encrypted share via SG/Send.",
     "icon": "🎙",
-    "version": "0.1.5",
+    "version": "0.1.9",
     "status": "alpha",
     "category": "media",
     "keywords": [
@@ -80,6 +80,10 @@
             {
                 "module": "sg-tool-api-manifest",
                 "path": "/components/tool-api/sg-tool-api-manifest/v0/v0.1/v0.1.0/sg-tool-api-manifest.js"
+            },
+            {
+                "module": "sg-audio-viz",
+                "path": "/components/sg-audio-viz/v0/v0.1/v0.1.0/sg-audio-viz.js"
             }
         ]
     },
@@ -140,6 +144,11 @@
             "path": "/components/tool-api/sg-tool-api-manifest/v0/v0.1/v0.1.0/sg-tool-api-manifest.js"
         },
         {
+            "phase": 2,
+            "type": "js",
+            "path": "/components/sg-audio-viz/v0/v0.1/v0.1.0/sg-audio-viz.js"
+        },
+        {
             "phase": 3,
             "type": "js",
             "entry": true,
@@ -181,11 +190,17 @@
             "getReleases": {
                 "description": "The tool's changelog, newest first: [{version,date,summary,changes[]}]. Same data shown in the dev panel's Releases tab."
             },
+            "getExchanges": {
+                "description": "Provenance log (newest first, up to 50): every LLM request/response this session — {ts, itemId, itemName, vid, model, status, request:{prompt,audio}, response:{content,promptTokens,completionTokens,latencyMs,generationId,costUsd}, raw}. Audio bytes are never included."
+            },
             "setModel": {
                 "description": "Set the active model for new items (or, with id, one item's model). Emits at:model:changed."
             },
             "connect": {
                 "description": "Fire llm:connected {provider:'openrouter', model, apiKey} so sg-llm-request can send. apiKey is masked in the dev console."
+            },
+            "setApiKey": {
+                "description": "Configure the OpenRouter key programmatically (for agentic/headless callers): persists it (localStorage 'sg-openrouter-mgmt-key') then connects. Params {apiKey, model?}. apiKey masked in the dev console. Returns {ok, present, model}."
             },
             "transcribeItem": {
                 "description": "Transcribe one queue item: blob → supported format/data URL → binary_file message → llm:send → resolve. Sets status/transcript. Used for retry too. Emits at:transcribe:started/complete/error (each carries {id})."
@@ -194,7 +209,7 @@
                 "description": "Advanced: transcribe one item against MULTIPLE models in parallel; each result is a separate version (history is kept). Params {id, models:[]}. Safe to parallelise — each request runs on its own isolated LLM bus."
             },
             "transcribeAll": {
-                "description": "Transcribe every queued/error item strictly serially (concurrency 1 — the shared LLM bus transport is single-flight). Emits at:batch:started, at:batch:progress {done,total}, at:batch:complete."
+                "description": "Transcribe every queued/error item in PARALLEL (a small worker pool, default 4; override with {concurrency}). Safe since the transport is isolated per request. Emits at:batch:started, at:batch:progress {done,total}, at:batch:complete."
             },
             "transcribe": {
                 "description": "Alias/convenience for transcribeAll; if exactly one item exists it behaves like transcribeItem on that row."
@@ -302,6 +317,11 @@
                 "name": "at:reset",
                 "when": "clearAll",
                 "detail": "{}"
+            },
+            {
+                "name": "at:llm:exchange",
+                "when": "each transcription request/response",
+                "detail": "the provenance record (see getExchanges)"
             }
         ],
         "skills": {
