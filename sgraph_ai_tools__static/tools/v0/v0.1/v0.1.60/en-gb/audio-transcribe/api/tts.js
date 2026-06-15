@@ -59,27 +59,52 @@ export async function synthesizeLocal(text, opts = {}) {
     return { blob: encodeWav(data, sampleRate), durationMs: Math.round((durationSecs || 0) * 1000), mode: 'local' };
 }
 
-/** OpenRouter audio-output synthesis. @returns {Promise<{blob,durationMs,mode,generationId}>} */
+/** OpenRouter audio-output synthesis. Audio output REQUIRES stream:true and is
+ *  delivered as incremental base64 `delta.audio.data` chunks (concatenated, then
+ *  decoded once). @returns {Promise<{blob,durationMs,mode,generationId,transcript}>} */
 export async function synthesizeOpenRouter(text, opts = {}) {
     const fetchImpl = opts.fetchImpl || (typeof fetch !== 'undefined' ? fetch : null);
     if (!fetchImpl) throw Object.assign(new Error('fetch unavailable'), { code: 'no-fetch' });
     if (!opts.apiKey) throw Object.assign(new Error('OpenRouter key required for cloud TTS'), { code: 'no-key' });
     const res = await fetchImpl(OPENROUTER, {
         method: 'POST',
-        headers: { Authorization: `Bearer ${opts.apiKey}`, 'Content-Type': 'application/json' },
+        headers: { Authorization: `Bearer ${opts.apiKey}`, 'Content-Type': 'application/json', Accept: 'text/event-stream' },
         body: JSON.stringify({
             model: opts.model || TTS_OPENROUTER_DEFAULT_MODEL,
             modalities: ['text', 'audio'],
             audio: { voice: opts.voice || TTS_VOICES.openrouter[0], format: 'wav' },
+            stream: true, // audio output requires streaming
             messages: [{ role: 'user', content: `Read this text aloud, verbatim, with no preamble:\n\n${text}` }],
         }),
     });
-    if (!res || !res.ok) throw Object.assign(new Error(`Cloud TTS failed (HTTP ${res && res.status})`), { code: 'tts-http' });
-    const json = await res.json();
-    const audio = json && json.choices && json.choices[0] && json.choices[0].message && json.choices[0].message.audio;
-    const b64 = audio && (audio.data || audio.b64_json);
+    if (!res || !res.ok) {
+        let detail = ''; try { detail = (await res.text()).slice(0, 200); } catch (_) { /* */ }
+        throw Object.assign(new Error(`Cloud TTS failed (HTTP ${res && res.status})${detail ? ': ' + detail : ''}`), { code: 'tts-http' });
+    }
+    if (!res.body || !res.body.getReader) throw Object.assign(new Error('Streaming not supported here'), { code: 'tts-no-stream' });
+
+    const reader = res.body.getReader();
+    const decoder = new TextDecoder();
+    let buf = '', b64 = '', transcript = '', generationId;
+    for (;;) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        buf += decoder.decode(value, { stream: true });
+        let nl;
+        while ((nl = buf.indexOf('\n')) >= 0) {
+            const line = buf.slice(0, nl).trim();
+            buf = buf.slice(nl + 1);
+            if (!line.startsWith('data:')) continue;
+            const payload = line.slice(5).trim();
+            if (!payload || payload === '[DONE]') continue;
+            let obj; try { obj = JSON.parse(payload); } catch (_) { continue; }
+            generationId = generationId || obj.id;
+            const a = obj.choices && obj.choices[0] && obj.choices[0].delta && obj.choices[0].delta.audio;
+            if (a) { if (a.data) b64 += a.data; if (a.transcript) transcript += a.transcript; }
+        }
+    }
     if (!b64) throw Object.assign(new Error('No audio in the model response'), { code: 'tts-no-audio' });
-    return { blob: base64ToBlob(b64, 'audio/wav'), durationMs: 0, mode: 'openrouter', generationId: json.id };
+    return { blob: base64ToBlob(b64, 'audio/wav'), durationMs: 0, mode: 'openrouter', generationId, transcript };
 }
 
 /**

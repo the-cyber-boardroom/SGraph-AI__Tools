@@ -16,6 +16,14 @@
 /** @type {ReadonlyArray<Release>} */
 export const RELEASES = Object.freeze([
     {
+        version: '0.1.13',
+        date: '2026-06-15',
+        summary: 'Fix: cloud (OpenRouter) text-to-speech.',
+        changes: [
+            'Fixed: OpenRouter TTS failed with "Audio output requires stream: true" (HTTP 400). It now sends a streaming request and accumulates the incremental delta.audio chunks into the WAV — cloud voice works.',
+        ],
+    },
+    {
         version: '0.1.12',
         date: '2026-06-15',
         summary: 'Chat with your transcripts + TTS single-download fix.',

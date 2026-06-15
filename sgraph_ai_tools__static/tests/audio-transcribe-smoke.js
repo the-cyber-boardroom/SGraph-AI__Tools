@@ -469,7 +469,9 @@ await test('tts: WAV encode, base64 decode, and OpenRouter dispatch (mocked)', a
         assert.match(url, /chat\/completions/);
         const body = JSON.parse(opts.body);
         assert.deepEqual(body.modalities, ['text', 'audio']);
-        return { ok: true, json: async () => ({ id: 'gen-tts', choices: [{ message: { audio: { data: audioB64 } } }] }) };
+        assert.equal(body.stream, true, 'audio output requires streaming');
+        const sse = `data: ${JSON.stringify({ id: 'gen-tts', choices: [{ delta: { audio: { data: audioB64 } } }] })}\n\ndata: [DONE]\n\n`;
+        return new Response(sse, { status: 200, headers: { 'content-type': 'text/event-stream' } });
     };
     const r = await synthesize({ text: 'hi', mode: 'openrouter', apiKey: 'sk', fetchImpl });
     assert.equal(r.mode, 'openrouter');

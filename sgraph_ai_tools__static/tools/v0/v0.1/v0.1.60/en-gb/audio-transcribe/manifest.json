@@ -4,7 +4,7 @@
     "slug": "audio-transcribe",
     "description": "Record from the mic OR drag/drop many local audio files (including WhatsApp .opus voice notes), then transcribe each to text using curated OpenRouter audio models — entirely in your browser. Batch queue with per-row status and retry, bundle the session's audio and/or transcripts into a .zip, and optionally send an encrypted share via SG/Send.",
     "icon": "🎙",
-    "version": "0.1.12",
+    "version": "0.1.13",
     "status": "alpha",
     "category": "media",
     "keywords": [
