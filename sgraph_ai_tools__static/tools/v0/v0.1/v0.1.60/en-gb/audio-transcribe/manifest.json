@@ -4,7 +4,7 @@
     "slug": "audio-transcribe",
     "description": "Record from the mic OR drag/drop many local audio files (including WhatsApp .opus voice notes), then transcribe each to text using curated OpenRouter audio models — entirely in your browser. Batch queue with per-row status and retry, bundle the session's audio and/or transcripts into a .zip, and optionally send an encrypted share via SG/Send.",
     "icon": "🎙",
-    "version": "0.1.15",
+    "version": "0.1.16",
     "status": "alpha",
     "category": "media",
     "keywords": [
@@ -320,6 +320,11 @@
                 "name": "at:live:update",
                 "when": "live poll / final pass",
                 "detail": "{ text, elapsedMs, final }"
+            },
+            {
+                "name": "at:live:segment",
+                "when": "each live poll is sent + answered (again when its exact cost resolves)",
+                "detail": "{ seq, sizeBytes, elapsedMs, latencyMs, text, final, ok, error?, generationId?, costUsd?, costPending? }"
             },
             {
                 "name": "at:live:stopped",

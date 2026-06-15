@@ -77,29 +77,38 @@ export async function mountShell({ host, state, api, devPanel = true, getRecordi
     // element already fired that event from connectedCallback during appendChild,
     // so awaiting here hangs forever (the layout never builds). Call setLayout,
     // then read the panel elements synchronously.
-    layout.setLayout({
-        type: 'row', id: 'main', sizes: [0.4, 0.6],
-        children: [
-            {
-                type: 'stack', id: 's-left', activeTab: 0,
-                tabs: [
-                    { type: 'tab', id: 't-source', title: '🎙 Source',       tag: 'div', locked: false, closable: false },
-                    { type: 'tab', id: 't-live',   title: '🔴 Live',         tag: 'div', locked: false, closable: false },
-                    { type: 'tab', id: 't-tts',    title: '🗣 Voice',        tag: 'div', locked: false, closable: false },
-                    { type: 'tab', id: 't-model',  title: '🎚 Model & Cost',  tag: 'div', locked: false, closable: false },
-                    { type: 'tab', id: 't-bundle', title: '📦 Bundle & Send', tag: 'div', locked: false, closable: false },
-                ],
-            },
-            {
-                type: 'stack', id: 's-right', activeTab: 0,
-                tabs: [
-                    { type: 'tab', id: 't-queue', title: '📋 Queue', tag: 'div', locked: false, closable: false },
-                    { type: 'tab', id: 't-chat',  title: '💬 Chat',  tag: 'div', locked: false, closable: false },
-                    { type: 'tab', id: 't-debug', title: '🔎 Debug', tag: 'div', locked: false, closable: false },
-                ],
-            },
-        ],
-    });
+    // Phones can't use a 40/60 two-column row — collapse to ONE stack (all tabs
+    // in a single horizontally-scrollable tab bar, one full-width panel at a
+    // time). Item detail tabs spawn into whichever stack is the "right" one.
+    const isMobile = (typeof window !== 'undefined' && window.matchMedia)
+        ? window.matchMedia('(max-width: 760px)').matches : false;
+    const tab = (id, title) => ({ type: 'tab', id, title, tag: 'div', locked: false, closable: false });
+    const ALL_TABS = [
+        tab('t-source', '🎙 Source'), tab('t-live', '🔴 Live'), tab('t-queue', '📋 Queue'),
+        tab('t-tts', '🗣 Voice'), tab('t-model', '🎚 Model & Cost'),
+        tab('t-bundle', '📦 Bundle & Send'), tab('t-chat', '💬 Chat'), tab('t-debug', '🔎 Debug'),
+    ];
+    const itemStackId = isMobile ? 's-main' : 's-right';
+    if (isMobile) {
+        layout.setLayout({ type: 'stack', id: 's-main', activeTab: 0, tabs: ALL_TABS });
+    } else {
+        layout.setLayout({
+            type: 'row', id: 'main', sizes: [0.4, 0.6],
+            children: [
+                {
+                    type: 'stack', id: 's-left', activeTab: 0,
+                    tabs: [
+                        tab('t-source', '🎙 Source'), tab('t-live', '🔴 Live'), tab('t-tts', '🗣 Voice'),
+                        tab('t-model', '🎚 Model & Cost'), tab('t-bundle', '📦 Bundle & Send'),
+                    ],
+                },
+                {
+                    type: 'stack', id: 's-right', activeTab: 0,
+                    tabs: [tab('t-queue', '📋 Queue'), tab('t-chat', '💬 Chat'), tab('t-debug', '🔎 Debug')],
+                },
+            ],
+        });
+    }
 
     const sourceWrap = panelScroll(layout.getPanelElement('t-source'));
     const liveWrap   = panelScroll(layout.getPanelElement('t-live'));
@@ -151,7 +160,7 @@ export async function mountShell({ host, state, api, devPanel = true, getRecordi
         if (openTabs.has(itemId)) { layout.focusPanel(openTabs.get(itemId)); return; }
         const name = state.getItem(itemId).name || 'audio';
         const title = `🎧 ${name.length > 16 ? name.slice(0, 15) + '…' : name}`;
-        const tabId = layout.addTabToStack('s-right', { tag: 'div', title, closable: true });
+        const tabId = layout.addTabToStack(itemStackId, { tag: 'div', title, closable: true });
         openTabs.set(itemId, tabId);
         const wrap = panelScroll(layout.getPanelElement(tabId));
         openMounts.set(itemId, mountItemPanel({ root: wrap, id: itemId, state, api }));

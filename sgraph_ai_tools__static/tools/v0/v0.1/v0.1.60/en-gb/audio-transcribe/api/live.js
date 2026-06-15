@@ -30,17 +30,36 @@ function extOf(m) { return m.includes('mp4') ? 'm4a' : (m.includes('ogg') ? 'opu
  * @param {number} [ctx.intervalMs=2500]
  * @returns {{ start: Function, stop: Function, getStream: () => MediaStream|null, isRunning: () => boolean }}
  */
-export function createLiveSession({ transcribe, getModel, onUpdate, onError, intervalMs = 2500 }) {
-    let stream = null, recorder = null, chunks = [], timer = null, polling = false, startedAt = 0, mime = '';
+export function createLiveSession({ transcribe, getModel, onUpdate, onError, onSegment, intervalMs = 2500 }) {
+    let stream = null, recorder = null, chunks = [], timer = null, polling = false, startedAt = 0, mime = '', seq = 0;
+
+    /** Transcribe the current growing take, reporting it as one numbered segment. */
+    async function runSegment(final) {
+        const blob = new Blob(chunks, { type: mime });
+        const sizeBytes = blob.size;
+        const n = ++seq;
+        const t0 = Date.now();
+        try {
+            const r = await transcribe({ blob, name: `live.${extOf(mime)}`, model: getModel && getModel() });
+            const elapsedMs = Date.now() - startedAt;
+            if (onUpdate) onUpdate({ text: r.text, elapsedMs, final });
+            if (onSegment) onSegment({
+                seq: n, sizeBytes, elapsedMs, latencyMs: Date.now() - t0, text: r.text, final, ok: true,
+                generationId: r.generationId, costUsd: r.costUsd,
+                promptTokens: r.promptTokens, completionTokens: r.completionTokens,
+            });
+            return r.text;
+        } catch (err) {
+            if (onError) onError(err);
+            if (onSegment) onSegment({ seq: n, sizeBytes, elapsedMs: Date.now() - startedAt, latencyMs: Date.now() - t0, final, ok: false, error: err.message });
+            return '';
+        }
+    }
 
     async function poll() {
         if (polling || !chunks.length) return;
         polling = true;
-        try {
-            const blob = new Blob(chunks, { type: mime });
-            const r = await transcribe({ blob, name: `live.${extOf(mime)}`, model: getModel && getModel() });
-            if (onUpdate) onUpdate({ text: r.text, elapsedMs: Date.now() - startedAt, final: false });
-        } catch (err) { if (onError) onError(err); }
+        try { await runSegment(false); }
         finally { polling = false; }
     }
 
@@ -53,6 +72,7 @@ export function createLiveSession({ transcribe, getModel, onUpdate, onError, int
         recorder.addEventListener('dataavailable', (e) => { if (e.data && e.data.size) chunks.push(e.data); });
         recorder.start(1000);
         startedAt = Date.now();
+        seq = 0;
         timer = setInterval(poll, intervalMs);
         return { mimeType: mime };
     }
@@ -70,13 +90,7 @@ export function createLiveSession({ transcribe, getModel, onUpdate, onError, int
         const blob = new Blob(chunks, { type: mime });
         const durationMs = Date.now() - startedAt;
         let text = '';
-        if (blob.size) {
-            try {
-                const r = await transcribe({ blob, name: `live.${extOf(mime)}`, model: getModel && getModel() });
-                text = r.text;
-                if (onUpdate) onUpdate({ text, elapsedMs: durationMs, final: true });
-            } catch (err) { if (onError) onError(err); }
-        }
+        if (blob.size) text = await runSegment(true); // final pass = the last segment
         const name = `live-${new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19)}.${extOf(mime)}`;
         return { blob, mimeType: mime, durationMs, text, name };
     }

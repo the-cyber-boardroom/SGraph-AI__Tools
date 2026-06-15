@@ -247,6 +247,7 @@ export function buildTranscribeMethods({ state, emit, sendToLlm, getActiveModel,
             text: (res.content != null ? String(res.content) : '').trim(),
             generationId: res.generationId,
             promptTokens: res.promptTokens, completionTokens: res.completionTokens,
+            costUsd: (typeof res.responseCost === 'number' ? res.responseCost : undefined),
         };
     }
 

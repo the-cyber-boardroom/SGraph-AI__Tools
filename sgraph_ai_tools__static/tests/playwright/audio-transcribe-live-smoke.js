@@ -51,9 +51,13 @@ async function run() {
             body: JSON.stringify({
                 id: 'gen-live-mock',
                 choices: [{ message: { role: 'assistant', content: MOCK_TEXT } }],
-                usage: { prompt_tokens: 10, completion_tokens: 5, cost: 0 },
+                usage: { prompt_tokens: 10, completion_tokens: 5 }, // no inline cost → exact cost comes from the generation lookup (real paid path)
             }),
         });
+    });
+    // Mock the deferred per-generation cost lookup (each live segment is billed).
+    await page.route('**/generation*', async (route) => {
+        await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ data: { total_cost: 0.00031 } }) });
     });
 
     try {
@@ -62,9 +66,10 @@ async function run() {
 
         // Collect live events on the page.
         await page.evaluate(() => {
-            window.__live = { updates: [], started: null, stopped: null };
+            window.__live = { updates: [], segments: [], started: null, stopped: null };
             window.addEventListener('at:live:started', (e) => { window.__live.started = e.detail; });
             window.addEventListener('at:live:update', (e) => { window.__live.updates.push(e.detail); });
+            window.addEventListener('at:live:segment', (e) => { window.__live.segments.push(e.detail); });
             window.addEventListener('at:live:stopped', (e) => { window.__live.stopped = e.detail; });
         });
 
@@ -94,6 +99,26 @@ async function run() {
             return it && it.transcript;
         });
         assert(tx && tx.includes(MOCK_TEXT), '[4] the saved take carries the transcript', tx || '(none)');
+
+        // [5] Segments were reported (request/response provenance) with size + seq.
+        const segOk = await page.evaluate(() => {
+            const s = window.__live.segments;
+            return s.length >= 1 && s.every((x) => x.seq >= 1 && x.sizeBytes > 0);
+        });
+        assert(segOk, '[5] at:live:segment events arrived with seq + size');
+
+        // [6] The exact per-segment cost resolves (deferred /generation lookup).
+        await page.waitForFunction(() => window.__live.segments.some((x) => typeof x.costUsd === 'number'), { timeout: 8000 }).catch(() => {});
+        const costOk = await page.evaluate(() => window.__live.segments.some((x) => x.costUsd === 0.00031));
+        assert(costOk, '[6] per-segment cost resolved via the generation lookup');
+
+        // [7] The Live panel rendered the segment rows + a running total.
+        const domOk = await page.evaluate(() => {
+            const rows = document.querySelectorAll('[data-live-segs] .at-live__seg').length;
+            const tot = (document.querySelector('[data-live-segtot]') || {}).textContent || '';
+            return rows >= 1 && /segment/.test(tot);
+        });
+        assert(domOk, '[7] Live panel shows segment rows + running total');
     } catch (e) {
         console.error(`  ✗ live flow: ${e.message}`);
         failed++;

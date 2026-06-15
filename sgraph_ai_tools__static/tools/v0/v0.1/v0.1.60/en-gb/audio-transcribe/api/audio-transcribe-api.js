@@ -108,7 +108,7 @@ export async function init(manifest) {
 
     const api = new SgToolApi({
         name: 'audio-transcribe',
-        version: { api: '0.1.15', ui: '0.1.15', content: '0.1.0' },
+        version: { api: '0.1.16', ui: '0.1.16', content: '0.1.0' },
         panelId: 'root',
         manifest: './manifest.json',
         skills: (manifest && manifest.skills) || {},
@@ -208,13 +208,42 @@ export async function init(manifest) {
     }
 
     // ── Live (near-realtime) transcription ────────────────────────────────────
+    // Each live poll re-sends the GROWING take, so every segment is a real,
+    // separately-billed OpenRouter request. We surface each one (size, latency,
+    // transcript, cost) on the LIVE_SEGMENT event AND in the Debug provenance log
+    // (keyed by a per-run id + seq), and resolve the exact charged cost a couple
+    // of seconds later by generation id — same as a normal transcription.
+    let liveRunId = 0;
+    function onLiveSegment(s) {
+        emit(AT_EVENTS.LIVE_SEGMENT, s);
+        const vid = `live-${liveRunId}-${s.seq}`;
+        const costPending = !!(s.ok && s.generationId && typeof s.costUsd !== 'number');
+        recordExchange({
+            ts: Date.now(), vid, kind: 'live', model: state.getActiveModel(),
+            itemName: s.final ? '🔴 live · final' : `🔴 live · segment ${s.seq}`,
+            status: s.ok ? 'done' : 'error', error: s.error,
+            request: { kind: 'live', audio: { name: `live segment ${s.seq}`, mime: 'audio', sizeBytes: s.sizeBytes }, elapsedMs: s.elapsedMs },
+            response: s.ok ? { content: s.text, promptTokens: s.promptTokens, completionTokens: s.completionTokens, latencyMs: s.latencyMs, generationId: s.generationId, costUsd: s.costUsd, costPending } : undefined,
+        });
+        if (costPending) {
+            Promise.resolve(fetchGenerationCostDeferred(s.generationId, currentApiKey)).then((cost) => {
+                emit(AT_EVENTS.LIVE_SEGMENT, { ...s, costUsd: (cost != null ? cost : s.costUsd), costPending: false });
+                recordExchange({ ts: Date.now(), vid, kind: 'live', model: state.getActiveModel(),
+                    itemName: s.final ? '🔴 live · final' : `🔴 live · segment ${s.seq}`, status: 'done',
+                    request: { kind: 'live', audio: { name: `live segment ${s.seq}`, mime: 'audio', sizeBytes: s.sizeBytes }, elapsedMs: s.elapsedMs },
+                    response: { content: s.text, promptTokens: s.promptTokens, completionTokens: s.completionTokens, latencyMs: s.latencyMs, generationId: s.generationId, costUsd: (cost != null ? cost : s.costUsd), costPending: false } });
+            }).catch(() => {});
+        }
+    }
     const live = createLiveSession({
         transcribe: (req) => transcribe.transcribeBlob(req),
         getModel: () => state.getActiveModel(),
         onUpdate: (u) => emit(AT_EVENTS.LIVE_UPDATE, u),
         onError: (err) => emit(AT_EVENTS.LIVE_ERROR, { error: err.message }),
+        onSegment: onLiveSegment,
     });
     async function startLive() {
+        liveRunId += 1;
         const r = await live.start();
         emit(AT_EVENTS.LIVE_STARTED, { mimeType: r.mimeType });
         return { live: true, mimeType: r.mimeType };

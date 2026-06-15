@@ -186,6 +186,13 @@
 .at-live__tx--live { border-color: #4f46e5; box-shadow: 0 0 0 1px rgba(79,70,229,0.25); }
 .at-live__tx--live::after { content: '▋'; color: #818cf8; animation: at-live-blink 1s steps(1) infinite; }
 @keyframes at-live-blink { 50% { opacity: 0; } }
+.at-live__segwrap { margin-top: 16px; }
+.at-live__segtot { font-size: 0.8rem; font-weight: 400; font-variant-numeric: tabular-nums; }
+.at-live__segs { display: flex; flex-direction: column; gap: 6px; margin-top: 8px; max-height: 260px; overflow-y: auto; }
+.at-live__seg { background: #0e0e22; border: 1px solid #1f2444; border-radius: 8px; padding: 8px 10px; }
+.at-live__seg-meta { font-size: 0.72rem; color: #93a4ff; font-variant-numeric: tabular-nums; margin-bottom: 3px; }
+.at-live__seg-tx { font-size: 0.85rem; color: #cbd5e1; line-height: 1.4; white-space: pre-wrap; }
+.at-chip--live { color: #fca5a5; border-color: #b91c1c; }
 
 /* ── Chat with transcripts (ui-chat) ────────────────────────────────────────── */
 .at-chat { display: flex; flex-direction: column; gap: 10px; height: 100%; min-height: 0; }
@@ -194,3 +201,21 @@
 .at-chat__convo { display: flex; flex-direction: column; gap: 8px; flex: 1; min-height: 320px; }
 .at-chat__convo sg-llm-chat-history { flex: 1; min-height: 200px; display: block; overflow: auto; }
 .at-chat__cost { color: #86efac; font-size: 0.8rem; font-variant-numeric: tabular-nums; margin-left: auto; }
+
+/* ── Mobile / narrow screens ─────────────────────────────────────────────────
+   ui-shell collapses to a single sg-layout stack ≤760px; here we enlarge tap
+   targets, shrink the header, and let controls wrap so the tool is usable on a
+   phone. Tab chrome is sg-layout's shadow DOM — themeable only via its vars. */
+@media (max-width: 760px) {
+    sg-layout { --sgl-tab-height: 38px; --sgl-panel-header-height: 40px; }
+    .at-topbar { padding: 8px 12px 6px !important; }
+    .at-topbar h1, .at-topbar h1[style] { font-size: 1.05rem !important; }
+    .at-subtitle { font-size: 0.82rem; }
+    .at-panel { padding: 14px; }
+    .at-btn { padding: 10px 14px; min-height: 40px; }       /* ≥40px tap target */
+    .at-btn.small { min-height: 32px; }
+    .at-live__btn { width: 100%; padding: 16px; font-size: 1.1rem; }
+    .at-live__controls { flex-wrap: wrap; }
+    .at-record-row { flex-wrap: wrap; }
+    .at-tts__text, .at-live__tx { font-size: 16px; }         /* ≥16px = no iOS zoom */
+}

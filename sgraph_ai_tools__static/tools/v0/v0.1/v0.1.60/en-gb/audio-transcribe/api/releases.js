@@ -16,6 +16,16 @@
 /** @type {ReadonlyArray<Release>} */
 export const RELEASES = Object.freeze([
     {
+        version: '0.1.16',
+        date: '2026-06-15',
+        summary: 'Live segments shown (with per-segment cost) + mobile-friendly layout.',
+        changes: [
+            'New: the "🔴 Live" tab now lists every segment it sends — each poll re-sends the GROWING audio as a real, separately-billed request, so you can see #seq · elapsed · size · latency · cost per segment, plus a running total (live mode can add up). Same records also appear in the 🔎 Debug · provenance panel (with a "🔴 live" badge).',
+            'New: per-segment cost — the exact charged figure resolves a couple of seconds later by generation id (same lookup as a normal transcription). API: the at:live:segment event carries { seq, sizeBytes, elapsedMs, latencyMs, text, final, ok, generationId, costUsd }.',
+            'Mobile: on narrow screens (≤760px) the two-column layout collapses to a single full-width tab stack (all tabs in one scrollable bar), with bigger tap targets, a full-width Live button, a smaller header, and 16px inputs (no iOS zoom-on-focus).',
+        ],
+    },
+    {
         version: '0.1.15',
         date: '2026-06-15',
         summary: 'Live (near-realtime) transcribe — the "🔴 Live" tab; cloud-TTS streaming-format fix.',
