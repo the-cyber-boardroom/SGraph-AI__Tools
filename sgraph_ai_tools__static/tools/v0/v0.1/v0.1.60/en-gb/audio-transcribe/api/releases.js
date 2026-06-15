@@ -16,6 +16,15 @@
 /** @type {ReadonlyArray<Release>} */
 export const RELEASES = Object.freeze([
     {
+        version: '0.1.6',
+        date: '2026-06-15',
+        summary: 'Confirm + guard the concurrent-transcription cross-talk fix.',
+        changes: [
+            'Confirmed the deeper root cause of the "same transcript / only one /chat/completions request" bug: the shared <sg-llm-request> dropped a second concurrent send (its _busy guard) while both promises resolved on the one response. The v0.1.5 isolated transport fixes it.',
+            'Added a browser regression test (tests/playwright/audio-transcribe-parallel-smoke.js): two concurrent transcriptions must make two completions requests and return distinct transcripts. Verified passing.',
+        ],
+    },
+    {
         version: '0.1.5',
         date: '2026-06-15',
         summary: 'Advanced mode — version history, parallel multi-model, cost roll-ups.',
