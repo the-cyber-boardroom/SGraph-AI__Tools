@@ -41,7 +41,7 @@ function panelScroll(panelEl) {
  * @param {{ host: HTMLElement, state: object, api: object, devPanel?: boolean }} opts
  * @returns {Promise<{ destroy: () => void }>}
  */
-export async function mountShell({ host, state, api, devPanel = true }) {
+export async function mountShell({ host, state, api, devPanel = true, getRecordingStream }) {
     if (!host) return { destroy() {} };
 
     // Preserve the <sg-llm-request> engine the api entry appended to the host.
@@ -163,7 +163,7 @@ export async function mountShell({ host, state, api, devPanel = true }) {
     });
 
     const m = [
-        mountSource({ root: sourceWrap, state, api }),
+        mountSource({ root: sourceWrap, state, api, getRecordingStream }),
         mountModel({ root: modelMount, state, api }),
         mountBundle({ root: bundleWrap, state, api }),
         mountQueue({ root: queueWrap, state, api, openItem }),

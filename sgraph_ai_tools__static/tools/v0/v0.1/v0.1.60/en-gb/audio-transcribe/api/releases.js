@@ -16,6 +16,14 @@
 /** @type {ReadonlyArray<Release>} */
 export const RELEASES = Object.freeze([
     {
+        version: '0.1.9',
+        date: '2026-06-15',
+        summary: 'Live recording waveform.',
+        changes: [
+            'New: a live waveform/spectrum (reusing sg-audio-viz — the same component the video-recorder uses) shows while you record from the mic, so you can see audio is being captured. It hides when you stop. Best-effort: recording still works if the viz can\'t start.',
+        ],
+    },
+    {
         version: '0.1.8',
         date: '2026-06-15',
         summary: 'More models, setApiKey API, debug/provenance panel.',

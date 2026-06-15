@@ -4,7 +4,7 @@
     "slug": "audio-transcribe",
     "description": "Record from the mic OR drag/drop many local audio files (including WhatsApp .opus voice notes), then transcribe each to text using curated OpenRouter audio models — entirely in your browser. Batch queue with per-row status and retry, bundle the session's audio and/or transcripts into a .zip, and optionally send an encrypted share via SG/Send.",
     "icon": "🎙",
-    "version": "0.1.8",
+    "version": "0.1.9",
     "status": "alpha",
     "category": "media",
     "keywords": [
@@ -80,6 +80,10 @@
             {
                 "module": "sg-tool-api-manifest",
                 "path": "/components/tool-api/sg-tool-api-manifest/v0/v0.1/v0.1.0/sg-tool-api-manifest.js"
+            },
+            {
+                "module": "sg-audio-viz",
+                "path": "/components/sg-audio-viz/v0/v0.1/v0.1.0/sg-audio-viz.js"
             }
         ]
     },
@@ -138,6 +142,11 @@
             "phase": 2,
             "type": "js",
             "path": "/components/tool-api/sg-tool-api-manifest/v0/v0.1/v0.1.0/sg-tool-api-manifest.js"
+        },
+        {
+            "phase": 2,
+            "type": "js",
+            "path": "/components/sg-audio-viz/v0/v0.1/v0.1.0/sg-audio-viz.js"
         },
         {
             "phase": 3,

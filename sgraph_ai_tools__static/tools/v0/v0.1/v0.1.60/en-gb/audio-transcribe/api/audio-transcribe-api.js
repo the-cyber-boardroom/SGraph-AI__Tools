@@ -98,7 +98,7 @@ export async function init(manifest) {
 
     const api = new SgToolApi({
         name: 'audio-transcribe',
-        version: { api: '0.1.8', ui: '0.1.8', content: '0.1.0' },
+        version: { api: '0.1.9', ui: '0.1.9', content: '0.1.0' },
         panelId: 'root',
         manifest: './manifest.json',
         skills: (manifest && manifest.skills) || {},
@@ -208,7 +208,7 @@ export async function init(manifest) {
 
     api.activate();
 
-    if (host) await mountShell({ host, state, api });
+    if (host) await mountShell({ host, state, api, getRecordingStream: source.getRecordingStream });
 
     return api;
 }
