@@ -33,8 +33,24 @@ export function createState(opts = {}) {
     const target = new EventTarget();
 
     let nextId = 1;
+    let nextVid = 1;
     let activeModel = opts.defaultModel || '';
     let apiKeyPresent = false;
+
+    /** Mirror a version's fields onto the item's top-level (the "selected" view
+     *  the Queue row / downloadZip / getTranscript read). */
+    function mirror(it, v) {
+        it.transcript = v.text;
+        it.model = v.model;
+        it.status = v.status;
+        it.costUsd = v.costUsd;
+        it.costPending = v.costPending;
+        it.promptTokens = v.promptTokens;
+        it.completionTokens = v.completionTokens;
+        it.latencyMs = v.latencyMs;
+        it.generationId = v.generationId;
+        it.error = v.error;
+    }
 
     function emit(kind, extra) {
         target.dispatchEvent(new CustomEvent('change', { detail: { kind, ...(extra || {}) } }));
@@ -88,9 +104,51 @@ export function createState(opts = {}) {
             origin: meta.origin || 'file',
             model: meta.model || activeModel,
             status: 'queued',
+            versions: [],       // transcription history (advanced mode)
+            selectedVid: null,
         });
         emit('added', { id });
         return id;
+    }
+
+    /**
+     * Append a transcription version and select it (re-transcribe keeps history).
+     * @param {string} id
+     * @param {object} v  partial version (model, status, text?, …)
+     * @returns {string|null} the new version id
+     */
+    function addVersion(id, v) {
+        const it = items.find((x) => x.id === id);
+        if (!it) return null;
+        const vid = `tv-${nextVid++}`;
+        const version = { vid, ts: Date.now(), ...v };
+        (it.versions = it.versions || []).push(version);
+        it.selectedVid = vid;
+        mirror(it, version);
+        emit('updated', { id, vid });
+        return vid;
+    }
+
+    /** @param {string} id @param {string} vid @param {object} patch */
+    function updateVersion(id, vid, patch) {
+        const it = items.find((x) => x.id === id);
+        if (!it || !it.versions) return;
+        const v = it.versions.find((x) => x.vid === vid);
+        if (!v) return;
+        Object.assign(v, patch);
+        if (it.selectedVid === vid) mirror(it, v);
+        emit('updated', { id, vid });
+    }
+
+    /** Make a past version the selected (shown) one. @param {string} id @param {string} vid */
+    function setSelectedVersion(id, vid) {
+        const it = items.find((x) => x.id === id);
+        if (!it) return;
+        const v = (it.versions || []).find((x) => x.vid === vid);
+        if (!v) return;
+        it.selectedVid = vid;
+        mirror(it, v);
+        emit('updated', { id });
     }
 
     /** @param {string} id @param {object} patch */
@@ -137,6 +195,7 @@ export function createState(opts = {}) {
         removeEventListener: target.removeEventListener.bind(target),
         getItems, getRawItems, getItem, getRawItem,
         addItem, updateItem, removeItem, clear,
+        addVersion, updateVersion, setSelectedVersion,
         getActiveModel, setActiveModel,
         getApiKeyPresent, setApiKeyPresent,
     };

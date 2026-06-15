@@ -16,6 +16,17 @@
 /** @type {ReadonlyArray<Release>} */
 export const RELEASES = Object.freeze([
     {
+        version: '0.1.5',
+        date: '2026-06-15',
+        summary: 'Advanced mode — version history, parallel multi-model, cost roll-ups.',
+        changes: [
+            'New: re-transcribing now KEEPS previous transcriptions — each run is a version you can compare and switch between ("use this") in the per-recording panel\'s Advanced section.',
+            'New: transcribe one file with several models IN PARALLEL (tick models → "Transcribe selected"). Made safe by giving each request its own isolated LLM bus — the shared bus was what caused the identical-transcript cross-talk, so this also hardens normal transcription (no more serial-only limit).',
+            'New: costs at three levels — per transcription (each version), per audio file (file total), and per browser session (Model & Cost tab).',
+            'API: added transcribeModels({id, models}) and getCostSummary().',
+        ],
+    },
+    {
         version: '0.1.4',
         date: '2026-06-15',
         summary: 'One-click sample audio for testing.',

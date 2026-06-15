@@ -110,7 +110,24 @@ export async function mountShell({ host, state, api, devPanel = true }) {
     const keyStats = document.createElement('sg-openrouter-key-stats');
     keyStats.style.cssText = 'display:block;';
     costSection.appendChild(keyStats);
+    const sessionCost = document.createElement('div');
+    sessionCost.className = 'at-session-cost';
+    costSection.appendChild(sessionCost);
     modelWrap.appendChild(costSection);
+
+    // This-session spend = sum of every transcription cost across all audio files.
+    function renderSessionCost() {
+        let usd = 0; let pending = false; let n = 0;
+        for (const it of state.getItems()) for (const v of (it.versions || [])) {
+            n += 1;
+            if (typeof v.costUsd === 'number') usd += v.costUsd;
+            if (v.costPending) pending = true;
+        }
+        sessionCost.textContent = n ? `This session: 💰 $${usd.toFixed(4)}${pending ? '…' : ''} over ${n} transcription${n === 1 ? '' : 's'}` : '';
+    }
+    const onStateForCost = () => renderSessionCost();
+    state.addEventListener('change', onStateForCost);
+    renderSessionCost();
 
     // Per-recording detail tabs: clicking a Queue row's "Open" spawns (or focuses)
     // a closable tab in the right stack with the audio player + re-transcribe.
@@ -153,6 +170,7 @@ export async function mountShell({ host, state, api, devPanel = true }) {
 
     return {
         destroy() {
+            state.removeEventListener('change', onStateForCost);
             for (const mnt of openMounts.values()) if (mnt && mnt.destroy) mnt.destroy();
             m.forEach((x) => x && x.destroy && x.destroy());
             host.innerHTML = '';

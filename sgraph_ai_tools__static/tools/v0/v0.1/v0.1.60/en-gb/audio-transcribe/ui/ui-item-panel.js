@@ -56,6 +56,24 @@ export function mountItemPanel({ root, id, state, api }) {
                 <button type="button" class="at-btn small" data-item-copy>Copy</button>
                 <button type="button" class="at-btn small" data-item-dl>Download .txt</button>
             </div>
+
+            <details class="at-adv">
+                <summary class="at-adv__summary">⚙ Advanced — multiple models &amp; version history</summary>
+                <div class="at-adv__body">
+                    <div class="at-adv__block">
+                        <div class="at-adv__label">Transcribe with several models in parallel:</div>
+                        <div class="at-adv__models" data-item-models>${
+                            models.filter((m) => m.available).map((m) =>
+                                `<label class="at-adv__chk"><input type="checkbox" value="${esc(m.id)}" ${m.id === it0.model ? 'checked' : ''}> ${esc(m.label)}</label>`).join('')
+                        }</div>
+                        <button type="button" class="at-btn primary" data-item-multi>Transcribe selected</button>
+                    </div>
+                    <div class="at-adv__block">
+                        <div class="at-adv__label">Versions <span class="at-adv__fcost" data-item-fcost></span></div>
+                        <div class="at-adv__vlist" data-item-vlist></div>
+                    </div>
+                </div>
+            </details>
         </div>
     `;
 
@@ -66,6 +84,51 @@ export function mountItemPanel({ root, id, state, api }) {
     const txEl    = root.querySelector('[data-item-tx]');
     const copyBtn = root.querySelector('[data-item-copy]');
     const dlBtn   = root.querySelector('[data-item-dl]');
+    const multiBtn = root.querySelector('[data-item-multi]');
+    const modelsEl = root.querySelector('[data-item-models]');
+    const vlistEl  = root.querySelector('[data-item-vlist]');
+    const fcostEl  = root.querySelector('[data-item-fcost]');
+
+    const labelOf = Object.fromEntries(models.map((m) => [m.id, m.label]));
+
+    /** Render the version history list + per-file cost total. */
+    function renderVersions(it) {
+        const vs = it.versions || [];
+        let fileUsd = 0; let pending = false;
+        for (const v of vs) { if (typeof v.costUsd === 'number') fileUsd += v.costUsd; if (v.costPending) pending = true; }
+        fcostEl.textContent = vs.length ? `· file total 💰 $${fileUsd.toFixed(4)}${pending ? '…' : ''} (${vs.length})` : '';
+        if (!vs.length) { vlistEl.innerHTML = '<span class="at-muted">No transcriptions yet.</span>'; return; }
+        vlistEl.innerHTML = vs.slice().reverse().map((v) => {
+            const sel = v.vid === it.selectedVid;
+            const cost = typeof v.costUsd === 'number' ? `💰 $${v.costUsd.toFixed(4)}` : (v.costPending ? '💰 cost…' : '');
+            const tok = (v.promptTokens || 0) + (v.completionTokens || 0);
+            const meta = [cost, tok ? `${tok} tok` : '', v.latencyMs ? `${(v.latencyMs / 1000).toFixed(1)}s` : ''].filter(Boolean).join(' · ');
+            const body = v.status === 'error' ? `<span class="at-muted">⚠ ${esc(v.error || 'failed')}</span>`
+                : v.status === 'transcribing' ? '<span class="at-muted">transcribing…</span>'
+                : esc(v.text || '');
+            return `<div class="at-ver ${sel ? 'at-ver--sel' : ''}">
+                <div class="at-ver__head">
+                    <span class="at-ver__model">${esc(labelOf[v.model] || v.model)}</span>
+                    <span class="at-chip at-chip--${v.status}">${v.status}</span>
+                    <span class="at-ver__meta">${meta}</span>
+                    ${sel ? '<span class="at-ver__cur">current</span>' : `<button type="button" class="at-link-btn" data-use="${v.vid}">use this</button>`}
+                </div>
+                <div class="at-ver__tx">${body}</div>
+            </div>`;
+        }).join('');
+    }
+
+    async function onMulti() {
+        const picked = [...modelsEl.querySelectorAll('input:checked')].map((c) => c.value);
+        if (!picked.length) return;
+        multiBtn.disabled = true; multiBtn.textContent = `Transcribing ${picked.length}…`;
+        try { await api.transcribeModels({ id, models: picked }); } catch (_) { /* per-version errors surface in the list */ }
+        finally { multiBtn.disabled = false; multiBtn.textContent = 'Transcribe selected'; }
+    }
+    function onVlistClick(e) {
+        const b = e.target.closest('[data-use]');
+        if (b) state.setSelectedVersion(id, b.dataset.use);
+    }
 
     /** "$0.0012 · 1,240 tok · 2.3s" — cost shows pending then the exact value. */
     function usageLine(it) {
@@ -94,6 +157,7 @@ export function mountItemPanel({ root, id, state, api }) {
         if (it.transcript) txEl.textContent = it.transcript;
         else if (it.status === 'error') txEl.innerHTML = `<span class="at-muted">⚠ ${esc(it.error || 'failed')}</span>`;
         else txEl.innerHTML = '<span class="at-muted">Not transcribed yet — pick a model and Re-transcribe.</span>';
+        renderVersions(it);
     }
 
     function onModelChange() { api.setModel({ id, model: modelSel.value }); }
@@ -119,6 +183,8 @@ export function mountItemPanel({ root, id, state, api }) {
     retxBtn.addEventListener('click', onRetx);
     copyBtn.addEventListener('click', onCopy);
     dlBtn.addEventListener('click', onDl);
+    multiBtn.addEventListener('click', onMulti);
+    vlistEl.addEventListener('click', onVlistClick);
     state.addEventListener('change', onChange);
     update();
 

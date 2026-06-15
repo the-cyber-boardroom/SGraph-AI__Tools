@@ -122,3 +122,23 @@
 .at-item__actions { display: flex; gap: 8px; }
 .at-muted { color: #64748b; }
 .at-item__cost { font-size: 0.82rem; color: #86efac; font-variant-numeric: tabular-nums; margin-top: -4px; }
+
+/* ── Advanced mode (per-recording panel) ────────────────────────────────────── */
+.at-adv { margin-top: 8px; border-top: 1px solid #1f2444; padding-top: 10px; }
+.at-adv__summary { cursor: pointer; color: #93a4ff; font-size: 0.85rem; font-weight: 600; }
+.at-adv__body { display: flex; flex-direction: column; gap: 16px; margin-top: 12px; }
+.at-adv__block { display: flex; flex-direction: column; gap: 8px; }
+.at-adv__label { font-size: 0.8rem; color: #94a3b8; text-transform: uppercase; letter-spacing: 0.04em; }
+.at-adv__fcost { text-transform: none; letter-spacing: 0; color: #86efac; font-variant-numeric: tabular-nums; }
+.at-adv__models { display: flex; flex-wrap: wrap; gap: 6px 14px; }
+.at-adv__chk { display: inline-flex; align-items: center; gap: 6px; font-size: 0.85rem; color: #cbd5e1; cursor: pointer; }
+.at-adv__vlist { display: flex; flex-direction: column; gap: 8px; }
+.at-ver { border: 1px solid #1f2444; border-radius: 8px; padding: 10px 12px; background: #0e0e22; }
+.at-ver--sel { border-color: #4f46e5; background: #14142e; }
+.at-ver__head { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-bottom: 6px; }
+.at-ver__model { font-weight: 600; color: #e2e8f0; font-size: 0.85rem; }
+.at-ver__meta { color: #94a3b8; font-size: 0.78rem; font-variant-numeric: tabular-nums; }
+.at-ver__cur { margin-left: auto; font-size: 0.72rem; color: #86efac; text-transform: uppercase; letter-spacing: 0.04em; }
+.at-ver__head .at-link-btn { margin-left: auto; }
+.at-ver__tx { color: #d1d5db; font-size: 0.88rem; line-height: 1.5; white-space: pre-wrap; word-break: break-word; }
+.at-session-cost { margin-top: 12px; font-size: 0.85rem; color: #86efac; font-variant-numeric: tabular-nums; }

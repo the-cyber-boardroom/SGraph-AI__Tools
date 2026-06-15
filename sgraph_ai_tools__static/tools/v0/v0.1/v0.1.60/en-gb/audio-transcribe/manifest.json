@@ -4,7 +4,7 @@
     "slug": "audio-transcribe",
     "description": "Record from the mic OR drag/drop many local audio files (including WhatsApp .opus voice notes), then transcribe each to text using curated OpenRouter audio models — entirely in your browser. Batch queue with per-row status and retry, bundle the session's audio and/or transcripts into a .zip, and optionally send an encrypted share via SG/Send.",
     "icon": "🎙",
-    "version": "0.1.4",
+    "version": "0.1.5",
     "status": "alpha",
     "category": "media",
     "keywords": [
@@ -190,6 +190,9 @@
             "transcribeItem": {
                 "description": "Transcribe one queue item: blob → supported format/data URL → binary_file message → llm:send → resolve. Sets status/transcript. Used for retry too. Emits at:transcribe:started/complete/error (each carries {id})."
             },
+            "transcribeModels": {
+                "description": "Advanced: transcribe one item against MULTIPLE models in parallel; each result is a separate version (history is kept). Params {id, models:[]}. Safe to parallelise — each request runs on its own isolated LLM bus."
+            },
             "transcribeAll": {
                 "description": "Transcribe every queued/error item strictly serially (concurrency 1 — the shared LLM bus transport is single-flight). Emits at:batch:started, at:batch:progress {done,total}, at:batch:complete."
             },
@@ -198,6 +201,9 @@
             },
             "getTranscript": {
                 "description": "One item's transcript (with id) or all transcripts (without id)."
+            },
+            "getCostSummary": {
+                "description": "Cost roll-up: {sessionUsd, sessionPending, perItem:[{id,name,usd,pending,versions}]} — per audio file and across the whole browser session."
             },
             "downloadZip": {
                 "description": "Build a .zip from the session (or an items subset) per include:{audio?,transcripts?} flags, plus manifest.json + index.txt, and trigger a browser download. Default include: {audio:false, transcripts:true}. Emits at:bundle:created."

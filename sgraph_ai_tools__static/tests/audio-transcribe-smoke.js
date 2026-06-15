@@ -304,6 +304,43 @@ await test('transcribeItem stores tokens + generationId and resolves exact cost 
     assert.equal(it.costPending, false);
 });
 
+await test('re-transcribe keeps previous versions; selected mirrors latest; can switch back', async () => {
+    const state = createState({ defaultModel: DEFAULT_MODEL });
+    state.setActiveModel(DEFAULT_MODEL);
+    let n = 0;
+    const sendToLlm = async () => ({ content: `take ${++n}`, latencyMs: 1 });
+    const transcribe = buildTranscribeMethods({ state, emit: () => {}, sendToLlm, getActiveModel: () => state.getActiveModel() });
+    const id = state.addItem(fakeFile('a.mp3', 'audio/mpeg'), { name: 'a.mp3', mimeType: 'audio/mpeg' });
+    await transcribe.transcribeItem({ id });
+    await transcribe.transcribeItem({ id });
+    const it = state.getItem(id);
+    assert.equal(it.versions.length, 2, 'both versions kept (history)');
+    assert.deepEqual(it.versions.map((v) => v.text), ['take 1', 'take 2']);
+    assert.equal(it.transcript, 'take 2', 'selected mirrors the latest');
+    state.setSelectedVersion(id, it.versions[0].vid);
+    assert.equal(state.getItem(id).transcript, 'take 1', 'can select an earlier version');
+});
+
+await test('transcribeModels runs models in parallel into distinct versions; getCostSummary sums', async () => {
+    const state = createState({ defaultModel: DEFAULT_MODEL });
+    state.setActiveModel(DEFAULT_MODEL);
+    // The 'lite' model replies FIRST — on a shared bus that would cross-talk.
+    const sendToLlm = (req) => new Promise((r) => setTimeout(
+        () => r({ content: `by ${req.model}`, responseCost: 0.001, latencyMs: 1 }),
+        req.model.includes('lite') ? 1 : 12));
+    const transcribe = buildTranscribeMethods({ state, emit: () => {}, sendToLlm, getActiveModel: () => state.getActiveModel() });
+    const id = state.addItem(fakeFile('a.mp3', 'audio/mpeg'), { name: 'a.mp3', mimeType: 'audio/mpeg' });
+    await transcribe.transcribeModels({ id, models: ['google/gemini-3.5-flash', 'google/gemini-3.1-flash-lite'] });
+    const it = state.getItem(id);
+    assert.equal(it.versions.length, 2, 'one version per model');
+    const byModel = Object.fromEntries(it.versions.map((v) => [v.model, v.text]));
+    assert.equal(byModel['google/gemini-3.5-flash'], 'by google/gemini-3.5-flash');
+    assert.equal(byModel['google/gemini-3.1-flash-lite'], 'by google/gemini-3.1-flash-lite', 'parallel models do not cross-talk');
+    const cs = transcribe.getCostSummary();
+    assert.equal(Number(cs.perItem[0].usd.toFixed(3)), 0.002, 'per-file cost = sum of versions');
+    assert.equal(Number(cs.sessionUsd.toFixed(3)), 0.002, 'session cost = sum across items');
+});
+
 // ── Bundle + download ─────────────────────────────────────────────────────────
 await test('buildBundle includes transcripts + manifest.json + index.txt by default', async () => {
     const h = buildHarness({ transcript: 'bundle me' });
