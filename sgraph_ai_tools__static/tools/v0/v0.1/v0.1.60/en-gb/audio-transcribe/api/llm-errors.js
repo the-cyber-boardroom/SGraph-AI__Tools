@@ -34,3 +34,19 @@ export function classifyLlmError(detail = {}) {
     const message = detail.bodyError || detail.error || 'LLM request failed';
     return { code, status, message };
 }
+
+/** Short, actionable, human message for a typed code (for the UI). */
+const FRIENDLY = Object.freeze({
+    'key-invalid': 'Your OpenRouter key was rejected — check it in Model & Cost.',
+    'budget-exceeded': 'Your OpenRouter key has no credit — top it up, or use a different key.',
+    'key-exhausted': 'This key is no longer usable (it may have hit its limit) — use a different key.',
+    'rate-limited': 'Too many requests right now — wait a moment and try again.',
+});
+/**
+ * @param {string} code typed code from classifyLlmError
+ * @param {string} [fallback] raw provider/error message to show for 'llm-error'
+ * @returns {string}
+ */
+export function friendlyLlmError(code, fallback) {
+    return FRIENDLY[code] || fallback || 'Transcription failed.';
+}

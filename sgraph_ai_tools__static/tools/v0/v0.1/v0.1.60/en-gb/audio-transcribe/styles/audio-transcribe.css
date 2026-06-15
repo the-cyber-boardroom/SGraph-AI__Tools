@@ -193,6 +193,7 @@
 .at-live__seg-meta { font-size: 0.72rem; color: #93a4ff; font-variant-numeric: tabular-nums; margin-bottom: 3px; }
 .at-live__seg-tx { font-size: 0.85rem; color: #cbd5e1; line-height: 1.4; white-space: pre-wrap; }
 .at-chip--live { color: #fca5a5; border-color: #b91c1c; }
+.at-row__error { color: #fca5a5; }
 
 /* ── Chat with transcripts (ui-chat) ────────────────────────────────────────── */
 .at-chat { display: flex; flex-direction: column; gap: 10px; height: 100%; min-height: 0; }

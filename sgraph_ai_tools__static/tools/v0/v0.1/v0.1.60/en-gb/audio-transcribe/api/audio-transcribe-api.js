@@ -115,7 +115,7 @@ export async function init(manifest) {
 
     const api = new SgToolApi({
         name: 'audio-transcribe',
-        version: { api: '0.1.18', ui: '0.1.18', content: '0.1.0' },
+        version: { api: '0.1.19', ui: '0.1.19', content: '0.1.0' },
         panelId: 'root',
         manifest: './manifest.json',
         skills: (manifest && manifest.skills) || {},
@@ -273,7 +273,7 @@ export async function init(manifest) {
         transcribe: (req) => transcribe.transcribeBlob(req),
         getModel: () => state.getActiveModel(),
         onUpdate: (u) => emit(AT_EVENTS.LIVE_UPDATE, u),
-        onError: (err) => emit(AT_EVENTS.LIVE_ERROR, { error: err.message }),
+        onError: (err) => emit(AT_EVENTS.LIVE_ERROR, { error: err.message, code: err.code }),
         onSegment: onLiveSegment,
     });
     async function startLive() {

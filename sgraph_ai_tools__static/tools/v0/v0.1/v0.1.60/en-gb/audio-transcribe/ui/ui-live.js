@@ -12,6 +12,7 @@
  */
 
 import { AT_EVENTS } from '../api/audio-transcribe-events.js';
+import { friendlyLlmError } from '../api/llm-errors.js';
 
 function fmt(ms) { const s = Math.floor(ms / 1000); return `${String(Math.floor(s / 60)).padStart(2, '0')}:${String(s % 60).padStart(2, '0')}`; }
 function fmtSize(b) { if (!b && b !== 0) return ''; if (b < 1024) return `${b} B`; if (b < 1048576) return `${(b / 1024).toFixed(1)} KB`; return `${(b / 1048576).toFixed(1)} MB`; }
@@ -79,7 +80,7 @@ export function mountLive({ root, api, getLiveStream }) {
         const cost = typeof s.costUsd === 'number' ? `💰 $${s.costUsd.toFixed(4)}` : (s.costPending !== false && s.ok ? '💰 …' : '');
         const meta = [`#${s.seq}${s.final ? ' (final)' : ''}`, `@${(s.elapsedMs / 1000).toFixed(1)}s`, fmtSize(s.sizeBytes),
             s.latencyMs ? `${(s.latencyMs / 1000).toFixed(1)}s` : '', cost].filter(Boolean).join(' · ');
-        const body = s.ok === false ? `<span class="at-muted">⚠ ${esc(s.error || 'failed')}</span>` : esc(s.text || '');
+        const body = s.ok === false ? `<span class="at-muted">⚠ ${esc(friendlyLlmError(s.code, s.error || 'failed'))}</span>` : esc(s.text || '');
         row.innerHTML = `<div class="at-live__seg-meta">${esc(meta)}</div><div class="at-live__seg-tx">${body}</div>`;
         segCost.set(s.seq, { cost: typeof s.costUsd === 'number' ? s.costUsd : null, pending: !!(s.ok && s.costPending !== false && typeof s.costUsd !== 'number') });
         renderTotal();
@@ -130,7 +131,7 @@ export function mountLive({ root, api, getLiveStream }) {
         txEl.classList.toggle('at-live__tx--live', !d.final);
     }
     function onSegment(e) { if (e && e.detail) upsertSegment(e.detail); }
-    function onError(e) { statusEl.textContent = `⚠ ${(e.detail && e.detail.error) || 'error'}`; }
+    function onError(e) { const d = e.detail || {}; statusEl.textContent = `⚠ ${friendlyLlmError(d.code, d.error || 'error')}`; }
 
     btn.addEventListener('click', toggle);
     window.addEventListener(AT_EVENTS.LIVE_UPDATE, onUpdate);

@@ -9,6 +9,7 @@
  */
 
 import { AT_EVENTS } from '../api/audio-transcribe-events.js';
+import { friendlyLlmError } from '../api/llm-errors.js';
 
 /** Escape text for safe insertion into HTML. */
 function esc(s) {
@@ -74,7 +75,7 @@ export function mountQueue({ root, state, api, openItem }) {
         const cost = typeof it.costUsd === 'number' ? ` · 💰 $${it.costUsd.toFixed(4)}` : (it.costPending ? ' · 💰 cost…' : '');
         const transcript = it.status === 'done' && it.transcript != null
             ? `<div class="at-row__transcript" id="tx-${it.id}">${esc(it.transcript)}</div>`
-            : (it.status === 'error' ? `<div class="at-row__transcript">⚠ ${esc(it.error || 'failed')}</div>` : '');
+            : (it.status === 'error' ? `<div class="at-row__transcript at-row__error">⚠ ${esc(friendlyLlmError(it.errorCode, it.error || 'failed'))}</div>` : '');
         const actions = [];
         actions.push(`<button class="at-btn small" data-act="open" data-id="${it.id}">Open ▸</button>`);
         if (it.status === 'transcribing') {

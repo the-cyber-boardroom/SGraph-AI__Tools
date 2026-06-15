@@ -16,6 +16,15 @@
 /** @type {ReadonlyArray<Release>} */
 export const RELEASES = Object.freeze([
     {
+        version: '0.1.19',
+        date: '2026-06-15',
+        summary: 'Cost for Create Voice (TTS) + friendly key/quota error messages.',
+        changes: [
+            'New: the "🗣 Voice" panel now shows the cost of each synthesis — OpenRouter voice shows 💰 $x (resolved by generation id a couple of seconds after it finishes), local (Kokoro) shows 💰 free (on-device).',
+            'Improved: when a key/quota error happens (key-invalid / no credit / key-exhausted / rate-limited), the Queue rows and Live panel now show a short, actionable message ("Your OpenRouter key has no credit — top it up…") instead of a raw provider error. The Debug panel still shows the exact code + provider text.',
+        ],
+    },
+    {
         version: '0.1.18',
         date: '2026-06-15',
         summary: 'Typed key/quota errors (vault dev-brief Finding 7).',

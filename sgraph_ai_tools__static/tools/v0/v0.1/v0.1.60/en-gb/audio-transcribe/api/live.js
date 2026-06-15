@@ -51,7 +51,7 @@ export function createLiveSession({ transcribe, getModel, onUpdate, onError, onS
             return r.text;
         } catch (err) {
             if (onError) onError(err);
-            if (onSegment) onSegment({ seq: n, sizeBytes, elapsedMs: Date.now() - startedAt, latencyMs: Date.now() - t0, final, ok: false, error: err.message });
+            if (onSegment) onSegment({ seq: n, sizeBytes, elapsedMs: Date.now() - startedAt, latencyMs: Date.now() - t0, final, ok: false, error: err.message, code: err.code });
             return '';
         }
     }

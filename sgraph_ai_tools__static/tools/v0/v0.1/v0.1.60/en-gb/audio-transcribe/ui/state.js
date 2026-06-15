@@ -50,6 +50,7 @@ export function createState(opts = {}) {
         it.latencyMs = v.latencyMs;
         it.generationId = v.generationId;
         it.error = v.error;
+        it.errorCode = v.errorCode;
     }
 
     function emit(kind, extra) {
