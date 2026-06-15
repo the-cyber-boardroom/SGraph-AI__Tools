@@ -1,18 +1,23 @@
 /**
  * api-batch — batch transcription orchestrator.
  *
- * Transcribes every `queued`/`error` item sequentially with a small concurrency
- * cap (default 2) to respect OpenRouter rate limits. Each item is transcribed
- * via the injected `transcribeItem` (from api-transcribe), so retry and the
- * per-row pipeline share one code path.
+ * Transcribes every `queued`/`error` item via the injected `transcribeItem`
+ * (from api-transcribe), so retry and the per-row pipeline share one code path.
+ *
+ * Concurrency is 1 (strictly serial) BY DESIGN. The tool's real LLM transport
+ * bridges to a single shared <sg-llm-request> on one DOM bus and resolves on the
+ * next `llm:request-complete` event — it has NO request/response correlation id.
+ * Running two transcriptions at once therefore lets the first response resolve
+ * BOTH in-flight calls, so two different audio files come back with the SAME
+ * transcript. Until the transport can correlate responses, keep this at 1.
  *
  * @module audio-transcribe/api-batch
  */
 
 import { AT_EVENTS } from './audio-transcribe-events.js';
 
-/** Default concurrency cap. */
-export const DEFAULT_CONCURRENCY = 2;
+/** Default concurrency cap. MUST stay 1 with the uncorrelated shared-bus transport (see module note). */
+export const DEFAULT_CONCURRENCY = 1;
 
 /**
  * Build the batch methods.

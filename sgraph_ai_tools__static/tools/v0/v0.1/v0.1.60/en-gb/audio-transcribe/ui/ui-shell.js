@@ -77,15 +77,15 @@ export async function mountShell({ host, state, api, devPanel = true }) {
             {
                 type: 'stack', id: 's-left', activeTab: 0,
                 tabs: [
-                    { type: 'tab', id: 't-source', title: '🎙 Source',       tag: 'div', locked: true, closable: false },
-                    { type: 'tab', id: 't-model',  title: '🎚 Model & Cost',  tag: 'div', locked: true, closable: false },
-                    { type: 'tab', id: 't-bundle', title: '📦 Bundle & Send', tag: 'div', locked: true, closable: false },
+                    { type: 'tab', id: 't-source', title: '🎙 Source',       tag: 'div', locked: false, closable: false },
+                    { type: 'tab', id: 't-model',  title: '🎚 Model & Cost',  tag: 'div', locked: false, closable: false },
+                    { type: 'tab', id: 't-bundle', title: '📦 Bundle & Send', tag: 'div', locked: false, closable: false },
                 ],
             },
             {
                 type: 'stack', id: 's-right', activeTab: 0,
                 tabs: [
-                    { type: 'tab', id: 't-queue', title: '📋 Queue', tag: 'div', locked: true, closable: false },
+                    { type: 'tab', id: 't-queue', title: '📋 Queue', tag: 'div', locked: false, closable: false },
                 ],
             },
         ],
