@@ -1,13 +1,9 @@
-/* audio-transcribe.css — single-column source → queue → model → bundle layout */
+/* audio-transcribe.css — sg-layout shell (full-width); per-panel styling below */
 
-#audio-transcribe-root {
-    display: block;
-    max-width: 980px;
-    margin: 0 auto;
-    padding: 24px 20px 60px;
-}
+/* #audio-transcribe-root is sized as a flex column by ui-shell (fills the area
+   below the site header). No max-width — the sg-layout fills the viewport. */
 
-.at-topbar { margin-bottom: 24px; }
+.at-topbar { margin-bottom: 0; }
 .at-topbar h1 { margin: 0 0 6px; font-size: 1.6rem; color: #f1f5f9; }
 .at-version { font-size: 0.7rem; font-weight: 500; color: #64748b; vertical-align: middle; margin-left: 6px; letter-spacing: 0.02em; }
 .at-subtitle { margin: 0; color: #94a3b8; font-size: 0.95rem; max-width: 64ch; }
