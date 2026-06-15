@@ -108,3 +108,16 @@
 /* Dev panel --------------------------------------------------------------- */
 .at-dev__summary { cursor: pointer; color: #94a3b8; font-size: 0.85rem; }
 .at-dev__grid { display: grid; gap: 14px; margin-top: 14px; }
+
+/* ── Per-recording detail panel (ui-item-panel) ─────────────────────────────── */
+.at-item { display: flex; flex-direction: column; gap: 12px; }
+.at-item__head { display: flex; align-items: center; gap: 10px; }
+.at-item__meta { color: #94a3b8; font-size: 0.8rem; margin-top: -6px; }
+.at-item__audio { width: 100%; height: 36px; }
+.at-item__controls { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.at-item__controls label { font-size: 0.8rem; color: #94a3b8; }
+.at-item__controls .at-select { flex: 1; min-width: 180px; }
+.at-item__txh { margin: 4px 0 0; font-size: 0.95rem; color: #cbd5e1; }
+.at-item__tx { background: #0d0d1a; border: 1px solid #1e293b; border-radius: 6px; padding: 12px 14px; color: #e2e8f0; line-height: 1.55; white-space: pre-wrap; word-break: break-word; min-height: 48px; }
+.at-item__actions { display: flex; gap: 8px; }
+.at-muted { color: #64748b; }

@@ -456,8 +456,9 @@ function installFakeDom() {
     function layoutStub() {
         const stub = {
             style: {},
-            events: { on: (_evt, cb) => { cb(); } },
-            setLayout() {}, activateTab() {}, appendChild() {},
+            events: { on: () => {} },
+            setLayout() {}, activateTab() {}, focusPanel() {}, appendChild() {},
+            addTabToStack: () => 't-dyn',
             getPanelElement: (id) => { const e = el(`panel-${id}`); created.push(e); return e; },
         };
         return stub;

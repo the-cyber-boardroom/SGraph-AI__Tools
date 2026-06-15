@@ -16,10 +16,12 @@
  * @module audio-transcribe/ui-shell
  */
 
+import { SGL_EVENTS } from '../../../../../../../core/sg-layout/v0.1.0/sg-layout-events.js';
 import { mountSource } from './ui-source.js';
 import { mountQueue } from './ui-queue.js';
 import { mountModel } from './ui-model.js';
 import { mountBundle } from './ui-bundle.js';
+import { mountItemPanel } from './ui-item-panel.js';
 import { buildDevPanel } from '../dev-panel.js';
 
 const PANEL_BASE = 'height:100%;overflow:hidden;display:flex;flex-direction:column;min-height:0;background:#0a0a18;box-sizing:border-box;';
@@ -110,16 +112,50 @@ export async function mountShell({ host, state, api, devPanel = true }) {
     costSection.appendChild(keyStats);
     modelWrap.appendChild(costSection);
 
+    // Per-recording detail tabs: clicking a Queue row's "Open" spawns (or focuses)
+    // a closable tab in the right stack with the audio player + re-transcribe.
+    const openTabs = new Map();   // itemId -> tabId
+    const openMounts = new Map(); // itemId -> { destroy }
+
+    function openItem(itemId) {
+        if (!state.getItem(itemId)) return;
+        if (openTabs.has(itemId)) { layout.focusPanel(openTabs.get(itemId)); return; }
+        const name = state.getItem(itemId).name || 'audio';
+        const title = `🎧 ${name.length > 16 ? name.slice(0, 15) + '…' : name}`;
+        const tabId = layout.addTabToStack('s-right', { tag: 'div', title, closable: true });
+        openTabs.set(itemId, tabId);
+        const wrap = panelScroll(layout.getPanelElement(tabId));
+        openMounts.set(itemId, mountItemPanel({ root: wrap, id: itemId, state, api }));
+        layout.focusPanel(tabId);
+    }
+
+    // Clean up a per-item panel when its tab is closed.
+    layout.events.on(SGL_EVENTS.PANEL_CLOSED, (d) => {
+        const tabId = d && d.id; if (!tabId) return;
+        for (const [itemId, tid] of openTabs) {
+            if (tid === tabId) {
+                const mnt = openMounts.get(itemId);
+                if (mnt && mnt.destroy) mnt.destroy();
+                openMounts.delete(itemId); openTabs.delete(itemId);
+                break;
+            }
+        }
+    });
+
     const m = [
         mountSource({ root: sourceWrap, state, api }),
         mountModel({ root: modelMount, state, api }),
         mountBundle({ root: bundleWrap, state, api }),
-        mountQueue({ root: queueWrap, state, api }),
+        mountQueue({ root: queueWrap, state, api, openItem }),
     ];
 
     if (devPanel) buildDevPanel(host);
 
     return {
-        destroy() { m.forEach((x) => x && x.destroy && x.destroy()); host.innerHTML = ''; },
+        destroy() {
+            for (const mnt of openMounts.values()) if (mnt && mnt.destroy) mnt.destroy();
+            m.forEach((x) => x && x.destroy && x.destroy());
+            host.innerHTML = '';
+        },
     };
 }
