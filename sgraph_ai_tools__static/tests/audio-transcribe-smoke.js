@@ -45,6 +45,7 @@ const { buildBatchMethods } = await import(`file://${TOOL}/api/api-batch.js`);
 const { buildSendMethods } = await import(`file://${TOOL}/api/api-send.js`);
 const { buildBundle, buildZip } = await import(`file://${TOOL}/api/audio-zip.js`);
 const { listModels, DEFAULT_MODEL } = await import(`file://${TOOL}/api/audio-models.js`);
+const { fetchGenerationCost } = await import(`file://${TOOL}/api/openrouter-cost.js`);
 const { isAudioFile, isSupportedAudio } = await import(`file://${TOOL}/api/audio-format.js`);
 const { encodeWavBytes } = await import(`file://${CORE}/sg-audio-decode/v0/v0.1/v0.1.0/sg-wav-encoder.js`);
 const { needsDecode } = await import(`file://${CORE}/sg-audio-decode/v0/v0.1/v0.1.0/sg-audio-decode.js`);
@@ -269,6 +270,36 @@ await test('transcribeAll keeps per-item transcripts distinct under the shared-b
     assert.equal(t1, 'text:one.mp3', 'item one kept its own transcript');
     assert.equal(t2, 'text:two.mp3', 'item two kept its own transcript');
     assert.notEqual(t1, t2, 'transcripts must not cross-talk between items');
+});
+
+await test('fetchGenerationCost parses total_cost from the generation endpoint', async () => {
+    const calls = [];
+    const fetchImpl = async (url, opts) => { calls.push({ url, auth: opts.headers.Authorization }); return { ok: true, json: async () => ({ data: { total_cost: 0.0123 } }) }; };
+    assert.equal(await fetchGenerationCost('gen-1', 'sk-or-x', { fetchImpl }), 0.0123);
+    assert.match(calls[0].url, /generation\?id=gen-1/);
+    assert.equal(calls[0].auth, 'Bearer sk-or-x');
+    assert.equal(await fetchGenerationCost('g', 'k', { fetchImpl: async () => ({ ok: false }) }), null, 'non-ok → null (never 0)');
+    assert.equal(await fetchGenerationCost('', 'k', { fetchImpl }), null, 'missing id → null');
+});
+
+await test('transcribeItem stores tokens + generationId and resolves exact cost via fetchCost', async () => {
+    const state = createState({ defaultModel: DEFAULT_MODEL });
+    state.setActiveModel(DEFAULT_MODEL);
+    const sendToLlm = async () => ({ content: 'hi', latencyMs: 12, promptTokens: 1000, completionTokens: 20, generationId: 'gen-9' });
+    // Resolve on a macrotask so "pending → resolved" is observable (the real
+    // fetch is deferred ~2.5s anyway).
+    const fetchCost = (id) => new Promise((r) => setTimeout(() => r(id === 'gen-9' ? 0.0042 : null), 5));
+    const transcribe = buildTranscribeMethods({ state, emit: () => {}, sendToLlm, getActiveModel: () => state.getActiveModel(), fetchCost });
+    const id = state.addItem(fakeFile('a.mp3', 'audio/mpeg'), { name: 'a.mp3', mimeType: 'audio/mpeg' });
+    await transcribe.transcribeItem({ id });
+    let it = state.getItem(id);
+    assert.equal(it.promptTokens, 1000);
+    assert.equal(it.generationId, 'gen-9');
+    assert.equal(it.costPending, true, 'cost marked pending until the deferred fetch resolves');
+    await new Promise((r) => setTimeout(r, 20)); // let the fire-and-forget cost fetch settle
+    it = state.getItem(id);
+    assert.equal(it.costUsd, 0.0042, 'exact cost applied');
+    assert.equal(it.costPending, false);
 });
 
 // ── Bundle + download ─────────────────────────────────────────────────────────

@@ -18,6 +18,7 @@ import { buildTranscribeMethods } from './api-transcribe.js';
 import { buildBatchMethods } from './api-batch.js';
 import { buildSendMethods } from './api-send.js';
 import { listModels, DEFAULT_MODEL } from './audio-models.js';
+import { fetchGenerationCostDeferred } from './openrouter-cost.js';
 import { mountShell } from '../ui/ui-shell.js';
 
 const passthrough = (p) => p;
@@ -36,9 +37,19 @@ const fileSanitiser = (p = {}) => ({
  */
 function makeBusTransport(bus) {
     return (req) => new Promise((resolve, reject) => {
-        const onComplete = (e) => { cleanup(); resolve({
-            content: e.detail?.content ?? '', latencyMs: e.detail?.latencyMs, model: e.detail?.model,
-        }); };
+        const onComplete = (e) => {
+            cleanup();
+            const d = e.detail || {};
+            const raw = d.rawResponse || null;
+            const usageCost = raw && raw.usage && typeof raw.usage.cost === 'number' ? raw.usage.cost : undefined;
+            resolve({
+                content: d.content ?? '', latencyMs: d.latencyMs, model: d.model,
+                promptTokens: d.promptTokens, completionTokens: d.completionTokens,
+                generationId: raw && raw.id ? raw.id : undefined,
+                // Inline cost only if the response actually carried one (>0).
+                responseCost: usageCost != null ? usageCost : (typeof d.cost === 'number' && d.cost > 0 ? d.cost : undefined),
+            });
+        };
         const onError = (e) => { cleanup(); reject(Object.assign(
             new Error((e.detail && e.detail.error) || 'LLM request failed'), { code: 'llm-error' })); };
         function cleanup() {
@@ -65,7 +76,7 @@ export async function init(manifest) {
 
     const api = new SgToolApi({
         name: 'audio-transcribe',
-        version: { api: '0.1.1', ui: '0.1.1', content: '0.1.0' },
+        version: { api: '0.1.2', ui: '0.1.2', content: '0.1.0' },
         panelId: 'root',
         manifest: './manifest.json',
         skills: (manifest && manifest.skills) || {},
@@ -82,22 +93,30 @@ export async function init(manifest) {
         host.setAttribute('data-llm-bus', '');
         llmRequest = document.createElement('sg-llm-request');
         host.appendChild(llmRequest);
+        // Non-streaming so request-complete carries the full rawResponse (and its
+        // generation id), which we need for per-item cost.
+        host.dispatchEvent(new CustomEvent(SGL_LLM.STREAMING_CHANGED, {
+            detail: { streaming: false }, bubbles: true, composed: true,
+        }));
         busTransport = makeBusTransport(host);
     } else {
         // Headless fallback (shouldn't happen in the page).
         busTransport = async () => ({ content: '' });
     }
 
-    // Connect: prime <sg-llm-request> with the OpenRouter key + model.
+    // Connect: prime <sg-llm-request> with the OpenRouter key + model. The key is
+    // also kept here so per-item cost can be looked up by generation id.
+    let currentApiKey = '';
     /**
      * @param {{ apiKey: string, model?: string }} params
      * @returns {Promise<{ provider: 'openrouter', model: string }>}
      */
     async function connect(params = {}) {
         const model = params.model || state.getActiveModel();
+        currentApiKey = params.apiKey || '';
         if (host) {
             host.dispatchEvent(new CustomEvent(SGL_LLM.CONNECTED, {
-                detail: { provider: 'openrouter', model, apiKey: params.apiKey || '' },
+                detail: { provider: 'openrouter', model, apiKey: currentApiKey },
                 bubbles: true, composed: true,
             }));
         }
@@ -108,6 +127,7 @@ export async function init(manifest) {
     const source = buildSourceMethods({ state, emit });
     const transcribe = buildTranscribeMethods({
         state, emit, sendToLlm: busTransport, getActiveModel: () => state.getActiveModel(),
+        fetchCost: (genId) => fetchGenerationCostDeferred(genId, currentApiKey),
     });
     const batch = buildBatchMethods({ state, emit, transcribeItem: transcribe.transcribeItem });
     const send = buildSendMethods({
