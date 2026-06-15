@@ -52,7 +52,9 @@ export function base64ToBlob(b64, mime = 'audio/wav') {
 /** Local synthesis via Kokoro (sg-tts). @returns {Promise<{blob,durationMs,mode}>} */
 export async function synthesizeLocal(text, opts = {}) {
     const tts = await import(SG_TTS);
-    await tts.loadTTS({ voice: opts.voice });
+    // poolSize:1 — one worker downloads the ~90 MB model ONCE (the default of 4
+    // makes 4 parallel downloads). We synthesise one short text, so 1 is plenty.
+    await tts.loadTTS({ voice: opts.voice, poolSize: 1 });
     const { data, sampleRate, durationSecs } = await tts.generateAudio(text, { voice: opts.voice, speed: opts.speed });
     return { blob: encodeWav(data, sampleRate), durationMs: Math.round((durationSecs || 0) * 1000), mode: 'local' };
 }

@@ -16,6 +16,15 @@
 /** @type {ReadonlyArray<Release>} */
 export const RELEASES = Object.freeze([
     {
+        version: '0.1.12',
+        date: '2026-06-15',
+        summary: 'Chat with your transcripts + TTS single-download fix.',
+        changes: [
+            'New: a "💬 Chat" tab — ask questions of your transcripts (summarise, extract, translate, reformat). The system prompt is built from your transcript(s) + an editable context; reuses the sg-llm chat components with a text model (default google/gemini-3.5-flash) and your saved OpenRouter key. "↻ Context" reloads the latest transcripts into the prompt.',
+            'Fixed: local TTS downloaded the ~90 MB voice model 4× (one per pooled worker). Now uses a single worker (poolSize:1) so the model downloads once.',
+        ],
+    },
+    {
         version: '0.1.11',
         date: '2026-06-15',
         summary: 'Text-to-speech ("🗣 Voice" tab) — local + OpenRouter.',
