@@ -16,6 +16,15 @@
 /** @type {ReadonlyArray<Release>} */
 export const RELEASES = Object.freeze([
     {
+        version: '0.1.14',
+        date: '2026-06-15',
+        summary: 'Chat inside each recording + chat costs.',
+        changes: [
+            'New: "💬 Chat about this recording" inside each recording\'s panel — the chat context is automatically that recording\'s transcript (no manual setup). The session-wide "💬 Chat" tab (all transcripts) stays too.',
+            'New: chat cost — each chat shows its running spend: total $ + number of turns + last-turn cost, looked up by generation id (per turn and overall for that chat session).',
+        ],
+    },
+    {
         version: '0.1.13',
         date: '2026-06-15',
         summary: 'Fix: cloud (OpenRouter) text-to-speech.',

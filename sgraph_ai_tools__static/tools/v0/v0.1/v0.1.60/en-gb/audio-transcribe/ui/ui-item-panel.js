@@ -14,6 +14,7 @@
  */
 
 import { listModels } from '../api/audio-models.js';
+import { mountChat } from './ui-chat.js';
 
 function esc(s) { return String(s == null ? '' : s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;'); }
 function fmtSize(b) { if (!b && b !== 0) return ''; if (b < 1024) return `${b} B`; if (b < 1048576) return `${(b / 1024).toFixed(1)} KB`; return `${(b / 1048576).toFixed(1)} MB`; }
@@ -74,6 +75,11 @@ export function mountItemPanel({ root, id, state, api }) {
                         <div class="at-adv__vlist" data-item-vlist></div>
                     </div>
                 </div>
+            </details>
+
+            <details class="at-adv at-chat-wrap" data-item-chatwrap>
+                <summary class="at-adv__summary">💬 Chat about this recording</summary>
+                <div data-item-chat style="margin-top:12px;"></div>
             </details>
         </div>
     `;
@@ -202,12 +208,29 @@ export function mountItemPanel({ root, id, state, api }) {
     dlBtn.addEventListener('click', onDl);
     multiBtn.addEventListener('click', onMulti);
     vlistEl.addEventListener('click', onVlistClick);
+
+    // Per-recording chat — lazy-mounted on first open; context = THIS transcript.
+    const chatWrap = root.querySelector('[data-item-chatwrap]');
+    const chatHost = root.querySelector('[data-item-chat]');
+    let chatMount = null;
+    function onChatToggle() {
+        if (chatWrap.open && !chatMount) {
+            chatMount = mountChat({
+                root: chatHost, compact: true,
+                getContext: () => { const it = state.getItem(id); return it && it.transcript ? `### ${it.name}\n${it.transcript}` : ''; },
+            });
+        }
+    }
+    chatWrap.addEventListener('toggle', onChatToggle);
+
     state.addEventListener('change', onChange);
     update();
 
     return {
         destroy() {
             if (ticker) clearInterval(ticker);
+            if (chatMount && chatMount.destroy) chatMount.destroy();
+            chatWrap.removeEventListener('toggle', onChatToggle);
             state.removeEventListener('change', onChange);
             if (objUrl) { URL.revokeObjectURL(objUrl); objUrl = null; }
             root.innerHTML = '';
