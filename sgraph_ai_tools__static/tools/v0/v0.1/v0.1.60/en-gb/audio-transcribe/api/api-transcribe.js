@@ -23,12 +23,15 @@ const TRANSCRIBE_PROMPT =
  * @param {object} ctx
  * @param {object} ctx.state
  * @param {(name: string, detail?: object) => void} ctx.emit
- * @param {(req: { messages: object[], model: string, language?: string }) => Promise<{ content: string, latencyMs?: number, model?: string }>} ctx.sendToLlm
+ * @param {(req: { messages: object[], model: string, language?: string }) => Promise<{ content: string, latencyMs?: number, model?: string, promptTokens?: number, completionTokens?: number, generationId?: string, responseCost?: number }>} ctx.sendToLlm
  *        - transport. Default (in the tool) bridges to <sg-llm-request> via the bus.
  * @param {() => string} [ctx.getActiveModel]
+ * @param {(generationId: string) => Promise<number|null>} [ctx.fetchCost]
+ *        - resolves the exact charged cost (USD) for a generation id, a couple
+ *          seconds after completion. Optional; cost just stays unknown without it.
  * @returns {{ setModel: Function, transcribeItem: Function, getTranscript: Function }}
  */
-export function buildTranscribeMethods({ state, emit, sendToLlm, getActiveModel }) {
+export function buildTranscribeMethods({ state, emit, sendToLlm, getActiveModel, fetchCost }) {
     /**
      * Set the active model, or (with `id`) one item's model.
      * @param {{ model: string, id?: string }} params
@@ -92,13 +95,36 @@ export function buildTranscribeMethods({ state, emit, sendToLlm, getActiveModel 
 
             emit(AT_EVENTS.TRANSCRIBE_PROGRESS, { id: item.id, stage: 'sending' });
             const t0 = Date.now();
-            const res = await sendToLlm({ messages, model, language: params.language });
-            const text = (res && res.content != null ? String(res.content) : '').trim();
-            const latencyMs = (res && res.latencyMs) || (Date.now() - t0);
+            const res = (await sendToLlm({ messages, model, language: params.language })) || {};
+            const text = (res.content != null ? String(res.content) : '').trim();
+            const latencyMs = res.latencyMs || (Date.now() - t0);
+            const generationId = res.generationId || null;
 
-            state.updateItem(item.id, { status: 'done', transcript: text, latencyMs });
+            state.updateItem(item.id, {
+                status: 'done', transcript: text, latencyMs,
+                promptTokens: res.promptTokens, completionTokens: res.completionTokens,
+                generationId,
+                // Inline cost if the response carried it; otherwise resolved below.
+                costUsd: (typeof res.responseCost === 'number' ? res.responseCost : undefined),
+                costPending: !!(generationId && fetchCost),
+            });
             emit(AT_EVENTS.TRANSCRIBE_COMPLETE, { id: item.id, model });
-            return { id: item.id, text, model, latencyMs };
+
+            // Exact charged cost is queryable a couple seconds later by generation
+            // id. Fire-and-forget; only apply if this item still holds the same
+            // generation (guards against a re-transcribe landing first).
+            if (generationId && fetchCost) {
+                Promise.resolve(fetchCost(generationId)).then((cost) => {
+                    const cur = state.getRawItem(item.id);
+                    if (cur && cur.generationId === generationId) {
+                        state.updateItem(item.id, { costPending: false, ...(cost != null ? { costUsd: cost } : {}) });
+                    }
+                }).catch(() => {
+                    const cur = state.getRawItem(item.id);
+                    if (cur && cur.generationId === generationId) state.updateItem(item.id, { costPending: false });
+                });
+            }
+            return { id: item.id, text, model, latencyMs, generationId };
         } catch (err) {
             state.updateItem(item.id, { status: 'error', error: err.message });
             emit(AT_EVENTS.TRANSCRIBE_ERROR, { id: item.id, error: err.message });

@@ -43,6 +43,7 @@ export function mountItemPanel({ root, id, state, api }) {
                 <span class="at-chip" data-item-chip></span>
             </div>
             <div class="at-item__meta">${fmtSize(it0.sizeBytes)} · ${esc(it0.mimeType || 'audio')} · ${esc(it0.origin)}</div>
+            <div class="at-item__cost" data-item-cost hidden></div>
             ${objUrl ? `<audio class="at-item__audio" controls preload="metadata" src="${objUrl}"></audio>` : ''}
             <div class="at-item__controls">
                 <label for="at-item-model-${esc(id)}">Model</label>
@@ -59,11 +60,23 @@ export function mountItemPanel({ root, id, state, api }) {
     `;
 
     const chip    = root.querySelector('[data-item-chip]');
+    const costEl  = root.querySelector('[data-item-cost]');
     const modelSel = root.querySelector('[data-item-model]');
     const retxBtn = root.querySelector('[data-item-retx]');
     const txEl    = root.querySelector('[data-item-tx]');
     const copyBtn = root.querySelector('[data-item-copy]');
     const dlBtn   = root.querySelector('[data-item-dl]');
+
+    /** "$0.0012 · 1,240 tok · 2.3s" — cost shows pending then the exact value. */
+    function usageLine(it) {
+        const parts = [];
+        if (typeof it.costUsd === 'number') parts.push(`💰 $${it.costUsd.toFixed(4)}`);
+        else if (it.costPending) parts.push('💰 cost…');
+        const tok = (it.promptTokens || 0) + (it.completionTokens || 0);
+        if (tok) parts.push(`${tok.toLocaleString()} tok`);
+        if (it.latencyMs) parts.push(`${(it.latencyMs / 1000).toFixed(1)}s`);
+        return parts.join('  ·  ');
+    }
 
     /** Patch the dynamic parts from current state (never rebuilds the audio). */
     function update() {
@@ -75,6 +88,9 @@ export function mountItemPanel({ root, id, state, api }) {
         const busy = it.status === 'transcribing';
         retxBtn.disabled = busy;
         retxBtn.textContent = busy ? 'Transcribing…' : 'Re-transcribe';
+        const usage = usageLine(it);
+        costEl.hidden = !usage;
+        costEl.textContent = usage;
         if (it.transcript) txEl.textContent = it.transcript;
         else if (it.status === 'error') txEl.innerHTML = `<span class="at-muted">⚠ ${esc(it.error || 'failed')}</span>`;
         else txEl.innerHTML = '<span class="at-muted">Not transcribed yet — pick a model and Re-transcribe.</span>';

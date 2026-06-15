@@ -57,6 +57,7 @@ export function mountQueue({ root, state, api, openItem }) {
 
     function rowHtml(it) {
         const dur = it.durationMs ? ` · ${Math.round(it.durationMs / 1000)}s` : '';
+        const cost = typeof it.costUsd === 'number' ? ` · 💰 $${it.costUsd.toFixed(4)}` : (it.costPending ? ' · 💰 cost…' : '');
         const transcript = it.status === 'done' && it.transcript != null
             ? `<div class="at-row__transcript" id="tx-${it.id}">${esc(it.transcript)}</div>`
             : (it.status === 'error' ? `<div class="at-row__transcript">⚠ ${esc(it.error || 'failed')}</div>` : '');
@@ -75,7 +76,7 @@ export function mountQueue({ root, state, api, openItem }) {
                 <div class="at-row__top">
                     <span class="at-row__name">${esc(it.name)}</span>
                     <span class="at-chip at-chip--${it.status}">${it.status}</span>
-                    <span class="at-row__meta">${fmtSize(it.sizeBytes)}${dur} · ${esc(it.model || '')}</span>
+                    <span class="at-row__meta">${fmtSize(it.sizeBytes)}${dur} · ${esc(it.model || '')}${cost}</span>
                 </div>
                 ${transcript}
                 <div class="at-row__actions">${actions.join('')}</div>
