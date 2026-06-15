@@ -315,6 +315,166 @@ await test('sendViaSgSend surfaces { code: send-auth-required } when no token', 
     await assert.rejects(() => h.send.sendViaSgSend({}), (e) => e.code === 'send-auth-required');
 });
 
+// ── Recording guards (mic path, injected recorder) ─────────────────────────────
+await test('addFiles rejects 0-byte files as empty', async () => {
+    const h = buildHarness();
+    const res = await h.source.addFiles({ files: [fakeFile('empty.mp3', 'audio/mpeg', new Uint8Array(0))] });
+    assert.equal(res.added.length, 0);
+    assert.equal(res.rejected[0].code, 'empty');
+    assert.equal(h.state.getItems().length, 0);
+});
+
+await test('stopRecording throws { code: empty-recording } and enqueues nothing when no data captured', async () => {
+    const state = createState({ defaultModel: DEFAULT_MODEL });
+    const events = [];
+    const emit = (name, detail) => events.push({ name, detail });
+    // Mock recorder that never delivers a segment (mimics a mobile 0-byte stop).
+    const recorder = { startRecording: async () => ({ mimeType: 'audio/webm' }), stopRecording: async () => {} };
+    const source = buildSourceMethods({ state, emit, recorder });
+    await source.startRecording({});
+    await assert.rejects(() => source.stopRecording(), (e) => e.code === 'empty-recording');
+    assert.equal(state.getItems().length, 0, 'no empty item enqueued');
+});
+
+await test('stopRecording concatenates delivered chunks into a single item', async () => {
+    const state = createState({ defaultModel: DEFAULT_MODEL });
+    const emit = () => {};
+    const rec = {
+        _onSeg: null,
+        startRecording: async (opts) => { rec._onSeg = opts.onSegment; return { mimeType: 'audio/webm' }; },
+        // Deliver the final chunk during stop (before it resolves), as the real flush does.
+        stopRecording: async () => { rec._onSeg({ blob: new Blob([new Uint8Array([1, 2, 3, 4, 5])], { type: 'audio/webm' }) }); },
+    };
+    const source = buildSourceMethods({ state, emit, recorder: rec });
+    await source.startRecording({});
+    // Simulate a couple of periodic chunks arriving mid-recording.
+    rec._onSeg({ blob: new Blob([new Uint8Array([9, 9])], { type: 'audio/webm' }) });
+    const r = await source.stopRecording();
+    assert.equal(r.sizeBytes, 7, 'all delivered chunks (2 + 5 bytes) concatenated');
+    assert.equal(state.getItems().length, 1);
+});
+
+// ── Integration: real SgToolApi + UI mount ─────────────────────────────────────
+// The tests above build a hand-wired harness and never touch the real SgToolApi
+// or the DOM mount path — which is exactly how the "models.map is not a function"
+// boot crash slipped through (ui-model.js consumed the always-async api.listModels()
+// action as if it were a synchronous array). These two tests cross that seam.
+
+/** Build the tool's real SgToolApi with the real action registrations (mirrors
+ *  audio-transcribe-api.js init(), minus the absolute-path-only DOM wiring). */
+async function buildRealApi() {
+    const { SgToolApi } = await import(`file://${CORE}/sg-tool-api/v0/v0.1/v0.1.0/sg-tool-api.js`);
+    const state = createState({ defaultModel: DEFAULT_MODEL });
+    state.setActiveModel(DEFAULT_MODEL);
+    const api = new SgToolApi({ name: 'audio-transcribe', version: { api: '0.1.0', ui: '0.1.0', content: '0.1.0' }, panelId: 'root' });
+    const emit = () => {};
+    const source = buildSourceMethods({ state, emit });
+    const transcribe = buildTranscribeMethods({ state, emit, sendToLlm: async () => ({ content: '' }), getActiveModel: () => state.getActiveModel() });
+    const batch = buildBatchMethods({ state, emit, transcribeItem: transcribe.transcribeItem });
+    const send = buildSendMethods({ state, emit, getDropper: () => null });
+    const connect = async (p = {}) => ({ provider: 'openrouter', model: p.model || state.getActiveModel() });
+    api.register('startRecording', source.startRecording, { async: true })
+        .register('stopRecording', source.stopRecording, { async: true })
+        .register('addFiles', source.addFiles, { async: true })
+        .register('getItems', source.getItems, { async: false })
+        .register('getItem', source.getItem, { async: false })
+        .register('removeItem', source.removeItem, { async: false })
+        .register('clearAll', source.clearAll, { async: false })
+        .register('listModels', () => listModels(), { async: false })
+        .register('setModel', transcribe.setModel, { async: false })
+        .register('connect', connect, { async: true })
+        .register('transcribeItem', transcribe.transcribeItem, { async: true })
+        .register('transcribeAll', batch.transcribeAll, { async: true })
+        .register('transcribe', batch.transcribe, { async: true })
+        .register('getTranscript', transcribe.getTranscript, { async: false })
+        .register('downloadZip', send.downloadZip, { async: true })
+        .register('sendViaSgSend', send.sendViaSgSend, { async: true });
+    return { api, state };
+}
+
+/** Install a minimal Proxy-based fake DOM so the real UI mount path can run in
+ *  plain Node. It is deliberately permissive: any unknown property access yields
+ *  a no-op function, so it never masks a *thrown* error (the boot-crash class we
+ *  care about) — it only lets execution proceed far enough to hit one. */
+function installFakeDom() {
+    const created = [];
+    const saved = {};
+    function el(tag) {
+        const store = { tag, _html: '' };
+        return new Proxy(store, {
+            get(t, p) {
+                if (p === 'innerHTML') return t._html;
+                if (p === 'style') return (t._style ||= {});
+                if (p === 'dataset') return (t._ds ||= {});
+                if (p === 'classList') return { add() {}, remove() {}, toggle() {}, contains() { return false; } };
+                if (p === 'children') return [];
+                if (p === 'querySelector') return () => el('q');
+                if (p === 'querySelectorAll') return () => [];
+                if (p in t) return t[p];
+                if (typeof p === 'symbol') return undefined;
+                return () => {}; // addEventListener / appendChild / click / setAttribute / …
+            },
+            set(t, p, v) { if (p === 'innerHTML') t._html = String(v); else t[p] = v; return true; },
+        });
+    }
+    // sg-layout is a custom element; provide a stub that fires LAYOUT_READY
+    // synchronously and hands back a fresh (tracked) light-DOM panel per tab id.
+    function layoutStub() {
+        const stub = {
+            style: {},
+            events: { on: (_evt, cb) => { cb(); } },
+            setLayout() {}, activateTab() {}, appendChild() {},
+            getPanelElement: (id) => { const e = el(`panel-${id}`); created.push(e); return e; },
+        };
+        return stub;
+    }
+    const doc = {
+        body: el('body'), head: el('head'),
+        createElement: (tag) => { const e = tag === 'sg-layout' ? layoutStub() : el(tag); created.push(e); return e; },
+        querySelector: () => el('q'), querySelectorAll: () => [],
+        addEventListener() {}, removeEventListener() {}, dispatchEvent() { return true; },
+    };
+    const win = { addEventListener() {}, removeEventListener() {}, dispatchEvent() { return true; } };
+    const ls = (() => { const m = new Map(); return { getItem: (k) => (m.has(k) ? m.get(k) : null), setItem: (k, v) => m.set(k, String(v)), removeItem: (k) => m.delete(k) }; })();
+    // NB: do NOT shim CustomEvent/Event — `state` is a real EventTarget and its
+    // dispatchEvent() requires a genuine Event (Node 22 provides both globally).
+    for (const k of ['document', 'window', 'localStorage']) saved[k] = globalThis[k];
+    globalThis.document = doc; globalThis.window = win; globalThis.localStorage = ls;
+    return { host: el('host'), created, uninstall() { for (const k of Object.keys(saved)) { if (saved[k] === undefined) delete globalThis[k]; else globalThis[k] = saved[k]; } } };
+}
+
+await test('SgToolApi contract: registered actions ALWAYS return a Promise (even async:false)', async () => {
+    const { api } = await buildRealApi();
+    // This is the exact footgun behind the boot crash: a registered action is
+    // never the raw return value — it is always a thenable.
+    for (const name of ['listModels', 'getItems']) {
+        const r = api[name]();
+        assert.equal(typeof r.then, 'function', `api.${name}() must be a thenable`);
+        assert.equal(Array.isArray(r), false, `api.${name}() must not be the array directly`);
+    }
+    const arr = await api.listModels();
+    assert.ok(Array.isArray(arr) && arr.length === 6, 'awaited listModels yields the 6-model array');
+});
+
+await test('mountShell boots the full UI against the REAL SgToolApi without throwing', async () => {
+    const dom = installFakeDom();
+    try {
+        const { api, state } = await buildRealApi();
+        const { mountShell } = await import(`file://${TOOL}/ui/ui-shell.js`);
+        let threw = null;
+        // devPanel:false skips the footer dev panel (DOM-heavy, browser-only;
+        // covered by the Playwright boot-smoke). The sg-layout + panel mount path
+        // — where the regression bug lived — is still fully exercised.
+        try { await mountShell({ host: dom.host, state, api, devPanel: false }); } catch (e) { threw = e; }
+        assert.equal(threw, null, threw && (threw.stack || threw.message));
+        // Regression guard for the ui-model.js api.listModels() Promise bug:
+        // the model panel must have rendered its full <option> list.
+        const optEl = dom.created.find((e) => (e.innerHTML || '').includes('<option'));
+        assert.ok(optEl, 'model panel rendered its <option> list');
+        assert.equal((optEl.innerHTML.match(/<option/g) || []).length, 6, 'all six curated models rendered');
+    } finally { dom.uninstall(); }
+});
+
 // ── Summary ──────────────────────────────────────────────────────────────────
 console.log(`\n${passed + failed} tests: ${passed} passed, ${failed} failed\n`);
 if (failed > 0) process.exit(1);

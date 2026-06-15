@@ -15,6 +15,17 @@ import { AT_EVENTS } from './audio-transcribe-events.js';
 export const MAX_ITEM_BYTES = 25 * 1024 * 1024;
 
 /**
+ * MediaRecorder timeslice for mic recording. A MODEST value (not one giant
+ * segment) is deliberate: the recorder emits a `dataavailable` chunk every
+ * SEGMENT_MS, so chunks accumulate *during* the take and are concatenated into
+ * one blob on stop. This is robust against mobile browsers (notably iOS Safari)
+ * whose final stop-flush can deliver 0 bytes — with periodic chunks we still
+ * keep everything recorded up to the last interval instead of losing the whole
+ * recording.
+ */
+export const SEGMENT_MS = 3000;
+
+/**
  * Build the source/ingest methods.
  *
  * @param {object} ctx
@@ -51,6 +62,10 @@ export function buildSourceMethods({ state, emit, recorder }) {
                 rejected.push({ name: f.name || 'file', code: 'not-audio' });
                 continue;
             }
+            if ((f.size || 0) === 0) {
+                rejected.push({ name: f.name || 'file', code: 'empty' });
+                continue;
+            }
             if ((f.size || 0) > MAX_ITEM_BYTES) {
                 rejected.push({ name: f.name || 'file', code: 'too-large' });
                 continue;
@@ -84,8 +99,8 @@ export function buildSourceMethods({ state, emit, recorder }) {
         const rec = await getRecorder();
         const chunks = [];
         const session = await rec.startRecording({
-            // One continuous take: large segment so chunks aren't split mid-record.
-            segmentDurationMs: 60 * 60 * 1000,
+            // Periodic chunks (concatenated on stop) — robust on mobile; see SEGMENT_MS.
+            segmentDurationMs: SEGMENT_MS,
             mimeType: params.mimeType,
             onSegment: (seg) => { if (seg && seg.blob) chunks.push(seg.blob); },
             onError: () => {},
@@ -107,6 +122,19 @@ export function buildSourceMethods({ state, emit, recorder }) {
         await rec.stopRecording(session);
         const durationMs = Date.now() - startedAt;
         const blob = new Blob(chunks, { type: mimeType });
+
+        // Guard: a 0-byte recording means MediaRecorder captured nothing (a known
+        // failure on some mobile browsers). Surface a clear, actionable error
+        // instead of enqueuing an empty item that later fails deep in the decoder
+        // with the cryptic "decoder returned no channel data".
+        if (blob.size === 0) {
+            emit(AT_EVENTS.RECORDING_STOPPED, { error: 'empty' });
+            throw Object.assign(
+                new Error(`Recording captured no audio (0 bytes, format "${mimeType}"). Your browser's recorder may not support capturing here — please try again, or drop/upload an audio file instead.`),
+                { code: 'empty-recording', mimeType, durationMs },
+            );
+        }
+
         const ext = mimeType.includes('mp4') ? 'm4a' : (mimeType.includes('ogg') ? 'opus' : 'webm');
         const name = `recording-${new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19)}.${ext}`;
         const id = state.addItem(blob, { name, mimeType, origin: 'recording', durationMs });
