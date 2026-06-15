@@ -31,39 +31,57 @@ const fileSanitiser = (p = {}) => ({
         ? `[${p.files.length} File(s)]` : p.files,
 });
 
+/** Map a request-complete event detail into our transport result shape. */
+function readComplete(e) {
+    const d = e.detail || {};
+    const raw = d.rawResponse || null;
+    const usageCost = raw && raw.usage && typeof raw.usage.cost === 'number' ? raw.usage.cost : undefined;
+    return {
+        content: d.content ?? '', latencyMs: d.latencyMs, model: d.model,
+        promptTokens: d.promptTokens, completionTokens: d.completionTokens,
+        generationId: raw && raw.id ? raw.id : undefined,
+        // Inline cost only if the response actually carried one (>0).
+        responseCost: usageCost != null ? usageCost : (typeof d.cost === 'number' && d.cost > 0 ? d.cost : undefined),
+    };
+}
+
 /**
- * Create a DOM-bus LLM transport: fires `llm:send` on the bus element and
- * resolves on `llm:request-complete` / rejects on `llm:request-error`.
- * @param {Element} bus
- * @returns {(req: { messages: object[], model: string }) => Promise<{ content: string, latencyMs?: number, model?: string }>}
+ * Isolated LLM transport: EACH request gets its own throwaway `[data-llm-bus]`
+ * cell + a fresh `<sg-llm-request>`, so concurrent requests never share a
+ * response listener (this is what makes parallel multi-model transcription safe
+ * — the shared-bus version cross-talked, giving two files the same transcript).
+ * The cell is configured (key + model + non-streaming) and torn down per call.
+ *
+ * @param {Element} host      the [data-llm-bus] host to attach cells under
+ * @param {() => string} getApiKey
+ * @returns {(req: { messages: object[], model: string }) => Promise<object>}
  */
-function makeBusTransport(bus) {
+function makeIsolatedTransport(host, getApiKey) {
     return (req) => new Promise((resolve, reject) => {
-        const onComplete = (e) => {
-            cleanup();
-            const d = e.detail || {};
-            const raw = d.rawResponse || null;
-            const usageCost = raw && raw.usage && typeof raw.usage.cost === 'number' ? raw.usage.cost : undefined;
-            resolve({
-                content: d.content ?? '', latencyMs: d.latencyMs, model: d.model,
-                promptTokens: d.promptTokens, completionTokens: d.completionTokens,
-                generationId: raw && raw.id ? raw.id : undefined,
-                // Inline cost only if the response actually carried one (>0).
-                responseCost: usageCost != null ? usageCost : (typeof d.cost === 'number' && d.cost > 0 ? d.cost : undefined),
-            });
-        };
-        const onError = (e) => { cleanup(); reject(Object.assign(
-            new Error((e.detail && e.detail.error) || 'LLM request failed'), { code: 'llm-error' })); };
+        const cell = document.createElement('div');
+        cell.setAttribute('data-llm-bus', '');
+        cell.style.display = 'none';
+        host.appendChild(cell);
+        const engine = document.createElement('sg-llm-request');
+        cell.appendChild(engine);
+
+        let done = false;
         function cleanup() {
-            bus.removeEventListener(SGL_LLM.REQUEST_COMPLETE, onComplete);
-            bus.removeEventListener(SGL_LLM.REQUEST_ERROR, onError);
+            cell.removeEventListener(SGL_LLM.REQUEST_COMPLETE, onComplete);
+            cell.removeEventListener(SGL_LLM.REQUEST_ERROR, onError);
+            try { host.removeChild(cell); } catch (_) { /* */ }
         }
-        bus.addEventListener(SGL_LLM.REQUEST_COMPLETE, onComplete);
-        bus.addEventListener(SGL_LLM.REQUEST_ERROR, onError);
-        bus.dispatchEvent(new CustomEvent(SGL_LLM.SEND, {
-            detail: { messages: req.messages, model: req.model, provider: 'openrouter' },
-            bubbles: true, composed: true,
-        }));
+        const onComplete = (e) => { if (done) return; done = true; const r = readComplete(e); cleanup(); resolve(r); };
+        const onError = (e) => { if (done) return; done = true; cleanup(); reject(Object.assign(
+            new Error((e.detail && e.detail.error) || 'LLM request failed'), { code: 'llm-error' })); };
+        cell.addEventListener(SGL_LLM.REQUEST_COMPLETE, onComplete);
+        cell.addEventListener(SGL_LLM.REQUEST_ERROR, onError);
+
+        // Configure this isolated engine, then send. Non-streaming so the
+        // response carries the full rawResponse (generation id + usage).
+        cell.dispatchEvent(new CustomEvent(SGL_LLM.CONNECTED, { detail: { provider: 'openrouter', model: req.model, apiKey: getApiKey() }, bubbles: true, composed: true }));
+        cell.dispatchEvent(new CustomEvent(SGL_LLM.STREAMING_CHANGED, { detail: { streaming: false }, bubbles: true, composed: true }));
+        cell.dispatchEvent(new CustomEvent(SGL_LLM.SEND, { detail: { messages: req.messages, model: req.model, provider: 'openrouter' }, bubbles: true, composed: true }));
     });
 }
 
@@ -78,7 +96,7 @@ export async function init(manifest) {
 
     const api = new SgToolApi({
         name: 'audio-transcribe',
-        version: { api: '0.1.4', ui: '0.1.4', content: '0.1.0' },
+        version: { api: '0.1.5', ui: '0.1.5', content: '0.1.0' },
         panelId: 'root',
         manifest: './manifest.json',
         skills: (manifest && manifest.skills) || {},
@@ -87,28 +105,24 @@ export async function init(manifest) {
 
     const host = document.querySelector('#audio-transcribe-root');
 
-    // The LLM bus: <sg-llm-request> dispatches/listens on the nearest ancestor
-    // with [data-llm-bus]. Mark the host as the bus and mount the engine there.
+    // The OpenRouter key, kept here for the isolated transport + cost lookups.
+    let currentApiKey = '';
+
+    // Transport: each request runs on its own isolated [data-llm-bus] cell (see
+    // makeIsolatedTransport) so parallel multi-model transcriptions can't
+    // cross-talk. The host still carries [data-llm-bus] so the cost component
+    // (sg-openrouter-key-stats) and connect()'s llm:connected resolve there.
     let busTransport;
-    let llmRequest = null;
     if (host) {
         host.setAttribute('data-llm-bus', '');
-        llmRequest = document.createElement('sg-llm-request');
-        host.appendChild(llmRequest);
-        // Non-streaming so request-complete carries the full rawResponse (and its
-        // generation id), which we need for per-item cost.
-        host.dispatchEvent(new CustomEvent(SGL_LLM.STREAMING_CHANGED, {
-            detail: { streaming: false }, bubbles: true, composed: true,
-        }));
-        busTransport = makeBusTransport(host);
+        busTransport = makeIsolatedTransport(host, () => currentApiKey);
     } else {
         // Headless fallback (shouldn't happen in the page).
         busTransport = async () => ({ content: '' });
     }
 
-    // Connect: prime <sg-llm-request> with the OpenRouter key + model. The key is
-    // also kept here so per-item cost can be looked up by generation id.
-    let currentApiKey = '';
+    // Connect: announce the OpenRouter key + model on the host bus (the cost
+    // component listens here). The key is also kept for cost lookups.
     /**
      * @param {{ apiKey: string, model?: string }} params
      * @returns {Promise<{ provider: 'openrouter', model: string }>}
@@ -157,6 +171,8 @@ export async function init(manifest) {
         .register('setModel',       transcribe.setModel,   { async: false, sanitiseParams: passthrough })
         .register('connect',        connect,               { async: true,  sanitiseParams: maskKey })
         .register('transcribeItem', transcribe.transcribeItem, { async: true, sanitiseParams: passthrough })
+        .register('transcribeModels', transcribe.transcribeModels, { async: true, sanitiseParams: passthrough })
+        .register('getCostSummary', transcribe.getCostSummary, { async: false, sanitiseParams: passthrough })
         .register('transcribeAll',  batch.transcribeAll,   { async: true,  sanitiseParams: passthrough })
         .register('transcribe',     batch.transcribe,      { async: true,  sanitiseParams: passthrough })
         .register('getTranscript',  transcribe.getTranscript, { async: false, sanitiseParams: passthrough })
