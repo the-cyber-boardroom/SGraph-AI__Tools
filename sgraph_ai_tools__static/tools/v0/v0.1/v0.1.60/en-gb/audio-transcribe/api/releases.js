@@ -16,6 +16,15 @@
 /** @type {ReadonlyArray<Release>} */
 export const RELEASES = Object.freeze([
     {
+        version: '0.1.18',
+        date: '2026-06-15',
+        summary: 'Typed key/quota errors (vault dev-brief Finding 7).',
+        changes: [
+            'New: a failed request now carries a typed error code from the HTTP status — key-invalid (401), budget-exceeded (402), key-exhausted (403) or rate-limited (429) — so an embedder (or a distributed SG-API secret that has hit its TTL/usage cap) gets a clear, machine-readable failure instead of a generic one. transcribeItem/ask reject with { code, status }; the provider message is preferred for display. Classification is by status code (api/llm-errors.js), not brittle string-matching.',
+            'The 🔎 Debug panel shows the typed code on errored requests; failed transcription versions record errorCode.',
+        ],
+    },
+    {
         version: '0.1.17',
         date: '2026-06-15',
         summary: 'Vault dev-brief hardening: headless chat (ask), cost in results, vault-safe cache.',

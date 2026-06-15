@@ -23,6 +23,7 @@ import { fetchGenerationCostDeferred } from './openrouter-cost.js';
 import { RELEASES } from './releases.js';
 import { buildSampleFile } from './samples.js';
 import { synthesize } from './tts.js';
+import { classifyLlmError } from './llm-errors.js';
 import { createLiveSession } from './live.js';
 import { mountShell } from '../ui/ui-shell.js';
 
@@ -77,8 +78,14 @@ function makeIsolatedTransport(host, getApiKey) {
             try { host.removeChild(cell); } catch (_) { /* */ }
         }
         const onComplete = (e) => { if (done) return; done = true; const r = readComplete(e); cleanup(); resolve(r); };
-        const onError = (e) => { if (done) return; done = true; cleanup(); reject(Object.assign(
-            new Error((e.detail && e.detail.error) || 'LLM request failed'), { code: 'llm-error' })); };
+        const onError = (e) => {
+            if (done) return; done = true; cleanup();
+            // Typed error from the HTTP status (key-invalid / budget-exceeded /
+            // key-exhausted / rate-limited) so embedders can react to a spent
+            // SG-API secret instead of seeing a generic failure. (Vault brief F7.)
+            const c = classifyLlmError(e.detail || {});
+            reject(Object.assign(new Error(c.message), { code: c.code, status: c.status, bodyError: (e.detail && e.detail.bodyError) || '' }));
+        };
         const onCancel = () => { if (done) return; done = true; cleanup(); reject(Object.assign(new Error('Cancelled'), { code: 'cancelled' })); };
         cell.addEventListener(SGL_LLM.REQUEST_COMPLETE, onComplete);
         cell.addEventListener(SGL_LLM.REQUEST_ERROR, onError);
@@ -108,7 +115,7 @@ export async function init(manifest) {
 
     const api = new SgToolApi({
         name: 'audio-transcribe',
-        version: { api: '0.1.17', ui: '0.1.17', content: '0.1.0' },
+        version: { api: '0.1.18', ui: '0.1.18', content: '0.1.0' },
         panelId: 'root',
         manifest: './manifest.json',
         skills: (manifest && manifest.skills) || {},

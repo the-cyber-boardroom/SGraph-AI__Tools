@@ -123,10 +123,11 @@ export function buildTranscribeMethods({ state, emit, sendToLlm, getActiveModel,
             return { ok: true, vid, text, model, latencyMs, generationId, promptTokens: res.promptTokens, completionTokens: res.completionTokens, costUsd: (typeof res.responseCost === 'number' ? res.responseCost : undefined) };
         } catch (err) {
             const cancelled = !!(err && err.code === 'cancelled');
-            state.updateVersion(item.id, vid, { status: cancelled ? 'cancelled' : 'error', error: err.message });
-            emit(AT_EVENTS.TRANSCRIBE_ERROR, { id: item.id, vid, error: err.message, cancelled });
-            recordExchange({ ts: Date.now(), itemId: item.id, itemName: item.name, vid, model, status: cancelled ? 'cancelled' : 'error', error: err.message, request: reqInfo });
-            return { ok: false, vid, error: err.message, cancelled };
+            const code = cancelled ? 'cancelled' : (err && err.code) || 'llm-error';
+            state.updateVersion(item.id, vid, { status: cancelled ? 'cancelled' : 'error', error: err.message, errorCode: code });
+            emit(AT_EVENTS.TRANSCRIBE_ERROR, { id: item.id, vid, error: err.message, code, cancelled });
+            recordExchange({ ts: Date.now(), itemId: item.id, itemName: item.name, vid, model, status: cancelled ? 'cancelled' : 'error', error: err.message, errorCode: code, request: reqInfo });
+            return { ok: false, vid, error: err.message, code, status: err && err.status, cancelled };
         } finally {
             cancellers.delete(vid);
         }
@@ -147,7 +148,9 @@ export function buildTranscribeMethods({ state, emit, sendToLlm, getActiveModel,
             throw Object.assign(new Error(`Model not available on the chat path: ${model}`), { code: 'model-unavailable' });
         }
         const r = await runVersion(item, model);
-        if (!r.ok) throw Object.assign(new Error(r.error || 'Transcription failed'), { code: 'llm-error' });
+        // Preserve the typed code (key-invalid / budget-exceeded / key-exhausted /
+        // rate-limited) so embedders can react to a spent SG-API secret.
+        if (!r.ok) throw Object.assign(new Error(r.error || 'Transcription failed'), { code: r.code || 'llm-error', status: r.status });
         // Surface generationId + usage so embedders can show real per-transcript
         // cost themselves (GET /api/v1/generation) — see the vault dev brief.
         return {
