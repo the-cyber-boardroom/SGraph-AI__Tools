@@ -120,7 +120,7 @@ export function buildTranscribeMethods({ state, emit, sendToLlm, getActiveModel,
                     state.updateVersion(item.id, vid, { costPending: false, ...(cost != null ? { costUsd: cost } : {}) });
                 }).catch(() => state.updateVersion(item.id, vid, { costPending: false }));
             }
-            return { ok: true, vid, text, model, latencyMs, generationId };
+            return { ok: true, vid, text, model, latencyMs, generationId, promptTokens: res.promptTokens, completionTokens: res.completionTokens, costUsd: (typeof res.responseCost === 'number' ? res.responseCost : undefined) };
         } catch (err) {
             const cancelled = !!(err && err.code === 'cancelled');
             state.updateVersion(item.id, vid, { status: cancelled ? 'cancelled' : 'error', error: err.message });
@@ -136,7 +136,7 @@ export function buildTranscribeMethods({ state, emit, sendToLlm, getActiveModel,
      * Transcribe one queue item (appends a version). Used for retry too. Throws
      * on failure so the batch orchestrator can record it.
      * @param {{ id: string, model?: string, language?: string }} params
-     * @returns {Promise<{ id: string, text: string, model: string, latencyMs: number, vid: string }>}
+     * @returns {Promise<{ id: string, text: string, model: string, latencyMs: number, vid: string, generationId?: string, usage?: object }>}
      */
     async function transcribeItem(params = {}) {
         const item = state.getRawItem(params.id);
@@ -148,7 +148,12 @@ export function buildTranscribeMethods({ state, emit, sendToLlm, getActiveModel,
         }
         const r = await runVersion(item, model);
         if (!r.ok) throw Object.assign(new Error(r.error || 'Transcription failed'), { code: 'llm-error' });
-        return { id: item.id, text: r.text, model, latencyMs: r.latencyMs, vid: r.vid, generationId: r.generationId };
+        // Surface generationId + usage so embedders can show real per-transcript
+        // cost themselves (GET /api/v1/generation) — see the vault dev brief.
+        return {
+            id: item.id, text: r.text, model, latencyMs: r.latencyMs, vid: r.vid, generationId: r.generationId,
+            usage: { promptTokens: r.promptTokens, completionTokens: r.completionTokens, costUsd: r.costUsd },
+        };
     }
 
     /**

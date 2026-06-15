@@ -501,6 +501,49 @@ await test('releases changelog is well-formed, newest-first, with unique semver 
     assert.equal(currentVersion(), RELEASES[0].version, 'currentVersion() is the newest entry');
 });
 
+// ── Read-API + cost contract (vault dev brief: Findings 1, 4, 6) ───────────────
+// getItems/getItem must reflect live state as an ARRAY (the shape embedders
+// rely on); transcribeItem must surface generationId + usage so an embedder can
+// show real per-transcript cost. This is the CI contract guard the brief asks for.
+await test('contract: addFiles → getItems(array) → transcribeItem(usage+genId) → getItem(live)', async () => {
+    const events = [];
+    const emit = (n, d) => events.push({ n, d });
+    const state = createState({ defaultModel: DEFAULT_MODEL });
+    state.setActiveModel(DEFAULT_MODEL);
+    const source = buildSourceMethods({ state, emit });
+    const sendToLlm = async () => ({ content: 'hi there', latencyMs: 5, generationId: 'gen-X', promptTokens: 11, completionTokens: 4, responseCost: 0.00012 });
+    const transcribe = buildTranscribeMethods({ state, emit, sendToLlm, getActiveModel: () => state.getActiveModel() });
+
+    const add = await source.addFiles({ files: [fakeFile('a.mp3', 'audio/mpeg')] });
+    const id = add.added[0].id;
+    assert.ok(id, 'addFiles returns the new id');
+
+    const items = source.getItems();
+    assert.ok(Array.isArray(items) && items.length === 1, 'getItems is a non-empty ARRAY reflecting live state');
+    assert.equal(items[0].id, id, 'the item is present');
+    assert.equal(source.getItem({ id }).name, 'a.mp3', 'getItem reflects live state (not null)');
+
+    const r = await transcribe.transcribeItem({ id });
+    assert.equal(r.generationId, 'gen-X', 'transcribeItem surfaces generationId');
+    assert.ok(r.usage && r.usage.promptTokens === 11 && r.usage.completionTokens === 4, 'transcribeItem surfaces usage tokens');
+    assert.equal(r.usage.costUsd, 0.00012, 'inline cost surfaced in usage');
+    assert.equal(source.getItem({ id }).status, 'done', 'getItem shows done after transcribe');
+});
+
+// ── Vault-safety: sg-wasm-cache must degrade, never throw (brief Finding 3) ────
+await test('sg-wasm-cache: isCacheApiAvailable returns false (never throws) when `caches` throws', async () => {
+    const { isCacheApiAvailable } = await import(`file://${CORE}/sg-wasm-cache/v0/v0.1/v0.1.0/sg-wasm-cache.js`);
+    assert.equal(isCacheApiAvailable(), false, 'no Cache API in Node → false');
+    // Simulate a sandboxed srcdoc frame: touching `caches` throws SecurityError.
+    const had = Object.getOwnPropertyDescriptor(globalThis, 'caches');
+    Object.defineProperty(globalThis, 'caches', { configurable: true, get() { throw new Error('SecurityError: sandboxed'); } });
+    try {
+        assert.equal(isCacheApiAvailable(), false, 'guarded probe returns false instead of throwing');
+    } finally {
+        if (had) Object.defineProperty(globalThis, 'caches', had); else delete globalThis.caches;
+    }
+});
+
 // ── Live (near-realtime) transcribe ────────────────────────────────────────────
 // createLiveSession captures the mic via MediaRecorder and transcribes the
 // growing take on an interval (refine-in-place), then a final pass on stop.

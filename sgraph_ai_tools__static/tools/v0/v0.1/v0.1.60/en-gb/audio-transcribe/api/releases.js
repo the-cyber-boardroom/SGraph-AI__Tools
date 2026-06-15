@@ -16,6 +16,16 @@
 /** @type {ReadonlyArray<Release>} */
 export const RELEASES = Object.freeze([
     {
+        version: '0.1.17',
+        date: '2026-06-15',
+        summary: 'Vault dev-brief hardening: headless chat (ask), cost in results, vault-safe cache.',
+        changes: [
+            'New: ask({ text, model?, context? }) — chat about your transcripts headlessly (no UI), for scripting/embedding. Returns { text, model, generationId, usage } so the cost is readable. The default context is your done transcripts.',
+            'Changed: transcribeItem() now returns generationId + usage:{promptTokens,completionTokens,costUsd} so embedders (e.g. a vault app) can show real per-transcript cost via GET /api/v1/generation. getItems/getItem are documented as the authoritative ARRAY/object live-state shape and guarded by a CI contract test.',
+            'Fixed (core/sg-wasm-cache): isCacheApiAvailable() no longer throws in a sandboxed srcdoc frame (a vault-powered-website host) where touching `caches` raises SecurityError — it now degrades to false, so the Safari tier-3 WASM .opus decode path runs inside a vault. Storage is treated as best-effort, never required.',
+        ],
+    },
+    {
         version: '0.1.16',
         date: '2026-06-15',
         summary: 'Live segments shown (with per-segment cost) + mobile-friendly layout.',

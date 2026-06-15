@@ -119,6 +119,11 @@ async function run() {
             return rows >= 1 && /segment/.test(tot);
         });
         assert(domOk, '[7] Live panel shows segment rows + running total');
+
+        // [8] Headless chat API (ask) is scriptable and returns text + usage.
+        const askRes = await page.evaluate(() => window.__tool.ask({ text: 'what was said?' }));
+        assert(askRes && askRes.text && askRes.text.includes(MOCK_TEXT) && askRes.generationId && askRes.usage,
+            '[8] ask({text}) returns reply + generationId + usage', JSON.stringify(askRes));
     } catch (e) {
         console.error(`  ✗ live flow: ${e.message}`);
         failed++;
