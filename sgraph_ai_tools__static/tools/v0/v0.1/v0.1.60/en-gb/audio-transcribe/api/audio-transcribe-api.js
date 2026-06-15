@@ -13,6 +13,7 @@
 import { SgToolApi } from '/core/sg-tool-api/v0/v0.1/v0.1.0/sg-tool-api.js';
 import { SGL_LLM } from '/components/llm/sg-llm-events/v0/v0.1/v0.1.0/sg-llm-events.js';
 import { createState } from '../ui/state.js';
+import { AT_EVENTS } from './audio-transcribe-events.js';
 import { buildSourceMethods } from './api-source.js';
 import { buildTranscribeMethods } from './api-transcribe.js';
 import { buildBatchMethods } from './api-batch.js';
@@ -42,6 +43,7 @@ function readComplete(e) {
         generationId: raw && raw.id ? raw.id : undefined,
         // Inline cost only if the response actually carried one (>0).
         responseCost: usageCost != null ? usageCost : (typeof d.cost === 'number' && d.cost > 0 ? d.cost : undefined),
+        raw, // full OpenRouter response, for the provenance panel
     };
 }
 
@@ -96,7 +98,7 @@ export async function init(manifest) {
 
     const api = new SgToolApi({
         name: 'audio-transcribe',
-        version: { api: '0.1.7', ui: '0.1.7', content: '0.1.0' },
+        version: { api: '0.1.8', ui: '0.1.8', content: '0.1.0' },
         panelId: 'root',
         manifest: './manifest.json',
         skills: (manifest && manifest.skills) || {},
@@ -140,10 +142,33 @@ export async function init(manifest) {
         return { provider: 'openrouter', model };
     }
 
+    // Programmatic key config (for agentic / headless callers). Persists to the
+    // same localStorage key the UI uses, then connects.
+    const KEY_STORAGE = 'sg-openrouter-mgmt-key';
+    /**
+     * @param {{ apiKey: string, model?: string }} params
+     * @returns {Promise<{ ok: true, present: boolean, model: string }>}
+     */
+    async function setApiKey(params = {}) {
+        const apiKey = params.apiKey || '';
+        try { if (apiKey) localStorage.setItem(KEY_STORAGE, apiKey); else localStorage.removeItem(KEY_STORAGE); } catch (_) { /* storage may be unavailable */ }
+        const r = await connect({ apiKey, model: params.model });
+        return { ok: true, present: !!apiKey, model: r.model };
+    }
+
+    // Provenance log: one record per LLM request/response (newest first).
+    const exchanges = [];
+    const recordExchange = (x) => {
+        exchanges.unshift(x);
+        if (exchanges.length > 100) exchanges.length = 100;
+        emit(AT_EVENTS.LLM_EXCHANGE, x);
+    };
+
     const source = buildSourceMethods({ state, emit });
     const transcribe = buildTranscribeMethods({
         state, emit, sendToLlm: busTransport, getActiveModel: () => state.getActiveModel(),
         fetchCost: (genId) => fetchGenerationCostDeferred(genId, currentApiKey),
+        onExchange: recordExchange,
     });
     const batch = buildBatchMethods({ state, emit, transcribeItem: transcribe.transcribeItem });
     const send = buildSendMethods({
@@ -170,6 +195,8 @@ export async function init(manifest) {
         .register('getReleases',    () => RELEASES.map((r) => ({ ...r, changes: [...r.changes] })), { async: false, sanitiseParams: passthrough })
         .register('setModel',       transcribe.setModel,   { async: false, sanitiseParams: passthrough })
         .register('connect',        connect,               { async: true,  sanitiseParams: maskKey })
+        .register('setApiKey',      setApiKey,             { async: true,  sanitiseParams: maskKey })
+        .register('getExchanges',   () => exchanges.slice(0, 50), { async: false, sanitiseParams: passthrough })
         .register('transcribeItem', transcribe.transcribeItem, { async: true, sanitiseParams: passthrough })
         .register('transcribeModels', transcribe.transcribeModels, { async: true, sanitiseParams: passthrough })
         .register('getCostSummary', transcribe.getCostSummary, { async: false, sanitiseParams: passthrough })

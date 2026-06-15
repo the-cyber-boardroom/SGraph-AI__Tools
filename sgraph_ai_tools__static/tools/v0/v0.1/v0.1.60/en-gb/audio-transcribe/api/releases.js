@@ -16,6 +16,16 @@
 /** @type {ReadonlyArray<Release>} */
 export const RELEASES = Object.freeze([
     {
+        version: '0.1.8',
+        date: '2026-06-15',
+        summary: 'More models, setApiKey API, debug/provenance panel.',
+        changes: [
+            'Added more audio models to try: Gemini 3 Flash (preview), Gemini 3.1 Flash Lite (preview), GPT Audio Mini, GPT-4o Audio, Voxtral Small 24B, MiMo v2 Omni. (Some ids may not be live — those show as a graceful error version so you can see which work.)',
+            'API: setApiKey({ apiKey, model }) configures the OpenRouter key programmatically (persists + connects) — for agentic / headless callers.',
+            'New: "🔎 Debug · provenance" tab (right side) + getExchanges() API — every LLM request/response this session: model, prompt, audio file, transcript, tokens, cost, generation id, and the raw OpenRouter response. Audio bytes are never shown.',
+        ],
+    },
+    {
         version: '0.1.7',
         date: '2026-06-15',
         summary: 'Parallel "Transcribe all" + model list cleanup.',

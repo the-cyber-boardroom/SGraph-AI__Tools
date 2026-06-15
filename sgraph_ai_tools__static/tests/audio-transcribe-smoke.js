@@ -44,7 +44,7 @@ const { buildTranscribeMethods } = await import(`file://${TOOL}/api/api-transcri
 const { buildBatchMethods } = await import(`file://${TOOL}/api/api-batch.js`);
 const { buildSendMethods } = await import(`file://${TOOL}/api/api-send.js`);
 const { buildBundle, buildZip } = await import(`file://${TOOL}/api/audio-zip.js`);
-const { listModels, DEFAULT_MODEL } = await import(`file://${TOOL}/api/audio-models.js`);
+const { listModels, DEFAULT_MODEL, AUDIO_MODEL_IDS } = await import(`file://${TOOL}/api/audio-models.js`);
 const { fetchGenerationCost } = await import(`file://${TOOL}/api/openrouter-cost.js`);
 const { RELEASES, currentVersion } = await import(`file://${TOOL}/api/releases.js`);
 const { SAMPLES, buildSampleFile } = await import(`file://${TOOL}/api/samples.js`);
@@ -568,7 +568,7 @@ await test('SgToolApi contract: registered actions ALWAYS return a Promise (even
         assert.equal(Array.isArray(r), false, `api.${name}() must not be the array directly`);
     }
     const arr = await api.listModels();
-    assert.ok(Array.isArray(arr) && arr.length === 6, 'awaited listModels yields the 6-model array');
+    assert.ok(Array.isArray(arr) && arr.length === AUDIO_MODEL_IDS.length, 'awaited listModels yields the full model array');
 });
 
 await test('mountShell boots the full UI against the REAL SgToolApi without throwing', async () => {
@@ -586,7 +586,7 @@ await test('mountShell boots the full UI against the REAL SgToolApi without thro
         // the model panel must have rendered its full <option> list.
         const optEl = dom.created.find((e) => (e.innerHTML || '').includes('at-model-select'));
         assert.ok(optEl, 'model panel rendered the model <select>');
-        assert.equal((optEl.innerHTML.match(/<option/g) || []).length, 6, 'all six curated models rendered');
+        assert.equal((optEl.innerHTML.match(/<option/g) || []).length, AUDIO_MODEL_IDS.length, 'every curated model rendered');
     } finally { dom.uninstall(); }
 });
 

@@ -29,9 +29,12 @@ const TRANSCRIBE_PROMPT =
  * @param {(generationId: string) => Promise<number|null>} [ctx.fetchCost]
  *        - resolves the exact charged cost (USD) for a generation id, a couple
  *          seconds after completion. Optional; cost just stays unknown without it.
+ * @param {(exchange: object) => void} [ctx.onExchange]
+ *        - records one request/response for the provenance panel. Optional.
  * @returns {{ setModel: Function, transcribeItem: Function, getTranscript: Function }}
  */
-export function buildTranscribeMethods({ state, emit, sendToLlm, getActiveModel, fetchCost }) {
+export function buildTranscribeMethods({ state, emit, sendToLlm, getActiveModel, fetchCost, onExchange }) {
+    const recordExchange = typeof onExchange === 'function' ? onExchange : () => {};
     /**
      * Set the active model, or (with `id`) one item's model.
      * @param {{ model: string, id?: string }} params
@@ -100,6 +103,12 @@ export function buildTranscribeMethods({ state, emit, sendToLlm, getActiveModel,
                 costPending: !!(generationId && fetchCost),
             });
             emit(AT_EVENTS.TRANSCRIBE_COMPLETE, { id: item.id, vid, model });
+            recordExchange({
+                ts: Date.now(), itemId: item.id, itemName: item.name, vid, model, status: 'done',
+                request: { prompt: TRANSCRIBE_PROMPT, audio: { name: item.name, mime: item.mimeType, sizeBytes: item.sizeBytes } },
+                response: { content: text, promptTokens: res.promptTokens, completionTokens: res.completionTokens, latencyMs, generationId, costUsd: (typeof res.responseCost === 'number' ? res.responseCost : undefined) },
+                raw: res.raw || null,
+            });
 
             // Exact charged cost arrives a couple seconds later by generation id.
             if (generationId && fetchCost) {
@@ -111,6 +120,10 @@ export function buildTranscribeMethods({ state, emit, sendToLlm, getActiveModel,
         } catch (err) {
             state.updateVersion(item.id, vid, { status: 'error', error: err.message });
             emit(AT_EVENTS.TRANSCRIBE_ERROR, { id: item.id, vid, error: err.message });
+            recordExchange({
+                ts: Date.now(), itemId: item.id, itemName: item.name, vid, model, status: 'error', error: err.message,
+                request: { prompt: TRANSCRIBE_PROMPT, audio: { name: item.name, mime: item.mimeType, sizeBytes: item.sizeBytes } },
+            });
             return { ok: false, vid, error: err.message };
         }
     }
