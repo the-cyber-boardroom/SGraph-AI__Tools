@@ -185,3 +185,4 @@
 .at-chat__sys summary { cursor: pointer; color: #93a4ff; font-size: 0.82rem; }
 .at-chat__convo { display: flex; flex-direction: column; gap: 8px; flex: 1; min-height: 320px; }
 .at-chat__convo sg-llm-chat-history { flex: 1; min-height: 200px; display: block; overflow: auto; }
+.at-chat__cost { color: #86efac; font-size: 0.8rem; font-variant-numeric: tabular-nums; margin-left: auto; }

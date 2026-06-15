@@ -174,7 +174,9 @@ export async function mountShell({ host, state, api, devPanel = true, getRecordi
         mountModel({ root: modelMount, state, api }),
         mountBundle({ root: bundleWrap, state, api }),
         mountQueue({ root: queueWrap, state, api, openItem }),
-        mountChat({ root: chatWrap, state, api }),
+        mountChat({ root: chatWrap, getContext: () => state.getItems()
+            .filter((i) => i.status === 'done' && i.transcript)
+            .map((it, i) => `### Transcript ${i + 1} — ${it.name}\n${it.transcript}`).join('\n\n') }),
         mountDebug({ root: debugWrap, api }),
     ];
 
