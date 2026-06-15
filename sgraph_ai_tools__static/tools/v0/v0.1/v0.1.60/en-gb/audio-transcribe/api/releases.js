@@ -16,6 +16,16 @@
 /** @type {ReadonlyArray<Release>} */
 export const RELEASES = Object.freeze([
     {
+        version: '0.1.10',
+        date: '2026-06-15',
+        summary: 'Stop button, live seconds counter, live debug entries.',
+        changes: [
+            'New: a Stop button on any in-flight transcription (Queue row + per-recording panel) — aborts the request (handy when a model hangs on OpenRouter\'s side). The result is recorded as a "cancelled" version. API: cancelItem({id}).',
+            'New: a live seconds counter while transcribing, so you can see it\'s moving.',
+            'Debug panel: an entry now appears the moment a request is made ("pending", with a live timer) and is updated in place with the response or the cancellation.',
+        ],
+    },
+    {
         version: '0.1.9',
         date: '2026-06-15',
         summary: 'Live recording waveform.',

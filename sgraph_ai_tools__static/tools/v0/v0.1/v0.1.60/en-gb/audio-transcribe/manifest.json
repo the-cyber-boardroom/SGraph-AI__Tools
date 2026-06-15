@@ -4,7 +4,7 @@
     "slug": "audio-transcribe",
     "description": "Record from the mic OR drag/drop many local audio files (including WhatsApp .opus voice notes), then transcribe each to text using curated OpenRouter audio models — entirely in your browser. Batch queue with per-row status and retry, bundle the session's audio and/or transcripts into a .zip, and optionally send an encrypted share via SG/Send.",
     "icon": "🎙",
-    "version": "0.1.9",
+    "version": "0.1.10",
     "status": "alpha",
     "category": "media",
     "keywords": [
@@ -204,6 +204,9 @@
             },
             "transcribeItem": {
                 "description": "Transcribe one queue item: blob → supported format/data URL → binary_file message → llm:send → resolve. Sets status/transcript. Used for retry too. Emits at:transcribe:started/complete/error (each carries {id})."
+            },
+            "cancelItem": {
+                "description": "Cancel any in-flight transcription(s) for one item (aborts the fetch). Params {id}. Returns {cancelled:N}. The cancelled run becomes a 'cancelled' version."
             },
             "transcribeModels": {
                 "description": "Advanced: transcribe one item against MULTIPLE models in parallel; each result is a separate version (history is kept). Params {id, models:[]}. Safe to parallelise — each request runs on its own isolated LLM bus."
