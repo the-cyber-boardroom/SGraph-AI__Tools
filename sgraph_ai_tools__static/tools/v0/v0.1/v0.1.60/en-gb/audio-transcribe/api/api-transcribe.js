@@ -219,7 +219,15 @@ export function buildTranscribeMethods({ state, emit, sendToLlm, getActiveModel,
             if (pending) sessionPending = true;
             return { id: it.id, name: it.name, usd, pending, versions: (it.versions || []).length };
         });
-        return { sessionUsd, sessionPending, perItem };
+        // Fold in auxiliary (non-transcription) spend — Create Voice (TTS) etc.
+        let auxUsd = 0; let auxPending = false;
+        for (const a of (state.getAuxCosts ? state.getAuxCosts() : [])) {
+            if (typeof a.usd === 'number') auxUsd += a.usd;
+            if (a.pending) auxPending = true;
+        }
+        sessionUsd += auxUsd;
+        if (auxPending) sessionPending = true;
+        return { sessionUsd, sessionPending, perItem, auxUsd, auxPending };
     }
 
     /**

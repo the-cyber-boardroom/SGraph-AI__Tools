@@ -64,6 +64,15 @@ export function createLiveSession({ transcribe, getModel, onUpdate, onError, onS
     }
 
     async function start() {
+        // Graceful in an embedded/sandboxed (null-origin) vault frame: there
+        // navigator.mediaDevices is undefined, so guard instead of bare-throwing.
+        // The host must grant the iframe allow="microphone" + a secure context.
+        if (typeof navigator === 'undefined' || !navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+            throw Object.assign(new Error('Microphone unavailable in this context — an embedded/sandboxed frame blocks it unless the host grants allow="microphone" on a secure (https) context. Try the standalone tool, or drop an audio file instead.'), { code: 'mic-unavailable' });
+        }
+        if (typeof MediaRecorder === 'undefined') {
+            throw Object.assign(new Error('Audio recording is unavailable in this browser/context (MediaRecorder missing). Drop an audio file instead.'), { code: 'mic-unavailable' });
+        }
         stream = await navigator.mediaDevices.getUserMedia({ audio: true, video: false });
         mime = bestMime();
         recorder = new MediaRecorder(stream, mime ? { mimeType: mime } : undefined);

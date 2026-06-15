@@ -14,10 +14,10 @@ import { fetchGenerationCostDeferred } from '../api/openrouter-cost.js';
 const KEY_STORAGE = 'sg-openrouter-mgmt-key';
 
 /**
- * @param {{ root: HTMLElement, api: object }} opts
+ * @param {{ root: HTMLElement, api: object, state?: object }} opts
  * @returns {{ destroy: () => void }}
  */
-export function mountTts({ root, api }) {
+export function mountTts({ root, api, state }) {
     let objUrl = null;
     let lastBlob = null;
     let synthSeq = 0; // guards a late cost from overwriting a newer synth
@@ -92,11 +92,17 @@ export function mountTts({ root, api }) {
                 statusEl.textContent = `${base} · 💰 free (on-device)`;
             } else if (r.generationId && apiKey) {
                 // Cost of this synthesis — resolved a couple of seconds later by id.
+                // Also folded into the session total (Model & Cost) via state aux.
                 statusEl.textContent = `${base} · 💰 …`;
+                const auxId = state && state.addAuxCost ? state.addAuxCost({ kind: 'tts', pending: true }) : null;
                 Promise.resolve(fetchGenerationCostDeferred(r.generationId, apiKey)).then((cost) => {
+                    if (auxId != null && state) state.updateAuxCost(auxId, { usd: (cost != null ? cost : undefined), pending: false });
                     if (seq !== synthSeq) return; // a newer synth has replaced this one
                     statusEl.textContent = `${base} · ${cost != null ? `💰 $${cost.toFixed(4)}` : '💰 cost n/a'}`;
-                }).catch(() => { if (seq === synthSeq) statusEl.textContent = `${base} · 💰 cost n/a`; });
+                }).catch(() => {
+                    if (auxId != null && state) state.updateAuxCost(auxId, { pending: false });
+                    if (seq === synthSeq) statusEl.textContent = `${base} · 💰 cost n/a`;
+                });
             } else {
                 statusEl.textContent = `${base}.`;
             }

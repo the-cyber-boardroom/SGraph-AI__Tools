@@ -639,6 +639,29 @@ await test('createLiveSession: growing-window poll refines, stop does a final pa
     } finally { media.uninstall(); }
 });
 
+await test('createLiveSession.start() throws mic-unavailable when mic APIs are absent (vault frame)', async () => {
+    const { createLiveSession } = await import(`file://${TOOL}/api/live.js`);
+    // No installMediaMocks → navigator.mediaDevices / MediaRecorder are absent,
+    // exactly like a null-origin sandboxed vault iframe. Must degrade with a
+    // typed error, NOT a bare throw on `navigator.mediaDevices.getUserMedia`.
+    const session = createLiveSession({ transcribe: async () => ({ text: '' }), getModel: () => 'm' });
+    await assert.rejects(() => session.start(), (e) => e.code === 'mic-unavailable');
+    assert.equal(session.isRunning(), false);
+});
+
+await test('getCostSummary folds in auxiliary (Create Voice / TTS) spend', async () => {
+    const h = buildHarness();
+    const add = await h.source.addFiles({ files: [fakeFile('a.mp3', 'audio/mpeg')] });
+    await h.transcribe.transcribeItem({ id: add.added[0].id });
+    const before = h.transcribe.getCostSummary();
+    const auxId = h.state.addAuxCost({ kind: 'tts', pending: true });
+    h.transcribe.getCostSummary(); // pending counted but no usd yet
+    h.state.updateAuxCost(auxId, { usd: 0.0021, pending: false });
+    const after = h.transcribe.getCostSummary();
+    assert.equal(after.auxUsd, 0.0021, 'aux (voice) cost reported separately');
+    assert.ok(Math.abs(after.sessionUsd - (before.sessionUsd + 0.0021)) < 1e-9, 'session total = transcription + voice');
+});
+
 await test('startLive → stopLive adds the take to the queue (real SgToolApi)', async () => {
     const media = installMediaMocks();
     try {

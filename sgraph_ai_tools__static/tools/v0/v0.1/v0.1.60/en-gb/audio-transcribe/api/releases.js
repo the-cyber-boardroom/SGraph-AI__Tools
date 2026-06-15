@@ -16,6 +16,16 @@
 /** @type {ReadonlyArray<Release>} */
 export const RELEASES = Object.freeze([
     {
+        version: '0.1.20',
+        date: '2026-06-15',
+        summary: 'Voice cost in the session total; graceful mic-in-vault error (dev-brief Finding 8).',
+        changes: [
+            'Changed: the "This session" total in Model & Cost now includes Create Voice (TTS) spend, not just transcriptions (e.g. "💰 $x over 2 transcriptions + 1 voice"). Voice cost is tracked the moment it resolves. getCostSummary() now also returns auxUsd/auxPending.',
+            'Fixed (embedded/vault): starting Live in a sandboxed null-origin frame (where navigator.mediaDevices is undefined) now fails with a clear typed error { code: mic-unavailable } and an at:live:error event ("the host must allow=\\"microphone\\"…"), instead of a bare throw. The standalone tool is unaffected.',
+            'Tests: served-page contract assertions added to the live Playwright smoke (getItems() is a non-empty array; OpenRouter TTS returns audio bytes) to catch deploy-drift, not just source correctness.',
+        ],
+    },
+    {
         version: '0.1.19',
         date: '2026-06-15',
         summary: 'Cost for Create Voice (TTS) + friendly key/quota error messages.',

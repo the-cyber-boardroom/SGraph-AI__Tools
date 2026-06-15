@@ -115,7 +115,7 @@ export async function init(manifest) {
 
     const api = new SgToolApi({
         name: 'audio-transcribe',
-        version: { api: '0.1.19', ui: '0.1.19', content: '0.1.0' },
+        version: { api: '0.1.20', ui: '0.1.20', content: '0.1.0' },
         panelId: 'root',
         manifest: './manifest.json',
         skills: (manifest && manifest.skills) || {},
@@ -278,9 +278,16 @@ export async function init(manifest) {
     });
     async function startLive() {
         liveRunId += 1;
-        const r = await live.start();
-        emit(AT_EVENTS.LIVE_STARTED, { mimeType: r.mimeType });
-        return { live: true, mimeType: r.mimeType };
+        try {
+            const r = await live.start();
+            emit(AT_EVENTS.LIVE_STARTED, { mimeType: r.mimeType });
+            return { live: true, mimeType: r.mimeType };
+        } catch (err) {
+            // Surface a clear event (e.g. mic-unavailable in a vault frame) rather
+            // than only rejecting — embedders/UIs listen on at:live:error.
+            emit(AT_EVENTS.LIVE_ERROR, { error: err.message, code: err.code });
+            throw err;
+        }
     }
     async function stopLive() {
         const r = await live.stop();
