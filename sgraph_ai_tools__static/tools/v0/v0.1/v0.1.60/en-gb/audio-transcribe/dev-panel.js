@@ -11,6 +11,7 @@
  */
 
 import { renderMarkdown } from './markdown.js';
+import { RELEASES } from './api/releases.js';
 
 const DEV_HEIGHT_DEFAULT = 300;
 let _styleInjected = false;
@@ -79,6 +80,21 @@ function _buildSkillsPanel() {
     return wrap;
 }
 
+function _esc(s) { return String(s == null ? '' : s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;'); }
+
+/** Build the Releases (changelog) tab from RELEASES. */
+function _buildReleasesPanel() {
+    _injectStyle();
+    const wrap = document.createElement('div');
+    wrap.style.cssText = 'height:100%;overflow-y:auto;padding:12px 14px;background:#0a0a18;box-sizing:border-box;';
+    wrap.innerHTML = `<div class="at-skill-md">` + RELEASES.map((r) => `
+        <h2>v${_esc(r.version)} <span style="color:#64748b;font-size:0.8em;font-weight:400;">· ${_esc(r.date)}</span></h2>
+        <p><strong>${_esc(r.summary)}</strong></p>
+        <ul>${r.changes.map((c) => `<li>${_esc(c)}</li>`).join('')}</ul>
+        <hr>`).join('') + `</div>`;
+    return wrap;
+}
+
 /** @param {HTMLElement} layoutWrap */
 export function buildDevPanel(layoutWrap) {
     let devOpen = false;
@@ -124,6 +140,7 @@ export function buildDevPanel(layoutWrap) {
 
     const TABS = [
         { id: 'skills',   label: '📄 Skills' },
+        { id: 'releases', label: '🏷 Releases' },
         { id: 'explorer', label: '⚡ Explorer', tag: 'sg-tool-api-explorer' },
         { id: 'console',  label: '> Console',  tag: 'sg-tool-api-console' },
         { id: 'manifest', label: '📋 Manifest', tag: 'sg-tool-api-manifest' },
@@ -158,6 +175,8 @@ export function buildDevPanel(layoutWrap) {
             const el = document.createElement(t.tag);
             el.style.cssText = 'display:block;width:100%;height:100%;';
             pane.appendChild(el);
+        } else if (t.id === 'releases') {
+            pane.appendChild(_buildReleasesPanel());
         } else {
             pane.appendChild(_buildSkillsPanel());
         }

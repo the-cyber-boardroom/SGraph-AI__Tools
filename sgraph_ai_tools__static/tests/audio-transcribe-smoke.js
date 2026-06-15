@@ -46,6 +46,7 @@ const { buildSendMethods } = await import(`file://${TOOL}/api/api-send.js`);
 const { buildBundle, buildZip } = await import(`file://${TOOL}/api/audio-zip.js`);
 const { listModels, DEFAULT_MODEL } = await import(`file://${TOOL}/api/audio-models.js`);
 const { fetchGenerationCost } = await import(`file://${TOOL}/api/openrouter-cost.js`);
+const { RELEASES, currentVersion } = await import(`file://${TOOL}/api/releases.js`);
 const { isAudioFile, isSupportedAudio } = await import(`file://${TOOL}/api/audio-format.js`);
 const { encodeWavBytes } = await import(`file://${CORE}/sg-audio-decode/v0/v0.1/v0.1.0/sg-wav-encoder.js`);
 const { needsDecode } = await import(`file://${CORE}/sg-audio-decode/v0/v0.1/v0.1.0/sg-audio-decode.js`);
@@ -417,6 +418,17 @@ await test('stopRecording concatenates delivered chunks into a single item', asy
     const r = await source.stopRecording();
     assert.equal(r.sizeBytes, 7, 'all delivered chunks (2 + 5 bytes) concatenated');
     assert.equal(state.getItems().length, 1);
+});
+
+await test('releases changelog is well-formed, newest-first, with unique semver versions', () => {
+    assert.ok(Array.isArray(RELEASES) && RELEASES.length >= 1);
+    for (const r of RELEASES) {
+        assert.match(r.version, /^\d+\.\d+\.\d+$/, `valid semver: ${r.version}`);
+        assert.ok(r.date && Array.isArray(r.changes) && r.changes.length, `entry has date + changes: ${r.version}`);
+    }
+    const versions = RELEASES.map((r) => r.version);
+    assert.equal(new Set(versions).size, versions.length, 'versions are unique');
+    assert.equal(currentVersion(), RELEASES[0].version, 'currentVersion() is the newest entry');
 });
 
 // ── Integration: real SgToolApi + UI mount ─────────────────────────────────────

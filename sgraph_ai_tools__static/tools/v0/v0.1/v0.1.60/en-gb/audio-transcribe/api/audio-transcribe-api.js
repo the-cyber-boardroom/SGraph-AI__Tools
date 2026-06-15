@@ -19,6 +19,7 @@ import { buildBatchMethods } from './api-batch.js';
 import { buildSendMethods } from './api-send.js';
 import { listModels, DEFAULT_MODEL } from './audio-models.js';
 import { fetchGenerationCostDeferred } from './openrouter-cost.js';
+import { RELEASES } from './releases.js';
 import { mountShell } from '../ui/ui-shell.js';
 
 const passthrough = (p) => p;
@@ -76,7 +77,7 @@ export async function init(manifest) {
 
     const api = new SgToolApi({
         name: 'audio-transcribe',
-        version: { api: '0.1.2', ui: '0.1.2', content: '0.1.0' },
+        version: { api: '0.1.3', ui: '0.1.3', content: '0.1.0' },
         panelId: 'root',
         manifest: './manifest.json',
         skills: (manifest && manifest.skills) || {},
@@ -144,6 +145,7 @@ export async function init(manifest) {
         .register('removeItem',     source.removeItem,     { async: false, sanitiseParams: passthrough })
         .register('clearAll',       source.clearAll,       { async: false, sanitiseParams: passthrough })
         .register('listModels',     () => listModels(),    { async: false, sanitiseParams: passthrough })
+        .register('getReleases',    () => RELEASES.map((r) => ({ ...r, changes: [...r.changes] })), { async: false, sanitiseParams: passthrough })
         .register('setModel',       transcribe.setModel,   { async: false, sanitiseParams: passthrough })
         .register('connect',        connect,               { async: true,  sanitiseParams: maskKey })
         .register('transcribeItem', transcribe.transcribeItem, { async: true, sanitiseParams: passthrough })
