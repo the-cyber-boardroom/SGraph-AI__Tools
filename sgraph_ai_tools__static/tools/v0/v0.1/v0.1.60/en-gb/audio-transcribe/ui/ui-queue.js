@@ -29,7 +29,7 @@ function fmtSize(b) {
  * @param {{ root: HTMLElement, state: object, api: object }} opts
  * @returns {{ destroy: () => void }}
  */
-export function mountQueue({ root, state, api }) {
+export function mountQueue({ root, state, api, openItem }) {
     root.innerHTML = `
         <div class="at-queue-head">
             <h2 class="at-panel__title" style="margin:0">Queue <span id="at-q-count"></span></h2>
@@ -61,6 +61,7 @@ export function mountQueue({ root, state, api }) {
             ? `<div class="at-row__transcript" id="tx-${it.id}">${esc(it.transcript)}</div>`
             : (it.status === 'error' ? `<div class="at-row__transcript">⚠ ${esc(it.error || 'failed')}</div>` : '');
         const actions = [];
+        actions.push(`<button class="at-btn small" data-act="open" data-id="${it.id}">Open ▸</button>`);
         if (it.status === 'done') {
             actions.push(`<button class="at-btn small" data-act="copy" data-id="${it.id}">Copy</button>`);
             actions.push(`<button class="at-btn small" data-act="dl" data-id="${it.id}">Download .txt</button>`);
@@ -87,7 +88,8 @@ export function mountQueue({ root, state, api }) {
         const id = btn.dataset.id;
         const act = btn.dataset.act;
         try {
-            if (act === 'remove') api.removeItem({ id });
+            if (act === 'open') { if (openItem) openItem(id); }
+            else if (act === 'remove') api.removeItem({ id });
             else if (act === 'retry') await api.transcribeItem({ id });
             else if (act === 'copy') {
                 const it = state.getItem(id);
