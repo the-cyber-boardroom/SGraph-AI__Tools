@@ -9,6 +9,8 @@
  * @module audio-transcribe/ui-source
  */
 
+import { SAMPLES } from '../api/samples.js';
+
 const ACCEPT = 'audio/*,.opus,.ogg,.oga,.m4a,.aac,.flac,.wav,.mp3,.webm';
 
 /**
@@ -30,6 +32,11 @@ export function mountSource({ root, api }) {
             <button type="button" class="at-btn primary" id="at-rec-btn">● Record</button>
             <span class="at-rec-timer" id="at-rec-timer" hidden>00:00</span>
         </div>
+        <div class="at-record-row">
+            <label for="at-sample" style="font-size:0.85rem;color:#94a3b8;">Sample</label>
+            <select class="at-select" id="at-sample">${SAMPLES.map((s) => `<option value="${s.id}">${s.label}</option>`).join('')}</select>
+            <button type="button" class="at-btn small" id="at-sample-load">Load sample</button>
+        </div>
         <div class="at-meta-note">
             🔒 Decoding happens in your browser. Files are sent to OpenRouter only
             for transcription. Soft limit ~25 MB per file.
@@ -42,6 +49,18 @@ export function mountSource({ root, api }) {
     const recBtn = root.querySelector('#at-rec-btn');
     const timer = root.querySelector('#at-rec-timer');
     const notice = root.querySelector('#at-notice');
+    const sampleSel = root.querySelector('#at-sample');
+    const sampleBtn = root.querySelector('#at-sample-load');
+
+    async function onLoadSample() {
+        sampleBtn.disabled = true;
+        try {
+            const r = await api.loadSample({ id: sampleSel.value });
+            showNotice(`Loaded sample (${(r && r.added && r.added.length) || 0})`, 'info');
+        } catch (err) { showNotice(`Sample failed: ${err.message}`, 'error'); }
+        finally { sampleBtn.disabled = false; }
+    }
+    sampleBtn.addEventListener('click', onLoadSample);
 
     let recording = false;
     let tick = null;
