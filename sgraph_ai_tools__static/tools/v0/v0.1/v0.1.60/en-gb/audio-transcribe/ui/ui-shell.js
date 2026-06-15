@@ -23,6 +23,7 @@ import { mountModel } from './ui-model.js';
 import { mountBundle } from './ui-bundle.js';
 import { mountItemPanel } from './ui-item-panel.js';
 import { mountTts } from './ui-tts.js';
+import { mountChat } from './ui-chat.js';
 import { mountDebug } from './ui-debug.js';
 import { buildDevPanel } from '../dev-panel.js';
 
@@ -91,6 +92,7 @@ export async function mountShell({ host, state, api, devPanel = true, getRecordi
                 type: 'stack', id: 's-right', activeTab: 0,
                 tabs: [
                     { type: 'tab', id: 't-queue', title: '📋 Queue', tag: 'div', locked: false, closable: false },
+                    { type: 'tab', id: 't-chat',  title: '💬 Chat',  tag: 'div', locked: false, closable: false },
                     { type: 'tab', id: 't-debug', title: '🔎 Debug', tag: 'div', locked: false, closable: false },
                 ],
             },
@@ -102,6 +104,7 @@ export async function mountShell({ host, state, api, devPanel = true, getRecordi
     const modelWrap  = panelScroll(layout.getPanelElement('t-model'));
     const bundleWrap = panelScroll(layout.getPanelElement('t-bundle'));
     const queueWrap  = panelScroll(layout.getPanelElement('t-queue'));
+    const chatWrap   = panelScroll(layout.getPanelElement('t-chat'));
     const debugWrap  = panelScroll(layout.getPanelElement('t-debug'));
 
     // Model panel: the model/key controls, then the cost view below them.
@@ -171,6 +174,7 @@ export async function mountShell({ host, state, api, devPanel = true, getRecordi
         mountModel({ root: modelMount, state, api }),
         mountBundle({ root: bundleWrap, state, api }),
         mountQueue({ root: queueWrap, state, api, openItem }),
+        mountChat({ root: chatWrap, state, api }),
         mountDebug({ root: debugWrap, api }),
     ];
 

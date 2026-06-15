@@ -178,3 +178,10 @@
 .at-tts__text { width: 100%; background: #0e0e22; color: #e2e8f0; border: 1px solid #38407a; border-radius: 8px; padding: 10px; font: inherit; resize: vertical; box-sizing: border-box; }
 .at-tts__actions { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
 .at-tts__result { display: flex; flex-direction: column; gap: 10px; }
+
+/* ── Chat with transcripts (ui-chat) ────────────────────────────────────────── */
+.at-chat { display: flex; flex-direction: column; gap: 10px; height: 100%; min-height: 0; }
+.at-chat__bar { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.at-chat__sys summary { cursor: pointer; color: #93a4ff; font-size: 0.82rem; }
+.at-chat__convo { display: flex; flex-direction: column; gap: 8px; flex: 1; min-height: 320px; }
+.at-chat__convo sg-llm-chat-history { flex: 1; min-height: 200px; display: block; overflow: auto; }
