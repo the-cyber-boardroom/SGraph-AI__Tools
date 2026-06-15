@@ -16,6 +16,15 @@
 /** @type {ReadonlyArray<Release>} */
 export const RELEASES = Object.freeze([
     {
+        version: '0.1.11',
+        date: '2026-06-15',
+        summary: 'Text-to-speech ("🗣 Voice" tab) — local + OpenRouter.',
+        changes: [
+            'New: a "🗣 Voice" tab — type text and synthesise speech in two engines: Local (free, Kokoro / sg-tts, runs in the browser; first run downloads the ~160 MB voice model) or OpenRouter (an audio-output model like openai/gpt-audio; uses your key). Play it, download a .wav, or "Add to queue" to round-trip (synth → transcribe → compare).',
+            'API: synthesize({ text, mode, voice, model? }) and addSynthesized({ text, mode, voice }) (synth straight into the queue).',
+        ],
+    },
+    {
         version: '0.1.10',
         date: '2026-06-15',
         summary: 'Stop button, live seconds counter, live debug entries.',

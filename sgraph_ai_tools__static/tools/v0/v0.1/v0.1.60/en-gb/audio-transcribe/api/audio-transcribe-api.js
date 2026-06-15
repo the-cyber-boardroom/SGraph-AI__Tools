@@ -22,6 +22,7 @@ import { listModels, DEFAULT_MODEL } from './audio-models.js';
 import { fetchGenerationCostDeferred } from './openrouter-cost.js';
 import { RELEASES } from './releases.js';
 import { buildSampleFile } from './samples.js';
+import { synthesize } from './tts.js';
 import { mountShell } from '../ui/ui-shell.js';
 
 const passthrough = (p) => p;
@@ -106,7 +107,7 @@ export async function init(manifest) {
 
     const api = new SgToolApi({
         name: 'audio-transcribe',
-        version: { api: '0.1.10', ui: '0.1.10', content: '0.1.0' },
+        version: { api: '0.1.11', ui: '0.1.11', content: '0.1.0' },
         panelId: 'root',
         manifest: './manifest.json',
         skills: (manifest && manifest.skills) || {},
@@ -193,11 +194,25 @@ export async function init(manifest) {
         return source.addFiles({ files: [file] });
     }
 
+    /** Text-to-speech (local Kokoro or OpenRouter). Returns metadata (no blob). */
+    async function ttsSynthesize(params = {}) {
+        const r = await synthesize({ ...params, apiKey: currentApiKey });
+        return { mode: r.mode, durationMs: r.durationMs, sizeBytes: r.blob.size, generationId: r.generationId };
+    }
+    /** Synthesise speech and drop it into the queue (round-trip: synth → transcribe). */
+    async function addSynthesized(params = {}) {
+        const r = await synthesize({ ...params, apiKey: currentApiKey });
+        const name = `${(params.name || 'voice-' + Date.now())}.wav`;
+        return source.addFiles({ files: [new File([r.blob], name, { type: r.blob.type || 'audio/wav' })] });
+    }
+
     api
         .register('startRecording', source.startRecording, { async: true,  sanitiseParams: passthrough })
         .register('stopRecording',  source.stopRecording,  { async: true,  sanitiseParams: passthrough })
         .register('addFiles',       source.addFiles,       { async: true,  sanitiseParams: fileSanitiser })
         .register('loadSample',     loadSample,            { async: true,  sanitiseParams: passthrough })
+        .register('synthesize',     ttsSynthesize,         { async: true,  sanitiseParams: passthrough })
+        .register('addSynthesized', addSynthesized,        { async: true,  sanitiseParams: passthrough })
         .register('getItems',       source.getItems,       { async: false, sanitiseParams: passthrough })
         .register('getItem',        source.getItem,        { async: false, sanitiseParams: passthrough })
         .register('removeItem',     source.removeItem,     { async: false, sanitiseParams: passthrough })

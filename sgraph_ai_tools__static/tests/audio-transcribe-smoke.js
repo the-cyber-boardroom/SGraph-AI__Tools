@@ -48,6 +48,7 @@ const { listModels, DEFAULT_MODEL, AUDIO_MODEL_IDS } = await import(`file://${TO
 const { fetchGenerationCost } = await import(`file://${TOOL}/api/openrouter-cost.js`);
 const { RELEASES, currentVersion } = await import(`file://${TOOL}/api/releases.js`);
 const { SAMPLES, buildSampleFile } = await import(`file://${TOOL}/api/samples.js`);
+const { encodeWav, base64ToBlob, synthesize, TTS_VOICES } = await import(`file://${TOOL}/api/tts.js`);
 const { isAudioFile, isSupportedAudio } = await import(`file://${TOOL}/api/audio-format.js`);
 const { encodeWavBytes } = await import(`file://${CORE}/sg-audio-decode/v0/v0.1/v0.1.0/sg-wav-encoder.js`);
 const { needsDecode } = await import(`file://${CORE}/sg-audio-decode/v0/v0.1/v0.1.0/sg-audio-decode.js`);
@@ -455,6 +456,28 @@ await test('buildSampleFile makes a valid WAV File for a tone sample; rejects un
     const head = new Uint8Array(await f.arrayBuffer()).slice(0, 4);
     assert.equal(String.fromCharCode(...head), 'RIFF', 'RIFF/WAVE header');
     await assert.rejects(() => buildSampleFile('nope'), (e) => e.code === 'unknown-sample');
+});
+
+await test('tts: WAV encode, base64 decode, and OpenRouter dispatch (mocked)', async () => {
+    const wav = encodeWav(new Float32Array([0, 0.5, -0.5, 1, -1]), 16000);
+    assert.equal(String.fromCharCode(...new Uint8Array(await wav.arrayBuffer()).slice(0, 4)), 'RIFF');
+    assert.ok(TTS_VOICES.local.length && TTS_VOICES.openrouter.length, 'voices per mode');
+    assert.equal(base64ToBlob(Buffer.from('hello').toString('base64'), 'audio/wav').size, 5);
+
+    const audioB64 = Buffer.from('RIFFxxxxWAVE').toString('base64');
+    const fetchImpl = async (url, opts) => {
+        assert.match(url, /chat\/completions/);
+        const body = JSON.parse(opts.body);
+        assert.deepEqual(body.modalities, ['text', 'audio']);
+        return { ok: true, json: async () => ({ id: 'gen-tts', choices: [{ message: { audio: { data: audioB64 } } }] }) };
+    };
+    const r = await synthesize({ text: 'hi', mode: 'openrouter', apiKey: 'sk', fetchImpl });
+    assert.equal(r.mode, 'openrouter');
+    assert.equal(r.generationId, 'gen-tts');
+    assert.ok(r.blob.size > 0, 'decoded audio blob');
+
+    await assert.rejects(() => synthesize({ text: '', mode: 'local' }), (e) => e.code === 'no-text');
+    await assert.rejects(() => synthesize({ text: 'hi', mode: 'openrouter', fetchImpl }), (e) => e.code === 'no-key');
 });
 
 await test('releases changelog is well-formed, newest-first, with unique semver versions', () => {

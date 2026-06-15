@@ -170,3 +170,11 @@
 .at-btn.danger { background: #7f1d1d; border-color: #b91c1c; color: #fecaca; }
 .at-btn.danger:hover { background: #991b1b; }
 .at-row__elapsed { color: #fcd34d; font-size: 0.8rem; font-variant-numeric: tabular-nums; }
+
+/* ── Create voice / TTS (ui-tts) ────────────────────────────────────────────── */
+.at-tts { display: flex; flex-direction: column; gap: 12px; }
+.at-tts__row { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; }
+.at-tts__lbl { font-size: 0.8rem; color: #94a3b8; min-width: 54px; }
+.at-tts__text { width: 100%; background: #0e0e22; color: #e2e8f0; border: 1px solid #38407a; border-radius: 8px; padding: 10px; font: inherit; resize: vertical; box-sizing: border-box; }
+.at-tts__actions { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.at-tts__result { display: flex; flex-direction: column; gap: 10px; }
