@@ -16,7 +16,6 @@
  * @module audio-transcribe/ui-shell
  */
 
-import { SGL_EVENTS } from '../../../../../../../core/sg-layout/v0.1.0/sg-layout-events.js';
 import { mountSource } from './ui-source.js';
 import { mountQueue } from './ui-queue.js';
 import { mountModel } from './ui-model.js';
@@ -45,7 +44,8 @@ export async function mountShell({ host, state, api, devPanel = true }) {
     // Preserve the <sg-llm-request> engine the api entry appended to the host.
     const engine = host.querySelector('sg-llm-request');
     host.innerHTML = '';
-    host.style.cssText = 'display:flex;flex-direction:column;height:100vh;min-height:0;overflow:hidden;';
+    // Fill the space below the site header (the body is a flex column).
+    host.style.cssText = 'flex:1;min-height:0;display:flex;flex-direction:column;overflow:hidden;';
     if (engine) { engine.style.display = 'none'; host.appendChild(engine); }
 
     const v = (api && api._version) || {};
@@ -66,8 +66,11 @@ export async function mountShell({ host, state, api, devPanel = true }) {
     layout.style.cssText = 'width:100%;height:100%;display:block;';
     toolArea.appendChild(layout);
 
-    await new Promise((resolve) => layout.events.on(SGL_EVENTS.LAYOUT_READY, resolve));
-
+    // setLayout() is synchronous: it renders the tree, mounts every tab, then
+    // emits LAYOUT_READY. Do NOT await LAYOUT_READY before calling it — the
+    // element already fired that event from connectedCallback during appendChild,
+    // so awaiting here hangs forever (the layout never builds). Call setLayout,
+    // then read the panel elements synchronously.
     layout.setLayout({
         type: 'row', id: 'main', sizes: [0.4, 0.6],
         children: [
@@ -87,8 +90,6 @@ export async function mountShell({ host, state, api, devPanel = true }) {
             },
         ],
     });
-
-    await new Promise((resolve) => layout.events.on(SGL_EVENTS.LAYOUT_READY, resolve));
 
     const sourceWrap = panelScroll(layout.getPanelElement('t-source'));
     const modelWrap  = panelScroll(layout.getPanelElement('t-model'));
