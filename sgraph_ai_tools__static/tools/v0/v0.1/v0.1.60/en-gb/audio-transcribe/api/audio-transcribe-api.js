@@ -23,6 +23,7 @@ import { fetchGenerationCostDeferred } from './openrouter-cost.js';
 import { RELEASES } from './releases.js';
 import { buildSampleFile } from './samples.js';
 import { synthesize } from './tts.js';
+import { createLiveSession } from './live.js';
 import { mountShell } from '../ui/ui-shell.js';
 
 const passthrough = (p) => p;
@@ -107,7 +108,7 @@ export async function init(manifest) {
 
     const api = new SgToolApi({
         name: 'audio-transcribe',
-        version: { api: '0.1.14', ui: '0.1.14', content: '0.1.0' },
+        version: { api: '0.1.15', ui: '0.1.15', content: '0.1.0' },
         panelId: 'root',
         manifest: './manifest.json',
         skills: (manifest && manifest.skills) || {},
@@ -206,6 +207,30 @@ export async function init(manifest) {
         return source.addFiles({ files: [new File([r.blob], name, { type: r.blob.type || 'audio/wav' })] });
     }
 
+    // ── Live (near-realtime) transcription ────────────────────────────────────
+    const live = createLiveSession({
+        transcribe: (req) => transcribe.transcribeBlob(req),
+        getModel: () => state.getActiveModel(),
+        onUpdate: (u) => emit(AT_EVENTS.LIVE_UPDATE, u),
+        onError: (err) => emit(AT_EVENTS.LIVE_ERROR, { error: err.message }),
+    });
+    async function startLive() {
+        const r = await live.start();
+        emit(AT_EVENTS.LIVE_STARTED, { mimeType: r.mimeType });
+        return { live: true, mimeType: r.mimeType };
+    }
+    async function stopLive() {
+        const r = await live.stop();
+        let id = null;
+        if (r.blob && r.blob.size) {
+            id = state.addItem(r.blob, { name: r.name, mimeType: r.mimeType, origin: 'recording', durationMs: r.durationMs });
+            if (id && r.text) state.addVersion(id, { model: state.getActiveModel(), status: 'done', text: r.text });
+            if (id) emit(AT_EVENTS.ITEM_ADDED, { id });
+        }
+        emit(AT_EVENTS.LIVE_STOPPED, { id, text: r.text });
+        return { id, text: r.text, durationMs: r.durationMs };
+    }
+
     api
         .register('startRecording', source.startRecording, { async: true,  sanitiseParams: passthrough })
         .register('stopRecording',  source.stopRecording,  { async: true,  sanitiseParams: passthrough })
@@ -213,6 +238,8 @@ export async function init(manifest) {
         .register('loadSample',     loadSample,            { async: true,  sanitiseParams: passthrough })
         .register('synthesize',     ttsSynthesize,         { async: true,  sanitiseParams: passthrough })
         .register('addSynthesized', addSynthesized,        { async: true,  sanitiseParams: passthrough })
+        .register('startLive',      startLive,             { async: true,  sanitiseParams: passthrough })
+        .register('stopLive',       stopLive,              { async: true,  sanitiseParams: passthrough })
         .register('getItems',       source.getItems,       { async: false, sanitiseParams: passthrough })
         .register('getItem',        source.getItem,        { async: false, sanitiseParams: passthrough })
         .register('removeItem',     source.removeItem,     { async: false, sanitiseParams: passthrough })
@@ -235,7 +262,7 @@ export async function init(manifest) {
 
     api.activate();
 
-    if (host) await mountShell({ host, state, api, getRecordingStream: source.getRecordingStream });
+    if (host) await mountShell({ host, state, api, getRecordingStream: source.getRecordingStream, getLiveStream: () => live.getStream() });
 
     return api;
 }

@@ -41,12 +41,32 @@ export function encodeWav(float32, sampleRate) {
     return new Blob([buf], { type: 'audio/wav' });
 }
 
-/** base64 → Blob. */
-export function base64ToBlob(b64, mime = 'audio/wav') {
+/** base64 → bytes. */
+export function base64ToBytes(b64) {
     const bin = atob(b64);
     const u = new Uint8Array(bin.length);
     for (let i = 0; i < bin.length; i++) u[i] = bin.charCodeAt(i);
-    return new Blob([u], { type: mime });
+    return u;
+}
+
+/** base64 → Blob. */
+export function base64ToBlob(b64, mime = 'audio/wav') {
+    return new Blob([base64ToBytes(b64)], { type: mime });
+}
+
+/** Wrap raw little-endian 16-bit mono PCM bytes in a WAV container. */
+export function pcm16ToWav(pcmBytes, sampleRate = 24000) {
+    const dataLen = pcmBytes.length;
+    const buf = new ArrayBuffer(44 + dataLen);
+    const dv = new DataView(buf);
+    const ws = (o, s) => { for (let i = 0; i < s.length; i++) dv.setUint8(o + i, s.charCodeAt(i)); };
+    ws(0, 'RIFF'); dv.setUint32(4, 36 + dataLen, true); ws(8, 'WAVE');
+    ws(12, 'fmt '); dv.setUint32(16, 16, true); dv.setUint16(20, 1, true); dv.setUint16(22, 1, true);
+    dv.setUint32(24, sampleRate, true); dv.setUint32(28, sampleRate * 2, true);
+    dv.setUint16(32, 2, true); dv.setUint16(34, 16, true);
+    ws(36, 'data'); dv.setUint32(40, dataLen, true);
+    new Uint8Array(buf, 44).set(pcmBytes);
+    return new Blob([buf], { type: 'audio/wav' });
 }
 
 /** Local synthesis via Kokoro (sg-tts). @returns {Promise<{blob,durationMs,mode}>} */
@@ -59,9 +79,15 @@ export async function synthesizeLocal(text, opts = {}) {
     return { blob: encodeWav(data, sampleRate), durationMs: Math.round((durationSecs || 0) * 1000), mode: 'local' };
 }
 
-/** OpenRouter audio-output synthesis. Audio output REQUIRES stream:true and is
- *  delivered as incremental base64 `delta.audio.data` chunks (concatenated, then
- *  decoded once). @returns {Promise<{blob,durationMs,mode,generationId,transcript}>} */
+/** OpenAI gpt-audio streams 16-bit PCM at 24 kHz, mono. */
+const OPENROUTER_TTS_SAMPLE_RATE = 24000;
+
+/** OpenRouter audio-output synthesis. Audio output REQUIRES stream:true, and
+ *  when streaming the only supported `audio.format` is `pcm16` (NOT `wav`) — the
+ *  audio arrives as incremental base64 `delta.audio.data` PCM16 chunks, which we
+ *  concatenate (as bytes, per chunk — base64 strings can't be safely joined) and
+ *  wrap in a WAV header ourselves.
+ *  @returns {Promise<{blob,durationMs,mode,generationId,transcript}>} */
 export async function synthesizeOpenRouter(text, opts = {}) {
     const fetchImpl = opts.fetchImpl || (typeof fetch !== 'undefined' ? fetch : null);
     if (!fetchImpl) throw Object.assign(new Error('fetch unavailable'), { code: 'no-fetch' });
@@ -72,7 +98,8 @@ export async function synthesizeOpenRouter(text, opts = {}) {
         body: JSON.stringify({
             model: opts.model || TTS_OPENROUTER_DEFAULT_MODEL,
             modalities: ['text', 'audio'],
-            audio: { voice: opts.voice || TTS_VOICES.openrouter[0], format: 'wav' },
+            // 'pcm16' is the only streamable format ('wav' → HTTP 400 when stream=true).
+            audio: { voice: opts.voice || TTS_VOICES.openrouter[0], format: 'pcm16' },
             stream: true, // audio output requires streaming
             messages: [{ role: 'user', content: `Read this text aloud, verbatim, with no preamble:\n\n${text}` }],
         }),
@@ -85,7 +112,8 @@ export async function synthesizeOpenRouter(text, opts = {}) {
 
     const reader = res.body.getReader();
     const decoder = new TextDecoder();
-    let buf = '', b64 = '', transcript = '', generationId;
+    const pcmParts = []; let total = 0;
+    let buf = '', transcript = '', generationId;
     for (;;) {
         const { done, value } = await reader.read();
         if (done) break;
@@ -100,11 +128,17 @@ export async function synthesizeOpenRouter(text, opts = {}) {
             let obj; try { obj = JSON.parse(payload); } catch (_) { continue; }
             generationId = generationId || obj.id;
             const a = obj.choices && obj.choices[0] && obj.choices[0].delta && obj.choices[0].delta.audio;
-            if (a) { if (a.data) b64 += a.data; if (a.transcript) transcript += a.transcript; }
+            if (a) {
+                if (a.data) { const b = base64ToBytes(a.data); pcmParts.push(b); total += b.length; }
+                if (a.transcript) transcript += a.transcript;
+            }
         }
     }
-    if (!b64) throw Object.assign(new Error('No audio in the model response'), { code: 'tts-no-audio' });
-    return { blob: base64ToBlob(b64, 'audio/wav'), durationMs: 0, mode: 'openrouter', generationId, transcript };
+    if (!total) throw Object.assign(new Error('No audio in the model response'), { code: 'tts-no-audio' });
+    const pcm = new Uint8Array(total); let off = 0;
+    for (const p of pcmParts) { pcm.set(p, off); off += p.length; }
+    const durationMs = Math.round((total / 2) / OPENROUTER_TTS_SAMPLE_RATE * 1000);
+    return { blob: pcm16ToWav(pcm, OPENROUTER_TTS_SAMPLE_RATE), durationMs, mode: 'openrouter', generationId, transcript };
 }
 
 /**

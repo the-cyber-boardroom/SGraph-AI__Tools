@@ -23,6 +23,7 @@ import { mountModel } from './ui-model.js';
 import { mountBundle } from './ui-bundle.js';
 import { mountItemPanel } from './ui-item-panel.js';
 import { mountTts } from './ui-tts.js';
+import { mountLive } from './ui-live.js';
 import { mountChat } from './ui-chat.js';
 import { mountDebug } from './ui-debug.js';
 import { buildDevPanel } from '../dev-panel.js';
@@ -43,7 +44,7 @@ function panelScroll(panelEl) {
  * @param {{ host: HTMLElement, state: object, api: object, devPanel?: boolean }} opts
  * @returns {Promise<{ destroy: () => void }>}
  */
-export async function mountShell({ host, state, api, devPanel = true, getRecordingStream }) {
+export async function mountShell({ host, state, api, devPanel = true, getRecordingStream, getLiveStream }) {
     if (!host) return { destroy() {} };
 
     // Preserve the <sg-llm-request> engine the api entry appended to the host.
@@ -83,6 +84,7 @@ export async function mountShell({ host, state, api, devPanel = true, getRecordi
                 type: 'stack', id: 's-left', activeTab: 0,
                 tabs: [
                     { type: 'tab', id: 't-source', title: '🎙 Source',       tag: 'div', locked: false, closable: false },
+                    { type: 'tab', id: 't-live',   title: '🔴 Live',         tag: 'div', locked: false, closable: false },
                     { type: 'tab', id: 't-tts',    title: '🗣 Voice',        tag: 'div', locked: false, closable: false },
                     { type: 'tab', id: 't-model',  title: '🎚 Model & Cost',  tag: 'div', locked: false, closable: false },
                     { type: 'tab', id: 't-bundle', title: '📦 Bundle & Send', tag: 'div', locked: false, closable: false },
@@ -100,6 +102,7 @@ export async function mountShell({ host, state, api, devPanel = true, getRecordi
     });
 
     const sourceWrap = panelScroll(layout.getPanelElement('t-source'));
+    const liveWrap   = panelScroll(layout.getPanelElement('t-live'));
     const ttsWrap    = panelScroll(layout.getPanelElement('t-tts'));
     const modelWrap  = panelScroll(layout.getPanelElement('t-model'));
     const bundleWrap = panelScroll(layout.getPanelElement('t-bundle'));
@@ -170,6 +173,7 @@ export async function mountShell({ host, state, api, devPanel = true, getRecordi
 
     const m = [
         mountSource({ root: sourceWrap, state, api, getRecordingStream }),
+        mountLive({ root: liveWrap, api, getLiveStream }),
         mountTts({ root: ttsWrap, api }),
         mountModel({ root: modelMount, state, api }),
         mountBundle({ root: bundleWrap, state, api }),

@@ -29,6 +29,14 @@ export const AT_EVENTS = Object.freeze({
     TRANSCRIBE_ERROR:   'at:transcribe:error',
     /** One LLM request/response (provenance). detail: the exchange record. */
     LLM_EXCHANGE:       'at:llm:exchange',
+    /** Live transcription started. detail: { mimeType } */
+    LIVE_STARTED:       'at:live:started',
+    /** Live transcript refined. detail: { text, elapsedMs, final } */
+    LIVE_UPDATE:        'at:live:update',
+    /** Live transcription stopped (item added). detail: { id, text } */
+    LIVE_STOPPED:       'at:live:stopped',
+    /** Live transcription error. detail: { error } */
+    LIVE_ERROR:         'at:live:error',
     /** Batch transcription started. detail: { total } */
     BATCH_STARTED:      'at:batch:started',
     /** Batch progress (one item finished). detail: { done, total } */

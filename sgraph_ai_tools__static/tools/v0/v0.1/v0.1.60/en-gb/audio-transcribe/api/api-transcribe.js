@@ -232,5 +232,23 @@ export function buildTranscribeMethods({ state, emit, sendToLlm, getActiveModel,
         return { cancelled };
     }
 
-    return { setModel, transcribeItem, transcribeModels, getTranscript, getCostSummary, cancelItem };
+    /**
+     * Transcribe a RAW blob (not a queue item) — used by Live mode's polling
+     * loop. No versions/state, just text. @returns {Promise<{text,generationId?}>}
+     * @param {{ blob: Blob, name?: string, model: string }} params
+     */
+    async function transcribeBlob(params = {}) {
+        const model = params.model || (getActiveModel && getActiveModel()) || '';
+        if (!model) throw Object.assign(new Error('No model selected'), { code: 'no-model' });
+        const audio = await toSupportedDataUrl(params.blob, params.name || 'live.webm');
+        const messages = buildMessages({ ...audio, name: params.name || 'live' });
+        const res = (await sendToLlm({ messages, model })) || {};
+        return {
+            text: (res.content != null ? String(res.content) : '').trim(),
+            generationId: res.generationId,
+            promptTokens: res.promptTokens, completionTokens: res.completionTokens,
+        };
+    }
+
+    return { setModel, transcribeItem, transcribeModels, transcribeBlob, getTranscript, getCostSummary, cancelItem };
 }

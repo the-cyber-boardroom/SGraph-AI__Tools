@@ -4,7 +4,7 @@
     "slug": "audio-transcribe",
     "description": "Record from the mic OR drag/drop many local audio files (including WhatsApp .opus voice notes), then transcribe each to text using curated OpenRouter audio models — entirely in your browser. Batch queue with per-row status and retry, bundle the session's audio and/or transcripts into a .zip, and optionally send an encrypted share via SG/Send.",
     "icon": "🎙",
-    "version": "0.1.14",
+    "version": "0.1.15",
     "status": "alpha",
     "category": "media",
     "keywords": [
@@ -196,6 +196,12 @@
             "addSynthesized": {
                 "description": "Synthesise speech and drop it into the queue (round-trip: synth -> transcribe). Same params as synthesize plus {name?}."
             },
+            "startLive": {
+                "description": "Live (near-realtime) transcribe: open the mic and transcribe the growing take every couple of seconds (pseudo-streaming, refine-in-place) using the active model + connected key. Emits at:live:started {mimeType} then at:live:update {text,elapsedMs,final} each poll. Returns {live:true, mimeType}."
+            },
+            "stopLive": {
+                "description": "Stop live transcribe: one final pass, then save the take (with transcript) as a queue item. Emits at:live:update {final:true}, at:item:added, at:live:stopped {id,text}. Returns {id, text, durationMs}."
+            },
             "getItems": {
                 "description": "Serialisable snapshot of the whole queue (no Blob): id, name, sizeBytes, mimeType, durationMs, origin, model, status, transcript?."
             },
@@ -304,6 +310,26 @@
                 "name": "at:transcribe:error",
                 "when": "transcribeItem rejects",
                 "detail": "{ id, error }"
+            },
+            {
+                "name": "at:live:started",
+                "when": "startLive resolves",
+                "detail": "{ mimeType }"
+            },
+            {
+                "name": "at:live:update",
+                "when": "live poll / final pass",
+                "detail": "{ text, elapsedMs, final }"
+            },
+            {
+                "name": "at:live:stopped",
+                "when": "stopLive resolves",
+                "detail": "{ id, text }"
+            },
+            {
+                "name": "at:live:error",
+                "when": "a live poll transcription fails",
+                "detail": "{ error }"
             },
             {
                 "name": "at:batch:started",

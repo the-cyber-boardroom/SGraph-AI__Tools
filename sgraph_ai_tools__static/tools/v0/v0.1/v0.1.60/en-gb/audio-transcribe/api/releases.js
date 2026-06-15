@@ -16,6 +16,17 @@
 /** @type {ReadonlyArray<Release>} */
 export const RELEASES = Object.freeze([
     {
+        version: '0.1.15',
+        date: '2026-06-15',
+        summary: 'Live (near-realtime) transcribe — the "🔴 Live" tab; cloud-TTS streaming-format fix.',
+        changes: [
+            'New: a "🔴 Live" tab — one big button to start talking. It captures the mic and transcribes the growing take every couple of seconds, so the transcript appears and refines as you speak (a live waveform + elapsed timer show alongside). On stop it does one final pass and saves the take (with its transcript) to the Queue.',
+            'Client-side, no backend: this is pseudo-streaming (growing-window, refine-in-place) reusing the existing isolated OpenRouter transport and your saved key + active model. True chunk+merge streaming is a later phase (see the architect plan).',
+            'API: startLive() and stopLive() (stopLive resolves { id, text, durationMs } — the id is the new Queue item). Events: at:live:started / at:live:update / at:live:stopped / at:live:error.',
+            "Fixed: cloud (OpenRouter) text-to-speech still failed with HTTP 400 — when stream=true the audio.format 'wav' is unsupported. It now requests 'pcm16' (the streamable format) and wraps the streamed PCM chunks in a WAV header in-browser (24 kHz mono).",
+        ],
+    },
+    {
         version: '0.1.14',
         date: '2026-06-15',
         summary: 'Chat inside each recording + chat costs.',
