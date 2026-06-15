@@ -49,6 +49,7 @@ export function mountItemPanel({ root, id, state, api }) {
                 <label for="at-item-model-${esc(id)}">Model</label>
                 <select class="at-select" id="at-item-model-${esc(id)}" data-item-model>${modelOpts}</select>
                 <button type="button" class="at-btn primary" data-item-retx>Re-transcribe</button>
+                <button type="button" class="at-btn small danger" data-item-stop hidden>■ Stop</button>
             </div>
             <h3 class="at-item__txh">Transcript</h3>
             <div class="at-item__tx" data-item-tx></div>
@@ -81,6 +82,7 @@ export function mountItemPanel({ root, id, state, api }) {
     const costEl  = root.querySelector('[data-item-cost]');
     const modelSel = root.querySelector('[data-item-model]');
     const retxBtn = root.querySelector('[data-item-retx]');
+    const stopBtn = root.querySelector('[data-item-stop]');
     const txEl    = root.querySelector('[data-item-tx]');
     const copyBtn = root.querySelector('[data-item-copy]');
     const dlBtn   = root.querySelector('[data-item-dl]');
@@ -150,7 +152,15 @@ export function mountItemPanel({ root, id, state, api }) {
         if (modelSel.value !== it.model) modelSel.value = it.model;
         const busy = it.status === 'transcribing';
         retxBtn.disabled = busy;
-        retxBtn.textContent = busy ? 'Transcribing…' : 'Re-transcribe';
+        if (busy) {
+            const v = (it.versions || []).find((x) => x.status === 'transcribing');
+            const secs = v && v.ts ? Math.round((Date.now() - v.ts) / 1000) : 0;
+            retxBtn.textContent = `Transcribing… ${secs}s`;
+        } else {
+            retxBtn.textContent = 'Re-transcribe';
+        }
+        stopBtn.hidden = !busy;
+        ensureTicker(busy);
         const usage = usageLine(it);
         costEl.hidden = !usage;
         costEl.textContent = usage;
@@ -160,11 +170,17 @@ export function mountItemPanel({ root, id, state, api }) {
         renderVersions(it);
     }
 
+    let ticker = null;
+    function ensureTicker(busy) {
+        if (busy && !ticker) ticker = setInterval(() => update(), 500);
+        else if (!busy && ticker) { clearInterval(ticker); ticker = null; }
+    }
     function onModelChange() { api.setModel({ id, model: modelSel.value }); }
     async function onRetx() {
         retxBtn.disabled = true; retxBtn.textContent = 'Transcribing…';
         try { await api.transcribeItem({ id, model: modelSel.value }); } catch (_) { /* surfaced via state */ }
     }
+    function onStop() { try { api.cancelItem({ id }); } catch (_) { /* */ } }
     function onCopy() { const it = state.getItem(id); if (it && it.transcript && navigator.clipboard) navigator.clipboard.writeText(it.transcript).catch(() => {}); }
     function onDl() {
         const it = state.getItem(id); if (!it || !it.transcript) return;
@@ -181,6 +197,7 @@ export function mountItemPanel({ root, id, state, api }) {
     modelSel.value = it0.model;
     modelSel.addEventListener('change', onModelChange);
     retxBtn.addEventListener('click', onRetx);
+    stopBtn.addEventListener('click', onStop);
     copyBtn.addEventListener('click', onCopy);
     dlBtn.addEventListener('click', onDl);
     multiBtn.addEventListener('click', onMulti);
@@ -190,6 +207,7 @@ export function mountItemPanel({ root, id, state, api }) {
 
     return {
         destroy() {
+            if (ticker) clearInterval(ticker);
             state.removeEventListener('change', onChange);
             if (objUrl) { URL.revokeObjectURL(objUrl); objUrl = null; }
             root.innerHTML = '';

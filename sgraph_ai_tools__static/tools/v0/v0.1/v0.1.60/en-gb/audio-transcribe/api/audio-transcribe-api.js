@@ -22,6 +22,7 @@ import { listModels, DEFAULT_MODEL } from './audio-models.js';
 import { fetchGenerationCostDeferred } from './openrouter-cost.js';
 import { RELEASES } from './releases.js';
 import { buildSampleFile } from './samples.js';
+import { synthesize } from './tts.js';
 import { mountShell } from '../ui/ui-shell.js';
 
 const passthrough = (p) => p;
@@ -71,13 +72,21 @@ function makeIsolatedTransport(host, getApiKey) {
         function cleanup() {
             cell.removeEventListener(SGL_LLM.REQUEST_COMPLETE, onComplete);
             cell.removeEventListener(SGL_LLM.REQUEST_ERROR, onError);
+            cell.removeEventListener(SGL_LLM.REQUEST_CANCEL, onCancel);
             try { host.removeChild(cell); } catch (_) { /* */ }
         }
         const onComplete = (e) => { if (done) return; done = true; const r = readComplete(e); cleanup(); resolve(r); };
         const onError = (e) => { if (done) return; done = true; cleanup(); reject(Object.assign(
             new Error((e.detail && e.detail.error) || 'LLM request failed'), { code: 'llm-error' })); };
+        const onCancel = () => { if (done) return; done = true; cleanup(); reject(Object.assign(new Error('Cancelled'), { code: 'cancelled' })); };
         cell.addEventListener(SGL_LLM.REQUEST_COMPLETE, onComplete);
         cell.addEventListener(SGL_LLM.REQUEST_ERROR, onError);
+        cell.addEventListener(SGL_LLM.REQUEST_CANCEL, onCancel);
+
+        // Let the caller cancel this in-flight request (aborts the fetch).
+        if (typeof req.registerCancel === 'function') {
+            req.registerCancel(() => { if (!done) cell.dispatchEvent(new CustomEvent(SGL_LLM.CANCEL, { detail: {}, bubbles: true, composed: true })); });
+        }
 
         // Configure this isolated engine, then send. Non-streaming so the
         // response carries the full rawResponse (generation id + usage).
@@ -98,7 +107,7 @@ export async function init(manifest) {
 
     const api = new SgToolApi({
         name: 'audio-transcribe',
-        version: { api: '0.1.9', ui: '0.1.9', content: '0.1.0' },
+        version: { api: '0.1.11', ui: '0.1.11', content: '0.1.0' },
         panelId: 'root',
         manifest: './manifest.json',
         skills: (manifest && manifest.skills) || {},
@@ -156,12 +165,15 @@ export async function init(manifest) {
         return { ok: true, present: !!apiKey, model: r.model };
     }
 
-    // Provenance log: one record per LLM request/response (newest first).
+    // Provenance log: one record per LLM exchange (newest first), keyed by vid so
+    // the 'pending' entry logged at request time is updated in place on resolve.
     const exchanges = [];
     const recordExchange = (x) => {
-        exchanges.unshift(x);
-        if (exchanges.length > 100) exchanges.length = 100;
-        emit(AT_EVENTS.LLM_EXCHANGE, x);
+        const i = x.vid ? exchanges.findIndex((e) => e.vid === x.vid) : -1;
+        let rec;
+        if (i >= 0) { rec = { ...exchanges[i], ...x }; exchanges[i] = rec; }
+        else { rec = x; exchanges.unshift(rec); if (exchanges.length > 100) exchanges.length = 100; }
+        emit(AT_EVENTS.LLM_EXCHANGE, rec);
     };
 
     const source = buildSourceMethods({ state, emit });
@@ -182,11 +194,25 @@ export async function init(manifest) {
         return source.addFiles({ files: [file] });
     }
 
+    /** Text-to-speech (local Kokoro or OpenRouter). Returns metadata (no blob). */
+    async function ttsSynthesize(params = {}) {
+        const r = await synthesize({ ...params, apiKey: currentApiKey });
+        return { mode: r.mode, durationMs: r.durationMs, sizeBytes: r.blob.size, generationId: r.generationId };
+    }
+    /** Synthesise speech and drop it into the queue (round-trip: synth → transcribe). */
+    async function addSynthesized(params = {}) {
+        const r = await synthesize({ ...params, apiKey: currentApiKey });
+        const name = `${(params.name || 'voice-' + Date.now())}.wav`;
+        return source.addFiles({ files: [new File([r.blob], name, { type: r.blob.type || 'audio/wav' })] });
+    }
+
     api
         .register('startRecording', source.startRecording, { async: true,  sanitiseParams: passthrough })
         .register('stopRecording',  source.stopRecording,  { async: true,  sanitiseParams: passthrough })
         .register('addFiles',       source.addFiles,       { async: true,  sanitiseParams: fileSanitiser })
         .register('loadSample',     loadSample,            { async: true,  sanitiseParams: passthrough })
+        .register('synthesize',     ttsSynthesize,         { async: true,  sanitiseParams: passthrough })
+        .register('addSynthesized', addSynthesized,        { async: true,  sanitiseParams: passthrough })
         .register('getItems',       source.getItems,       { async: false, sanitiseParams: passthrough })
         .register('getItem',        source.getItem,        { async: false, sanitiseParams: passthrough })
         .register('removeItem',     source.removeItem,     { async: false, sanitiseParams: passthrough })
@@ -198,6 +224,7 @@ export async function init(manifest) {
         .register('setApiKey',      setApiKey,             { async: true,  sanitiseParams: maskKey })
         .register('getExchanges',   () => exchanges.slice(0, 50), { async: false, sanitiseParams: passthrough })
         .register('transcribeItem', transcribe.transcribeItem, { async: true, sanitiseParams: passthrough })
+        .register('cancelItem',     transcribe.cancelItem,     { async: false, sanitiseParams: passthrough })
         .register('transcribeModels', transcribe.transcribeModels, { async: true, sanitiseParams: passthrough })
         .register('getCostSummary', transcribe.getCostSummary, { async: false, sanitiseParams: passthrough })
         .register('transcribeAll',  batch.transcribeAll,   { async: true,  sanitiseParams: passthrough })

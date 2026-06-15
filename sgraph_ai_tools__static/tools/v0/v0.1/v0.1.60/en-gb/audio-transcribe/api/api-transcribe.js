@@ -35,6 +35,8 @@ const TRANSCRIBE_PROMPT =
  */
 export function buildTranscribeMethods({ state, emit, sendToLlm, getActiveModel, fetchCost, onExchange }) {
     const recordExchange = typeof onExchange === 'function' ? onExchange : () => {};
+    /** vid -> cancel fn for in-flight requests (registered by the transport). */
+    const cancellers = new Map();
     /**
      * Set the active model, or (with `id`) one item's model.
      * @param {{ model: string, id?: string }} params
@@ -83,7 +85,10 @@ export function buildTranscribeMethods({ state, emit, sendToLlm, getActiveModel,
      */
     async function runVersion(item, model) {
         const vid = state.addVersion(item.id, { model, status: 'transcribing' });
+        const reqInfo = { prompt: TRANSCRIBE_PROMPT, audio: { name: item.name, mime: item.mimeType, sizeBytes: item.sizeBytes } };
         emit(AT_EVENTS.TRANSCRIBE_STARTED, { id: item.id, vid });
+        // Live provenance: log the request immediately; updated on resolve/cancel.
+        recordExchange({ ts: Date.now(), itemId: item.id, itemName: item.name, vid, model, status: 'pending', request: reqInfo });
         try {
             emit(AT_EVENTS.TRANSCRIBE_PROGRESS, { id: item.id, vid, stage: 'encoding' });
             const audio = await toSupportedDataUrl(item.blob, item.name);
@@ -91,7 +96,7 @@ export function buildTranscribeMethods({ state, emit, sendToLlm, getActiveModel,
 
             emit(AT_EVENTS.TRANSCRIBE_PROGRESS, { id: item.id, vid, stage: 'sending' });
             const t0 = Date.now();
-            const res = (await sendToLlm({ messages, model })) || {};
+            const res = (await sendToLlm({ messages, model, registerCancel: (fn) => cancellers.set(vid, fn) })) || {};
             const text = (res.content != null ? String(res.content) : '').trim();
             const latencyMs = res.latencyMs || (Date.now() - t0);
             const generationId = res.generationId || null;
@@ -104,8 +109,7 @@ export function buildTranscribeMethods({ state, emit, sendToLlm, getActiveModel,
             });
             emit(AT_EVENTS.TRANSCRIBE_COMPLETE, { id: item.id, vid, model });
             recordExchange({
-                ts: Date.now(), itemId: item.id, itemName: item.name, vid, model, status: 'done',
-                request: { prompt: TRANSCRIBE_PROMPT, audio: { name: item.name, mime: item.mimeType, sizeBytes: item.sizeBytes } },
+                ts: Date.now(), itemId: item.id, itemName: item.name, vid, model, status: 'done', request: reqInfo,
                 response: { content: text, promptTokens: res.promptTokens, completionTokens: res.completionTokens, latencyMs, generationId, costUsd: (typeof res.responseCost === 'number' ? res.responseCost : undefined) },
                 raw: res.raw || null,
             });
@@ -118,13 +122,13 @@ export function buildTranscribeMethods({ state, emit, sendToLlm, getActiveModel,
             }
             return { ok: true, vid, text, model, latencyMs, generationId };
         } catch (err) {
-            state.updateVersion(item.id, vid, { status: 'error', error: err.message });
-            emit(AT_EVENTS.TRANSCRIBE_ERROR, { id: item.id, vid, error: err.message });
-            recordExchange({
-                ts: Date.now(), itemId: item.id, itemName: item.name, vid, model, status: 'error', error: err.message,
-                request: { prompt: TRANSCRIBE_PROMPT, audio: { name: item.name, mime: item.mimeType, sizeBytes: item.sizeBytes } },
-            });
-            return { ok: false, vid, error: err.message };
+            const cancelled = !!(err && err.code === 'cancelled');
+            state.updateVersion(item.id, vid, { status: cancelled ? 'cancelled' : 'error', error: err.message });
+            emit(AT_EVENTS.TRANSCRIBE_ERROR, { id: item.id, vid, error: err.message, cancelled });
+            recordExchange({ ts: Date.now(), itemId: item.id, itemName: item.name, vid, model, status: cancelled ? 'cancelled' : 'error', error: err.message, request: reqInfo });
+            return { ok: false, vid, error: err.message, cancelled };
+        } finally {
+            cancellers.delete(vid);
         }
     }
 
@@ -210,5 +214,23 @@ export function buildTranscribeMethods({ state, emit, sendToLlm, getActiveModel,
         return { sessionUsd, sessionPending, perItem };
     }
 
-    return { setModel, transcribeItem, transcribeModels, getTranscript, getCostSummary };
+    /**
+     * Cancel any in-flight transcription(s) for one item (aborts the fetch).
+     * @param {{ id: string }} params
+     * @returns {{ cancelled: number }}
+     */
+    function cancelItem(params = {}) {
+        const it = state.getRawItem(params.id);
+        if (!it) return { cancelled: 0 };
+        let cancelled = 0;
+        for (const v of (it.versions || [])) {
+            if (v.status === 'transcribing') {
+                const c = cancellers.get(v.vid);
+                if (c) { try { c(); cancelled += 1; } catch (_) { /* */ } }
+            }
+        }
+        return { cancelled };
+    }
+
+    return { setModel, transcribeItem, transcribeModels, getTranscript, getCostSummary, cancelItem };
 }
