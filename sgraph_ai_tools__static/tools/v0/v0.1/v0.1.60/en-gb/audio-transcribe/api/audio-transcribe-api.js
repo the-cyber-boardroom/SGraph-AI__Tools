@@ -108,7 +108,7 @@ export async function init(manifest) {
 
     const api = new SgToolApi({
         name: 'audio-transcribe',
-        version: { api: '0.1.15', ui: '0.1.15', content: '0.1.0' },
+        version: { api: '0.1.17', ui: '0.1.17', content: '0.1.0' },
         panelId: 'root',
         manifest: './manifest.json',
         skills: (manifest && manifest.skills) || {},
@@ -207,14 +207,70 @@ export async function init(manifest) {
         return source.addFiles({ files: [new File([r.blob], name, { type: r.blob.type || 'audio/wav' })] });
     }
 
+    // Headless chat: ask a question of the transcripts WITHOUT the UI. The system
+    // prompt is built from the done transcripts (same context as the Chat tab);
+    // returns the reply + generationId + usage so embedders can read cost. This
+    // makes chat scriptable/embeddable, not UI-only (vault dev brief, Finding 5).
+    const CHAT_MODEL_DEFAULT = 'google/gemini-3.5-flash';
+    /**
+     * @param {{ text: string, model?: string, context?: string }} params
+     * @returns {Promise<{ text: string, model: string, generationId?: string, usage: object }>}
+     */
+    async function ask(params = {}) {
+        const text = (params.text || '').trim();
+        if (!text) throw Object.assign(new Error('ask requires { text }'), { code: 'no-text' });
+        const model = params.model || CHAT_MODEL_DEFAULT;
+        const ctx = params.context != null ? params.context : state.getItems()
+            .filter((i) => i.status === 'done' && i.transcript)
+            .map((it, i) => `### Transcript ${i + 1} — ${it.name}\n${it.transcript}`).join('\n\n');
+        const messages = [];
+        if (ctx) messages.push({ role: 'system', content: `You are answering questions about the following audio transcript(s).\n\n${ctx}` });
+        messages.push({ role: 'user', content: text });
+        const res = (await busTransport({ messages, model })) || {};
+        return {
+            text: (res.content != null ? String(res.content) : '').trim(), model,
+            generationId: res.generationId,
+            usage: { promptTokens: res.promptTokens, completionTokens: res.completionTokens, costUsd: (typeof res.responseCost === 'number' ? res.responseCost : undefined) },
+        };
+    }
+
     // ── Live (near-realtime) transcription ────────────────────────────────────
+    // Each live poll re-sends the GROWING take, so every segment is a real,
+    // separately-billed OpenRouter request. We surface each one (size, latency,
+    // transcript, cost) on the LIVE_SEGMENT event AND in the Debug provenance log
+    // (keyed by a per-run id + seq), and resolve the exact charged cost a couple
+    // of seconds later by generation id — same as a normal transcription.
+    let liveRunId = 0;
+    function onLiveSegment(s) {
+        emit(AT_EVENTS.LIVE_SEGMENT, s);
+        const vid = `live-${liveRunId}-${s.seq}`;
+        const costPending = !!(s.ok && s.generationId && typeof s.costUsd !== 'number');
+        recordExchange({
+            ts: Date.now(), vid, kind: 'live', model: state.getActiveModel(),
+            itemName: s.final ? '🔴 live · final' : `🔴 live · segment ${s.seq}`,
+            status: s.ok ? 'done' : 'error', error: s.error,
+            request: { kind: 'live', audio: { name: `live segment ${s.seq}`, mime: 'audio', sizeBytes: s.sizeBytes }, elapsedMs: s.elapsedMs },
+            response: s.ok ? { content: s.text, promptTokens: s.promptTokens, completionTokens: s.completionTokens, latencyMs: s.latencyMs, generationId: s.generationId, costUsd: s.costUsd, costPending } : undefined,
+        });
+        if (costPending) {
+            Promise.resolve(fetchGenerationCostDeferred(s.generationId, currentApiKey)).then((cost) => {
+                emit(AT_EVENTS.LIVE_SEGMENT, { ...s, costUsd: (cost != null ? cost : s.costUsd), costPending: false });
+                recordExchange({ ts: Date.now(), vid, kind: 'live', model: state.getActiveModel(),
+                    itemName: s.final ? '🔴 live · final' : `🔴 live · segment ${s.seq}`, status: 'done',
+                    request: { kind: 'live', audio: { name: `live segment ${s.seq}`, mime: 'audio', sizeBytes: s.sizeBytes }, elapsedMs: s.elapsedMs },
+                    response: { content: s.text, promptTokens: s.promptTokens, completionTokens: s.completionTokens, latencyMs: s.latencyMs, generationId: s.generationId, costUsd: (cost != null ? cost : s.costUsd), costPending: false } });
+            }).catch(() => {});
+        }
+    }
     const live = createLiveSession({
         transcribe: (req) => transcribe.transcribeBlob(req),
         getModel: () => state.getActiveModel(),
         onUpdate: (u) => emit(AT_EVENTS.LIVE_UPDATE, u),
         onError: (err) => emit(AT_EVENTS.LIVE_ERROR, { error: err.message }),
+        onSegment: onLiveSegment,
     });
     async function startLive() {
+        liveRunId += 1;
         const r = await live.start();
         emit(AT_EVENTS.LIVE_STARTED, { mimeType: r.mimeType });
         return { live: true, mimeType: r.mimeType };
@@ -238,6 +294,7 @@ export async function init(manifest) {
         .register('loadSample',     loadSample,            { async: true,  sanitiseParams: passthrough })
         .register('synthesize',     ttsSynthesize,         { async: true,  sanitiseParams: passthrough })
         .register('addSynthesized', addSynthesized,        { async: true,  sanitiseParams: passthrough })
+        .register('ask',            ask,                   { async: true,  sanitiseParams: passthrough })
         .register('startLive',      startLive,             { async: true,  sanitiseParams: passthrough })
         .register('stopLive',       stopLive,              { async: true,  sanitiseParams: passthrough })
         .register('getItems',       source.getItems,       { async: false, sanitiseParams: passthrough })

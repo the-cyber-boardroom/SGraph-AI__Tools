@@ -37,10 +37,12 @@ export function mountDebug({ root, api }) {
     function card(x) {
         const r = x.response || {};
         const tok = (r.promptTokens || 0) + (r.completionTokens || 0);
-        const cost = typeof r.costUsd === 'number' ? `💰 $${r.costUsd.toFixed(4)}` : '';
+        const cost = typeof r.costUsd === 'number' ? `💰 $${r.costUsd.toFixed(4)}` : (r.costPending ? '💰 …' : '');
         const meta = [cost, tok ? `${tok} tok` : '', r.latencyMs ? `${(r.latencyMs / 1000).toFixed(1)}s` : ''].filter(Boolean).join(' · ');
         const req = x.request || {};
-        const audio = (req.audio && `${req.audio.name} (${req.audio.mime || 'audio'}${req.audio.sizeBytes ? ', ' + fmtSize(req.audio.sizeBytes) : ''})`) || '—';
+        const live = x.kind === 'live';
+        const elapsed = live && req.elapsedMs ? ` · @${(req.elapsedMs / 1000).toFixed(1)}s` : '';
+        const audio = (req.audio && `${req.audio.name} (${req.audio.mime || 'audio'}${req.audio.sizeBytes ? ', ' + fmtSize(req.audio.sizeBytes) : ''})${elapsed}`) || '—';
         let body;
         if (x.status === 'pending') { const e = x.ts ? Math.round((Date.now() - x.ts) / 1000) : 0; body = `<span class="at-muted">⏳ in flight · ${e}s…</span>`; }
         else if (x.status === 'cancelled') body = '<span class="at-muted">⊘ cancelled</span>';
@@ -52,6 +54,7 @@ export function mountDebug({ root, api }) {
                 <div class="at-xch__head">
                     <span class="at-xch__time">${esc(fmtTime(x.ts))}</span>
                     <span class="at-xch__model">${esc(x.model)}</span>
+                    ${live ? '<span class="at-chip at-chip--live">🔴 live</span>' : ''}
                     <span class="at-chip at-chip--${esc(x.status)}">${esc(x.status)}</span>
                     <span class="at-xch__file">${esc(x.itemName || '')}</span>
                     <span class="at-xch__meta">${esc(meta)}</span>

@@ -35,7 +35,15 @@ export const CACHE_NAME = 'sg-wasm-v1';
  * @returns {boolean}
  */
 export function isCacheApiAvailable() {
-    return typeof caches !== 'undefined' && caches && typeof caches.open === 'function';
+    // NB: a bare `typeof caches` THROWS (not returns 'undefined') inside a
+    // sandboxed srcdoc frame without allow-same-origin — e.g. a vault-powered
+    // website host — so the probe MUST be wrapped: treat storage as best-effort,
+    // never required. Without this guard the throw aborts callers' boot.
+    try {
+        return typeof caches !== 'undefined' && caches && typeof caches.open === 'function';
+    } catch (_) {
+        return false;
+    }
 }
 
 /**

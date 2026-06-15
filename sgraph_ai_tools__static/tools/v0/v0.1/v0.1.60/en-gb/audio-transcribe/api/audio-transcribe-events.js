@@ -33,6 +33,10 @@ export const AT_EVENTS = Object.freeze({
     LIVE_STARTED:       'at:live:started',
     /** Live transcript refined. detail: { text, elapsedMs, final } */
     LIVE_UPDATE:        'at:live:update',
+    /** One live segment was sent to the server + answered (then again when its
+     *  exact cost resolves). detail: { seq, sizeBytes, elapsedMs, latencyMs,
+     *  text, final, ok, error?, generationId?, costUsd?, costPending? } */
+    LIVE_SEGMENT:       'at:live:segment',
     /** Live transcription stopped (item added). detail: { id, text } */
     LIVE_STOPPED:       'at:live:stopped',
     /** Live transcription error. detail: { error } */

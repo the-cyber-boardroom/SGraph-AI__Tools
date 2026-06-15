@@ -501,6 +501,49 @@ await test('releases changelog is well-formed, newest-first, with unique semver 
     assert.equal(currentVersion(), RELEASES[0].version, 'currentVersion() is the newest entry');
 });
 
+// ── Read-API + cost contract (vault dev brief: Findings 1, 4, 6) ───────────────
+// getItems/getItem must reflect live state as an ARRAY (the shape embedders
+// rely on); transcribeItem must surface generationId + usage so an embedder can
+// show real per-transcript cost. This is the CI contract guard the brief asks for.
+await test('contract: addFiles → getItems(array) → transcribeItem(usage+genId) → getItem(live)', async () => {
+    const events = [];
+    const emit = (n, d) => events.push({ n, d });
+    const state = createState({ defaultModel: DEFAULT_MODEL });
+    state.setActiveModel(DEFAULT_MODEL);
+    const source = buildSourceMethods({ state, emit });
+    const sendToLlm = async () => ({ content: 'hi there', latencyMs: 5, generationId: 'gen-X', promptTokens: 11, completionTokens: 4, responseCost: 0.00012 });
+    const transcribe = buildTranscribeMethods({ state, emit, sendToLlm, getActiveModel: () => state.getActiveModel() });
+
+    const add = await source.addFiles({ files: [fakeFile('a.mp3', 'audio/mpeg')] });
+    const id = add.added[0].id;
+    assert.ok(id, 'addFiles returns the new id');
+
+    const items = source.getItems();
+    assert.ok(Array.isArray(items) && items.length === 1, 'getItems is a non-empty ARRAY reflecting live state');
+    assert.equal(items[0].id, id, 'the item is present');
+    assert.equal(source.getItem({ id }).name, 'a.mp3', 'getItem reflects live state (not null)');
+
+    const r = await transcribe.transcribeItem({ id });
+    assert.equal(r.generationId, 'gen-X', 'transcribeItem surfaces generationId');
+    assert.ok(r.usage && r.usage.promptTokens === 11 && r.usage.completionTokens === 4, 'transcribeItem surfaces usage tokens');
+    assert.equal(r.usage.costUsd, 0.00012, 'inline cost surfaced in usage');
+    assert.equal(source.getItem({ id }).status, 'done', 'getItem shows done after transcribe');
+});
+
+// ── Vault-safety: sg-wasm-cache must degrade, never throw (brief Finding 3) ────
+await test('sg-wasm-cache: isCacheApiAvailable returns false (never throws) when `caches` throws', async () => {
+    const { isCacheApiAvailable } = await import(`file://${CORE}/sg-wasm-cache/v0/v0.1/v0.1.0/sg-wasm-cache.js`);
+    assert.equal(isCacheApiAvailable(), false, 'no Cache API in Node → false');
+    // Simulate a sandboxed srcdoc frame: touching `caches` throws SecurityError.
+    const had = Object.getOwnPropertyDescriptor(globalThis, 'caches');
+    Object.defineProperty(globalThis, 'caches', { configurable: true, get() { throw new Error('SecurityError: sandboxed'); } });
+    try {
+        assert.equal(isCacheApiAvailable(), false, 'guarded probe returns false instead of throwing');
+    } finally {
+        if (had) Object.defineProperty(globalThis, 'caches', had); else delete globalThis.caches;
+    }
+});
+
 // ── Live (near-realtime) transcribe ────────────────────────────────────────────
 // createLiveSession captures the mic via MediaRecorder and transcribes the
 // growing take on an interval (refine-in-place), then a final pass on stop.
@@ -532,11 +575,13 @@ await test('createLiveSession: growing-window poll refines, stop does a final pa
     const media = installMediaMocks();
     try {
         const updates = [];
+        const segments = [];
         let calls = 0;
         const session = createLiveSession({
-            transcribe: async ({ blob, model }) => { calls += 1; assert.ok(blob.size > 0 && model, 'transcribe gets a non-empty blob + model'); return { text: `take ${calls}` }; },
+            transcribe: async ({ blob, model }) => { calls += 1; assert.ok(blob.size > 0 && model, 'transcribe gets a non-empty blob + model'); return { text: `take ${calls}`, generationId: `g${calls}`, costUsd: 0.0002 }; },
             getModel: () => 'google/gemini-3.5-flash',
             onUpdate: (u) => updates.push(u),
+            onSegment: (s) => segments.push(s),
             intervalMs: 25,
         });
         const started = await session.start();
@@ -550,6 +595,11 @@ await test('createLiveSession: growing-window poll refines, stop does a final pa
         assert.equal(last.final, true, 'the last update is the final pass');
         assert.equal(r.text, last.text, 'stop() returns the final transcript');
         assert.ok(r.blob.size > 0 && /^live-.*\.webm$/.test(r.name), 'returns a named take blob');
+        // Each poll + the final pass is reported as a numbered, costed segment.
+        assert.ok(segments.length >= 2, 'segments were reported');
+        assert.deepEqual(segments.map((s) => s.seq), segments.map((_, i) => i + 1), 'segments are sequentially numbered from 1');
+        assert.ok(segments.every((s) => s.sizeBytes > 0 && s.ok === true && s.costUsd === 0.0002), 'segments carry size + cost');
+        assert.equal(segments[segments.length - 1].final, true, 'last segment is the final pass');
     } finally { media.uninstall(); }
 });
 
