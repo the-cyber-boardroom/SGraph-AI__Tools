@@ -16,6 +16,14 @@
 /** @type {ReadonlyArray<Release>} */
 export const RELEASES = Object.freeze([
     {
+        version: '0.1.4',
+        date: '2026-06-15',
+        summary: 'One-click sample audio for testing.',
+        changes: [
+            'New: "Load sample" in the Source panel + the loadSample() API action — drops a synthesised test tone into the queue (no network) to exercise the player / queue / panel / cost flow. Real-speech samples can be added to api/samples.js as CORS-enabled URLs are confirmed.',
+        ],
+    },
+    {
         version: '0.1.3',
         date: '2026-06-15',
         summary: 'Releases changelog (this tab) + getReleases API.',

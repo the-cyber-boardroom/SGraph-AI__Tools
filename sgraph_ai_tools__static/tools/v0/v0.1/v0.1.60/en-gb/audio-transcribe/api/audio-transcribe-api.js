@@ -20,6 +20,7 @@ import { buildSendMethods } from './api-send.js';
 import { listModels, DEFAULT_MODEL } from './audio-models.js';
 import { fetchGenerationCostDeferred } from './openrouter-cost.js';
 import { RELEASES } from './releases.js';
+import { buildSampleFile } from './samples.js';
 import { mountShell } from '../ui/ui-shell.js';
 
 const passthrough = (p) => p;
@@ -77,7 +78,7 @@ export async function init(manifest) {
 
     const api = new SgToolApi({
         name: 'audio-transcribe',
-        version: { api: '0.1.3', ui: '0.1.3', content: '0.1.0' },
+        version: { api: '0.1.4', ui: '0.1.4', content: '0.1.0' },
         panelId: 'root',
         manifest: './manifest.json',
         skills: (manifest && manifest.skills) || {},
@@ -136,10 +137,17 @@ export async function init(manifest) {
         getDropper: () => host && host.querySelector('sg-send-drop'),
     });
 
+    /** Load a built-in sample audio as a queue item (simulates a drop). */
+    async function loadSample(params = {}) {
+        const file = await buildSampleFile(params.id);
+        return source.addFiles({ files: [file] });
+    }
+
     api
         .register('startRecording', source.startRecording, { async: true,  sanitiseParams: passthrough })
         .register('stopRecording',  source.stopRecording,  { async: true,  sanitiseParams: passthrough })
         .register('addFiles',       source.addFiles,       { async: true,  sanitiseParams: fileSanitiser })
+        .register('loadSample',     loadSample,            { async: true,  sanitiseParams: passthrough })
         .register('getItems',       source.getItems,       { async: false, sanitiseParams: passthrough })
         .register('getItem',        source.getItem,        { async: false, sanitiseParams: passthrough })
         .register('removeItem',     source.removeItem,     { async: false, sanitiseParams: passthrough })

@@ -47,6 +47,7 @@ const { buildBundle, buildZip } = await import(`file://${TOOL}/api/audio-zip.js`
 const { listModels, DEFAULT_MODEL } = await import(`file://${TOOL}/api/audio-models.js`);
 const { fetchGenerationCost } = await import(`file://${TOOL}/api/openrouter-cost.js`);
 const { RELEASES, currentVersion } = await import(`file://${TOOL}/api/releases.js`);
+const { SAMPLES, buildSampleFile } = await import(`file://${TOOL}/api/samples.js`);
 const { isAudioFile, isSupportedAudio } = await import(`file://${TOOL}/api/audio-format.js`);
 const { encodeWavBytes } = await import(`file://${CORE}/sg-audio-decode/v0/v0.1/v0.1.0/sg-wav-encoder.js`);
 const { needsDecode } = await import(`file://${CORE}/sg-audio-decode/v0/v0.1/v0.1.0/sg-audio-decode.js`);
@@ -420,6 +421,16 @@ await test('stopRecording concatenates delivered chunks into a single item', asy
     assert.equal(state.getItems().length, 1);
 });
 
+await test('buildSampleFile makes a valid WAV File for a tone sample; rejects unknown ids', async () => {
+    assert.ok(SAMPLES.length >= 1);
+    const f = await buildSampleFile('tone-a');
+    assert.equal(f.name, 'sample-tone-a.wav');
+    assert.ok(f.size > 44, 'has a WAV header + PCM data');
+    const head = new Uint8Array(await f.arrayBuffer()).slice(0, 4);
+    assert.equal(String.fromCharCode(...head), 'RIFF', 'RIFF/WAVE header');
+    await assert.rejects(() => buildSampleFile('nope'), (e) => e.code === 'unknown-sample');
+});
+
 await test('releases changelog is well-formed, newest-first, with unique semver versions', () => {
     assert.ok(Array.isArray(RELEASES) && RELEASES.length >= 1);
     for (const r of RELEASES) {
@@ -547,8 +558,8 @@ await test('mountShell boots the full UI against the REAL SgToolApi without thro
         assert.equal(threw, null, threw && (threw.stack || threw.message));
         // Regression guard for the ui-model.js api.listModels() Promise bug:
         // the model panel must have rendered its full <option> list.
-        const optEl = dom.created.find((e) => (e.innerHTML || '').includes('<option'));
-        assert.ok(optEl, 'model panel rendered its <option> list');
+        const optEl = dom.created.find((e) => (e.innerHTML || '').includes('at-model-select'));
+        assert.ok(optEl, 'model panel rendered the model <select>');
         assert.equal((optEl.innerHTML.match(/<option/g) || []).length, 6, 'all six curated models rendered');
     } finally { dom.uninstall(); }
 });
