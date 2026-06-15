@@ -464,19 +464,27 @@ await test('tts: WAV encode, base64 decode, and OpenRouter dispatch (mocked)', a
     assert.ok(TTS_VOICES.local.length && TTS_VOICES.openrouter.length, 'voices per mode');
     assert.equal(base64ToBlob(Buffer.from('hello').toString('base64'), 'audio/wav').size, 5);
 
-    const audioB64 = Buffer.from('RIFFxxxxWAVE').toString('base64');
     const fetchImpl = async (url, opts) => {
         assert.match(url, /chat\/completions/);
         const body = JSON.parse(opts.body);
         assert.deepEqual(body.modalities, ['text', 'audio']);
         assert.equal(body.stream, true, 'audio output requires streaming');
-        const sse = `data: ${JSON.stringify({ id: 'gen-tts', choices: [{ delta: { audio: { data: audioB64 } } }] })}\n\ndata: [DONE]\n\n`;
+        assert.equal(body.audio.format, 'pcm16', "streamed format must be pcm16 (wav 400s when stream=true)");
+        // Two PCM16 chunks (whose base64 can't be naively string-concatenated).
+        const c1 = Buffer.from(new Uint8Array([1, 2, 3])).toString('base64');
+        const c2 = Buffer.from(new Uint8Array([4, 5, 6, 7])).toString('base64');
+        const sse = `data: ${JSON.stringify({ id: 'gen-tts', choices: [{ delta: { audio: { data: c1 } } }] })}\n\n`
+            + `data: ${JSON.stringify({ choices: [{ delta: { audio: { data: c2 } } }] })}\n\ndata: [DONE]\n\n`;
         return new Response(sse, { status: 200, headers: { 'content-type': 'text/event-stream' } });
     };
     const r = await synthesize({ text: 'hi', mode: 'openrouter', apiKey: 'sk', fetchImpl });
     assert.equal(r.mode, 'openrouter');
     assert.equal(r.generationId, 'gen-tts');
     assert.ok(r.blob.size > 0, 'decoded audio blob');
+    // Result is a RIFF/WAVE wrapping the concatenated PCM (44-byte header + 7 bytes).
+    const head = new Uint8Array(await r.blob.arrayBuffer());
+    assert.equal(String.fromCharCode(...head.slice(0, 4)), 'RIFF', 'pcm16 wrapped in a WAV');
+    assert.equal(r.blob.size, 44 + 7, 'WAV header + both PCM chunks');
 
     await assert.rejects(() => synthesize({ text: '', mode: 'local' }), (e) => e.code === 'no-text');
     await assert.rejects(() => synthesize({ text: 'hi', mode: 'openrouter', fetchImpl }), (e) => e.code === 'no-key');
@@ -491,6 +499,73 @@ await test('releases changelog is well-formed, newest-first, with unique semver 
     const versions = RELEASES.map((r) => r.version);
     assert.equal(new Set(versions).size, versions.length, 'versions are unique');
     assert.equal(currentVersion(), RELEASES[0].version, 'currentVersion() is the newest entry');
+});
+
+// ── Live (near-realtime) transcribe ────────────────────────────────────────────
+// createLiveSession captures the mic via MediaRecorder and transcribes the
+// growing take on an interval (refine-in-place), then a final pass on stop.
+// Mock MediaRecorder + getUserMedia so the growing-window loop runs in Node.
+function installMediaMocks() {
+    const saved = { MediaRecorder: globalThis.MediaRecorder, navigator: globalThis.navigator };
+    class MockMediaRecorder {
+        static isTypeSupported(m) { return m === 'audio/webm;codecs=opus'; }
+        constructor(stream, opts = {}) { this.stream = stream; this.mimeType = opts.mimeType || ''; this.state = 'inactive'; this._l = {}; }
+        addEventListener(t, cb, opts) { (this._l[t] ||= []).push({ cb, once: !!(opts && opts.once) }); }
+        _fire(t, ev) { for (const e of (this._l[t] || []).slice()) { e.cb(ev); if (e.once) this._l[t] = this._l[t].filter((x) => x !== e); } }
+        _emitChunk() { this._fire('dataavailable', { data: new Blob([new Uint8Array([1, 2, 3])], { type: this.mimeType }) }); }
+        start() { this.state = 'recording'; this._emitChunk(); }
+        requestData() { this._emitChunk(); }
+        stop() { this.state = 'inactive'; this._fire('stop', {}); }
+    }
+    globalThis.MediaRecorder = MockMediaRecorder;
+    // `navigator` is a getter-only global in Node — redefine it (configurable).
+    const navDesc = Object.getOwnPropertyDescriptor(globalThis, 'navigator');
+    Object.defineProperty(globalThis, 'navigator', { value: { mediaDevices: { getUserMedia: async () => ({ getTracks: () => [{ stop() {} }] }) } }, configurable: true, writable: true });
+    return { uninstall() {
+        globalThis.MediaRecorder = saved.MediaRecorder;
+        if (navDesc) Object.defineProperty(globalThis, 'navigator', navDesc); else delete globalThis.navigator;
+    } };
+}
+
+await test('createLiveSession: growing-window poll refines, stop does a final pass', async () => {
+    const { createLiveSession } = await import(`file://${TOOL}/api/live.js`);
+    const media = installMediaMocks();
+    try {
+        const updates = [];
+        let calls = 0;
+        const session = createLiveSession({
+            transcribe: async ({ blob, model }) => { calls += 1; assert.ok(blob.size > 0 && model, 'transcribe gets a non-empty blob + model'); return { text: `take ${calls}` }; },
+            getModel: () => 'google/gemini-3.5-flash',
+            onUpdate: (u) => updates.push(u),
+            intervalMs: 25,
+        });
+        const started = await session.start();
+        assert.match(started.mimeType, /webm/, 'picks a webm/opus container');
+        assert.equal(session.isRunning(), true);
+        await new Promise((r) => setTimeout(r, 70)); // let a couple of polls fire
+        const r = await session.stop();
+        assert.equal(session.isRunning(), false);
+        assert.ok(updates.some((u) => u.final === false), 'at least one interim (non-final) update');
+        const last = updates[updates.length - 1];
+        assert.equal(last.final, true, 'the last update is the final pass');
+        assert.equal(r.text, last.text, 'stop() returns the final transcript');
+        assert.ok(r.blob.size > 0 && /^live-.*\.webm$/.test(r.name), 'returns a named take blob');
+    } finally { media.uninstall(); }
+});
+
+await test('startLive → stopLive adds the take to the queue (real SgToolApi)', async () => {
+    const media = installMediaMocks();
+    try {
+        const { api, state } = await buildRealApi();
+        const before = state.getItems().length;
+        const s = await api.startLive();
+        assert.equal(s.live, true);
+        await new Promise((r) => setTimeout(r, 40));
+        const r = await api.stopLive();
+        assert.ok(r.id, 'stopLive returns the new item id');
+        assert.equal(state.getItems().length, before + 1, 'one take was enqueued');
+        assert.equal(state.getItem(r.id).origin, 'recording', 'take is marked as a recording');
+    } finally { media.uninstall(); }
 });
 
 // ── Integration: real SgToolApi + UI mount ─────────────────────────────────────
@@ -512,7 +587,17 @@ async function buildRealApi() {
     const batch = buildBatchMethods({ state, emit, transcribeItem: transcribe.transcribeItem });
     const send = buildSendMethods({ state, emit, getDropper: () => null });
     const connect = async (p = {}) => ({ provider: 'openrouter', model: p.model || state.getActiveModel() });
+    const { createLiveSession } = await import(`file://${TOOL}/api/live.js`);
+    const live = createLiveSession({ transcribe: (req) => transcribe.transcribeBlob(req), getModel: () => state.getActiveModel(), onUpdate: () => {}, onError: () => {} });
+    const startLive = async () => { const r = await live.start(); return { live: true, mimeType: r.mimeType }; };
+    const stopLive = async () => {
+        const r = await live.stop(); let id = null;
+        if (r.blob && r.blob.size) { id = state.addItem(r.blob, { name: r.name, mimeType: r.mimeType, origin: 'recording', durationMs: r.durationMs }); if (id && r.text) state.addVersion(id, { model: state.getActiveModel(), status: 'done', text: r.text }); }
+        return { id, text: r.text, durationMs: r.durationMs };
+    };
     api.register('startRecording', source.startRecording, { async: true })
+        .register('startLive', startLive, { async: true })
+        .register('stopLive', stopLive, { async: true })
         .register('stopRecording', source.stopRecording, { async: true })
         .register('addFiles', source.addFiles, { async: true })
         .register('getItems', source.getItems, { async: false })
