@@ -23,6 +23,7 @@ import { fetchGenerationCostDeferred } from './openrouter-cost.js';
 import { RELEASES } from './releases.js';
 import { buildSampleFile } from './samples.js';
 import { synthesize } from './tts.js';
+import { makeIsolatedTransport } from './llm-transport.js';
 import { createLiveSession } from './live.js';
 import { mountShell } from '../ui/ui-shell.js';
 
@@ -33,69 +34,6 @@ const fileSanitiser = (p = {}) => ({
     files: (Array.isArray(p.files) || (p.files && typeof p.files.length === 'number'))
         ? `[${p.files.length} File(s)]` : p.files,
 });
-
-/** Map a request-complete event detail into our transport result shape. */
-function readComplete(e) {
-    const d = e.detail || {};
-    const raw = d.rawResponse || null;
-    const usageCost = raw && raw.usage && typeof raw.usage.cost === 'number' ? raw.usage.cost : undefined;
-    return {
-        content: d.content ?? '', latencyMs: d.latencyMs, model: d.model,
-        promptTokens: d.promptTokens, completionTokens: d.completionTokens,
-        generationId: raw && raw.id ? raw.id : undefined,
-        // Inline cost only if the response actually carried one (>0).
-        responseCost: usageCost != null ? usageCost : (typeof d.cost === 'number' && d.cost > 0 ? d.cost : undefined),
-        raw, // full OpenRouter response, for the provenance panel
-    };
-}
-
-/**
- * Isolated LLM transport: EACH request gets its own throwaway `[data-llm-bus]`
- * cell + a fresh `<sg-llm-request>`, so concurrent requests never share a
- * response listener (this is what makes parallel multi-model transcription safe
- * — the shared-bus version cross-talked, giving two files the same transcript).
- * The cell is configured (key + model + non-streaming) and torn down per call.
- *
- * @param {Element} host      the [data-llm-bus] host to attach cells under
- * @param {() => string} getApiKey
- * @returns {(req: { messages: object[], model: string }) => Promise<object>}
- */
-function makeIsolatedTransport(host, getApiKey) {
-    return (req) => new Promise((resolve, reject) => {
-        const cell = document.createElement('div');
-        cell.setAttribute('data-llm-bus', '');
-        cell.style.display = 'none';
-        host.appendChild(cell);
-        const engine = document.createElement('sg-llm-request');
-        cell.appendChild(engine);
-
-        let done = false;
-        function cleanup() {
-            cell.removeEventListener(SGL_LLM.REQUEST_COMPLETE, onComplete);
-            cell.removeEventListener(SGL_LLM.REQUEST_ERROR, onError);
-            cell.removeEventListener(SGL_LLM.REQUEST_CANCEL, onCancel);
-            try { host.removeChild(cell); } catch (_) { /* */ }
-        }
-        const onComplete = (e) => { if (done) return; done = true; const r = readComplete(e); cleanup(); resolve(r); };
-        const onError = (e) => { if (done) return; done = true; cleanup(); reject(Object.assign(
-            new Error((e.detail && e.detail.error) || 'LLM request failed'), { code: 'llm-error' })); };
-        const onCancel = () => { if (done) return; done = true; cleanup(); reject(Object.assign(new Error('Cancelled'), { code: 'cancelled' })); };
-        cell.addEventListener(SGL_LLM.REQUEST_COMPLETE, onComplete);
-        cell.addEventListener(SGL_LLM.REQUEST_ERROR, onError);
-        cell.addEventListener(SGL_LLM.REQUEST_CANCEL, onCancel);
-
-        // Let the caller cancel this in-flight request (aborts the fetch).
-        if (typeof req.registerCancel === 'function') {
-            req.registerCancel(() => { if (!done) cell.dispatchEvent(new CustomEvent(SGL_LLM.CANCEL, { detail: {}, bubbles: true, composed: true })); });
-        }
-
-        // Configure this isolated engine, then send. Non-streaming so the
-        // response carries the full rawResponse (generation id + usage).
-        cell.dispatchEvent(new CustomEvent(SGL_LLM.CONNECTED, { detail: { provider: 'openrouter', model: req.model, apiKey: getApiKey() }, bubbles: true, composed: true }));
-        cell.dispatchEvent(new CustomEvent(SGL_LLM.STREAMING_CHANGED, { detail: { streaming: false }, bubbles: true, composed: true }));
-        cell.dispatchEvent(new CustomEvent(SGL_LLM.SEND, { detail: { messages: req.messages, model: req.model, provider: 'openrouter' }, bubbles: true, composed: true }));
-    });
-}
 
 /**
  * Tool entry. Called by manifest-loader once all loader phases complete.
@@ -108,7 +46,7 @@ export async function init(manifest) {
 
     const api = new SgToolApi({
         name: 'audio-transcribe',
-        version: { api: '0.1.17', ui: '0.1.17', content: '0.1.0' },
+        version: { api: '0.1.20', ui: '0.1.20', content: '0.1.0' },
         panelId: 'root',
         manifest: './manifest.json',
         skills: (manifest && manifest.skills) || {},
@@ -266,14 +204,21 @@ export async function init(manifest) {
         transcribe: (req) => transcribe.transcribeBlob(req),
         getModel: () => state.getActiveModel(),
         onUpdate: (u) => emit(AT_EVENTS.LIVE_UPDATE, u),
-        onError: (err) => emit(AT_EVENTS.LIVE_ERROR, { error: err.message }),
+        onError: (err) => emit(AT_EVENTS.LIVE_ERROR, { error: err.message, code: err.code }),
         onSegment: onLiveSegment,
     });
     async function startLive() {
         liveRunId += 1;
-        const r = await live.start();
-        emit(AT_EVENTS.LIVE_STARTED, { mimeType: r.mimeType });
-        return { live: true, mimeType: r.mimeType };
+        try {
+            const r = await live.start();
+            emit(AT_EVENTS.LIVE_STARTED, { mimeType: r.mimeType });
+            return { live: true, mimeType: r.mimeType };
+        } catch (err) {
+            // Surface a clear event (e.g. mic-unavailable in a vault frame) rather
+            // than only rejecting — embedders/UIs listen on at:live:error.
+            emit(AT_EVENTS.LIVE_ERROR, { error: err.message, code: err.code });
+            throw err;
+        }
     }
     async function stopLive() {
         const r = await live.stop();

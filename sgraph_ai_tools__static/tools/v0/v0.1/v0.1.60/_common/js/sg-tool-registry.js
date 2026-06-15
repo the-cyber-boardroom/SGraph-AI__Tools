@@ -46,6 +46,10 @@
        Batch queue + zip bundle + embedded sg-send-drop encrypted send. Adds two
        new core modules: core/sg-audio-decode (WASM Opus -> WAV) and
        core/sg-wasm-cache (Cache-API WASM persistence).
+     - Added 'live-transcribe' under Media. A minimal "big button" experience
+       variation of audio-transcribe focused on Live (near-realtime) mode:
+       press to talk, watch the transcript refine, per-segment cost shown; or
+       drop a file. Reuses the audio-transcribe api/ modules + ui-live panel.
    ================================================================================= */
 
 /**
@@ -62,7 +66,7 @@ const TOOL_SLUGS = [
     'playbooklm', 'page-builder',
     // Media
     'image-tools', 'video-tools', 'voice-memo', 'video-recorder',
-    'youtube-editor', 'youtube-upload', 'sg-video-editor', 'heic-converter', 'audio-transcribe',
+    'youtube-editor', 'youtube-upload', 'sg-video-editor', 'heic-converter', 'audio-transcribe', 'live-transcribe',
     // Vault & Send
     'vault', 'vault-browser', 'vault-peek', 'openrouter', 'sg-send-cli',
     // Code & Runtime

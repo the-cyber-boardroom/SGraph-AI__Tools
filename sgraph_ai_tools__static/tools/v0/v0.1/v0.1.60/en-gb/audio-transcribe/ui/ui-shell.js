@@ -136,15 +136,23 @@ export async function mountShell({ host, state, api, devPanel = true, getRecordi
     costSection.appendChild(sessionCost);
     modelWrap.appendChild(costSection);
 
-    // This-session spend = sum of every transcription cost across all audio files.
+    // This-session spend = every transcription cost across all audio files PLUS
+    // auxiliary OpenRouter usage (Create Voice / TTS).
     function renderSessionCost() {
-        let usd = 0; let pending = false; let n = 0;
+        let usd = 0; let pending = false; let n = 0; let voice = 0;
         for (const it of state.getItems()) for (const v of (it.versions || [])) {
             n += 1;
             if (typeof v.costUsd === 'number') usd += v.costUsd;
             if (v.costPending) pending = true;
         }
-        sessionCost.textContent = n ? `This session: 💰 $${usd.toFixed(4)}${pending ? '…' : ''} over ${n} transcription${n === 1 ? '' : 's'}` : '';
+        for (const a of (state.getAuxCosts ? state.getAuxCosts() : [])) {
+            voice += 1;
+            if (typeof a.usd === 'number') usd += a.usd;
+            if (a.pending) pending = true;
+        }
+        const total = n + voice;
+        const parts = [n ? `${n} transcription${n === 1 ? '' : 's'}` : '', voice ? `${voice} voice` : ''].filter(Boolean).join(' + ');
+        sessionCost.textContent = total ? `This session: 💰 $${usd.toFixed(4)}${pending ? '…' : ''} over ${parts}` : '';
     }
     const onStateForCost = () => renderSessionCost();
     state.addEventListener('change', onStateForCost);
@@ -183,7 +191,7 @@ export async function mountShell({ host, state, api, devPanel = true, getRecordi
     const m = [
         mountSource({ root: sourceWrap, state, api, getRecordingStream }),
         mountLive({ root: liveWrap, api, getLiveStream }),
-        mountTts({ root: ttsWrap, api }),
+        mountTts({ root: ttsWrap, api, state }),
         mountModel({ root: modelMount, state, api }),
         mountBundle({ root: bundleWrap, state, api }),
         mountQueue({ root: queueWrap, state, api, openItem }),

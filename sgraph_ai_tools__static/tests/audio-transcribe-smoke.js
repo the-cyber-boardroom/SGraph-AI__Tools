@@ -49,6 +49,7 @@ const { fetchGenerationCost } = await import(`file://${TOOL}/api/openrouter-cost
 const { RELEASES, currentVersion } = await import(`file://${TOOL}/api/releases.js`);
 const { SAMPLES, buildSampleFile } = await import(`file://${TOOL}/api/samples.js`);
 const { encodeWav, base64ToBlob, synthesize, TTS_VOICES } = await import(`file://${TOOL}/api/tts.js`);
+const { classifyLlmError, LLM_ERROR_CODES } = await import(`file://${TOOL}/api/llm-errors.js`);
 const { isAudioFile, isSupportedAudio } = await import(`file://${TOOL}/api/audio-format.js`);
 const { encodeWavBytes } = await import(`file://${CORE}/sg-audio-decode/v0/v0.1/v0.1.0/sg-wav-encoder.js`);
 const { needsDecode } = await import(`file://${CORE}/sg-audio-decode/v0/v0.1/v0.1.0/sg-audio-decode.js`);
@@ -501,6 +502,41 @@ await test('releases changelog is well-formed, newest-first, with unique semver 
     assert.equal(currentVersion(), RELEASES[0].version, 'currentVersion() is the newest entry');
 });
 
+// ── Typed key-exhaustion errors (vault dev brief: Finding 7) ───────────────────
+await test('classifyLlmError maps HTTP status → typed code; prefers the provider message', () => {
+    assert.equal(classifyLlmError({ status: 401 }).code, 'key-invalid');
+    assert.equal(classifyLlmError({ status: 402 }).code, 'budget-exceeded');
+    assert.equal(classifyLlmError({ status: 403 }).code, 'key-exhausted');
+    assert.equal(classifyLlmError({ status: 429 }).code, 'rate-limited');
+    assert.equal(classifyLlmError({ status: 500 }).code, 'llm-error');
+    assert.equal(classifyLlmError({}).code, 'llm-error');
+    const c = classifyLlmError({ status: 402, error: 'HTTP 402', bodyError: 'Insufficient credits' });
+    assert.equal(c.message, 'Insufficient credits', 'provider bodyError preferred over the generic message');
+    assert.equal(c.status, 402);
+    assert.ok(LLM_ERROR_CODES[402] === 'budget-exceeded');
+});
+
+await test('transcribeItem propagates the typed error code (spent key) to the caller', async () => {
+    const events = [];
+    const emit = (n, d) => events.push({ n, d });
+    const state = createState({ defaultModel: DEFAULT_MODEL });
+    state.setActiveModel(DEFAULT_MODEL);
+    const source = buildSourceMethods({ state, emit });
+    // Transport rejects exactly as the isolated transport does for a 402.
+    const sendToLlm = async () => { throw Object.assign(new Error('Insufficient credits'), { code: 'budget-exceeded', status: 402 }); };
+    const transcribe = buildTranscribeMethods({ state, emit, sendToLlm, getActiveModel: () => state.getActiveModel() });
+    const add = await source.addFiles({ files: [fakeFile('a.mp3', 'audio/mpeg')] });
+    await assert.rejects(
+        () => transcribe.transcribeItem({ id: add.added[0].id }),
+        (e) => e.code === 'budget-exceeded' && e.status === 402,
+        'the typed code + status reach the caller (not flattened to llm-error)',
+    );
+    // The failed version records the code too (for the UI).
+    const item = state.getItem(add.added[0].id);
+    const last = (item.versions || [])[item.versions.length - 1];
+    assert.equal(last.errorCode, 'budget-exceeded', 'error version stores the typed code');
+});
+
 // ── Read-API + cost contract (vault dev brief: Findings 1, 4, 6) ───────────────
 // getItems/getItem must reflect live state as an ARRAY (the shape embedders
 // rely on); transcribeItem must surface generationId + usage so an embedder can
@@ -601,6 +637,29 @@ await test('createLiveSession: growing-window poll refines, stop does a final pa
         assert.ok(segments.every((s) => s.sizeBytes > 0 && s.ok === true && s.costUsd === 0.0002), 'segments carry size + cost');
         assert.equal(segments[segments.length - 1].final, true, 'last segment is the final pass');
     } finally { media.uninstall(); }
+});
+
+await test('createLiveSession.start() throws mic-unavailable when mic APIs are absent (vault frame)', async () => {
+    const { createLiveSession } = await import(`file://${TOOL}/api/live.js`);
+    // No installMediaMocks → navigator.mediaDevices / MediaRecorder are absent,
+    // exactly like a null-origin sandboxed vault iframe. Must degrade with a
+    // typed error, NOT a bare throw on `navigator.mediaDevices.getUserMedia`.
+    const session = createLiveSession({ transcribe: async () => ({ text: '' }), getModel: () => 'm' });
+    await assert.rejects(() => session.start(), (e) => e.code === 'mic-unavailable');
+    assert.equal(session.isRunning(), false);
+});
+
+await test('getCostSummary folds in auxiliary (Create Voice / TTS) spend', async () => {
+    const h = buildHarness();
+    const add = await h.source.addFiles({ files: [fakeFile('a.mp3', 'audio/mpeg')] });
+    await h.transcribe.transcribeItem({ id: add.added[0].id });
+    const before = h.transcribe.getCostSummary();
+    const auxId = h.state.addAuxCost({ kind: 'tts', pending: true });
+    h.transcribe.getCostSummary(); // pending counted but no usd yet
+    h.state.updateAuxCost(auxId, { usd: 0.0021, pending: false });
+    const after = h.transcribe.getCostSummary();
+    assert.equal(after.auxUsd, 0.0021, 'aux (voice) cost reported separately');
+    assert.ok(Math.abs(after.sessionUsd - (before.sessionUsd + 0.0021)) < 1e-9, 'session total = transcription + voice');
 });
 
 await test('startLive → stopLive adds the take to the queue (real SgToolApi)', async () => {

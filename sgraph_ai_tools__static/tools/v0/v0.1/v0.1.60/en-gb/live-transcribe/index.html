@@ -1,0 +1,28 @@
+<!DOCTYPE html>
+<html lang="en-GB">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Live Transcribe — tools.sgraph.ai</title>
+    <meta name="description" content="One big button: start talking and watch the transcript appear and refine in your browser. A focused, minimal front-end for live (near-realtime) speech-to-text via OpenRouter — or drop an audio file.">
+
+    <script type="module">
+        import { loadManifest } from '/core/manifest-loader/v0/v0.1/v0.1.0/manifest-loader.js';
+        await loadManifest('./manifest.json');
+    </script>
+
+    <style>
+        html, body {
+            margin: 0; padding: 0; min-height: 100%;
+            background: #0a0a18; color: #e2e8f0;
+            font-family: system-ui, -apple-system, sans-serif;
+        }
+        body { display: flex; flex-direction: column; }
+        sg-site-header { flex-shrink: 0; }
+    </style>
+</head>
+<body>
+    <sg-site-header site="Tools" home-url="../../"></sg-site-header>
+    <main id="live-transcribe-root" style="flex:1;min-height:0;"></main>
+</body>
+</html>

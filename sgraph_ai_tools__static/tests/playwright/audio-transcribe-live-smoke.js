@@ -43,8 +43,19 @@ async function run() {
     const context = await browser.newContext({ permissions: ['microphone'] });
     const page = await context.newPage();
 
-    // Mock OpenRouter chat completions (non-streaming) — the transcribe path.
+    // Mock OpenRouter chat completions. Two shapes share this endpoint:
+    //  - transcription → JSON (non-streaming)
+    //  - TTS (modalities:['audio']) → SSE stream of delta.audio pcm16 chunks
     await page.route('**/chat/completions', async (route) => {
+        let isTts = false;
+        try { isTts = (JSON.parse(route.request().postData() || '{}').modalities || []).includes('audio'); } catch (_) { /* */ }
+        if (isTts) {
+            await route.fulfill({
+                status: 200, headers: { 'content-type': 'text/event-stream' },
+                body: 'data: {"id":"gen-tts","choices":[{"delta":{"audio":{"data":"AQIDBA=="}}}]}\n\ndata: [DONE]\n\n',
+            });
+            return;
+        }
         await route.fulfill({
             status: 200,
             contentType: 'application/json',
@@ -124,6 +135,22 @@ async function run() {
         const askRes = await page.evaluate(() => window.__tool.ask({ text: 'what was said?' }));
         assert(askRes && askRes.text && askRes.text.includes(MOCK_TEXT) && askRes.generationId && askRes.usage,
             '[8] ask({text}) returns reply + generationId + usage', JSON.stringify(askRes));
+
+        // [9] Read API on the SERVED page is a non-empty ARRAY (deploy-drift guard,
+        //     vault dev-brief Finding 4 — the Node contract test can't catch a
+        //     stale served bundle; this assertion runs against the real page).
+        const arrOk = await page.evaluate(async () => {
+            const it = await window.__tool.getItems();
+            return Array.isArray(it) && it.length >= 1 && typeof it[0].id === 'string';
+        });
+        assert(arrOk, '[9] getItems() is a non-empty ARRAY on the served page');
+
+        // [10] OpenRouter TTS emits audio bytes on the served page (Finding 2/4).
+        const ttsOk = await page.evaluate(async () => {
+            const r = await window.__tool.synthesize({ text: 'hi there', mode: 'openrouter', voice: 'alloy' });
+            return r && r.sizeBytes > 0;
+        });
+        assert(ttsOk, '[10] OpenRouter TTS returns audio bytes (>0) on the served page');
     } catch (e) {
         console.error(`  ✗ live flow: ${e.message}`);
         failed++;

@@ -9,16 +9,18 @@
  */
 
 import { synthesize, TTS_VOICES, TTS_OPENROUTER_DEFAULT_MODEL } from '../api/tts.js';
+import { fetchGenerationCostDeferred } from '../api/openrouter-cost.js';
 
 const KEY_STORAGE = 'sg-openrouter-mgmt-key';
 
 /**
- * @param {{ root: HTMLElement, api: object }} opts
+ * @param {{ root: HTMLElement, api: object, state?: object }} opts
  * @returns {{ destroy: () => void }}
  */
-export function mountTts({ root, api }) {
+export function mountTts({ root, api, state }) {
     let objUrl = null;
     let lastBlob = null;
+    let synthSeq = 0; // guards a late cost from overwriting a newer synth
 
     root.innerHTML = `
         <h2 class="at-panel__title">Create voice (text → speech)</h2>
@@ -69,6 +71,7 @@ export function mountTts({ root, api }) {
         const text = textEl.value.trim();
         if (!text) { statusEl.textContent = 'Enter some text.'; return; }
         goBtn.disabled = true;
+        const seq = ++synthSeq;
         statusEl.textContent = mode() === 'local'
             ? 'Synthesising… (first local run downloads the ~160 MB voice model)'
             : 'Synthesising via OpenRouter…';
@@ -84,7 +87,25 @@ export function mountTts({ root, api }) {
             objUrl = URL.createObjectURL(r.blob);
             audioEl.src = objUrl;
             resultEl.hidden = false;
-            statusEl.textContent = `Done · ${(r.blob.size / 1024).toFixed(0)} KB${r.durationMs ? `, ${(r.durationMs / 1000).toFixed(1)}s` : ''} (${r.mode}).`;
+            const base = `Done · ${(r.blob.size / 1024).toFixed(0)} KB${r.durationMs ? `, ${(r.durationMs / 1000).toFixed(1)}s` : ''} (${r.mode})`;
+            if (r.mode === 'local') {
+                statusEl.textContent = `${base} · 💰 free (on-device)`;
+            } else if (r.generationId && apiKey) {
+                // Cost of this synthesis — resolved a couple of seconds later by id.
+                // Also folded into the session total (Model & Cost) via state aux.
+                statusEl.textContent = `${base} · 💰 …`;
+                const auxId = state && state.addAuxCost ? state.addAuxCost({ kind: 'tts', pending: true }) : null;
+                Promise.resolve(fetchGenerationCostDeferred(r.generationId, apiKey)).then((cost) => {
+                    if (auxId != null && state) state.updateAuxCost(auxId, { usd: (cost != null ? cost : undefined), pending: false });
+                    if (seq !== synthSeq) return; // a newer synth has replaced this one
+                    statusEl.textContent = `${base} · ${cost != null ? `💰 $${cost.toFixed(4)}` : '💰 cost n/a'}`;
+                }).catch(() => {
+                    if (auxId != null && state) state.updateAuxCost(auxId, { pending: false });
+                    if (seq === synthSeq) statusEl.textContent = `${base} · 💰 cost n/a`;
+                });
+            } else {
+                statusEl.textContent = `${base}.`;
+            }
         } catch (err) { statusEl.textContent = `Failed: ${err.message}`; }
         finally { goBtn.disabled = false; }
     }

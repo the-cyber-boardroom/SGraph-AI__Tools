@@ -46,7 +46,7 @@ export function mountDebug({ root, api }) {
         let body;
         if (x.status === 'pending') { const e = x.ts ? Math.round((Date.now() - x.ts) / 1000) : 0; body = `<span class="at-muted">⏳ in flight · ${e}s…</span>`; }
         else if (x.status === 'cancelled') body = '<span class="at-muted">⊘ cancelled</span>';
-        else if (x.status === 'error') body = `<span class="at-muted">⚠ ${esc(x.error || 'failed')}</span>`;
+        else if (x.status === 'error') body = `<span class="at-muted">⚠ ${esc(x.error || 'failed')}${x.errorCode && x.errorCode !== 'llm-error' ? ` <code>${esc(x.errorCode)}</code>` : ''}</span>`;
         else body = esc(r.content || '');
         const raw = x.raw ? `<details class="at-xch__raw"><summary>raw response</summary><pre>${esc(JSON.stringify(x.raw, null, 2))}</pre></details>` : '';
         return `

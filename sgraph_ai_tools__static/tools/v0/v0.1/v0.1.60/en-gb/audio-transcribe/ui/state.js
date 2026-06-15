@@ -50,6 +50,7 @@ export function createState(opts = {}) {
         it.latencyMs = v.latencyMs;
         it.generationId = v.generationId;
         it.error = v.error;
+        it.errorCode = v.errorCode;
     }
 
     function emit(kind, extra) {
@@ -172,6 +173,7 @@ export function createState(opts = {}) {
     function clear() {
         items.length = 0;
         seen.clear();
+        aux.length = 0;
         emit('reset');
     }
 
@@ -190,6 +192,28 @@ export function createState(opts = {}) {
         emit('apiKey', { present: apiKeyPresent });
     }
 
+    // Auxiliary (non-transcription) session spend — e.g. Create Voice (TTS) — so
+    // the session cost total reflects ALL OpenRouter usage, not just transcripts.
+    /** @type {Array<{ id: number, kind: string, usd?: number, pending: boolean }>} */
+    const aux = [];
+    let nextAuxId = 1;
+    /** @param {{ kind: string, usd?: number, pending?: boolean }} c @returns {number} id */
+    function addAuxCost(c = {}) {
+        const id = nextAuxId++;
+        aux.push({ id, kind: c.kind || 'other', usd: c.usd, pending: !!c.pending });
+        emit('aux', { id });
+        return id;
+    }
+    /** @param {number} id @param {{ usd?: number, pending?: boolean }} patch */
+    function updateAuxCost(id, patch = {}) {
+        const a = aux.find((x) => x.id === id);
+        if (!a) return;
+        Object.assign(a, patch);
+        emit('aux', { id });
+    }
+    /** @returns {Array<object>} a copy of the aux cost entries. */
+    function getAuxCosts() { return aux.map((a) => ({ ...a })); }
+
     return {
         addEventListener: target.addEventListener.bind(target),
         removeEventListener: target.removeEventListener.bind(target),
@@ -198,5 +222,6 @@ export function createState(opts = {}) {
         addVersion, updateVersion, setSelectedVersion,
         getActiveModel, setActiveModel,
         getApiKeyPresent, setApiKeyPresent,
+        addAuxCost, updateAuxCost, getAuxCosts,
     };
 }

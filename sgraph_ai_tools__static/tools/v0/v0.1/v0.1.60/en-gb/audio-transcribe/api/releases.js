@@ -16,6 +16,34 @@
 /** @type {ReadonlyArray<Release>} */
 export const RELEASES = Object.freeze([
     {
+        version: '0.1.20',
+        date: '2026-06-15',
+        summary: 'Voice cost in the session total; graceful mic-in-vault error (dev-brief Finding 8).',
+        changes: [
+            'Changed: the "This session" total in Model & Cost now includes Create Voice (TTS) spend, not just transcriptions (e.g. "💰 $x over 2 transcriptions + 1 voice"). Voice cost is tracked the moment it resolves. getCostSummary() now also returns auxUsd/auxPending.',
+            'Fixed (embedded/vault): starting Live in a sandboxed null-origin frame (where navigator.mediaDevices is undefined) now fails with a clear typed error { code: mic-unavailable } and an at:live:error event ("the host must allow=\\"microphone\\"…"), instead of a bare throw. The standalone tool is unaffected.',
+            'Tests: served-page contract assertions added to the live Playwright smoke (getItems() is a non-empty array; OpenRouter TTS returns audio bytes) to catch deploy-drift, not just source correctness.',
+        ],
+    },
+    {
+        version: '0.1.19',
+        date: '2026-06-15',
+        summary: 'Cost for Create Voice (TTS) + friendly key/quota error messages.',
+        changes: [
+            'New: the "🗣 Voice" panel now shows the cost of each synthesis — OpenRouter voice shows 💰 $x (resolved by generation id a couple of seconds after it finishes), local (Kokoro) shows 💰 free (on-device).',
+            'Improved: when a key/quota error happens (key-invalid / no credit / key-exhausted / rate-limited), the Queue rows and Live panel now show a short, actionable message ("Your OpenRouter key has no credit — top it up…") instead of a raw provider error. The Debug panel still shows the exact code + provider text.',
+        ],
+    },
+    {
+        version: '0.1.18',
+        date: '2026-06-15',
+        summary: 'Typed key/quota errors (vault dev-brief Finding 7).',
+        changes: [
+            'New: a failed request now carries a typed error code from the HTTP status — key-invalid (401), budget-exceeded (402), key-exhausted (403) or rate-limited (429) — so an embedder (or a distributed SG-API secret that has hit its TTL/usage cap) gets a clear, machine-readable failure instead of a generic one. transcribeItem/ask reject with { code, status }; the provider message is preferred for display. Classification is by status code (api/llm-errors.js), not brittle string-matching.',
+            'The 🔎 Debug panel shows the typed code on errored requests; failed transcription versions record errorCode.',
+        ],
+    },
+    {
         version: '0.1.17',
         date: '2026-06-15',
         summary: 'Vault dev-brief hardening: headless chat (ask), cost in results, vault-safe cache.',
