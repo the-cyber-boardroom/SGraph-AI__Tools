@@ -1,14 +1,18 @@
 /**
- * live — Live (near-realtime) transcription session (Phase 1).
+ * live — Live (near-realtime) transcription session.
  *
- * Captures the mic continuously and, every `intervalMs`, transcribes the audio
- * SO FAR (a growing take) via the injected `transcribe(blob)` — so the displayed
- * transcript refines as you speak. On stop it does one final pass and returns the
- * full take + transcript (which the tool turns into a normal queue item).
+ * Captures the mic continuously and, every `intervalMs`, transcribes ONLY THE
+ * NEW audio since the last poll (a delta) — so cost grows linearly with the
+ * length you speak, NOT quadratically (the earlier "growing window" re-sent the
+ * whole take every poll, which was wasteful). The live transcript is the deltas
+ * appended together (a fast, slightly-rough preview). On stop it does ONE
+ * full-quality pass over the whole take for the clean saved transcript.
  *
- * This is the simplest pseudo-streaming approach (no backend, reuses the existing
- * transport): growing-window, refine-in-place, no overlap/merge yet. True chunk
- * + merge + parallel runners is Phase 2/3 (see the architect plan).
+ * Making a delta decodable: MediaRecorder only puts the webm/ogg init segment
+ * (header) in the FIRST chunk; later chunks are bare clusters that can't be
+ * decoded alone. So each delta is `[headerChunk, ...newChunks]` — a valid little
+ * clip of just the new audio. The continuous recording is kept intact for the
+ * final pass + the saved file (so there are no gaps in the saved take).
  *
  * @module audio-transcribe/live
  */
@@ -27,39 +31,79 @@ function extOf(m) { return m.includes('mp4') ? 'm4a' : (m.includes('ogg') ? 'opu
  * @param {() => string} ctx.getModel
  * @param {(u: { text: string, elapsedMs: number, final: boolean }) => void} [ctx.onUpdate]
  * @param {(err: Error) => void} [ctx.onError]
+ * @param {(s: object) => void} [ctx.onSegment]
  * @param {number} [ctx.intervalMs=2500]
  * @returns {{ start: Function, stop: Function, getStream: () => MediaStream|null, isRunning: () => boolean }}
  */
 export function createLiveSession({ transcribe, getModel, onUpdate, onError, onSegment, intervalMs = 2500 }) {
-    let stream = null, recorder = null, chunks = [], timer = null, polling = false, startedAt = 0, mime = '', seq = 0;
+    let stream = null, recorder = null, chunks = [], timer = null, polling = false, startedAt = 0, mime = '';
+    let seq = 0, sentIndex = 0, headerChunk = null, liveText = '';
 
-    /** Transcribe the current growing take, reporting it as one numbered segment. */
-    async function runSegment(final) {
-        const blob = new Blob(chunks, { type: mime });
+    /** Append a delta's text to the running live preview. */
+    function appendLive(delta) {
+        const d = (delta || '').trim();
+        if (d) liveText = liveText ? `${liveText} ${d}` : d;
+        return liveText;
+    }
+
+    /** Transcribe ONLY the audio captured since the last poll (a delta). */
+    async function runDelta() {
+        if (!chunks.length) return;
+        if (!headerChunk) headerChunk = chunks[0];
+        const fresh = chunks.slice(sentIndex);
+        if (!fresh.length) return;
+        // First delta already carries the header; later deltas prepend it so the
+        // bare clusters are decodable on their own.
+        const parts = sentIndex === 0 ? fresh : [headerChunk, ...fresh];
+        sentIndex = chunks.length;
+        const blob = new Blob(parts, { type: mime });
         const sizeBytes = blob.size;
         const n = ++seq;
         const t0 = Date.now();
         try {
             const r = await transcribe({ blob, name: `live.${extOf(mime)}`, model: getModel && getModel() });
+            const text = appendLive(r.text);
             const elapsedMs = Date.now() - startedAt;
-            if (onUpdate) onUpdate({ text: r.text, elapsedMs, final });
+            if (onUpdate) onUpdate({ text, elapsedMs, final: false });
             if (onSegment) onSegment({
-                seq: n, sizeBytes, elapsedMs, latencyMs: Date.now() - t0, text: r.text, final, ok: true,
+                seq: n, sizeBytes, elapsedMs, latencyMs: Date.now() - t0, text: (r.text || '').trim(),
+                delta: true, final: false, ok: true,
                 generationId: r.generationId, costUsd: r.costUsd,
                 promptTokens: r.promptTokens, completionTokens: r.completionTokens,
             });
-            return r.text;
         } catch (err) {
             if (onError) onError(err);
-            if (onSegment) onSegment({ seq: n, sizeBytes, elapsedMs: Date.now() - startedAt, latencyMs: Date.now() - t0, final, ok: false, error: err.message, code: err.code });
-            return '';
+            if (onSegment) onSegment({ seq: n, sizeBytes, elapsedMs: Date.now() - startedAt, latencyMs: Date.now() - t0, delta: true, final: false, ok: false, error: err.message, code: err.code });
+        }
+    }
+
+    /** One full-quality pass over the WHOLE take — the clean saved transcript. */
+    async function runFinal(fullBlob, durationMs) {
+        const sizeBytes = fullBlob.size;
+        const n = ++seq;
+        const t0 = Date.now();
+        try {
+            const r = await transcribe({ blob: fullBlob, name: `live.${extOf(mime)}`, model: getModel && getModel() });
+            const text = (r.text || '').trim() || liveText;
+            if (onUpdate) onUpdate({ text, elapsedMs: durationMs, final: true });
+            if (onSegment) onSegment({
+                seq: n, sizeBytes, elapsedMs: durationMs, latencyMs: Date.now() - t0, text,
+                delta: false, final: true, ok: true,
+                generationId: r.generationId, costUsd: r.costUsd,
+                promptTokens: r.promptTokens, completionTokens: r.completionTokens,
+            });
+            return text;
+        } catch (err) {
+            if (onError) onError(err);
+            if (onSegment) onSegment({ seq: n, sizeBytes, elapsedMs: durationMs, latencyMs: Date.now() - t0, delta: false, final: true, ok: false, error: err.message, code: err.code });
+            return liveText; // fall back to the live preview if the final pass fails
         }
     }
 
     async function poll() {
         if (polling || !chunks.length) return;
         polling = true;
-        try { await runSegment(false); }
+        try { await runDelta(); }
         finally { polling = false; }
     }
 
@@ -78,10 +122,10 @@ export function createLiveSession({ transcribe, getModel, onUpdate, onError, onS
         recorder = new MediaRecorder(stream, mime ? { mimeType: mime } : undefined);
         mime = recorder.mimeType || mime;
         chunks = [];
+        seq = 0; sentIndex = 0; headerChunk = null; liveText = '';
         recorder.addEventListener('dataavailable', (e) => { if (e.data && e.data.size) chunks.push(e.data); });
-        recorder.start(1000);
+        recorder.start(1000); // a chunk per second → deltas of ~intervalMs of new audio
         startedAt = Date.now();
-        seq = 0;
         timer = setInterval(poll, intervalMs);
         return { mimeType: mime };
     }
@@ -96,10 +140,9 @@ export function createLiveSession({ transcribe, getModel, onUpdate, onError, onS
             });
         }
         if (stream) stream.getTracks().forEach((t) => t.stop());
-        const blob = new Blob(chunks, { type: mime });
+        const blob = new Blob(chunks, { type: mime }); // the full, continuous take
         const durationMs = Date.now() - startedAt;
-        let text = '';
-        if (blob.size) text = await runSegment(true); // final pass = the last segment
+        const text = blob.size ? await runFinal(blob, durationMs) : liveText;
         const name = `live-${new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19)}.${extOf(mime)}`;
         return { blob, mimeType: mime, durationMs, text, name };
     }
