@@ -3,21 +3,22 @@
  *
  * Captures the mic continuously and, every `intervalMs`, transcribes ONLY THE
  * NEW audio since the last poll (a delta), so cost grows ~linearly with how long
- * you speak (not quadratically — the old "growing window" re-sent the whole take
- * each poll). The live transcript is the deltas reassembled BY SEQUENCE NUMBER
+ * you speak. The live transcript is the deltas reassembled BY SEQUENCE NUMBER
  * (contiguous prefix), so it stays correct even when shorter intervals make
  * requests overlap and OpenRouter answers them OUT OF ORDER. On stop, one
  * full-quality pass over the whole take produces the clean saved transcript.
  *
- * Chunking is TIME-based (the interval), not silence/VAD — a smart silence-aware
- * mode is a future option. `intervalMs` is settable per session (start({intervalMs}))
- * so the UI can trade responsiveness/cost against accuracy. Concurrency is bounded
- * by `maxInFlight` (backpressure: a tick coalesces into the next delta when full).
+ * Decodable deltas — the SUBTLE BIT: a later webm chunk is a bare "Cluster" that
+ * can't be decoded without the file's init segment (header). MediaRecorder ships
+ * the init segment in the FIRST chunk — but with a 1s timeslice that first chunk
+ * is init segment + the first ~1s of AUDIO. Prepending the whole first chunk
+ * therefore injected the opening words into every delta (the "Let's Let's" bug).
+ * So we extract just the init segment (the bytes BEFORE the first Cluster) and
+ * prepend only that. The continuous recording is kept intact for the final pass.
  *
- * Decodable deltas: MediaRecorder puts the webm/ogg init segment (header) only in
- * the first chunk, so each delta is `[headerChunk, ...newChunks]` — a valid clip
- * of just the new audio. The continuous recording is kept intact for the final
- * pass + the saved file (no gaps).
+ * Silence gate (optional): an AnalyserNode tracks the peak RMS since the last
+ * send; a delta whose window stayed below `silenceThreshold` is skipped (not
+ * sent, not billed, no hallucinated filler on silence).
  *
  * @module audio-transcribe/live
  */
@@ -30,28 +31,44 @@ function bestMime() {
 }
 function extOf(m) { return m.includes('mp4') ? 'm4a' : (m.includes('ogg') ? 'opus' : 'webm'); }
 
+/** Extract the webm init segment (everything before the first Cluster element)
+ *  from the first chunk, so prepending it to a later delta adds NO stale audio.
+ *  Falls back to the whole blob (old behaviour) if no Cluster id is found. */
+export async function extractInitSegment(firstChunk, mime) {
+    try {
+        const buf = new Uint8Array(await firstChunk.arrayBuffer());
+        // EBML id for Cluster = 0x1F43B675. The init segment (EBML header +
+        // Segment + Info + Tracks) precedes the first Cluster.
+        for (let i = 0; i + 4 <= buf.length; i++) {
+            if (buf[i] === 0x1F && buf[i + 1] === 0x43 && buf[i + 2] === 0xB6 && buf[i + 3] === 0x75) {
+                return new Blob([buf.slice(0, i)], { type: mime });
+            }
+        }
+    } catch (_) { /* fall through */ }
+    return firstChunk; // non-webm / not found → whole first chunk (old behaviour)
+}
+
 /**
  * @param {object} ctx
  * @param {(req: { blob: Blob, name: string, model: string }) => Promise<{ text: string }>} ctx.transcribe
  * @param {() => string} ctx.getModel
  * @param {(u: { text: string, elapsedMs: number, final: boolean }) => void} [ctx.onUpdate]
  * @param {(err: Error) => void} [ctx.onError]
- * @param {(s: object) => void} [ctx.onSegment]
- * @param {number} [ctx.intervalMs=2500]  default poll interval (overridable per start)
- * @param {number} [ctx.maxInFlight=4]    max concurrent delta requests
+ * @param {(s: object) => void} [ctx.onSegment]  detail includes the delta `blob`
+ * @param {number} [ctx.intervalMs=2500]
+ * @param {number} [ctx.maxInFlight=4]
+ * @param {boolean} [ctx.skipSilence=false]      default gate state (overridable per start)
+ * @param {number} [ctx.silenceThreshold=0.01]   RMS below which a window is "silence"
  * @returns {{ start: Function, stop: Function, getStream: () => MediaStream|null, isRunning: () => boolean }}
  */
-export function createLiveSession({ transcribe, getModel, onUpdate, onError, onSegment, intervalMs = 2500, maxInFlight = 4 }) {
+export function createLiveSession({ transcribe, getModel, onUpdate, onError, onSegment, intervalMs = 2500, maxInFlight = 4, skipSilence = false, silenceThreshold = 0.01 }) {
     let stream = null, recorder = null, chunks = [], timer = null, startedAt = 0, mime = '';
-    let seq = 0, sentIndex = 0, headerChunk = null, inFlight = 0, curInterval = intervalMs;
-    /** seq → completed delta text (empty string on a failed/empty delta). */
+    let seq = 0, sentIndex = 0, headerBlob = null, headerPending = false, inFlight = 0, curInterval = intervalMs;
+    let gateOn = skipSilence, gateThreshold = silenceThreshold;
+    let audioCtx = null, analyser = null, sampleTimer = null, peakRms = 0;
     const deltaText = new Map();
-    /** in-flight delta promises (so stop() can drain before assembling/saving). */
     const pending = new Set();
 
-    /** Live preview = the CONTIGUOUS prefix of completed deltas, in seq order.
-     *  Stopping at the first gap keeps the text ordered even if a later delta
-     *  (e.g. a faster, shorter request) finishes before an earlier one. */
     function buildLiveText() {
         const out = [];
         for (let i = 1; i <= seq; i++) {
@@ -69,14 +86,14 @@ export function createLiveSession({ transcribe, getModel, onUpdate, onError, onS
             deltaText.set(n, (r.text || '').trim());
             if (onUpdate) onUpdate({ text: buildLiveText(), elapsedMs: Date.now() - startedAt, final: false });
             if (onSegment) onSegment({
-                seq: n, sizeBytes, elapsedMs: Date.now() - startedAt, latencyMs: Date.now() - t0,
+                seq: n, sizeBytes, blob, elapsedMs: Date.now() - startedAt, latencyMs: Date.now() - t0,
                 text: (r.text || '').trim(), delta: true, final: false, ok: true,
                 generationId: r.generationId, costUsd: r.costUsd, promptTokens: r.promptTokens, completionTokens: r.completionTokens,
             });
         } catch (err) {
             deltaText.set(n, ''); // keep the ordering chain intact past a failed delta
             if (onError) onError(err);
-            if (onSegment) onSegment({ seq: n, sizeBytes, elapsedMs: Date.now() - startedAt, latencyMs: Date.now() - t0, delta: true, final: false, ok: false, error: err.message, code: err.code });
+            if (onSegment) onSegment({ seq: n, sizeBytes, blob, elapsedMs: Date.now() - startedAt, latencyMs: Date.now() - t0, delta: true, final: false, ok: false, error: err.message, code: err.code });
         } finally { inFlight -= 1; }
     }
 
@@ -87,35 +104,75 @@ export function createLiveSession({ transcribe, getModel, onUpdate, onError, onS
             const r = await transcribe({ blob: fullBlob, name: `live.${extOf(mime)}`, model: getModel && getModel() });
             const text = (r.text || '').trim() || buildLiveText();
             if (onUpdate) onUpdate({ text, elapsedMs: durationMs, final: true });
-            if (onSegment) onSegment({ seq: n, sizeBytes: fullBlob.size, elapsedMs: durationMs, latencyMs: Date.now() - t0, text, delta: false, final: true, ok: true, generationId: r.generationId, costUsd: r.costUsd, promptTokens: r.promptTokens, completionTokens: r.completionTokens });
+            if (onSegment) onSegment({ seq: n, sizeBytes: fullBlob.size, blob: fullBlob, elapsedMs: durationMs, latencyMs: Date.now() - t0, text, delta: false, final: true, ok: true, generationId: r.generationId, costUsd: r.costUsd, promptTokens: r.promptTokens, completionTokens: r.completionTokens });
             return text;
         } catch (err) {
             if (onError) onError(err);
-            if (onSegment) onSegment({ seq: n, sizeBytes: fullBlob.size, elapsedMs: durationMs, latencyMs: Date.now() - t0, delta: false, final: true, ok: false, error: err.message, code: err.code });
+            if (onSegment) onSegment({ seq: n, sizeBytes: fullBlob.size, blob: fullBlob, elapsedMs: durationMs, latencyMs: Date.now() - t0, delta: false, final: true, ok: false, error: err.message, code: err.code });
             return buildLiveText();
         }
+    }
+
+    /** Build the decodable delta blob for the window chunks[from..]. */
+    function deltaBlob(from, fresh) {
+        // First delta carries the real header+opening already; later deltas get
+        // ONLY the init segment prepended (no stale opening audio).
+        if (from === 0) return new Blob(fresh, { type: mime });
+        return new Blob([headerBlob || chunks[0], ...fresh], { type: mime });
     }
 
     /** Fire a delta for the new audio since the last tick (non-blocking, bounded). */
     function tick() {
         if (!chunks.length) return;
-        if (!headerChunk) headerChunk = chunks[0];
         const fresh = chunks.slice(sentIndex);
         if (!fresh.length) return;
-        if (inFlight >= maxInFlight) return; // backpressure → coalesces into the next delta
         const from = sentIndex;
+        // Later deltas need the extracted init segment; wait one tick if it's not
+        // ready yet (it's computed from the first chunk, async).
+        if (from > 0 && !headerBlob) return;
+        if (inFlight >= maxInFlight) return; // backpressure → coalesces into the next delta
+
+        // Silence gate: if this window stayed quiet, drop it (don't send/charge).
+        const peak = peakRms; peakRms = 0;
+        if (gateOn && analyser && peak < gateThreshold) { sentIndex = chunks.length; return; }
+
         sentIndex = chunks.length;
-        const parts = from === 0 ? fresh : [headerChunk, ...fresh];
-        const blob = new Blob(parts, { type: mime });
+        const blob = deltaBlob(from, fresh);
         const n = ++seq;
         inFlight += 1;
         const pr = transcribeDelta(n, blob, blob.size);
         pending.add(pr); pr.finally(() => pending.delete(pr));
     }
 
+    /** Start an AnalyserNode on the stream to measure loudness (for the gate). */
+    function startMeter() {
+        if (typeof window === 'undefined') return; // headless (Node) → no gate
+        try {
+            const AC = window.AudioContext || window.webkitAudioContext;
+            if (!AC) return;
+            audioCtx = new AC();
+            if (audioCtx.state === 'suspended') audioCtx.resume().catch(() => {});
+            const src = audioCtx.createMediaStreamSource(stream);
+            analyser = audioCtx.createAnalyser();
+            analyser.fftSize = 1024;
+            src.connect(analyser); // not connected to destination → no playback
+            const buf = new Float32Array(analyser.fftSize);
+            sampleTimer = setInterval(() => {
+                analyser.getFloatTimeDomainData(buf);
+                let sum = 0; for (let i = 0; i < buf.length; i++) sum += buf[i] * buf[i];
+                const rms = Math.sqrt(sum / buf.length);
+                if (rms > peakRms) peakRms = rms;
+            }, 80);
+        } catch (_) { analyser = null; }
+    }
+    function stopMeter() {
+        if (sampleTimer) { clearInterval(sampleTimer); sampleTimer = null; }
+        try { if (audioCtx) audioCtx.close(); } catch (_) { /* */ }
+        audioCtx = null; analyser = null; peakRms = 0;
+    }
+
     async function start(opts = {}) {
-        // Graceful in an embedded/sandboxed (null-origin) vault frame: there
-        // navigator.mediaDevices is undefined, so guard instead of bare-throwing.
+        // Graceful in an embedded/sandboxed (null-origin) vault frame.
         if (typeof navigator === 'undefined' || !navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
             throw Object.assign(new Error('Microphone unavailable in this context — an embedded/sandboxed frame blocks it unless the host grants allow="microphone" on a secure (https) context. Try the standalone tool, or drop an audio file instead.'), { code: 'mic-unavailable' });
         }
@@ -127,19 +184,30 @@ export function createLiveSession({ transcribe, getModel, onUpdate, onError, onS
         recorder = new MediaRecorder(stream, mime ? { mimeType: mime } : undefined);
         mime = recorder.mimeType || mime;
         chunks = [];
-        seq = 0; sentIndex = 0; headerChunk = null; inFlight = 0;
+        seq = 0; sentIndex = 0; headerBlob = null; headerPending = false; inFlight = 0; peakRms = 0;
         deltaText.clear(); pending.clear();
         curInterval = opts.intervalMs || curInterval;
-        recorder.addEventListener('dataavailable', (e) => { if (e.data && e.data.size) chunks.push(e.data); });
-        // Chunk cadence ≤ the interval so each delta window has fresh data.
-        recorder.start(Math.min(1000, curInterval));
+        if (opts.skipSilence != null) gateOn = !!opts.skipSilence;
+        if (typeof opts.silenceThreshold === 'number') gateThreshold = opts.silenceThreshold;
+        recorder.addEventListener('dataavailable', (e) => {
+            if (!(e.data && e.data.size)) return;
+            chunks.push(e.data);
+            // Compute the pure init segment once, from the first chunk.
+            if (chunks.length === 1 && !headerBlob && !headerPending) {
+                headerPending = true;
+                extractInitSegment(e.data, mime).then((h) => { headerBlob = h; }).finally(() => { headerPending = false; });
+            }
+        });
+        recorder.start(Math.min(1000, curInterval)); // chunk cadence ≤ the interval
         startedAt = Date.now();
+        startMeter();
         timer = setInterval(tick, curInterval);
-        return { mimeType: mime, intervalMs: curInterval };
+        return { mimeType: mime, intervalMs: curInterval, skipSilence: gateOn };
     }
 
     async function stop(finalPass = true) {
         if (timer) { clearInterval(timer); timer = null; }
+        stopMeter();
         if (recorder && recorder.state !== 'inactive') {
             await new Promise((res) => {
                 recorder.addEventListener('stop', res, { once: true });
@@ -152,7 +220,7 @@ export function createLiveSession({ transcribe, getModel, onUpdate, onError, onS
         const durationMs = Date.now() - startedAt;
         let text;
         if (finalPass && blob.size) {
-            await Promise.allSettled([...pending]); // let interim deltas settle (the final pass overrides anyway)
+            await Promise.allSettled([...pending]);
             text = await runFinal(blob, durationMs);
         } else {
             tick(); // capture the tail window as a last delta

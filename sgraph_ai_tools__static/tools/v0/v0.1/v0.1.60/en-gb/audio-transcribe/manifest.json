@@ -4,7 +4,7 @@
     "slug": "audio-transcribe",
     "description": "Record from the mic OR drag/drop many local audio files (including WhatsApp .opus voice notes), then transcribe each to text using curated OpenRouter audio models — entirely in your browser. Batch queue with per-row status and retry, bundle the session's audio and/or transcripts into a .zip, and optionally send an encrypted share via SG/Send.",
     "icon": "🎙",
-    "version": "0.1.24",
+    "version": "0.1.25",
     "status": "alpha",
     "category": "media",
     "keywords": [
@@ -204,7 +204,7 @@
                 "description": "Headless chat about the transcripts (scriptable/embeddable, no UI). Params {text, model?, context?}; default system prompt is built from the done transcripts (override with {context}), default model google/gemini-3.5-flash. Returns {text, model, generationId, usage:{promptTokens,completionTokens,costUsd}}. Needs a connected key (connect/setApiKey)."
             },
             "startLive": {
-                "description": "Live (near-realtime) transcribe: open the mic and transcribe only the NEW audio since the last poll (a delta) every {intervalMs} ms (default 2500). Shorter = more responsive but more, smaller requests (which may overlap — the live text is reassembled by sequence number, so out-of-order responses are handled). Emits at:live:started {mimeType,intervalMs} then at:live:update {text,elapsedMs,final} + at:live:segment per delta. Returns {live:true, mimeType, intervalMs}."
+                "description": "Live (near-realtime) transcribe: open the mic and transcribe only the NEW audio since the last poll (a delta) every {intervalMs} ms (default 2500). Each delta prepends only the extracted webm init segment (not the first chunk's opening audio). {skipSilence} (default from UI) drops near-silent windows (below {silenceThreshold} RMS, default 0.01). Shorter interval = more responsive but more, smaller requests (may overlap — live text is reassembled by sequence number). Emits at:live:started {mimeType,intervalMs,skipSilence} then at:live:update + at:live:segment per delta (detail carries the sent blob). Returns {live:true, mimeType, intervalMs, skipSilence}."
             },
             "stopLive": {
                 "description": "Stop live transcribe: one final pass, then save the take (with transcript) as a queue item. Emits at:live:update {final:true}, at:item:added, at:live:stopped {id,text}. Returns {id, text, durationMs}."

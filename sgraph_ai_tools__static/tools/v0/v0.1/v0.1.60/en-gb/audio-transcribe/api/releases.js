@@ -16,6 +16,16 @@
 /** @type {ReadonlyArray<Release>} */
 export const RELEASES = Object.freeze([
     {
+        version: '0.1.25',
+        date: '2026-06-16',
+        summary: 'Live: fixed the repeated opening words; "skip silence"; play each segment.',
+        changes: [
+            'Fixed: live segments kept starting with the recording\'s opening words (the "Let\'s Let\'s…" bug). Each delta prepended the recorder\'s FIRST chunk to stay decodable — but that chunk is the webm header PLUS the first ~1s of audio, so the opening got re-sent every time. We now extract only the init segment (the bytes before the first webm Cluster) and prepend that — no stale audio.',
+            'New: "Skip silence" toggle — a delta whose window stayed near-silent is not sent (saves $ and stops the model hallucinating filler on silence). An AnalyserNode tracks loudness; startLive({skipSilence,silenceThreshold}) controls it.',
+            'New: a ▶ play button on every segment in "Segments sent" — hear exactly what was sent to the model (decoded, so webm timecode offsets don\'t matter). Great for verifying chunk boundaries.',
+        ],
+    },
+    {
         version: '0.1.24',
         date: '2026-06-16',
         summary: 'Live: choose the chunk interval; out-of-order-safe reassembly.',
