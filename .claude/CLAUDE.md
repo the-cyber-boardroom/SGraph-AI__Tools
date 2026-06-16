@@ -210,4 +210,5 @@ This enables headless Playwright testing, agentic driving, and console scripting
 | **Vault — Full Inventory (consumer agents)** | `library/api/v0.1.92__vault__full-inventory.md` — every vault module, component, and tool with pinned CDN URLs |
 | **sg-layout — Quick Start (consumer agents)** | `library/api/v0.1.92__sg-layout__quick-start.md` — fractal panel element: JSON tree, common methods, events bus, theming |
 | **sg-layout — Full Inventory (consumer agents)** | `library/api/v0.1.92__sg-layout__full-inventory.md` — every method, `SGL_EVENTS` constant with detail shapes, drag-to-dock zones, lock model, CSS surface |
+| **Audio/Live Transcribe — Integration Guide (consumer agents)** | `library/api/v0.1.93__audio-transcribe__integration-and-capabilities.md` — wiring audio-transcribe + live-transcribe into a vault / the main website: full JS API, events, the embedding/key-injection/cost/spend-cap/CORS contract, component capabilities, what's owned elsewhere |
 | **Role definitions** | `team/explorer/{role}/ROLE__{role}.md` |
