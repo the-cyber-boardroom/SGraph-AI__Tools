@@ -4,7 +4,7 @@
     "slug": "audio-transcribe",
     "description": "Record from the mic OR drag/drop many local audio files (including WhatsApp .opus voice notes), then transcribe each to text using curated OpenRouter audio models — entirely in your browser. Batch queue with per-row status and retry, bundle the session's audio and/or transcripts into a .zip, and optionally send an encrypted share via SG/Send.",
     "icon": "🎙",
-    "version": "0.1.21",
+    "version": "0.1.22",
     "status": "alpha",
     "category": "media",
     "keywords": [
@@ -50,6 +50,10 @@
             {
                 "module": "sg-wasm-cache",
                 "path": "/core/sg-wasm-cache/v0/v0.1/v0.1.0/sg-wasm-cache.js"
+            },
+            {
+                "module": "sg-tts-openrouter",
+                "path": "/core/sg-tts-openrouter/v0/v0.1/v0.1.0/sg-tts-openrouter.js"
             }
         ],
         "components": [
@@ -191,10 +195,10 @@
                 "description": "Load a built-in sample audio as a queue item (simulates a drop). Params {id} from getSamples/SAMPLES; tone samples are synthesised in-browser."
             },
             "synthesize": {
-                "description": "Text-to-speech. Params {text, mode:'local'|'openrouter', voice?, model?}. 'local' = Kokoro (sg-tts, free, in-browser); 'openrouter' = an audio-output model (uses the connected key). Returns {mode,durationMs,sizeBytes,generationId?} (no blob)."
+                "description": "Text-to-speech. Params {text, mode:'local'|'openrouter', voice?, model?, apiKey?, returnAudio?}. 'local' = Kokoro (sg-tts, free, in-browser); 'openrouter' = an audio-output model. {apiKey} overrides the connected key. Returns {mode,durationMs,sizeBytes,mimeType,generationId?}; pass {returnAudio:true} to also get the WAV as {audioDataUrl} (base64 data URL) — the supported way for an embedder to obtain the audio. (Alternatively use addSynthesized to put it in the queue.)"
             },
             "addSynthesized": {
-                "description": "Synthesise speech and drop it into the queue (round-trip: synth -> transcribe). Same params as synthesize plus {name?}."
+                "description": "Synthesise speech and drop it into the queue (round-trip: synth -> transcribe). Same params as synthesize plus {name?}. The queued item is the retrieval path when you don't pass returnAudio."
             },
             "ask": {
                 "description": "Headless chat about the transcripts (scriptable/embeddable, no UI). Params {text, model?, context?}; default system prompt is built from the done transcripts (override with {context}), default model google/gemini-3.5-flash. Returns {text, model, generationId, usage:{promptTokens,completionTokens,costUsd}}. Needs a connected key (connect/setApiKey)."
@@ -254,7 +258,10 @@
                 "description": "One item's transcript (with id) or all transcripts (without id)."
             },
             "getCostSummary": {
-                "description": "Cost roll-up: {sessionUsd, sessionPending, perItem:[{id,name,usd,pending,versions}]} — per audio file and across the whole browser session."
+                "description": "Cost roll-up: {sessionUsd, sessionPending, perItem:[{id,name,usd,pending,versions}], auxUsd, auxPending} — per audio file, plus Create Voice (TTS), across the whole browser session."
+            },
+            "setSpendCap": {
+                "description": "Set (or clear) a session spend cap in USD for a sponsored/shared key. Params {usd} (number to set, null to clear). Once known spend reaches the cap, transcribe/Live halt with a typed { code:'budget-cap' } error (a soft cap — deferred costs lag a couple of seconds). Returns {cap}. Meant to be driven by the vault/key-budget layer."
             },
             "downloadZip": {
                 "description": "Build a .zip from the session (or an items subset) per include:{audio?,transcripts?} flags, plus manifest.json + index.txt, and trigger a browser download. Default include: {audio:false, transcripts:true}. Emits at:bundle:created."

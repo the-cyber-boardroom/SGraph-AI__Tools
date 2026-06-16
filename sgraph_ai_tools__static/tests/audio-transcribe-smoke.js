@@ -48,7 +48,8 @@ const { listModels, DEFAULT_MODEL, AUDIO_MODEL_IDS } = await import(`file://${TO
 const { fetchGenerationCost } = await import(`file://${TOOL}/api/openrouter-cost.js`);
 const { RELEASES, currentVersion } = await import(`file://${TOOL}/api/releases.js`);
 const { SAMPLES, buildSampleFile } = await import(`file://${TOOL}/api/samples.js`);
-const { encodeWav, base64ToBlob, synthesize, TTS_VOICES } = await import(`file://${TOOL}/api/tts.js`);
+const { synthesize } = await import(`file://${TOOL}/api/tts.js`);
+const { encodeWav, base64ToBlob, synthesizeOpenRouter, TTS_OPENROUTER_VOICES } = await import(`file://${CORE}/sg-tts-openrouter/v0/v0.1/v0.1.0/sg-tts-openrouter.js`);
 const { classifyLlmError, LLM_ERROR_CODES } = await import(`file://${TOOL}/api/llm-errors.js`);
 const { isAudioFile, isSupportedAudio } = await import(`file://${TOOL}/api/audio-format.js`);
 const { encodeWavBytes } = await import(`file://${CORE}/sg-audio-decode/v0/v0.1/v0.1.0/sg-wav-encoder.js`);
@@ -459,10 +460,10 @@ await test('buildSampleFile makes a valid WAV File for a tone sample; rejects un
     await assert.rejects(() => buildSampleFile('nope'), (e) => e.code === 'unknown-sample');
 });
 
-await test('tts: WAV encode, base64 decode, and OpenRouter dispatch (mocked)', async () => {
+await test('core/sg-tts-openrouter: WAV encode, base64 decode, pcm16 streaming dispatch (mocked)', async () => {
     const wav = encodeWav(new Float32Array([0, 0.5, -0.5, 1, -1]), 16000);
     assert.equal(String.fromCharCode(...new Uint8Array(await wav.arrayBuffer()).slice(0, 4)), 'RIFF');
-    assert.ok(TTS_VOICES.local.length && TTS_VOICES.openrouter.length, 'voices per mode');
+    assert.ok(TTS_OPENROUTER_VOICES.length, 'openrouter voices listed');
     assert.equal(base64ToBlob(Buffer.from('hello').toString('base64'), 'audio/wav').size, 5);
 
     const fetchImpl = async (url, opts) => {
@@ -478,7 +479,7 @@ await test('tts: WAV encode, base64 decode, and OpenRouter dispatch (mocked)', a
             + `data: ${JSON.stringify({ choices: [{ delta: { audio: { data: c2 } } }] })}\n\ndata: [DONE]\n\n`;
         return new Response(sse, { status: 200, headers: { 'content-type': 'text/event-stream' } });
     };
-    const r = await synthesize({ text: 'hi', mode: 'openrouter', apiKey: 'sk', fetchImpl });
+    const r = await synthesizeOpenRouter('hi', { apiKey: 'sk', fetchImpl });
     assert.equal(r.mode, 'openrouter');
     assert.equal(r.generationId, 'gen-tts');
     assert.ok(r.blob.size > 0, 'decoded audio blob');
@@ -487,8 +488,9 @@ await test('tts: WAV encode, base64 decode, and OpenRouter dispatch (mocked)', a
     assert.equal(String.fromCharCode(...head.slice(0, 4)), 'RIFF', 'pcm16 wrapped in a WAV');
     assert.equal(r.blob.size, 44 + 7, 'WAV header + both PCM chunks');
 
+    await assert.rejects(() => synthesizeOpenRouter('hi', { fetchImpl }), (e) => e.code === 'no-key');
+    // The tool-level dispatch still guards empty text before importing anything.
     await assert.rejects(() => synthesize({ text: '', mode: 'local' }), (e) => e.code === 'no-text');
-    await assert.rejects(() => synthesize({ text: 'hi', mode: 'openrouter', fetchImpl }), (e) => e.code === 'no-key');
 });
 
 await test('releases changelog is well-formed, newest-first, with unique semver versions', () => {
@@ -655,6 +657,17 @@ await test('createLiveSession.start() throws mic-unavailable when mic APIs are a
     const session = createLiveSession({ transcribe: async () => ({ text: '' }), getModel: () => 'm' });
     await assert.rejects(() => session.start(), (e) => e.code === 'mic-unavailable');
     assert.equal(session.isRunning(), false);
+});
+
+await test('spend cap halts transcription once reached, resumes when cleared (change-request #9)', async () => {
+    const h = buildHarness();
+    h.state.addAuxCost({ kind: 'tts', usd: 0.05, pending: false }); // already spent
+    h.state.setSpendCap(0.01); // cap below current spend
+    const add = await h.source.addFiles({ files: [fakeFile('a.mp3', 'audio/mpeg')] });
+    await assert.rejects(() => h.transcribe.transcribeItem({ id: add.added[0].id }), (e) => e.code === 'budget-cap', 'halts with a typed budget-cap error');
+    h.state.setSpendCap(null); // clear the cap
+    const r = await h.transcribe.transcribeItem({ id: add.added[0].id });
+    assert.ok(r.text, 'transcription proceeds once the cap is cleared');
 });
 
 await test('getCostSummary folds in auxiliary (Create Voice / TTS) spend', async () => {

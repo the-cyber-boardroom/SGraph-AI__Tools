@@ -37,6 +37,22 @@ export function buildTranscribeMethods({ state, emit, sendToLlm, getActiveModel,
     const recordExchange = typeof onExchange === 'function' ? onExchange : () => {};
     /** vid -> cancel fn for in-flight requests (registered by the transport). */
     const cancellers = new Map();
+
+    /** Current known session spend (resolved costs only; deferred costs lag). */
+    function currentSpendUsd() {
+        let usd = 0;
+        for (const it of state.getItems()) for (const v of (it.versions || [])) if (typeof v.costUsd === 'number') usd += v.costUsd;
+        for (const a of (state.getAuxCosts ? state.getAuxCosts() : [])) if (typeof a.usd === 'number') usd += a.usd;
+        return usd;
+    }
+    /** Halt (throw) if a session spend cap is set and already reached. A soft cap:
+     *  costs resolve a couple of seconds late, so it can overshoot slightly. */
+    function checkSpendCap() {
+        const cap = state.getSpendCap ? state.getSpendCap() : null;
+        if (cap != null && currentSpendUsd() >= cap) {
+            throw Object.assign(new Error(`Session spend cap reached ($${cap.toFixed(4)}). Transcription halted — raise or clear the cap to continue.`), { code: 'budget-cap' });
+        }
+    }
     /**
      * Set the active model, or (with `id`) one item's model.
      * @param {{ model: string, id?: string }} params
@@ -140,6 +156,7 @@ export function buildTranscribeMethods({ state, emit, sendToLlm, getActiveModel,
      * @returns {Promise<{ id: string, text: string, model: string, latencyMs: number, vid: string, generationId?: string, usage?: object }>}
      */
     async function transcribeItem(params = {}) {
+        checkSpendCap();
         const item = state.getRawItem(params.id);
         if (!item) throw Object.assign(new Error(`Unknown item id: ${params.id}`), { code: 'unknown-item' });
         const model = params.model || item.model || (getActiveModel && getActiveModel()) || '';
@@ -168,6 +185,7 @@ export function buildTranscribeMethods({ state, emit, sendToLlm, getActiveModel,
      * @returns {Promise<{ id: string, results: Array<{ vid: string, model: string, ok: boolean }> }>}
      */
     async function transcribeModels(params = {}) {
+        checkSpendCap();
         const item = state.getRawItem(params.id);
         if (!item) throw Object.assign(new Error(`Unknown item id: ${params.id}`), { code: 'unknown-item' });
         const models = Array.isArray(params.models) ? params.models.filter(Boolean) : [];
@@ -254,6 +272,7 @@ export function buildTranscribeMethods({ state, emit, sendToLlm, getActiveModel,
      * @param {{ blob: Blob, name?: string, model: string }} params
      */
     async function transcribeBlob(params = {}) {
+        checkSpendCap();
         const model = params.model || (getActiveModel && getActiveModel()) || '';
         if (!model) throw Object.assign(new Error('No model selected'), { code: 'no-model' });
         const audio = await toSupportedDataUrl(params.blob, params.name || 'live.webm');
