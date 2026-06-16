@@ -16,6 +16,16 @@
 /** @type {ReadonlyArray<Release>} */
 export const RELEASES = Object.freeze([
     {
+        version: '0.1.24',
+        date: '2026-06-16',
+        summary: 'Live: choose the chunk interval; out-of-order-safe reassembly.',
+        changes: [
+            'New: a "Chunk every" control in the Live panel (1s … 6s) — shorter = more responsive but sends more, smaller requests (more $); longer = cheaper. startLive({intervalMs}) sets it.',
+            'Changed: shorter intervals now genuinely fire overlapping requests (bounded concurrency), and the live transcript is reassembled BY SEQUENCE NUMBER (contiguous prefix) — so if OpenRouter answers deltas out of order, the text still appears in the right order (a later/faster delta never jumps ahead of an earlier one). The clean full-quality pass on stop is unchanged, so the saved transcript is unaffected by any live-preview roughness.',
+            'Note: chunking is time-based (the interval), not silence/VAD-aware — a smart silence-split mode is a future option.',
+        ],
+    },
+    {
         version: '0.1.23',
         date: '2026-06-16',
         summary: 'Dropped 3 broken/hanging models; "Stop all" on the parallel run.',

@@ -46,7 +46,7 @@ export async function init(manifest) {
 
     const api = new SgToolApi({
         name: 'audio-transcribe',
-        version: { api: '0.1.23', ui: '0.1.23', content: '0.1.0' },
+        version: { api: '0.1.24', ui: '0.1.24', content: '0.1.0' },
         panelId: 'root',
         manifest: './manifest.json',
         skills: (manifest && manifest.skills) || {},
@@ -227,12 +227,12 @@ export async function init(manifest) {
         onError: (err) => emit(AT_EVENTS.LIVE_ERROR, { error: err.message, code: err.code }),
         onSegment: onLiveSegment,
     });
-    async function startLive() {
+    async function startLive(params = {}) {
         liveRunId += 1;
         try {
-            const r = await live.start();
-            emit(AT_EVENTS.LIVE_STARTED, { mimeType: r.mimeType });
-            return { live: true, mimeType: r.mimeType };
+            const r = await live.start({ intervalMs: params.intervalMs });
+            emit(AT_EVENTS.LIVE_STARTED, { mimeType: r.mimeType, intervalMs: r.intervalMs });
+            return { live: true, mimeType: r.mimeType, intervalMs: r.intervalMs };
         } catch (err) {
             // Surface a clear event (e.g. mic-unavailable in a vault frame) rather
             // than only rejecting — embedders/UIs listen on at:live:error.
