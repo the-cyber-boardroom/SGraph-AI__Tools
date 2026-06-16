@@ -130,7 +130,7 @@ export function createLiveSession({ transcribe, getModel, onUpdate, onError, onS
         return { mimeType: mime };
     }
 
-    async function stop() {
+    async function stop(finalPass = true) {
         if (timer) { clearInterval(timer); timer = null; }
         if (recorder && recorder.state !== 'inactive') {
             await new Promise((res) => {
@@ -142,7 +142,15 @@ export function createLiveSession({ transcribe, getModel, onUpdate, onError, onS
         if (stream) stream.getTracks().forEach((t) => t.stop());
         const blob = new Blob(chunks, { type: mime }); // the full, continuous take
         const durationMs = Date.now() - startedAt;
-        const text = blob.size ? await runFinal(blob, durationMs) : liveText;
+        // finalPass=true → one full-quality pass for a clean transcript (~1× extra
+        // cost). finalPass=false → keep the appended deltas (cheapest, rougher).
+        let text;
+        if (finalPass && blob.size) {
+            text = await runFinal(blob, durationMs);
+        } else {
+            text = liveText;
+            if (onUpdate) onUpdate({ text, elapsedMs: durationMs, final: true });
+        }
         const name = `live-${new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19)}.${extOf(mime)}`;
         return { blob, mimeType: mime, durationMs, text, name };
     }

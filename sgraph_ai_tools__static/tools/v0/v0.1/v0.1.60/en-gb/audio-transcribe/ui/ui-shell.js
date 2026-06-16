@@ -139,20 +139,23 @@ export async function mountShell({ host, state, api, devPanel = true, getRecordi
     // This-session spend = every transcription cost across all audio files PLUS
     // auxiliary OpenRouter usage (Create Voice / TTS).
     function renderSessionCost() {
-        let usd = 0; let pending = false; let n = 0; let voice = 0;
+        let usd = 0; let pending = false; let n = 0; let voice = 0; let live = 0;
         for (const it of state.getItems()) for (const v of (it.versions || [])) {
             n += 1;
             if (typeof v.costUsd === 'number') usd += v.costUsd;
             if (v.costPending) pending = true;
         }
         for (const a of (state.getAuxCosts ? state.getAuxCosts() : [])) {
-            voice += 1;
+            if (a.kind === 'live') live += 1; else voice += 1;
             if (typeof a.usd === 'number') usd += a.usd;
             if (a.pending) pending = true;
         }
-        const total = n + voice;
-        const parts = [n ? `${n} transcription${n === 1 ? '' : 's'}` : '', voice ? `${voice} voice` : ''].filter(Boolean).join(' + ');
-        sessionCost.textContent = total ? `This session: 💰 $${usd.toFixed(4)}${pending ? '…' : ''} over ${parts}` : '';
+        const parts = [
+            n ? `${n} transcription${n === 1 ? '' : 's'}` : '',
+            voice ? `${voice} voice` : '',
+            live ? `${live} live segment${live === 1 ? '' : 's'}` : '',
+        ].filter(Boolean).join(' · ');
+        sessionCost.textContent = parts ? `This session: 💰 $${usd.toFixed(4)}${pending ? '…' : ''} · ${parts}` : '';
     }
     const onStateForCost = () => renderSessionCost();
     state.addEventListener('change', onStateForCost);

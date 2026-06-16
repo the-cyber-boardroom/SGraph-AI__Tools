@@ -214,6 +214,14 @@ export function createState(opts = {}) {
     /** @returns {Array<object>} a copy of the aux cost entries. */
     function getAuxCosts() { return aux.map((a) => ({ ...a })); }
 
+    // Optional session spend cap (USD). Set by an embedder/vault for a sponsored
+    // key; the transcribe path halts (throws { code:'budget-cap' }) once reached.
+    let spendCap = null;
+    /** @param {number|null} usd */
+    function setSpendCap(usd) { spendCap = (typeof usd === 'number' && usd > 0) ? usd : null; emit('cap', { usd: spendCap }); }
+    /** @returns {number|null} */
+    function getSpendCap() { return spendCap; }
+
     return {
         addEventListener: target.addEventListener.bind(target),
         removeEventListener: target.removeEventListener.bind(target),
@@ -223,5 +231,6 @@ export function createState(opts = {}) {
         getActiveModel, setActiveModel,
         getApiKeyPresent, setApiKeyPresent,
         addAuxCost, updateAuxCost, getAuxCosts,
+        setSpendCap, getSpendCap,
     };
 }

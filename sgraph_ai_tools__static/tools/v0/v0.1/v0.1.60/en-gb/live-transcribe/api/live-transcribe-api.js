@@ -71,8 +71,12 @@ export async function init() {
     // the per-segment cost, resolved exactly by generation id a moment later. ──
     function onLiveSegment(s) {
         emit(AT_EVENTS.LIVE_SEGMENT, s);
-        if (s.ok && s.generationId && typeof s.costUsd !== 'number') {
+        const costPending = !!(s.ok && s.generationId && typeof s.costUsd !== 'number');
+        // Record live spend in state (session total + spend cap).
+        const auxId = s.ok ? state.addAuxCost({ kind: 'live', usd: (typeof s.costUsd === 'number' ? s.costUsd : undefined), pending: costPending }) : null;
+        if (costPending) {
             Promise.resolve(fetchGenerationCostDeferred(s.generationId, currentApiKey)).then((cost) => {
+                if (auxId != null) state.updateAuxCost(auxId, { usd: (cost != null ? cost : undefined), pending: false });
                 emit(AT_EVENTS.LIVE_SEGMENT, { ...s, costUsd: (cost != null ? cost : s.costUsd), costPending: false });
             }).catch(() => {});
         }
@@ -94,8 +98,8 @@ export async function init() {
             throw err;
         }
     }
-    async function stopLive() {
-        const r = await live.stop();
+    async function stopLive(params = {}) {
+        const r = await live.stop(params.finalPass !== false);
         let id = null;
         if (r.blob && r.blob.size) {
             id = state.addItem(r.blob, { name: r.name, mimeType: r.mimeType, origin: 'recording', durationMs: r.durationMs });
@@ -116,7 +120,8 @@ export async function init() {
         .register('getItem', source.getItem, { async: false, sanitiseParams: passthrough })
         .register('getTranscript', transcribe.getTranscript, { async: false, sanitiseParams: passthrough })
         .register('transcribeAll', batch.transcribeAll, { async: true, sanitiseParams: passthrough })
-        .register('getCostSummary', transcribe.getCostSummary, { async: false, sanitiseParams: passthrough });
+        .register('getCostSummary', transcribe.getCostSummary, { async: false, sanitiseParams: passthrough })
+        .register('setSpendCap', (p = {}) => { state.setSpendCap(p.usd != null ? p.usd : null); return { cap: state.getSpendCap() }; }, { async: false, sanitiseParams: passthrough });
 
     api.activate();
 

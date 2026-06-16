@@ -16,6 +16,17 @@
 /** @type {ReadonlyArray<Release>} */
 export const RELEASES = Object.freeze([
     {
+        version: '0.1.22',
+        date: '2026-06-16',
+        summary: 'Final-pass toggle, versioned TTS component, audio over the API, spend cap.',
+        changes: [
+            'New: a "Clean up on stop" toggle in the Live panel — on (default) does the full-quality re-transcription for a clean saved transcript; off keeps the cheaper live text (no extra full-length charge). stopLive({finalPass}) controls it.',
+            'New: synthesize({returnAudio:true}) returns the WAV as {audioDataUrl} (base64) so an embedder can read the audio over the JS API; synthesize now also honours an {apiKey} override.',
+            'New: setSpendCap({usd}) — a session spend cap (for a sponsored/shared key); transcribe/Live halt with a typed {code:\'budget-cap\'} once reached. Meant to be driven by the vault/key-budget layer.',
+            'Refactor: the OpenRouter TTS engine moved to a VERSIONED core module (core/sg-tts-openrouter) so vault pages import it by a stable /core/ URL (like sg-audio-decode); the tool delegates to it.',
+        ],
+    },
+    {
         version: '0.1.21',
         date: '2026-06-15',
         summary: 'Live now sends DELTAS, not the whole growing take (much cheaper).',

@@ -30,6 +30,7 @@ export function mountLive({ root, api, getLiveStream }) {
             <button type="button" class="at-btn primary at-live__btn" data-live-btn>🔴 Start live</button>
             <span class="at-rec-timer" data-live-timer hidden>00:00</span>
         </div>
+        <label class="at-live__clean"><input type="checkbox" data-live-clean checked> Clean up on stop <span class="at-muted">(one full-quality re-transcription — costs ~1× more; off = keep the cheaper live text)</span></label>
         <div class="at-viz" data-live-viz hidden><sg-audio-viz mode="smooth-eq"></sg-audio-viz></div>
         <h3 class="at-item__txh">Live transcript</h3>
         <div class="at-live__tx" data-live-tx><span class="at-muted">Not started.</span></div>
@@ -46,6 +47,7 @@ export function mountLive({ root, api, getLiveStream }) {
     const vizWrap = root.querySelector('[data-live-viz]');
     const vizEl = root.querySelector('[data-live-viz] sg-audio-viz');
     const txEl  = root.querySelector('[data-live-tx]');
+    const cleanChk = root.querySelector('[data-live-clean]');
     const statusEl = root.querySelector('[data-live-status]');
     const segWrap = root.querySelector('[data-live-segwrap]');
     const segsEl  = root.querySelector('[data-live-segs]');
@@ -114,8 +116,8 @@ export function mountLive({ root, api, getLiveStream }) {
                 txEl.innerHTML = '<span class="at-muted">…</span>';
             } catch (err) { statusEl.textContent = `Could not start: ${err.message}`; }
         } else {
-            statusEl.textContent = 'Finishing…';
-            try { const r = await api.stopLive(); statusEl.textContent = r && r.id ? 'Saved to the Queue — open it there.' : 'Stopped.'; }
+            statusEl.textContent = cleanChk && cleanChk.checked ? 'Finishing… (full-quality pass)' : 'Finishing…';
+            try { const r = await api.stopLive({ finalPass: !cleanChk || cleanChk.checked }); statusEl.textContent = r && r.id ? 'Saved to the Queue — open it there.' : 'Stopped.'; }
             catch (err) { statusEl.textContent = `Stop failed: ${err.message}`; }
             finally {
                 setRunning(false); stopViz();

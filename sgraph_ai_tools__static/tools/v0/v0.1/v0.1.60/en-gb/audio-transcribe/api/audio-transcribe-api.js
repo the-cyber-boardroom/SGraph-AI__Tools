@@ -46,7 +46,7 @@ export async function init(manifest) {
 
     const api = new SgToolApi({
         name: 'audio-transcribe',
-        version: { api: '0.1.21', ui: '0.1.21', content: '0.1.0' },
+        version: { api: '0.1.22', ui: '0.1.22', content: '0.1.0' },
         panelId: 'root',
         manifest: './manifest.json',
         skills: (manifest && manifest.skills) || {},
@@ -133,10 +133,26 @@ export async function init(manifest) {
         return source.addFiles({ files: [file] });
     }
 
-    /** Text-to-speech (local Kokoro or OpenRouter). Returns metadata (no blob). */
+    /** Blob → base64 data URL (so an embedder can read the audio over the JS API). */
+    function blobToDataUrl(blob) {
+        return new Promise((resolve, reject) => {
+            const fr = new FileReader();
+            fr.onload = () => resolve(fr.result);
+            fr.onerror = () => reject(fr.error || new Error('read failed'));
+            fr.readAsDataURL(blob);
+        });
+    }
+    /**
+     * Text-to-speech (local Kokoro or OpenRouter). Returns metadata; pass
+     * { returnAudio: true } to also get the WAV as a base64 data URL (the
+     * supported way for an embedder to obtain the audio over the JS API). An
+     * { apiKey } param overrides the connected key.
+     */
     async function ttsSynthesize(params = {}) {
-        const r = await synthesize({ ...params, apiKey: currentApiKey });
-        return { mode: r.mode, durationMs: r.durationMs, sizeBytes: r.blob.size, generationId: r.generationId };
+        const r = await synthesize({ ...params, apiKey: params.apiKey || currentApiKey });
+        const out = { mode: r.mode, durationMs: r.durationMs, sizeBytes: r.blob.size, mimeType: r.blob.type || 'audio/wav', generationId: r.generationId };
+        if (params.returnAudio) out.audioDataUrl = await blobToDataUrl(r.blob);
+        return out;
     }
     /** Synthesise speech and drop it into the queue (round-trip: synth → transcribe). */
     async function addSynthesized(params = {}) {
@@ -183,6 +199,9 @@ export async function init(manifest) {
         emit(AT_EVENTS.LIVE_SEGMENT, s);
         const vid = `live-${liveRunId}-${s.seq}`;
         const costPending = !!(s.ok && s.generationId && typeof s.costUsd !== 'number');
+        // Record live spend in state so it counts toward the session total AND the
+        // spend cap (each delta + the final pass is a real billed request).
+        const auxId = s.ok ? state.addAuxCost({ kind: 'live', usd: (typeof s.costUsd === 'number' ? s.costUsd : undefined), pending: costPending }) : null;
         recordExchange({
             ts: Date.now(), vid, kind: 'live', model: state.getActiveModel(),
             itemName: s.final ? '🔴 live · final' : `🔴 live · segment ${s.seq}`,
@@ -192,6 +211,7 @@ export async function init(manifest) {
         });
         if (costPending) {
             Promise.resolve(fetchGenerationCostDeferred(s.generationId, currentApiKey)).then((cost) => {
+                if (auxId != null) state.updateAuxCost(auxId, { usd: (cost != null ? cost : undefined), pending: false });
                 emit(AT_EVENTS.LIVE_SEGMENT, { ...s, costUsd: (cost != null ? cost : s.costUsd), costPending: false });
                 recordExchange({ ts: Date.now(), vid, kind: 'live', model: state.getActiveModel(),
                     itemName: s.final ? '🔴 live · final' : `🔴 live · segment ${s.seq}`, status: 'done',
@@ -220,8 +240,8 @@ export async function init(manifest) {
             throw err;
         }
     }
-    async function stopLive() {
-        const r = await live.stop();
+    async function stopLive(params = {}) {
+        const r = await live.stop(params.finalPass !== false);
         let id = null;
         if (r.blob && r.blob.size) {
             id = state.addItem(r.blob, { name: r.name, mimeType: r.mimeType, origin: 'recording', durationMs: r.durationMs });
@@ -256,6 +276,7 @@ export async function init(manifest) {
         .register('cancelItem',     transcribe.cancelItem,     { async: false, sanitiseParams: passthrough })
         .register('transcribeModels', transcribe.transcribeModels, { async: true, sanitiseParams: passthrough })
         .register('getCostSummary', transcribe.getCostSummary, { async: false, sanitiseParams: passthrough })
+        .register('setSpendCap',    (p = {}) => { state.setSpendCap(p.usd != null ? p.usd : null); return { cap: state.getSpendCap() }; }, { async: false, sanitiseParams: passthrough })
         .register('transcribeAll',  batch.transcribeAll,   { async: true,  sanitiseParams: passthrough })
         .register('transcribe',     batch.transcribe,      { async: true,  sanitiseParams: passthrough })
         .register('getTranscript',  transcribe.getTranscript, { async: false, sanitiseParams: passthrough })
