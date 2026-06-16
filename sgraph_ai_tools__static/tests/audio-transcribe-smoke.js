@@ -333,6 +333,25 @@ await test('transcribeModels runs models in parallel into distinct versions; get
     assert.equal(Number(cs.sessionUsd.toFixed(3)), 0.002, 'session cost = sum across items');
 });
 
+await test('cancelItem aborts in-flight (multi-model) requests — the Stop button path', async () => {
+    const state = createState({ defaultModel: DEFAULT_MODEL });
+    state.setActiveModel(DEFAULT_MODEL);
+    // Transport that registers a canceller and only settles when cancelled
+    // (simulates an upstream request still in flight / hanging).
+    const sendToLlm = ({ registerCancel }) => new Promise((_resolve, reject) => {
+        if (registerCancel) registerCancel(() => reject(Object.assign(new Error('Cancelled'), { code: 'cancelled' })));
+    });
+    const transcribe = buildTranscribeMethods({ state, emit: () => {}, sendToLlm, getActiveModel: () => state.getActiveModel() });
+    const id = state.addItem(fakeFile('a.mp3', 'audio/mpeg'), { name: 'a.mp3', mimeType: 'audio/mpeg' });
+    const p = transcribe.transcribeModels({ id, models: ['google/gemini-3.5-flash', 'openai/gpt-audio'] });
+    await new Promise((r) => setTimeout(r, 40)); // let both register as in-flight
+    const r = transcribe.cancelItem({ id });
+    assert.ok(r.cancelled >= 2, 'cancelItem reports the in-flight requests it aborted');
+    await p; // resolves once the cancelled runs are recorded
+    const cancelled = (state.getItem(id).versions || []).filter((v) => v.status === 'cancelled').length;
+    assert.equal(cancelled, 2, 'both in-flight versions became cancelled (upstream killed)');
+});
+
 // ── Bundle + download ─────────────────────────────────────────────────────────
 await test('buildBundle includes transcripts + manifest.json + index.txt by default', async () => {
     const h = buildHarness({ transcript: 'bundle me' });

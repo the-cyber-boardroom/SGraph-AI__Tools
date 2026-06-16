@@ -16,6 +16,15 @@
 /** @type {ReadonlyArray<Release>} */
 export const RELEASES = Object.freeze([
     {
+        version: '0.1.23',
+        date: '2026-06-16',
+        summary: 'Dropped 3 broken/hanging models; "Stop all" on the parallel run.',
+        changes: [
+            'Removed three models that did not work: GPT-4o Audio (openai/gpt-4o-audio-preview — "not a valid model ID"; use GPT Audio / GPT Audio Mini instead), MiMo v2 Omni (OpenRouter deprecated it → xiaomi/mimo-v2.5, not yet confirmed audio-capable here, so left out rather than re-add a possibly-broken id), and Nemotron Nano Omni (free) (hung mid-transcription). The curated list is now 7 working chat-path models + 2 gated STT.',
+            'New: a "■ Stop all" button on the Advanced parallel run (per-recording panel) — aborts every in-flight request for that recording (kills the upstream fetches via the isolated transport); the aborted runs become "cancelled" versions. API: cancelItem({id}).',
+        ],
+    },
+    {
         version: '0.1.22',
         date: '2026-06-16',
         summary: 'Final-pass toggle, versioned TTS component, audio over the API, spend cap.',

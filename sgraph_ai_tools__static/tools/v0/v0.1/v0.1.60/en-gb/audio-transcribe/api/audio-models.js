@@ -17,6 +17,12 @@
  * STT ids are Phase-2 placeholders and are NOT yet verified — they go through a
  * dedicated `/audio/transcriptions` module that does not exist yet.
  *
+ * REMOVED (2026-06-16, found broken in use): `openai/gpt-4o-audio-preview`
+ * (OpenRouter: "not a valid model ID" — superseded by openai/gpt-audio[-mini]);
+ * `xiaomi/mimo-v2-omni` (OpenRouter: deprecated → migrate to xiaomi/mimo-v2.5,
+ * which is not yet confirmed audio-capable here, so left out rather than re-add
+ * a possibly-broken id); `nvidia/nemotron-…-omni…:free` (hung mid-transcription).
+ *
  * @module audio-transcribe/audio-models
  */
 
@@ -31,10 +37,7 @@ export const AUDIO_MODEL_IDS = Object.freeze([
     'google/gemini-3.1-flash-lite-preview',
     'openai/gpt-audio',
     'openai/gpt-audio-mini',
-    'openai/gpt-4o-audio-preview',
     'mistralai/voxtral-small-24b-2507',
-    'xiaomi/mimo-v2-omni',
-    'nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free',
     'openai/whisper-large-v3',
     'openai/gpt-4o-transcribe',
 ]);
@@ -51,10 +54,7 @@ export const MODEL_METADATA = Object.freeze({
     'google/gemini-3.1-flash-lite-preview': { label: 'Gemini 3.1 Flash Lite (preview)', cost: 'low', speed: 'fast', path: 'chat input_audio', available: true },
     'openai/gpt-audio':                   { label: 'GPT Audio',             cost: 'high',   speed: 'medium', path: 'chat input_audio',         available: true },
     'openai/gpt-audio-mini':              { label: 'GPT Audio Mini',        cost: 'medium', speed: 'fast',   path: 'chat input_audio',         available: true },
-    'openai/gpt-4o-audio-preview':        { label: 'GPT-4o Audio',          cost: 'medium', speed: 'medium', path: 'chat input_audio',         available: true },
     'mistralai/voxtral-small-24b-2507':   { label: 'Voxtral Small 24B',     cost: 'low',    speed: 'medium', path: 'chat input_audio',         available: true },
-    'xiaomi/mimo-v2-omni':                { label: 'MiMo v2 Omni',          cost: 'low',    speed: 'medium', path: 'chat input_audio',         available: true },
-    'nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free': { label: 'Nemotron Nano Omni (free)', cost: 'free', speed: 'medium', path: 'chat input_audio', available: true },
     'openai/whisper-large-v3':            { label: 'Whisper Large v3 (STT — coming soon)',  cost: 'low',    speed: 'fast',   path: '/audio/transcriptions',    available: false },
     'openai/gpt-4o-transcribe':           { label: 'GPT-4o Transcribe (STT — coming soon)', cost: 'medium', speed: 'medium', path: '/audio/transcriptions',    available: false },
 });

@@ -69,6 +69,7 @@ export function mountItemPanel({ root, id, state, api }) {
                                 `<label class="at-adv__chk"><input type="checkbox" value="${esc(m.id)}" ${m.id === it0.model ? 'checked' : ''}> ${esc(m.label)}</label>`).join('')
                         }</div>
                         <button type="button" class="at-btn primary" data-item-multi>Transcribe selected</button>
+                        <button type="button" class="at-btn small danger" data-item-multi-stop hidden>■ Stop all</button>
                     </div>
                     <div class="at-adv__block">
                         <div class="at-adv__label">Versions <span class="at-adv__fcost" data-item-fcost></span></div>
@@ -93,6 +94,7 @@ export function mountItemPanel({ root, id, state, api }) {
     const copyBtn = root.querySelector('[data-item-copy]');
     const dlBtn   = root.querySelector('[data-item-dl]');
     const multiBtn = root.querySelector('[data-item-multi]');
+    const multiStopBtn = root.querySelector('[data-item-multi-stop]');
     const modelsEl = root.querySelector('[data-item-models]');
     const vlistEl  = root.querySelector('[data-item-vlist]');
     const fcostEl  = root.querySelector('[data-item-fcost]');
@@ -130,8 +132,14 @@ export function mountItemPanel({ root, id, state, api }) {
         const picked = [...modelsEl.querySelectorAll('input:checked')].map((c) => c.value);
         if (!picked.length) return;
         multiBtn.disabled = true; multiBtn.textContent = `Transcribing ${picked.length}…`;
+        if (multiStopBtn) { multiStopBtn.hidden = false; multiStopBtn.disabled = false; multiStopBtn.textContent = '■ Stop all'; }
         try { await api.transcribeModels({ id, models: picked }); } catch (_) { /* per-version errors surface in the list */ }
-        finally { multiBtn.disabled = false; multiBtn.textContent = 'Transcribe selected'; }
+        finally { multiBtn.disabled = false; multiBtn.textContent = 'Transcribe selected'; if (multiStopBtn) multiStopBtn.hidden = true; }
+    }
+    /** Abort every in-flight request for this item (kills the upstream fetches). */
+    function onMultiStop() {
+        if (multiStopBtn) { multiStopBtn.disabled = true; multiStopBtn.textContent = 'Stopping…'; }
+        try { api.cancelItem({ id }); } catch (_) { /* */ }
     }
     function onVlistClick(e) {
         const b = e.target.closest('[data-use]');
@@ -207,6 +215,7 @@ export function mountItemPanel({ root, id, state, api }) {
     copyBtn.addEventListener('click', onCopy);
     dlBtn.addEventListener('click', onDl);
     multiBtn.addEventListener('click', onMulti);
+    if (multiStopBtn) multiStopBtn.addEventListener('click', onMultiStop);
     vlistEl.addEventListener('click', onVlistClick);
 
     // Per-recording chat — lazy-mounted on first open; context = THIS transcript.
