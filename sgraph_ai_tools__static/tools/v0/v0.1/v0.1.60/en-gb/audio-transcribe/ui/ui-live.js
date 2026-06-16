@@ -41,6 +41,7 @@ export function mountLive({ root, api, getLiveStream }) {
             </select>
             <span class="at-muted">smaller = sends more, smaller requests (may overlap)</span>
         </label>
+        <label class="at-live__clean"><input type="checkbox" data-live-silence checked> Skip silence <span class="at-muted">(don't send near-silent windows — saves $ and avoids hallucinated filler)</span></label>
         <div class="at-viz" data-live-viz hidden><sg-audio-viz mode="smooth-eq"></sg-audio-viz></div>
         <h3 class="at-item__txh">Live transcript</h3>
         <div class="at-live__tx" data-live-tx><span class="at-muted">Not started.</span></div>
@@ -59,6 +60,7 @@ export function mountLive({ root, api, getLiveStream }) {
     const txEl  = root.querySelector('[data-live-tx]');
     const cleanChk = root.querySelector('[data-live-clean]');
     const intervalSel = root.querySelector('[data-live-interval]');
+    const silenceChk = root.querySelector('[data-live-silence]');
     const statusEl = root.querySelector('[data-live-status]');
     const segWrap = root.querySelector('[data-live-segwrap]');
     const segsEl  = root.querySelector('[data-live-segs]');
@@ -67,6 +69,24 @@ export function mountLive({ root, api, getLiveStream }) {
     let running = false, startedAt = 0, tick = null;
     /** seq -> { cost:number|null, pending:boolean } for the running total. */
     const segCost = new Map();
+    /** seq -> Blob of exactly what was sent (so you can play it back to verify). */
+    const segBlobs = new Map();
+    let playCtx = null, playSrc = null;
+
+    /** Play exactly the audio that was sent for a segment (decoded, so the webm
+     *  cluster timecode offsets don't confuse an <audio> element). */
+    async function playSeg(seqStr) {
+        const blob = segBlobs.get(Number(seqStr));
+        if (!blob) return;
+        try {
+            if (!playCtx) playCtx = new (window.AudioContext || window.webkitAudioContext)();
+            if (playCtx.state === 'suspended') await playCtx.resume();
+            if (playSrc) { try { playSrc.stop(); } catch (_) { /* */ } }
+            const audio = await playCtx.decodeAudioData(await blob.arrayBuffer());
+            playSrc = playCtx.createBufferSource();
+            playSrc.buffer = audio; playSrc.connect(playCtx.destination); playSrc.start();
+        } catch (_) { statusEl.textContent = 'Could not play that segment.'; }
+    }
 
     function setRunning(on) {
         running = on;
@@ -90,17 +110,19 @@ export function mountLive({ root, api, getLiveStream }) {
             row.setAttribute('data-seg', String(s.seq));
             segsEl.insertBefore(row, segsEl.firstChild); // newest on top
         }
+        if (s.blob) segBlobs.set(s.seq, s.blob);
         const cost = typeof s.costUsd === 'number' ? `💰 $${s.costUsd.toFixed(4)}` : (s.costPending !== false && s.ok ? '💰 …' : '');
         const meta = [`#${s.seq}${s.final ? ' (final)' : ''}`, `@${(s.elapsedMs / 1000).toFixed(1)}s`, fmtSize(s.sizeBytes),
             s.latencyMs ? `${(s.latencyMs / 1000).toFixed(1)}s` : '', cost].filter(Boolean).join(' · ');
         const body = s.ok === false ? `<span class="at-muted">⚠ ${esc(friendlyLlmError(s.code, s.error || 'failed'))}</span>` : esc(s.text || '');
-        row.innerHTML = `<div class="at-live__seg-meta">${esc(meta)}</div><div class="at-live__seg-tx">${body}</div>`;
+        const play = segBlobs.has(s.seq) ? `<button type="button" class="at-btn small at-live__play" data-seg-play="${s.seq}" title="Play exactly what was sent">▶</button>` : '';
+        row.innerHTML = `<div class="at-live__seg-meta">${esc(meta)} ${play}</div><div class="at-live__seg-tx">${body}</div>`;
         segCost.set(s.seq, { cost: typeof s.costUsd === 'number' ? s.costUsd : null, pending: !!(s.ok && s.costPending !== false && typeof s.costUsd !== 'number') });
         renderTotal();
     }
 
     function resetSegments() {
-        segCost.clear(); segsEl.innerHTML = ''; segTot.textContent = ''; segWrap.hidden = false;
+        segCost.clear(); segBlobs.clear(); segsEl.innerHTML = ''; segTot.textContent = ''; segWrap.hidden = false;
     }
 
     async function startViz() {
@@ -121,12 +143,16 @@ export function mountLive({ root, api, getLiveStream }) {
             try {
                 resetSegments();
                 if (intervalSel) intervalSel.disabled = true;
-                await api.startLive({ intervalMs: intervalSel ? Number(intervalSel.value) : undefined });
+                if (silenceChk) silenceChk.disabled = true;
+                await api.startLive({
+                    intervalMs: intervalSel ? Number(intervalSel.value) : undefined,
+                    skipSilence: silenceChk ? silenceChk.checked : undefined,
+                });
                 startedAt = Date.now(); setRunning(true); startViz();
                 tick = setInterval(() => { timer.textContent = fmt(Date.now() - startedAt); }, 250);
                 statusEl.textContent = 'Listening…';
                 txEl.innerHTML = '<span class="at-muted">…</span>';
-            } catch (err) { statusEl.textContent = `Could not start: ${err.message}`; if (intervalSel) intervalSel.disabled = false; }
+            } catch (err) { statusEl.textContent = `Could not start: ${err.message}`; if (intervalSel) intervalSel.disabled = false; if (silenceChk) silenceChk.disabled = false; }
         } else {
             statusEl.textContent = cleanChk && cleanChk.checked ? 'Finishing… (full-quality pass)' : 'Finishing…';
             try { const r = await api.stopLive({ finalPass: !cleanChk || cleanChk.checked }); statusEl.textContent = r && r.id ? 'Saved to the Queue — open it there.' : 'Stopped.'; }
@@ -134,6 +160,7 @@ export function mountLive({ root, api, getLiveStream }) {
             finally {
                 setRunning(false); stopViz();
                 if (intervalSel) intervalSel.disabled = false;
+                if (silenceChk) silenceChk.disabled = false;
                 if (tick) { clearInterval(tick); tick = null; }
             }
         }
@@ -147,8 +174,10 @@ export function mountLive({ root, api, getLiveStream }) {
     }
     function onSegment(e) { if (e && e.detail) upsertSegment(e.detail); }
     function onError(e) { const d = e.detail || {}; statusEl.textContent = `⚠ ${friendlyLlmError(d.code, d.error || 'error')}`; }
+    function onSegClick(e) { const b = e.target.closest('[data-seg-play]'); if (b) playSeg(b.getAttribute('data-seg-play')); }
 
     btn.addEventListener('click', toggle);
+    segsEl.addEventListener('click', onSegClick);
     window.addEventListener(AT_EVENTS.LIVE_UPDATE, onUpdate);
     window.addEventListener(AT_EVENTS.LIVE_SEGMENT, onSegment);
     window.addEventListener(AT_EVENTS.LIVE_ERROR, onError);
@@ -159,6 +188,8 @@ export function mountLive({ root, api, getLiveStream }) {
             window.removeEventListener(AT_EVENTS.LIVE_SEGMENT, onSegment);
             window.removeEventListener(AT_EVENTS.LIVE_ERROR, onError);
             if (tick) clearInterval(tick);
+            try { if (playSrc) playSrc.stop(); } catch (_) { /* */ }
+            try { if (playCtx) playCtx.close(); } catch (_) { /* */ }
             try { vizEl && vizEl.destroy && vizEl.destroy(); } catch (_) { /* */ }
             root.innerHTML = '';
         },

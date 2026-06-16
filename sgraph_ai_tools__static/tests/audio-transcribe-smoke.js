@@ -702,6 +702,31 @@ await test('getCostSummary folds in auxiliary (Create Voice / TTS) spend', async
     assert.ok(Math.abs(after.sessionUsd - (before.sessionUsd + 0.0021)) < 1e-9, 'session total = transcription + voice');
 });
 
+await test('extractInitSegment returns only the webm init segment (fixes the "Let\'s Let\'s" bug)', async () => {
+    const { extractInitSegment } = await import(`file://${TOOL}/api/live.js`);
+    // 10 header bytes, then the Cluster id (1F 43 B6 75), then "audio" bytes.
+    const bytes = new Uint8Array([0x1a, 0x45, 0xdf, 0xa3, 1, 2, 3, 4, 5, 6, 0x1F, 0x43, 0xB6, 0x75, 9, 9, 9, 9, 9]);
+    const init = await extractInitSegment(new Blob([bytes], { type: 'audio/webm' }), 'audio/webm');
+    const out = new Uint8Array(await init.arrayBuffer());
+    assert.equal(out.length, 10, 'init segment = the bytes BEFORE the first Cluster (no opening audio)');
+    // Fallback: no Cluster id present → whole chunk (old behaviour, non-webm).
+    const whole = await extractInitSegment(new Blob([new Uint8Array([1, 2, 3])], { type: 'audio/mp4' }), 'audio/mp4');
+    assert.equal((await whole.arrayBuffer()).byteLength, 3, 'no Cluster → returns the whole chunk');
+});
+
+await test('live segments carry the sent blob (for per-segment playback)', async () => {
+    const { createLiveSession } = await import(`file://${TOOL}/api/live.js`);
+    const media = installMediaMocks();
+    try {
+        const segs = [];
+        const session = createLiveSession({ transcribe: async () => ({ text: 'x' }), getModel: () => 'm', onSegment: (s) => segs.push(s), intervalMs: 25 });
+        await session.start();
+        await new Promise((r) => setTimeout(r, 70));
+        await session.stop();
+        assert.ok(segs.length >= 1 && segs.every((s) => s.blob && s.blob.size > 0), 'every segment includes its sent blob');
+    } finally { media.uninstall(); }
+});
+
 await test('live reassembles OUT-OF-ORDER delta responses by sequence (contiguous prefix)', async () => {
     const { createLiveSession } = await import(`file://${TOOL}/api/live.js`);
     const saved = { MediaRecorder: globalThis.MediaRecorder };

@@ -90,9 +90,9 @@ export async function init() {
     });
     async function startLive(params = {}) {
         try {
-            const r = await live.start({ intervalMs: params.intervalMs });
-            emit(AT_EVENTS.LIVE_STARTED, { mimeType: r.mimeType, intervalMs: r.intervalMs });
-            return { live: true, mimeType: r.mimeType, intervalMs: r.intervalMs };
+            const r = await live.start({ intervalMs: params.intervalMs, skipSilence: params.skipSilence, silenceThreshold: params.silenceThreshold });
+            emit(AT_EVENTS.LIVE_STARTED, { mimeType: r.mimeType, intervalMs: r.intervalMs, skipSilence: r.skipSilence });
+            return { live: true, mimeType: r.mimeType, intervalMs: r.intervalMs, skipSilence: r.skipSilence };
         } catch (err) {
             emit(AT_EVENTS.LIVE_ERROR, { error: err.message, code: err.code });
             throw err;
