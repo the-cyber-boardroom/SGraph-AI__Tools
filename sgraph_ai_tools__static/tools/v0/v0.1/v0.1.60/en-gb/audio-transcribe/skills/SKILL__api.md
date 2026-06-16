@@ -1,85 +1,104 @@
 # Audio Transcribe — JS API Guide
 
 The tool exposes the mandatory `SgToolApi` surface. After `tool:ready`, all
-actions are callable on `window.__tool`.
+actions are callable on `window.__tool`. Every action returns a **Promise**
+(even `async:false` ones).
 
-> **Full docs:** see `../README.md` for architecture, the complete action table,
-> events, models, cost, testing, and dev guidance. Most-used additions since
-> v0.1.0: `setApiKey({apiKey,model?})` (configure the key headlessly),
-> `transcribeModels({id,models[]})` (parallel multi-model → one version each),
-> `getCostSummary()` (per-file + per-session cost), `getExchanges()` (provenance
-> log), `loadSample({id})`, `getReleases()`. Items now carry `versions[]`
-> (re-transcribe keeps history; top-level fields mirror the selected version).
+> **Integration brief** (for wiring into a vault / the main website):
+> `library/api/v0.1.93__audio-transcribe__integration-and-capabilities.md`.
+> **Full docs:** `../README.md`. **Authoritative API:** `../manifest.json` (`api`).
+> The minimal **`live-transcribe`** variation implements the Live + read + cost
+> subset of this surface.
 
-## Lifecycle
+## Lifecycle & data model
 
-- `window.__tool` is published when `activate()` runs; the `tool:ready` window event fires `{ instanceId, tool:'audio-transcribe', version }`.
-- Data model: a **queue of items**. Each item: `{ id, name, sizeBytes, mimeType, durationMs?, origin:'recording'|'file', model, status:'queued'|'transcribing'|'done'|'error', transcript?, error? }`.
-- All `transcribe`/per-row events carry `detail.id`.
+- `window.__tool` is published when `activate()` runs; `tool:ready` fires `{ instanceId, tool:'audio-transcribe', version }`.
+- A **queue of items**. `item = { id, name, sizeBytes, mimeType, durationMs?, origin:'recording'|'file', model, status:'queued'|'transcribing'|'done'|'error', transcript?, error?, errorCode?, generationId?, costUsd?, costPending?, versions:[…] }`. Re-transcribe **appends a version**; top-level fields mirror the selected version.
+- `getItems()` is authoritatively an **array** (no Blob).
 
 ## Actions
 
 | Action | async | params | returns |
 |---|---|---|---|
-| `startRecording` | yes | `{ deviceId?, mimeType? }` | `{ recording:true, mimeType }` |
-| `stopRecording` | yes | `{}` | `{ id, name, sizeBytes, mimeType, durationMs }` |
-| `addFiles` | yes | `{ files }` (File[]/FileList) | `{ added:[{id,name,sizeBytes,mimeType}], rejected:[{name,code}] }` |
-| `getItems` | no | `{}` | `[{ ...item }]` (no Blob) |
-| `getItem` | no | `{ id }` | `{ ...item } \| null` |
-| `removeItem` | no | `{ id }` | `{ removed:true }` |
+| `startRecording` | yes | `{deviceId?,mimeType?}` | `{recording:true,mimeType}` |
+| `stopRecording` | yes | `{}` | `{id,name,sizeBytes,mimeType,durationMs}` |
+| `addFiles` | yes | `{files}` (File[]/FileList) | `{added:[{id,name,sizeBytes,mimeType}],rejected:[{name,code}]}` |
+| `loadSample` | yes | `{id}` (`tone-a`/`tone-b`) | `{added,rejected}` |
+| `getItems` | no | `{}` | `[item]` |
+| `getItem` | no | `{id}` | `item\|null` |
+| `removeItem` | no | `{id}` | `{removed:true}` |
 | `clearAll` | no | `{}` | `{}` |
-| `listModels` | no | `{}` | `[{ id, label, cost, speed, available, default }]` |
-| `setModel` | no | `{ model, id? }` | `{ model }` |
-| `connect` | yes | `{ apiKey, model? }` | `{ provider:'openrouter', model }` (apiKey masked in the log) |
-| `transcribeItem` | yes | `{ id, model?, language? }` | `{ id, text, model, latencyMs }` |
-| `transcribeAll` | yes | `{ model?, language?, concurrency? }` | `{ total, done, errors:[{id,code}] }` |
-| `transcribe` | yes | `{ model?, language? }` | alias of `transcribeAll` |
-| `getTranscript` | no | `{ id? }` | `{ id, text, model }` or `[{...}]` |
-| `downloadZip` | yes | `{ include:{audio?,transcripts?}, items?, name? }` | `{ ok:true, count, zipSize, name }` |
-| `sendViaSgSend` | yes | `{ include?, items?, accessToken?, name? }` | `{ shareUrl, token }` |
+| `listModels` | no | `{}` | `[{id,label,cost,speed,available,default}]` |
+| `setModel` | no | `{model,id?}` | `{model}` |
+| `connect` | yes | `{apiKey,model?}` | `{provider:'openrouter',model}` (key masked) |
+| `setApiKey` | yes | `{apiKey,model?}` | `{ok,present,model}` (persists + connects) |
+| `transcribeItem` | yes | `{id,model?}` | `{id,text,model,latencyMs,vid,generationId,usage:{promptTokens,completionTokens,costUsd}}` |
+| `transcribeModels` | yes | `{id,models:[]}` | `{id,results:[{vid,model,ok}]}` (parallel, one version each) |
+| `cancelItem` | no | `{id}` | `{cancelled:N}` (aborts in-flight upstream requests) |
+| `transcribeAll` | yes | `{concurrency?}` | `{total,done,errors:[{id,code}]}` |
+| `transcribe` | yes | `{}` | alias of `transcribeAll` |
+| `getTranscript` | no | `{id?}` | `{id,text,model}` or `[{…}]` |
+| `startLive` | yes | `{intervalMs?}` | `{live:true,mimeType,intervalMs}` |
+| `stopLive` | yes | `{finalPass?}` | `{id,text,durationMs}` |
+| `synthesize` | yes | `{text,mode,voice?,model?,apiKey?,returnAudio?}` | `{mode,durationMs,sizeBytes,mimeType,generationId?,audioDataUrl?}` |
+| `addSynthesized` | yes | `{text,mode,voice?,name?}` | `{added,rejected}` |
+| `ask` | yes | `{text,model?,context?}` | `{text,model,generationId,usage}` |
+| `getCostSummary` | no | `{}` | `{sessionUsd,sessionPending,perItem:[{id,name,usd,pending,versions}],auxUsd,auxPending}` |
+| `setSpendCap` | no | `{usd}` (null clears) | `{cap}` |
+| `getExchanges` | no | `{}` | `[exchange]` (last 50; no audio bytes) |
+| `getReleases` | no | `{}` | `[{version,date,summary,changes[]}]` |
+| `downloadZip` | yes | `{include:{audio?,transcripts?},items?,name?}` | `{ok,count,zipSize,name}` |
+| `sendViaSgSend` | yes | `{include?,items?,accessToken?,name?}` | `{shareUrl,token}` |
 
 ### Errors (`err.code`)
 
-- `not-audio` / `too-large` — per-file rejections from `addFiles`.
-- `unknown-item` — bad `id`.
-- `no-model` / `model-unavailable` — no model, or a gated STT model on the chat path.
-- `empty` — nothing transcribed to bundle/send.
-- `send-auth-required` — no SG/Send token; the component shows its auth prompt.
-- `send-error` / `no-send-component` — send failures.
+- Ingest: `not-audio` / `too-large` / `empty`.
+- `unknown-item` · `no-model` / `model-unavailable` · `cancelled` · `empty-recording`.
+- **Key/quota (from HTTP status):** `key-invalid` (401) · `budget-exceeded` (402) · `key-exhausted` (403) · `rate-limited` (429). Rejections carry `{code,status}`.
+- **`budget-cap`** — the `setSpendCap` limit was reached.
+- **`mic-unavailable`** — Live in a sandboxed/embedded frame (no `navigator.mediaDevices`).
+- TTS: `no-text` / `no-key` / `tts-http`. Send: `send-auth-required` / `send-error`. Generic: `llm-error`.
 
 ## Events (`AT_EVENTS`, all `at:*`, on `window`)
 
-`at:recording:started`, `at:recording:stopped`, `at:item:added`, `at:item:removed`,
-`at:model:changed`, `at:transcribe:started`, `at:transcribe:progress`,
-`at:transcribe:complete`, `at:transcribe:error`, `at:batch:started`,
-`at:batch:progress {done,total}`, `at:batch:complete {done,total,errors}`,
-`at:bundle:created`, `at:send:started`, `at:send:complete {shareUrl,token}`,
-`at:send:error`, `at:reset`. Plus the framework `tool:ready`.
+`recording:started/stopped`, `item:added/removed`, `model:changed`,
+`transcribe:started/progress/complete/error{code}`, **`llm:exchange`** (provenance),
+**`live:started{mimeType,intervalMs}`**, **`live:update{text,elapsedMs,final}`**,
+**`live:segment{seq,sizeBytes,elapsedMs,latencyMs,text,final,ok,generationId?,costUsd?,costPending?,delta?}`**,
+**`live:stopped{id,text}`**, **`live:error{error,code?}`**, `batch:started/progress/complete`,
+`bundle:created`, `send:started/complete/error`, `reset`. Plus framework `tool:ready`.
+
+## Live mode (cost model)
+
+Each poll transcribes only the **new audio (a delta)** — cost ~linear with
+duration, not quadratic. Shorter `intervalMs` fires **overlapping** requests; the
+live text is reassembled **by sequence number** (out-of-order responses are
+handled). On stop, `finalPass` (default true) does one clean full-quality pass for
+the saved transcript. Live spend is recorded in `state.aux` → counts toward
+`getCostSummary().auxUsd`, the session total, and the spend cap.
 
 ## Dependencies
 
-- LLM fetch: `<sg-llm-request>` v0.1.6 via the `llm:send` / `llm:request-complete` bus (chat `input_audio` path; no dedicated STT endpoint in v1).
-- `.opus`/webm decode: `core/sg-audio-decode` (lazy WASM Opus decoder, Cache-API persisted via `core/sg-wasm-cache`).
-- ZIP: JSZip lazy-loaded from CDN (only when `downloadZip`/`sendViaSgSend` is called).
-- Send: `<sg-send-drop>` — **requires a live send.sgraph.ai API + an access token** (external runtime dependency; token not persisted in v1).
+- LLM fetch: `<sg-llm-request>` v0.1.6 (`llm:send`/`llm:request-complete`; chat `input_audio` path) — forwards HTTP `status` (→ typed errors).
+- `.opus`/webm decode: `core/sg-audio-decode` (+ `core/sg-wasm-cache`, vault-safe).
+- Cloud TTS: **`core/sg-tts-openrouter`** (versioned). Local TTS: `core/sg-tts` (Kokoro).
+- ZIP: JSZip lazy CDN. Send: `<sg-send-drop>` (needs a live send.sgraph.ai + token).
 
 ## End-to-end examples
 
 ```js
-// (a) Batch many files → download transcripts zip.
-await __tool.connect({ apiKey: 'sk-or-...' });
-await __tool.addFiles({ files: fileListFromInput });        // .opus included
-await __tool.transcribeAll();                               // concurrency cap 2
-await __tool.downloadZip({ include: { audio: false, transcripts: true } });
+// Headless: inject key → batch → read cost.
+await __tool.setApiKey({ apiKey: 'sk-or-…' });
+await __tool.addFiles({ files });                  // .opus ok
+await __tool.transcribeAll();                      // parallel pool
+const cost = await __tool.getCostSummary();        // {sessionUsd, …, auxUsd}
 
-// (b) Record → stop → transcribe one → read transcript.
-await __tool.startRecording({});
-// ... speak ...
-const { id } = await __tool.stopRecording();
-await __tool.transcribeItem({ id });
-const { text } = __tool.getTranscript({ id });
+// Live with a chosen chunk interval + cheap (no final pass).
+await __tool.startLive({ intervalMs: 1500 });
+// … speak …
+const { id, text } = await __tool.stopLive({ finalPass: false });
 
-// (c) Transcribe all → send an encrypted share (audio + transcripts).
-await __tool.transcribeAll();
-const { shareUrl } = await __tool.sendViaSgSend({ include: { audio: true, transcripts: true } });
+// Sponsored-key guard + scriptable chat.
+await __tool.setSpendCap({ usd: 0.25 });
+const a = await __tool.ask({ text: 'What was decided?' });  // {text,generationId,usage}
 ```

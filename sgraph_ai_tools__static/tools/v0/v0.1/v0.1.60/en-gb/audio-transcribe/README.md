@@ -4,17 +4,29 @@ Record from the mic or drag/drop many local audio files (including WhatsApp
 `.opus` voice notes) and transcribe each to text using curated **OpenRouter**
 audio models — entirely in the browser. Batch queue with per-row status, a
 per-recording detail panel with **version history** and **parallel multi-model**
-transcription, **per-item/file/session cost**, a **request/response provenance
-panel**, a **live recording waveform**, and a full **JS API**.
+transcription (+ **Stop all**), **per-item/file/session cost**, a **request/response
+provenance panel**, a **live recording waveform**, and a full **JS API**.
 
-- **Live:** `https://tools.sgraph.ai/en-gb/audio-transcribe/`
-  (dev: `https://dev.tools.sgraph.ai/en-gb/audio-transcribe/`)
+Also: **🔴 Live** near-realtime transcription (delta-based, configurable chunk
+interval, out-of-order-safe, optional clean-up pass), **🗣 Voice** (text→speech,
+local Kokoro or cloud OpenRouter, with cost), **💬 Chat** over your transcripts
+(UI + headless `ask()`), a **spend cap**, typed **key/quota errors**, and a
+mobile-friendly layout. A minimal **`live-transcribe`** "big button" variation
+reuses this engine.
+
+- **Live:** `https://tools.sgraph.ai/en-gb/audio-transcribe/` ·
+  `…/en-gb/live-transcribe/` (dev: `https://dev.tools.sgraph.ai/…`)
 - **Source:** `sgraph_ai_tools__static/tools/v0/v0.1/v0.1.60/en-gb/audio-transcribe/`
 - **Stack:** vanilla ES modules, no build step, client-side only. Every file is
   deployable as-is.
 
 > **Audience:** agents and devs *using* the tool (manually or via the JS API)
 > and *changing* it (e.g. in a new Claude Code session). Read this first.
+>
+> **Wiring this into a vault or the main sgraph.ai website?** Read the
+> **integration brief**: `library/api/v0.1.93__audio-transcribe__integration-and-capabilities.md`
+> (the embedding/key-injection/cost/cap/CORS contract). Current API contract:
+> `skills/SKILL__api.md` + `manifest.json` (authoritative).
 
 ---
 
