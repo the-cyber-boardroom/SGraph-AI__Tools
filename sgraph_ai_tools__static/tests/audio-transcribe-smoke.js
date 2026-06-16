@@ -702,6 +702,41 @@ await test('getCostSummary folds in auxiliary (Create Voice / TTS) spend', async
     assert.ok(Math.abs(after.sessionUsd - (before.sessionUsd + 0.0021)) < 1e-9, 'session total = transcription + voice');
 });
 
+await test('live reassembles OUT-OF-ORDER delta responses by sequence (contiguous prefix)', async () => {
+    const { createLiveSession } = await import(`file://${TOOL}/api/live.js`);
+    const saved = { MediaRecorder: globalThis.MediaRecorder };
+    const navDesc = Object.getOwnPropertyDescriptor(globalThis, 'navigator');
+    class Rec {
+        static isTypeSupported(m) { return m === 'audio/webm;codecs=opus'; }
+        constructor(s, o) { this.mimeType = (o && o.mimeType) || ''; this.state = 'inactive'; this._l = {}; this._t = null; }
+        addEventListener(t, cb, o) { (this._l[t] ||= []).push({ cb, once: !!(o && o.once) }); }
+        _fire(t, ev) { for (const e of (this._l[t] || []).slice()) { e.cb(ev); if (e.once) this._l[t] = this._l[t].filter((x) => x !== e); } }
+        _chunk() { this._fire('dataavailable', { data: new Blob([new Uint8Array(50)], { type: this.mimeType }) }); }
+        start() { this.state = 'recording'; this._chunk(); this._t = setInterval(() => this._chunk(), 8); }
+        requestData() { this._chunk(); }
+        stop() { this.state = 'inactive'; if (this._t) clearInterval(this._t); this._fire('stop', {}); }
+    }
+    globalThis.MediaRecorder = Rec;
+    Object.defineProperty(globalThis, 'navigator', { value: { mediaDevices: { getUserMedia: async () => ({ getTracks: () => [{ stop() {} }] }) } }, configurable: true, writable: true });
+    try {
+        const updates = [];
+        let call = 0;
+        const session = createLiveSession({
+            // The 1st delta is SLOW, the 2nd is FAST → they complete out of order.
+            transcribe: async () => { const c = ++call; await new Promise((r) => setTimeout(r, c === 1 ? 90 : 8)); return { text: c === 1 ? 'AAA' : (c === 2 ? 'BBB' : 'CCC') }; },
+            getModel: () => 'm', onUpdate: (u) => updates.push(u.text), intervalMs: 20,
+        });
+        await session.start();
+        await new Promise((r) => setTimeout(r, 150));
+        const r = await session.stop(false); // keep the live text (no final pass)
+        assert.ok(!updates.some((t) => /^BBB/.test(t)), 'the fast 2nd delta is never displayed before the slow 1st (no out-of-order leak)');
+        assert.ok(/AAA[\s\S]*BBB/.test(r.text), 'reassembled in capture order (AAA before BBB)');
+    } finally {
+        globalThis.MediaRecorder = saved.MediaRecorder;
+        if (navDesc) Object.defineProperty(globalThis, 'navigator', navDesc); else delete globalThis.navigator;
+    }
+});
+
 await test('startLive → stopLive adds the take to the queue (real SgToolApi)', async () => {
     const media = installMediaMocks();
     try {

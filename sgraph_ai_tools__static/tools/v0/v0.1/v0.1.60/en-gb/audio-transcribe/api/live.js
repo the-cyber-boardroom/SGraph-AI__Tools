@@ -2,17 +2,22 @@
  * live — Live (near-realtime) transcription session.
  *
  * Captures the mic continuously and, every `intervalMs`, transcribes ONLY THE
- * NEW audio since the last poll (a delta) — so cost grows linearly with the
- * length you speak, NOT quadratically (the earlier "growing window" re-sent the
- * whole take every poll, which was wasteful). The live transcript is the deltas
- * appended together (a fast, slightly-rough preview). On stop it does ONE
- * full-quality pass over the whole take for the clean saved transcript.
+ * NEW audio since the last poll (a delta), so cost grows ~linearly with how long
+ * you speak (not quadratically — the old "growing window" re-sent the whole take
+ * each poll). The live transcript is the deltas reassembled BY SEQUENCE NUMBER
+ * (contiguous prefix), so it stays correct even when shorter intervals make
+ * requests overlap and OpenRouter answers them OUT OF ORDER. On stop, one
+ * full-quality pass over the whole take produces the clean saved transcript.
  *
- * Making a delta decodable: MediaRecorder only puts the webm/ogg init segment
- * (header) in the FIRST chunk; later chunks are bare clusters that can't be
- * decoded alone. So each delta is `[headerChunk, ...newChunks]` — a valid little
- * clip of just the new audio. The continuous recording is kept intact for the
- * final pass + the saved file (so there are no gaps in the saved take).
+ * Chunking is TIME-based (the interval), not silence/VAD — a smart silence-aware
+ * mode is a future option. `intervalMs` is settable per session (start({intervalMs}))
+ * so the UI can trade responsiveness/cost against accuracy. Concurrency is bounded
+ * by `maxInFlight` (backpressure: a tick coalesces into the next delta when full).
+ *
+ * Decodable deltas: MediaRecorder puts the webm/ogg init segment (header) only in
+ * the first chunk, so each delta is `[headerChunk, ...newChunks]` — a valid clip
+ * of just the new audio. The continuous recording is kept intact for the final
+ * pass + the saved file (no gaps).
  *
  * @module audio-transcribe/live
  */
@@ -32,85 +37,85 @@ function extOf(m) { return m.includes('mp4') ? 'm4a' : (m.includes('ogg') ? 'opu
  * @param {(u: { text: string, elapsedMs: number, final: boolean }) => void} [ctx.onUpdate]
  * @param {(err: Error) => void} [ctx.onError]
  * @param {(s: object) => void} [ctx.onSegment]
- * @param {number} [ctx.intervalMs=2500]
+ * @param {number} [ctx.intervalMs=2500]  default poll interval (overridable per start)
+ * @param {number} [ctx.maxInFlight=4]    max concurrent delta requests
  * @returns {{ start: Function, stop: Function, getStream: () => MediaStream|null, isRunning: () => boolean }}
  */
-export function createLiveSession({ transcribe, getModel, onUpdate, onError, onSegment, intervalMs = 2500 }) {
-    let stream = null, recorder = null, chunks = [], timer = null, polling = false, startedAt = 0, mime = '';
-    let seq = 0, sentIndex = 0, headerChunk = null, liveText = '';
+export function createLiveSession({ transcribe, getModel, onUpdate, onError, onSegment, intervalMs = 2500, maxInFlight = 4 }) {
+    let stream = null, recorder = null, chunks = [], timer = null, startedAt = 0, mime = '';
+    let seq = 0, sentIndex = 0, headerChunk = null, inFlight = 0, curInterval = intervalMs;
+    /** seq → completed delta text (empty string on a failed/empty delta). */
+    const deltaText = new Map();
+    /** in-flight delta promises (so stop() can drain before assembling/saving). */
+    const pending = new Set();
 
-    /** Append a delta's text to the running live preview. */
-    function appendLive(delta) {
-        const d = (delta || '').trim();
-        if (d) liveText = liveText ? `${liveText} ${d}` : d;
-        return liveText;
+    /** Live preview = the CONTIGUOUS prefix of completed deltas, in seq order.
+     *  Stopping at the first gap keeps the text ordered even if a later delta
+     *  (e.g. a faster, shorter request) finishes before an earlier one. */
+    function buildLiveText() {
+        const out = [];
+        for (let i = 1; i <= seq; i++) {
+            if (!deltaText.has(i)) break; // a still-in-flight earlier delta → wait
+            const t = deltaText.get(i);
+            if (t) out.push(t);
+        }
+        return out.join(' ');
     }
 
-    /** Transcribe ONLY the audio captured since the last poll (a delta). */
-    async function runDelta() {
-        if (!chunks.length) return;
-        if (!headerChunk) headerChunk = chunks[0];
-        const fresh = chunks.slice(sentIndex);
-        if (!fresh.length) return;
-        // First delta already carries the header; later deltas prepend it so the
-        // bare clusters are decodable on their own.
-        const parts = sentIndex === 0 ? fresh : [headerChunk, ...fresh];
-        sentIndex = chunks.length;
-        const blob = new Blob(parts, { type: mime });
-        const sizeBytes = blob.size;
-        const n = ++seq;
+    async function transcribeDelta(n, blob, sizeBytes) {
         const t0 = Date.now();
         try {
             const r = await transcribe({ blob, name: `live.${extOf(mime)}`, model: getModel && getModel() });
-            const text = appendLive(r.text);
-            const elapsedMs = Date.now() - startedAt;
-            if (onUpdate) onUpdate({ text, elapsedMs, final: false });
+            deltaText.set(n, (r.text || '').trim());
+            if (onUpdate) onUpdate({ text: buildLiveText(), elapsedMs: Date.now() - startedAt, final: false });
             if (onSegment) onSegment({
-                seq: n, sizeBytes, elapsedMs, latencyMs: Date.now() - t0, text: (r.text || '').trim(),
-                delta: true, final: false, ok: true,
-                generationId: r.generationId, costUsd: r.costUsd,
-                promptTokens: r.promptTokens, completionTokens: r.completionTokens,
+                seq: n, sizeBytes, elapsedMs: Date.now() - startedAt, latencyMs: Date.now() - t0,
+                text: (r.text || '').trim(), delta: true, final: false, ok: true,
+                generationId: r.generationId, costUsd: r.costUsd, promptTokens: r.promptTokens, completionTokens: r.completionTokens,
             });
         } catch (err) {
+            deltaText.set(n, ''); // keep the ordering chain intact past a failed delta
             if (onError) onError(err);
             if (onSegment) onSegment({ seq: n, sizeBytes, elapsedMs: Date.now() - startedAt, latencyMs: Date.now() - t0, delta: true, final: false, ok: false, error: err.message, code: err.code });
-        }
+        } finally { inFlight -= 1; }
     }
 
     /** One full-quality pass over the WHOLE take — the clean saved transcript. */
     async function runFinal(fullBlob, durationMs) {
-        const sizeBytes = fullBlob.size;
-        const n = ++seq;
-        const t0 = Date.now();
+        const n = ++seq; const t0 = Date.now();
         try {
             const r = await transcribe({ blob: fullBlob, name: `live.${extOf(mime)}`, model: getModel && getModel() });
-            const text = (r.text || '').trim() || liveText;
+            const text = (r.text || '').trim() || buildLiveText();
             if (onUpdate) onUpdate({ text, elapsedMs: durationMs, final: true });
-            if (onSegment) onSegment({
-                seq: n, sizeBytes, elapsedMs: durationMs, latencyMs: Date.now() - t0, text,
-                delta: false, final: true, ok: true,
-                generationId: r.generationId, costUsd: r.costUsd,
-                promptTokens: r.promptTokens, completionTokens: r.completionTokens,
-            });
+            if (onSegment) onSegment({ seq: n, sizeBytes: fullBlob.size, elapsedMs: durationMs, latencyMs: Date.now() - t0, text, delta: false, final: true, ok: true, generationId: r.generationId, costUsd: r.costUsd, promptTokens: r.promptTokens, completionTokens: r.completionTokens });
             return text;
         } catch (err) {
             if (onError) onError(err);
-            if (onSegment) onSegment({ seq: n, sizeBytes, elapsedMs: durationMs, latencyMs: Date.now() - t0, delta: false, final: true, ok: false, error: err.message, code: err.code });
-            return liveText; // fall back to the live preview if the final pass fails
+            if (onSegment) onSegment({ seq: n, sizeBytes: fullBlob.size, elapsedMs: durationMs, latencyMs: Date.now() - t0, delta: false, final: true, ok: false, error: err.message, code: err.code });
+            return buildLiveText();
         }
     }
 
-    async function poll() {
-        if (polling || !chunks.length) return;
-        polling = true;
-        try { await runDelta(); }
-        finally { polling = false; }
+    /** Fire a delta for the new audio since the last tick (non-blocking, bounded). */
+    function tick() {
+        if (!chunks.length) return;
+        if (!headerChunk) headerChunk = chunks[0];
+        const fresh = chunks.slice(sentIndex);
+        if (!fresh.length) return;
+        if (inFlight >= maxInFlight) return; // backpressure → coalesces into the next delta
+        const from = sentIndex;
+        sentIndex = chunks.length;
+        const parts = from === 0 ? fresh : [headerChunk, ...fresh];
+        const blob = new Blob(parts, { type: mime });
+        const n = ++seq;
+        inFlight += 1;
+        const pr = transcribeDelta(n, blob, blob.size);
+        pending.add(pr); pr.finally(() => pending.delete(pr));
     }
 
-    async function start() {
+    async function start(opts = {}) {
         // Graceful in an embedded/sandboxed (null-origin) vault frame: there
         // navigator.mediaDevices is undefined, so guard instead of bare-throwing.
-        // The host must grant the iframe allow="microphone" + a secure context.
         if (typeof navigator === 'undefined' || !navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
             throw Object.assign(new Error('Microphone unavailable in this context — an embedded/sandboxed frame blocks it unless the host grants allow="microphone" on a secure (https) context. Try the standalone tool, or drop an audio file instead.'), { code: 'mic-unavailable' });
         }
@@ -122,12 +127,15 @@ export function createLiveSession({ transcribe, getModel, onUpdate, onError, onS
         recorder = new MediaRecorder(stream, mime ? { mimeType: mime } : undefined);
         mime = recorder.mimeType || mime;
         chunks = [];
-        seq = 0; sentIndex = 0; headerChunk = null; liveText = '';
+        seq = 0; sentIndex = 0; headerChunk = null; inFlight = 0;
+        deltaText.clear(); pending.clear();
+        curInterval = opts.intervalMs || curInterval;
         recorder.addEventListener('dataavailable', (e) => { if (e.data && e.data.size) chunks.push(e.data); });
-        recorder.start(1000); // a chunk per second → deltas of ~intervalMs of new audio
+        // Chunk cadence ≤ the interval so each delta window has fresh data.
+        recorder.start(Math.min(1000, curInterval));
         startedAt = Date.now();
-        timer = setInterval(poll, intervalMs);
-        return { mimeType: mime };
+        timer = setInterval(tick, curInterval);
+        return { mimeType: mime, intervalMs: curInterval };
     }
 
     async function stop(finalPass = true) {
@@ -142,13 +150,14 @@ export function createLiveSession({ transcribe, getModel, onUpdate, onError, onS
         if (stream) stream.getTracks().forEach((t) => t.stop());
         const blob = new Blob(chunks, { type: mime }); // the full, continuous take
         const durationMs = Date.now() - startedAt;
-        // finalPass=true → one full-quality pass for a clean transcript (~1× extra
-        // cost). finalPass=false → keep the appended deltas (cheapest, rougher).
         let text;
         if (finalPass && blob.size) {
+            await Promise.allSettled([...pending]); // let interim deltas settle (the final pass overrides anyway)
             text = await runFinal(blob, durationMs);
         } else {
-            text = liveText;
+            tick(); // capture the tail window as a last delta
+            await Promise.allSettled([...pending]);
+            text = buildLiveText();
             if (onUpdate) onUpdate({ text, elapsedMs: durationMs, final: true });
         }
         const name = `live-${new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19)}.${extOf(mime)}`;

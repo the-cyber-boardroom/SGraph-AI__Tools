@@ -88,11 +88,11 @@ export async function init() {
         onError: (err) => emit(AT_EVENTS.LIVE_ERROR, { error: err.message, code: err.code }),
         onSegment: onLiveSegment,
     });
-    async function startLive() {
+    async function startLive(params = {}) {
         try {
-            const r = await live.start();
-            emit(AT_EVENTS.LIVE_STARTED, { mimeType: r.mimeType });
-            return { live: true, mimeType: r.mimeType };
+            const r = await live.start({ intervalMs: params.intervalMs });
+            emit(AT_EVENTS.LIVE_STARTED, { mimeType: r.mimeType, intervalMs: r.intervalMs });
+            return { live: true, mimeType: r.mimeType, intervalMs: r.intervalMs };
         } catch (err) {
             emit(AT_EVENTS.LIVE_ERROR, { error: err.message, code: err.code });
             throw err;

@@ -31,6 +31,16 @@ export function mountLive({ root, api, getLiveStream }) {
             <span class="at-rec-timer" data-live-timer hidden>00:00</span>
         </div>
         <label class="at-live__clean"><input type="checkbox" data-live-clean checked> Clean up on stop <span class="at-muted">(one full-quality re-transcription — costs ~1× more; off = keep the cheaper live text)</span></label>
+        <label class="at-live__chunk">Chunk every
+            <select data-live-interval>
+                <option value="1000">1s — most responsive · most $</option>
+                <option value="1500">1.5s</option>
+                <option value="2500" selected>2.5s — balanced</option>
+                <option value="4000">4s</option>
+                <option value="6000">6s — economical · least $</option>
+            </select>
+            <span class="at-muted">smaller = sends more, smaller requests (may overlap)</span>
+        </label>
         <div class="at-viz" data-live-viz hidden><sg-audio-viz mode="smooth-eq"></sg-audio-viz></div>
         <h3 class="at-item__txh">Live transcript</h3>
         <div class="at-live__tx" data-live-tx><span class="at-muted">Not started.</span></div>
@@ -48,6 +58,7 @@ export function mountLive({ root, api, getLiveStream }) {
     const vizEl = root.querySelector('[data-live-viz] sg-audio-viz');
     const txEl  = root.querySelector('[data-live-tx]');
     const cleanChk = root.querySelector('[data-live-clean]');
+    const intervalSel = root.querySelector('[data-live-interval]');
     const statusEl = root.querySelector('[data-live-status]');
     const segWrap = root.querySelector('[data-live-segwrap]');
     const segsEl  = root.querySelector('[data-live-segs]');
@@ -109,18 +120,20 @@ export function mountLive({ root, api, getLiveStream }) {
         if (!running) {
             try {
                 resetSegments();
-                await api.startLive();
+                if (intervalSel) intervalSel.disabled = true;
+                await api.startLive({ intervalMs: intervalSel ? Number(intervalSel.value) : undefined });
                 startedAt = Date.now(); setRunning(true); startViz();
                 tick = setInterval(() => { timer.textContent = fmt(Date.now() - startedAt); }, 250);
                 statusEl.textContent = 'Listening…';
                 txEl.innerHTML = '<span class="at-muted">…</span>';
-            } catch (err) { statusEl.textContent = `Could not start: ${err.message}`; }
+            } catch (err) { statusEl.textContent = `Could not start: ${err.message}`; if (intervalSel) intervalSel.disabled = false; }
         } else {
             statusEl.textContent = cleanChk && cleanChk.checked ? 'Finishing… (full-quality pass)' : 'Finishing…';
             try { const r = await api.stopLive({ finalPass: !cleanChk || cleanChk.checked }); statusEl.textContent = r && r.id ? 'Saved to the Queue — open it there.' : 'Stopped.'; }
             catch (err) { statusEl.textContent = `Stop failed: ${err.message}`; }
             finally {
                 setRunning(false); stopViz();
+                if (intervalSel) intervalSel.disabled = false;
                 if (tick) { clearInterval(tick); tick = null; }
             }
         }

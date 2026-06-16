@@ -184,6 +184,9 @@
 .at-live__btn { font-size: 1.05rem; padding: 12px 22px; }
 .at-live__clean { display: block; margin-top: 10px; font-size: 0.85rem; color: #cbd5e1; cursor: pointer; }
 .at-live__clean input { vertical-align: middle; margin-right: 6px; }
+.at-live__chunk { display: block; margin-top: 8px; font-size: 0.85rem; color: #cbd5e1; }
+.at-live__chunk select { margin: 0 8px; background: #0e0e22; color: #e2e8f0; border: 1px solid #38407a; border-radius: 6px; padding: 4px 8px; font: inherit; }
+.at-live__chunk select:disabled { opacity: 0.5; }
 .at-live__tx { margin-top: 8px; min-height: 80px; background: #0e0e22; border: 1px solid #1f2444; border-radius: 8px; padding: 12px 14px; color: #e2e8f0; line-height: 1.5; white-space: pre-wrap; }
 .at-live__tx--live { border-color: #4f46e5; box-shadow: 0 0 0 1px rgba(79,70,229,0.25); }
 .at-live__tx--live::after { content: '▋'; color: #818cf8; animation: at-live-blink 1s steps(1) infinite; }
