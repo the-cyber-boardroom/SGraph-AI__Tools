@@ -16,6 +16,15 @@
 /** @type {ReadonlyArray<Release>} */
 export const RELEASES = Object.freeze([
     {
+        version: '0.1.21',
+        date: '2026-06-15',
+        summary: 'Live now sends DELTAS, not the whole growing take (much cheaper).',
+        changes: [
+            'Changed: Live mode used to re-send the ENTIRE recording on every poll, so cost grew roughly quadratically with how long you spoke. It now transcribes only the NEW audio since the last poll (a delta), so live cost is roughly linear with duration. Each delta prepends the recorder header so the new audio is decodable on its own; the continuous recording is kept intact.',
+            'On stop, one full-quality pass over the whole take produces the clean saved transcript (the live view is the deltas appended, a fast preview). Net: ~2× the audio length is sent instead of ~12–60×.',
+        ],
+    },
+    {
         version: '0.1.20',
         date: '2026-06-15',
         summary: 'Voice cost in the session total; graceful mic-in-vault error (dev-brief Finding 8).',

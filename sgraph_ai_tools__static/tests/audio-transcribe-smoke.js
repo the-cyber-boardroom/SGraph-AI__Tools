@@ -606,15 +606,16 @@ function installMediaMocks() {
     } };
 }
 
-await test('createLiveSession: growing-window poll refines, stop does a final pass', async () => {
+await test('createLiveSession: sends DELTAS per poll (linear cost) + one full pass on stop', async () => {
     const { createLiveSession } = await import(`file://${TOOL}/api/live.js`);
     const media = installMediaMocks();
     try {
         const updates = [];
         const segments = [];
+        const sizes = [];
         let calls = 0;
         const session = createLiveSession({
-            transcribe: async ({ blob, model }) => { calls += 1; assert.ok(blob.size > 0 && model, 'transcribe gets a non-empty blob + model'); return { text: `take ${calls}`, generationId: `g${calls}`, costUsd: 0.0002 }; },
+            transcribe: async ({ blob, model }) => { calls += 1; assert.ok(blob.size > 0 && model, 'transcribe gets a non-empty blob + model'); sizes.push(blob.size); return { text: `take ${calls}`, generationId: `g${calls}`, costUsd: 0.0002 }; },
             getModel: () => 'google/gemini-3.5-flash',
             onUpdate: (u) => updates.push(u),
             onSegment: (s) => segments.push(s),
@@ -623,19 +624,26 @@ await test('createLiveSession: growing-window poll refines, stop does a final pa
         const started = await session.start();
         assert.match(started.mimeType, /webm/, 'picks a webm/opus container');
         assert.equal(session.isRunning(), true);
-        await new Promise((r) => setTimeout(r, 70)); // let a couple of polls fire
+        await new Promise((r) => setTimeout(r, 70)); // let a delta poll fire
         const r = await session.stop();
         assert.equal(session.isRunning(), false);
+        // Interim updates ACCUMULATE the deltas; the final update is the clean pass.
         assert.ok(updates.some((u) => u.final === false), 'at least one interim (non-final) update');
         const last = updates[updates.length - 1];
         assert.equal(last.final, true, 'the last update is the final pass');
-        assert.equal(r.text, last.text, 'stop() returns the final transcript');
+        assert.equal(r.text, last.text, 'stop() returns the final (full-pass) transcript');
         assert.ok(r.blob.size > 0 && /^live-.*\.webm$/.test(r.name), 'returns a named take blob');
-        // Each poll + the final pass is reported as a numbered, costed segment.
+        // Cost model: each poll + the final pass is a numbered, costed segment.
         assert.ok(segments.length >= 2, 'segments were reported');
         assert.deepEqual(segments.map((s) => s.seq), segments.map((_, i) => i + 1), 'segments are sequentially numbered from 1');
         assert.ok(segments.every((s) => s.sizeBytes > 0 && s.ok === true && s.costUsd === 0.0002), 'segments carry size + cost');
         assert.equal(segments[segments.length - 1].final, true, 'last segment is the final pass');
+        assert.equal(segments[0].delta, true, 'interim segments are deltas');
+        // The KEY property: an interim DELTA is smaller than the full take sent by
+        // the final pass — i.e. polls don't re-send everything (the old quadratic bug).
+        const finalSize = sizes[sizes.length - 1];
+        const interimMax = Math.max(...sizes.slice(0, -1));
+        assert.ok(interimMax < finalSize, 'a delta sends only the new audio, not the whole growing take');
     } finally { media.uninstall(); }
 });
 

@@ -36,7 +36,7 @@ export function mountLive({ root, api, getLiveStream }) {
         <div class="at-status-line" data-live-status></div>
         <div class="at-live__segwrap" data-live-segwrap hidden>
             <h3 class="at-item__txh">Segments sent <span class="at-muted at-live__segtot" data-live-segtot></span></h3>
-            <p class="at-meta-note" style="margin-top:2px;">Each segment re-sends the growing audio — a real request you're billed for.</p>
+            <p class="at-meta-note" style="margin-top:2px;">Each segment transcribes only the new audio since the last (a delta). On stop, one full-quality pass cleans up the saved transcript.</p>
             <div class="at-live__segs" data-live-segs></div>
         </div>
     `;
