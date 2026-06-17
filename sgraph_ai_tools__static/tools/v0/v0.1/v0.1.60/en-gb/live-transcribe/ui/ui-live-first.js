@@ -19,7 +19,7 @@ function esc(s) { return String(s == null ? '' : s).replace(/&/g, '&amp;').repla
  * @param {{ host: HTMLElement, state: object, api: object, getLiveStream: () => MediaStream|null }} opts
  * @returns {{ destroy: () => void }}
  */
-export function mountLiveFirst({ host, state, api, getLiveStream }) {
+export function mountLiveFirst({ host, state, api, getLiveStream, getLiveLevel, getLiveThreshold }) {
     host.innerHTML = '';
     host.style.cssText = 'flex:1;min-height:0;display:block;';
 
@@ -72,7 +72,7 @@ export function mountLiveFirst({ host, state, api, getLiveStream }) {
     keyEl.addEventListener('keydown', (e) => { if (e.key === 'Enter') saveKey(); });
 
     // ── Live hero (reused panel) ───────────────────────────────────────────────
-    const liveMount = mountLive({ root: liveRoot, api, getLiveStream });
+    const liveMount = mountLive({ root: liveRoot, api, getLiveStream, getLiveLevel, getLiveThreshold });
 
     // ── Drop / transcribe a file ───────────────────────────────────────────────
     async function ingest(files) {

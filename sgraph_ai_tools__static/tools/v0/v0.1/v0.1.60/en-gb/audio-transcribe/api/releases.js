@@ -16,6 +16,18 @@
 /** @type {ReadonlyArray<Release>} */
 export const RELEASES = Object.freeze([
     {
+        version: '0.1.26',
+        date: '2026-06-17',
+        summary: 'Live now splits on speech (VAD), not a clock — much better transcripts.',
+        changes: [
+            'Rebuilt Live mode around Voice Activity Detection: instead of cutting on a fixed timer (which split words mid-syllable → garbled, hallucinated text), it now captures PCM, detects speech vs silence, and sends each COMPLETE utterance (a phrase cut at a natural pause) as a clean WAV. Each clip transcribes well and gluing the clips ≈ what you said.',
+            'New controls: "Mic sensitivity" (speech threshold) and "Pause to split" (how long a pause ends a clip). The old "Chunk every" / "Skip silence" are gone (VAD subsumes them).',
+            'New: a VAD timeline under the button — a live loudness trace with the speech-threshold line, speech shaded, and a red marker each time a clip is cut. Watch your speech get bracketed into clips (and tune the threshold).',
+            'Fixed: segment playback now works — clips are clean WAVs (the old webm fragments were why ▶ failed).',
+            'Engine is energy VAD (no download). A neural (Silero) option may come later for noisy rooms (see the v0.2.73 plan).',
+        ],
+    },
+    {
         version: '0.1.25',
         date: '2026-06-16',
         summary: 'Live: fixed the repeated opening words; "skip silence"; play each segment.',

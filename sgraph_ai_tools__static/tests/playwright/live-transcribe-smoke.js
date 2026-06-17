@@ -45,7 +45,8 @@ async function run() {
         await page.evaluate(() => { window.__u = []; window.addEventListener('at:live:update', (e) => window.__u.push(e.detail)); });
         await page.evaluate(() => window.__tool.setApiKey({ apiKey: 'sk-test' }));
 
-        const start = await page.evaluate(() => window.__tool.startLive());
+        // Fake mic = continuous tone → force periodic VAD cuts for the smoke.
+        const start = await page.evaluate(() => window.__tool.startLive({ vad: { speechThreshold: 0.0001, silenceThreshold: 0, endpointMs: 99999, minSpeechMs: 0, preRollMs: 0, maxUtteranceMs: 700 } }));
         assert(start && start.live === true, '[2] startLive resolves { live:true }');
         await page.waitForFunction(() => window.__u.length >= 1, { timeout: 12000 }).catch(() => {});
         const sawUpdate = await page.evaluate(() => window.__u.some((u) => (u.text || '').includes('minimal live transcript')));

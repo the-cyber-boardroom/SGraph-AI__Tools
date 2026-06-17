@@ -88,7 +88,9 @@ async function run() {
 
         const itemsBefore = await page.evaluate(async () => (await window.__tool.getItems()).length);
 
-        const startRes = await page.evaluate(() => window.__tool.startLive());
+        // The fake mic is a continuous tone (no pauses) → force periodic VAD cuts
+        // (tiny threshold so the tone is "speech"; short max-utterance to endpoint).
+        const startRes = await page.evaluate(() => window.__tool.startLive({ vad: { speechThreshold: 0.0001, silenceThreshold: 0, endpointMs: 99999, minSpeechMs: 0, preRollMs: 0, maxUtteranceMs: 700 } }));
         assert(startRes && startRes.live === true, '[1] startLive resolves { live:true }');
 
         // Wait for at least one interim poll update.
@@ -127,7 +129,7 @@ async function run() {
         const domOk = await page.evaluate(() => {
             const rows = document.querySelectorAll('[data-live-segs] .at-live__seg').length;
             const tot = (document.querySelector('[data-live-segtot]') || {}).textContent || '';
-            return rows >= 1 && /segment/.test(tot);
+            return rows >= 1 && /clip/.test(tot);
         });
         assert(domOk, '[7] Live panel shows segment rows + running total');
 
