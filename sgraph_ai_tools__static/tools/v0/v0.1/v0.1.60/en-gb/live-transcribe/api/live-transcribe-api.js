@@ -20,6 +20,7 @@ import { createLiveSession } from '../../audio-transcribe/api/live.js';
 import { makeIsolatedTransport } from '../../audio-transcribe/api/llm-transport.js';
 import { fetchGenerationCostDeferred } from '../../audio-transcribe/api/openrouter-cost.js';
 import { DEFAULT_MODEL } from '../../audio-transcribe/api/audio-models.js';
+import { encodeWav } from '/core/sg-tts-openrouter/v0/v0.1/v0.1.0/sg-tts-openrouter.js';
 import { mountLiveFirst } from '../ui/ui-live-first.js';
 
 const passthrough = (p) => p;
@@ -84,15 +85,16 @@ export async function init() {
     const live = createLiveSession({
         transcribe: (req) => transcribe.transcribeBlob(req),
         getModel: () => state.getActiveModel(),
+        encodeWav,
         onUpdate: (u) => emit(AT_EVENTS.LIVE_UPDATE, u),
         onError: (err) => emit(AT_EVENTS.LIVE_ERROR, { error: err.message, code: err.code }),
         onSegment: onLiveSegment,
     });
     async function startLive(params = {}) {
         try {
-            const r = await live.start({ intervalMs: params.intervalMs, skipSilence: params.skipSilence, silenceThreshold: params.silenceThreshold });
-            emit(AT_EVENTS.LIVE_STARTED, { mimeType: r.mimeType, intervalMs: r.intervalMs, skipSilence: r.skipSilence });
-            return { live: true, mimeType: r.mimeType, intervalMs: r.intervalMs, skipSilence: r.skipSilence };
+            const r = await live.start({ vad: params.vad });
+            emit(AT_EVENTS.LIVE_STARTED, { mimeType: r.mimeType, sampleRate: r.sampleRate, vad: r.vad });
+            return { live: true, mimeType: r.mimeType, sampleRate: r.sampleRate, vad: r.vad };
         } catch (err) {
             emit(AT_EVENTS.LIVE_ERROR, { error: err.message, code: err.code });
             throw err;
@@ -129,6 +131,6 @@ export async function init() {
     // can start talking immediately if they've used either tool before.
     try { const k = localStorage.getItem(KEY_STORAGE); if (k) await connect({ apiKey: k }); } catch (_) { /* */ }
 
-    if (host) mountLiveFirst({ host, state, api, getLiveStream: () => live.getStream() });
+    if (host) mountLiveFirst({ host, state, api, getLiveStream: () => live.getStream(), getLiveLevel: () => live.getLevel(), getLiveThreshold: () => live.getThreshold() });
     return api;
 }

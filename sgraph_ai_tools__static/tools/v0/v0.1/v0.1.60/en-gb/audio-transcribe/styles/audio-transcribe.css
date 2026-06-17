@@ -184,6 +184,8 @@
 .at-live__btn { font-size: 1.05rem; padding: 12px 22px; }
 .at-live__clean { display: block; margin-top: 10px; font-size: 0.85rem; color: #cbd5e1; cursor: pointer; }
 .at-live__clean input { vertical-align: middle; margin-right: 6px; }
+.at-live__vadrow { display: flex; gap: 18px; flex-wrap: wrap; margin-top: 8px; }
+.at-live__vadcanvas { display: block; width: 100%; height: 100%; }
 .at-live__chunk { display: block; margin-top: 8px; font-size: 0.85rem; color: #cbd5e1; }
 .at-live__chunk select { margin: 0 8px; background: #0e0e22; color: #e2e8f0; border: 1px solid #38407a; border-radius: 6px; padding: 4px 8px; font: inherit; }
 .at-live__chunk select:disabled { opacity: 0.5; }

@@ -24,6 +24,7 @@ import { RELEASES } from './releases.js';
 import { buildSampleFile } from './samples.js';
 import { synthesize } from './tts.js';
 import { makeIsolatedTransport } from './llm-transport.js';
+import { encodeWav } from '/core/sg-tts-openrouter/v0/v0.1/v0.1.0/sg-tts-openrouter.js';
 import { createLiveSession } from './live.js';
 import { mountShell } from '../ui/ui-shell.js';
 
@@ -46,7 +47,7 @@ export async function init(manifest) {
 
     const api = new SgToolApi({
         name: 'audio-transcribe',
-        version: { api: '0.1.25', ui: '0.1.25', content: '0.1.0' },
+        version: { api: '0.1.26', ui: '0.1.26', content: '0.1.0' },
         panelId: 'root',
         manifest: './manifest.json',
         skills: (manifest && manifest.skills) || {},
@@ -223,6 +224,7 @@ export async function init(manifest) {
     const live = createLiveSession({
         transcribe: (req) => transcribe.transcribeBlob(req),
         getModel: () => state.getActiveModel(),
+        encodeWav,
         onUpdate: (u) => emit(AT_EVENTS.LIVE_UPDATE, u),
         onError: (err) => emit(AT_EVENTS.LIVE_ERROR, { error: err.message, code: err.code }),
         onSegment: onLiveSegment,
@@ -230,9 +232,9 @@ export async function init(manifest) {
     async function startLive(params = {}) {
         liveRunId += 1;
         try {
-            const r = await live.start({ intervalMs: params.intervalMs, skipSilence: params.skipSilence, silenceThreshold: params.silenceThreshold });
-            emit(AT_EVENTS.LIVE_STARTED, { mimeType: r.mimeType, intervalMs: r.intervalMs, skipSilence: r.skipSilence });
-            return { live: true, mimeType: r.mimeType, intervalMs: r.intervalMs, skipSilence: r.skipSilence };
+            const r = await live.start({ vad: params.vad });
+            emit(AT_EVENTS.LIVE_STARTED, { mimeType: r.mimeType, sampleRate: r.sampleRate, vad: r.vad });
+            return { live: true, mimeType: r.mimeType, sampleRate: r.sampleRate, vad: r.vad };
         } catch (err) {
             // Surface a clear event (e.g. mic-unavailable in a vault frame) rather
             // than only rejecting — embedders/UIs listen on at:live:error.
@@ -285,7 +287,7 @@ export async function init(manifest) {
 
     api.activate();
 
-    if (host) await mountShell({ host, state, api, getRecordingStream: source.getRecordingStream, getLiveStream: () => live.getStream() });
+    if (host) await mountShell({ host, state, api, getRecordingStream: source.getRecordingStream, getLiveStream: () => live.getStream(), getLiveLevel: () => live.getLevel(), getLiveThreshold: () => live.getThreshold() });
 
     return api;
 }

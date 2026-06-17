@@ -627,45 +627,35 @@ function installMediaMocks() {
     } };
 }
 
-await test('createLiveSession: sends DELTAS per poll (linear cost) + one full pass on stop', async () => {
+await test('createLiveSession: VAD utterances → clean WAV clips, ordered, take saved', async () => {
     const { createLiveSession } = await import(`file://${TOOL}/api/live.js`);
-    const media = installMediaMocks();
-    try {
-        const updates = [];
-        const segments = [];
-        const sizes = [];
-        let calls = 0;
-        const session = createLiveSession({
-            transcribe: async ({ blob, model }) => { calls += 1; assert.ok(blob.size > 0 && model, 'transcribe gets a non-empty blob + model'); sizes.push(blob.size); return { text: `take ${calls}`, generationId: `g${calls}`, costUsd: 0.0002 }; },
-            getModel: () => 'google/gemini-3.5-flash',
-            onUpdate: (u) => updates.push(u),
-            onSegment: (s) => segments.push(s),
-            intervalMs: 25,
-        });
-        const started = await session.start();
-        assert.match(started.mimeType, /webm/, 'picks a webm/opus container');
-        assert.equal(session.isRunning(), true);
-        await new Promise((r) => setTimeout(r, 70)); // let a delta poll fire
-        const r = await session.stop();
-        assert.equal(session.isRunning(), false);
-        // Interim updates ACCUMULATE the deltas; the final update is the clean pass.
-        assert.ok(updates.some((u) => u.final === false), 'at least one interim (non-final) update');
-        const last = updates[updates.length - 1];
-        assert.equal(last.final, true, 'the last update is the final pass');
-        assert.equal(r.text, last.text, 'stop() returns the final (full-pass) transcript');
-        assert.ok(r.blob.size > 0 && /^live-.*\.webm$/.test(r.name), 'returns a named take blob');
-        // Cost model: each poll + the final pass is a numbered, costed segment.
-        assert.ok(segments.length >= 2, 'segments were reported');
-        assert.deepEqual(segments.map((s) => s.seq), segments.map((_, i) => i + 1), 'segments are sequentially numbered from 1');
-        assert.ok(segments.every((s) => s.sizeBytes > 0 && s.ok === true && s.costUsd === 0.0002), 'segments carry size + cost');
-        assert.equal(segments[segments.length - 1].final, true, 'last segment is the final pass');
-        assert.equal(segments[0].delta, true, 'interim segments are deltas');
-        // The KEY property: an interim DELTA is smaller than the full take sent by
-        // the final pass — i.e. polls don't re-send everything (the old quadratic bug).
-        const finalSize = sizes[sizes.length - 1];
-        const interimMax = Math.max(...sizes.slice(0, -1));
-        assert.ok(interimMax < finalSize, 'a delta sends only the new audio, not the whole growing take');
-    } finally { media.uninstall(); }
+    // Mock capture: lets the test push synthetic frames + returns a fake webm take.
+    let frameCb = null;
+    const makeCapture = async ({ onFrame }) => { frameCb = onFrame; return {
+        sampleRate: 16000, mimeType: 'audio/webm', getStream: () => null,
+        stop: async () => ({ blob: new Blob([new Uint8Array([1, 2, 3])], { type: 'audio/webm' }), mimeType: 'audio/webm' }),
+    }; };
+    const pushFrames = (rms, n) => { for (let i = 0; i < n; i++) frameCb(rms, new Float32Array([rms])); };
+    const segs = [];
+    let order = 0;
+    const session = createLiveSession({
+        // 1st clip SLOW, 2nd FAST → complete out of order; reassembly must keep order.
+        transcribe: async () => { const id = ++order; await new Promise((r) => setTimeout(r, id === 1 ? 60 : 5)); return { text: `clip${id}`, costUsd: 0.0003 }; },
+        getModel: () => 'm', encodeWav: (pcm) => new Blob([pcm], { type: 'audio/wav' }),
+        makeCapture, onSegment: (s) => segs.push(s), onUpdate: () => {},
+    });
+    const started = await session.start({ vad: { frameMs: 20, speechThreshold: 0.02, silenceThreshold: 0.01, endpointMs: 100, preRollMs: 0, minSpeechMs: 40, maxUtteranceMs: 5000 } });
+    assert.equal(started.sampleRate, 16000);
+    assert.equal(session.isRunning(), true);
+    pushFrames(0.1, 10); pushFrames(0.0, 6);   // utterance 1 (speech → silence endpoint)
+    pushFrames(0.1, 10); pushFrames(0.0, 6);   // utterance 2
+    const r = await session.stop(false);        // keep the live text (skip the final pass on the fake webm)
+    assert.equal(session.isRunning(), false);
+    const clips = segs.filter((s) => s.delta);
+    assert.ok(clips.length >= 2, 'two utterances → two clips');
+    assert.ok(clips.every((s) => s.blob && s.blob.type === 'audio/wav' && s.blob.size > 0), 'each clip is a clean WAV blob (playback works)');
+    assert.ok(clips.every((s) => s.costUsd === 0.0003), 'clips carry cost');
+    assert.ok(/clip1[\s\S]*clip2/.test(r.text), 'reassembled in utterance order despite out-of-order completion');
 });
 
 await test('createLiveSession.start() throws mic-unavailable when mic APIs are absent (vault frame)', async () => {
@@ -702,79 +692,64 @@ await test('getCostSummary folds in auxiliary (Create Voice / TTS) spend', async
     assert.ok(Math.abs(after.sessionUsd - (before.sessionUsd + 0.0021)) < 1e-9, 'session total = transcription + voice');
 });
 
-await test('extractInitSegment returns only the webm init segment (fixes the "Let\'s Let\'s" bug)', async () => {
-    const { extractInitSegment } = await import(`file://${TOOL}/api/live.js`);
-    // 10 header bytes, then the Cluster id (1F 43 B6 75), then "audio" bytes.
-    const bytes = new Uint8Array([0x1a, 0x45, 0xdf, 0xa3, 1, 2, 3, 4, 5, 6, 0x1F, 0x43, 0xB6, 0x75, 9, 9, 9, 9, 9]);
-    const init = await extractInitSegment(new Blob([bytes], { type: 'audio/webm' }), 'audio/webm');
-    const out = new Uint8Array(await init.arrayBuffer());
-    assert.equal(out.length, 10, 'init segment = the bytes BEFORE the first Cluster (no opening audio)');
-    // Fallback: no Cluster id present → whole chunk (old behaviour, non-webm).
-    const whole = await extractInitSegment(new Blob([new Uint8Array([1, 2, 3])], { type: 'audio/mp4' }), 'audio/mp4');
-    assert.equal((await whole.arrayBuffer()).byteLength, 3, 'no Cluster → returns the whole chunk');
-});
+// ── VAD utterance segmentation (the new Live engine) ───────────────────────────
+await test('createVad: cuts at silence into complete utterances (pre-roll, hangover, min/max)', async () => {
+    const { createVad } = await import(`file://${TOOL}/api/live-vad.js`);
+    const frameMs = 20;
+    // helper: push a run of N frames at a given rms; each frame tags its rms so we
+    // can inspect the reconstructed pcm.
+    function run(vad, rms, n) { for (let i = 0; i < n; i++) vad.pushFrame(rms, new Float32Array([rms])); }
 
-await test('live segments carry the sent blob (for per-segment playback)', async () => {
-    const { createLiveSession } = await import(`file://${TOOL}/api/live.js`);
-    const media = installMediaMocks();
-    try {
-        const segs = [];
-        const session = createLiveSession({ transcribe: async () => ({ text: 'x' }), getModel: () => 'm', onSegment: (s) => segs.push(s), intervalMs: 25 });
-        await session.start();
-        await new Promise((r) => setTimeout(r, 70));
-        await session.stop();
-        assert.ok(segs.length >= 1 && segs.every((s) => s.blob && s.blob.size > 0), 'every segment includes its sent blob');
-    } finally { media.uninstall(); }
-});
+    // (1) speech burst → silence(endpoint) → exactly one utterance.
+    let utts = [];
+    let vad = createVad({ frameMs, speechThreshold: 0.02, silenceThreshold: 0.01, endpointMs: 200, preRollMs: 60, minSpeechMs: 100, onUtterance: (pcm, m) => utts.push({ n: pcm.length, ...m }) });
+    run(vad, 0.005, 10);  // ambient silence (pre-roll)
+    run(vad, 0.10, 30);   // 600ms speech
+    run(vad, 0.0, 10);    // 200ms silence → endpoint
+    assert.equal(utts.length, 1, 'one utterance emitted at the silence boundary');
+    assert.ok(utts[0].n > 30, 'utterance includes pre-roll + speech frames');
 
-await test('live reassembles OUT-OF-ORDER delta responses by sequence (contiguous prefix)', async () => {
-    const { createLiveSession } = await import(`file://${TOOL}/api/live.js`);
-    const saved = { MediaRecorder: globalThis.MediaRecorder };
-    const navDesc = Object.getOwnPropertyDescriptor(globalThis, 'navigator');
-    class Rec {
-        static isTypeSupported(m) { return m === 'audio/webm;codecs=opus'; }
-        constructor(s, o) { this.mimeType = (o && o.mimeType) || ''; this.state = 'inactive'; this._l = {}; this._t = null; }
-        addEventListener(t, cb, o) { (this._l[t] ||= []).push({ cb, once: !!(o && o.once) }); }
-        _fire(t, ev) { for (const e of (this._l[t] || []).slice()) { e.cb(ev); if (e.once) this._l[t] = this._l[t].filter((x) => x !== e); } }
-        _chunk() { this._fire('dataavailable', { data: new Blob([new Uint8Array(50)], { type: this.mimeType }) }); }
-        start() { this.state = 'recording'; this._chunk(); this._t = setInterval(() => this._chunk(), 8); }
-        requestData() { this._chunk(); }
-        stop() { this.state = 'inactive'; if (this._t) clearInterval(this._t); this._fire('stop', {}); }
-    }
-    globalThis.MediaRecorder = Rec;
-    Object.defineProperty(globalThis, 'navigator', { value: { mediaDevices: { getUserMedia: async () => ({ getTracks: () => [{ stop() {} }] }) } }, configurable: true, writable: true });
-    try {
-        const updates = [];
-        let call = 0;
-        const session = createLiveSession({
-            // The 1st delta is SLOW, the 2nd is FAST → they complete out of order.
-            transcribe: async () => { const c = ++call; await new Promise((r) => setTimeout(r, c === 1 ? 90 : 8)); return { text: c === 1 ? 'AAA' : (c === 2 ? 'BBB' : 'CCC') }; },
-            getModel: () => 'm', onUpdate: (u) => updates.push(u.text), intervalMs: 20,
-        });
-        await session.start();
-        await new Promise((r) => setTimeout(r, 150));
-        const r = await session.stop(false); // keep the live text (no final pass)
-        assert.ok(!updates.some((t) => /^BBB/.test(t)), 'the fast 2nd delta is never displayed before the slow 1st (no out-of-order leak)');
-        assert.ok(/AAA[\s\S]*BBB/.test(r.text), 'reassembled in capture order (AAA before BBB)');
-    } finally {
-        globalThis.MediaRecorder = saved.MediaRecorder;
-        if (navDesc) Object.defineProperty(globalThis, 'navigator', navDesc); else delete globalThis.navigator;
-    }
+    // (2) a brief pause SHORTER than the endpoint does NOT split.
+    utts = [];
+    vad = createVad({ frameMs, speechThreshold: 0.02, silenceThreshold: 0.01, endpointMs: 200, preRollMs: 0, minSpeechMs: 60, onUtterance: () => utts.push(1) });
+    run(vad, 0.10, 20); run(vad, 0.0, 5 /*100ms < 200ms endpoint*/); run(vad, 0.10, 20); run(vad, 0.0, 12);
+    assert.equal(utts.length, 1, 'a short mid-phrase pause does not cut');
+
+    // (3) two bursts with a long pause → two utterances.
+    utts = [];
+    vad = createVad({ frameMs, speechThreshold: 0.02, silenceThreshold: 0.01, endpointMs: 200, preRollMs: 0, minSpeechMs: 60, onUtterance: () => utts.push(1) });
+    run(vad, 0.10, 20); run(vad, 0.0, 12); run(vad, 0.10, 20); run(vad, 0.0, 12);
+    assert.equal(utts.length, 2, 'two phrases separated by a real pause → two utterances');
+
+    // (4) too-short blip is dropped.
+    utts = [];
+    vad = createVad({ frameMs, speechThreshold: 0.02, silenceThreshold: 0.01, endpointMs: 100, preRollMs: 0, minSpeechMs: 200, onUtterance: () => utts.push(1) });
+    run(vad, 0.10, 3 /*60ms < 200ms*/); run(vad, 0.0, 6);
+    assert.equal(utts.length, 0, 'a blip shorter than minSpeechMs is not sent');
+
+    // (5) non-stop talker is force-cut at maxUtteranceMs (capped).
+    utts = [];
+    vad = createVad({ frameMs, speechThreshold: 0.02, silenceThreshold: 0.01, endpointMs: 9999, preRollMs: 0, minSpeechMs: 20, maxUtteranceMs: 200, onUtterance: (pcm, m) => utts.push(m) });
+    run(vad, 0.10, 30); // 600ms continuous → should cut ~every 200ms
+    assert.ok(utts.length >= 2 && utts[0].capped === true, 'continuous speech is force-cut (capped)');
+
+    // (6) flush() emits an open utterance (on stop).
+    utts = [];
+    vad = createVad({ frameMs, speechThreshold: 0.02, silenceThreshold: 0.01, endpointMs: 9999, preRollMs: 0, minSpeechMs: 60, onUtterance: () => utts.push(1) });
+    run(vad, 0.10, 20); vad.flush();
+    assert.equal(utts.length, 1, 'flush() finalises the in-progress utterance');
 });
 
 await test('startLive → stopLive adds the take to the queue (real SgToolApi)', async () => {
-    const media = installMediaMocks();
-    try {
-        const { api, state } = await buildRealApi();
-        const before = state.getItems().length;
-        const s = await api.startLive();
-        assert.equal(s.live, true);
-        await new Promise((r) => setTimeout(r, 40));
-        const r = await api.stopLive();
-        assert.ok(r.id, 'stopLive returns the new item id');
-        assert.equal(state.getItems().length, before + 1, 'one take was enqueued');
-        assert.equal(state.getItem(r.id).origin, 'recording', 'take is marked as a recording');
-    } finally { media.uninstall(); }
+    const { api, state } = await buildRealApi();
+    const before = state.getItems().length;
+    const s = await api.startLive();
+    assert.equal(s.live, true);
+    await new Promise((r) => setTimeout(r, 20));
+    const r = await api.stopLive();
+    assert.ok(r.id, 'stopLive returns the new item id');
+    assert.equal(state.getItems().length, before + 1, 'one take was enqueued');
+    assert.equal(state.getItem(r.id).origin, 'recording', 'take is marked as a recording');
 });
 
 // ── Integration: real SgToolApi + UI mount ─────────────────────────────────────
@@ -797,7 +772,9 @@ async function buildRealApi() {
     const send = buildSendMethods({ state, emit, getDropper: () => null });
     const connect = async (p = {}) => ({ provider: 'openrouter', model: p.model || state.getActiveModel() });
     const { createLiveSession } = await import(`file://${TOOL}/api/live.js`);
-    const live = createLiveSession({ transcribe: (req) => transcribe.transcribeBlob(req), getModel: () => state.getActiveModel(), onUpdate: () => {}, onError: () => {} });
+    // Inject a mock capture + encodeWav so the VAD/utterance path runs headlessly.
+    const mockMakeCapture = async () => ({ sampleRate: 16000, mimeType: 'audio/webm', getStream: () => null, stop: async () => ({ blob: new Blob([new Uint8Array([1, 2, 3])], { type: 'audio/webm' }), mimeType: 'audio/webm' }) });
+    const live = createLiveSession({ transcribe: (req) => transcribe.transcribeBlob(req), getModel: () => state.getActiveModel(), encodeWav: (pcm) => new Blob([pcm], { type: 'audio/wav' }), makeCapture: mockMakeCapture, onUpdate: () => {}, onError: () => {} });
     const startLive = async () => { const r = await live.start(); return { live: true, mimeType: r.mimeType }; };
     const stopLive = async () => {
         const r = await live.stop(); let id = null;
