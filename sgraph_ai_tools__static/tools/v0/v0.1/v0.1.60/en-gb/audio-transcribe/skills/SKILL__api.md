@@ -38,7 +38,7 @@ actions are callable on `window.__tool`. Every action returns a **Promise**
 | `transcribeAll` | yes | `{concurrency?}` | `{total,done,errors:[{id,code}]}` |
 | `transcribe` | yes | `{}` | alias of `transcribeAll` |
 | `getTranscript` | no | `{id?}` | `{id,text,model}` or `[{…}]` |
-| `startLive` | yes | `{intervalMs?}` | `{live:true,mimeType,intervalMs}` |
+| `startLive` | yes | `{vad?:{speechThreshold,silenceThreshold,endpointMs,preRollMs,minSpeechMs,maxUtteranceMs,frameMs}}` | `{live:true,mimeType,sampleRate,vad}` |
 | `stopLive` | yes | `{finalPass?}` | `{id,text,durationMs}` |
 | `synthesize` | yes | `{text,mode,voice?,model?,apiKey?,returnAudio?}` | `{mode,durationMs,sizeBytes,mimeType,generationId?,audioDataUrl?}` |
 | `addSynthesized` | yes | `{text,mode,voice?,name?}` | `{added,rejected}` |
@@ -63,19 +63,21 @@ actions are callable on `window.__tool`. Every action returns a **Promise**
 
 `recording:started/stopped`, `item:added/removed`, `model:changed`,
 `transcribe:started/progress/complete/error{code}`, **`llm:exchange`** (provenance),
-**`live:started{mimeType,intervalMs}`**, **`live:update{text,elapsedMs,final}`**,
-**`live:segment{seq,sizeBytes,elapsedMs,latencyMs,text,final,ok,generationId?,costUsd?,costPending?,delta?}`**,
+**`live:started{mimeType,sampleRate,vad}`**, **`live:update{text,elapsedMs,final}`**,
+**`live:segment{seq,sizeBytes,blob,elapsedMs,latencyMs,text,final,ok,generationId?,costUsd?,costPending?,delta?}`**,
 **`live:stopped{id,text}`**, **`live:error{error,code?}`**, `batch:started/progress/complete`,
 `bundle:created`, `send:started/complete/error`, `reset`. Plus framework `tool:ready`.
 
-## Live mode (cost model)
+## Live mode (VAD)
 
-Each poll transcribes only the **new audio (a delta)** — cost ~linear with
-duration, not quadratic. Shorter `intervalMs` fires **overlapping** requests; the
-live text is reassembled **by sequence number** (out-of-order responses are
-handled). On stop, `finalPass` (default true) does one clean full-quality pass for
-the saved transcript. Live spend is recorded in `state.aux` → counts toward
-`getCostSummary().auxUsd`, the session total, and the spend cap.
+Audio is split by **energy Voice Activity Detection**: each **complete utterance**
+(a phrase cut at a pause) is sent as a clean WAV — so clips transcribe cleanly and
+play back. Tune via `startLive({vad:{speechThreshold, endpointMs, …}})`. Live text
+is reassembled **by sequence number** (out-of-order responses are handled). On
+stop, `finalPass` (default true) does one clean full-quality pass over the
+continuous take for the saved transcript. Live spend is recorded in `state.aux`
+→ counts toward `getCostSummary().auxUsd`, the session total, and the spend cap.
+`at:live:segment` carries the sent WAV `blob`.
 
 ## Dependencies
 
@@ -94,7 +96,7 @@ await __tool.transcribeAll();                      // parallel pool
 const cost = await __tool.getCostSummary();        // {sessionUsd, …, auxUsd}
 
 // Live with a chosen chunk interval + cheap (no final pass).
-await __tool.startLive({ intervalMs: 1500 });
+await __tool.startLive({ vad: { speechThreshold: 0.02, endpointMs: 600 } });
 // … speak …
 const { id, text } = await __tool.stopLive({ finalPass: false });
 
