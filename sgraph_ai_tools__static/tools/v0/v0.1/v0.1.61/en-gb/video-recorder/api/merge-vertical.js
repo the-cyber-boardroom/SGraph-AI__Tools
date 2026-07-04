@@ -90,8 +90,9 @@ export async function mergeAsShorts(screenStream, cameraStream, options = {}) {
     const FOOTER_Y = CAM_Y + CAM_H + Math.round((H - CAM_Y - CAM_H - FOOTER_H) / 2);
     // Remaining canvas (FOOTER_Y + FOOTER_H → H) is the bottom safe zone
 
-    // Precompute adaptive font size — title text never changes during recording
-    const TITLE_TEXT = _clip(title || 'Recording', 60);
+    // Precompute adaptive font size — title text never changes during recording.
+    // No placeholder — leave the title blank when the user didn't name the recording.
+    const TITLE_TEXT = title ? _clip(title, 60) : '';
     const TITLE_FS   = _adaptFontSize(ctx, TITLE_TEXT, VID_W - 32);
 
     // Precompute SG/Send logo geometry for TOP_SAFE zone

@@ -81,7 +81,8 @@ export async function mergeAsInfographic(screenStream, cameraStream, options = {
 
     const TITLE_X   = CAM_X + CAM_W + GAP;
     const TITLE_W   = W - SIDE_PAD - TITLE_X;
-    const TITLE_TXT = _clip(title || 'Recording', 120);
+    // No placeholder — leave the title blank when the user didn't name the recording.
+    const TITLE_TXT = title ? _clip(title, 120) : '';
 
     // ── Draw loop ──────────────────────────────────────────────────────────────
     function draw() {
@@ -169,6 +170,7 @@ export async function mergeAsInfographic(screenStream, cameraStream, options = {
  * boxH. Falls back to fewer lines / smaller font, ellipsising if it still overflows.
  */
 function _drawWrappedTitle(ctx, text, x, y, maxW, boxH) {
+    if (!text) return;   // no placeholder when the recording is unnamed
     ctx.fillStyle    = '#f1f5f9';
     ctx.textAlign    = 'left';
     ctx.textBaseline = 'top';

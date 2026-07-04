@@ -416,7 +416,7 @@ function _initPreviewTab(el, state, config, layout) {
             igScreen.play().catch(() => {});
             const camStreamIg = state.streams?.camera;
             if (camStreamIg) { igCam.srcObject = camStreamIg; igCam.play().catch(() => {}); }
-            igTitle.textContent = config.recordingName?.trim() || 'Recording';
+            igTitle.textContent = config.recordingName?.trim() || '';
             _showOnly('infographic');
 
         } else if (mode.includes('screen') && mode.includes('camera')) {
