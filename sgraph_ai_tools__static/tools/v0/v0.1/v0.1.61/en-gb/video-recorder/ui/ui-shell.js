@@ -320,29 +320,29 @@ function _initPreviewTab(el, state, config, layout) {
     // Fed by the RAW screen + camera tracks (safe with multiple sinks), NOT the
     // recorder's canvas-capture track — sharing that track with a <video> can
     // intermittently starve the MediaRecorder. Proportions mirror merge-infographic
-    // (screen maximised on top, camera + title side by side below) so the user can
-    // see the letterboxing and resize their tall tab to fill the frame.
+    // (title on top, screen maximised in the middle, camera centred at the bottom) so
+    // the user can see the letterboxing and resize their tall tab to fill the frame.
     const igFrame = document.createElement('div');
     igFrame.style.cssText = 'position:absolute;inset:0;display:none;align-items:center;justify-content:center;padding:12px;box-sizing:border-box;';
     const igBox = document.createElement('div');
     igBox.style.cssText = [
         'aspect-ratio:1080/1920', 'height:100%', 'max-width:100%',
-        'display:flex', 'flex-direction:column', 'gap:0.8%', 'padding:1.8%',
+        'display:flex', 'flex-direction:column', 'gap:1%', 'padding:1.8%',
         'box-sizing:border-box', 'background:#0a0a18',
         'border:1px solid rgba(59,130,246,0.35)', 'border-radius:10px', 'overflow:hidden',
     ].join(';');
+    const igTitle = document.createElement('div');   // top band (collapses when empty)
+    igTitle.style.cssText = 'flex:0 0 auto;max-height:20%;overflow:hidden;display:flex;align-items:center;justify-content:center;text-align:center;color:#f1f5f9;font-weight:700;font-size:15px;line-height:1.25;padding:0 4px;font-family:system-ui,sans-serif;';
     const igScreen = document.createElement('video');
     igScreen.autoplay = true; igScreen.muted = true; igScreen.setAttribute('playsinline', '');
     igScreen.style.cssText = 'flex:1;min-height:0;width:100%;object-fit:contain;background:#05050f;border:1px solid rgba(59,130,246,0.35);border-radius:8px;';
-    const igBottom = document.createElement('div');
-    igBottom.style.cssText = 'height:15.6%;display:flex;gap:2%;align-items:stretch;';
+    const igCamWrap = document.createElement('div');  // centred camera row at the bottom
+    igCamWrap.style.cssText = 'flex:0 0 auto;height:15.6%;display:flex;align-items:center;justify-content:center;';
     const igCam = document.createElement('video');
     igCam.autoplay = true; igCam.muted = true; igCam.setAttribute('playsinline', '');
     igCam.style.cssText = 'height:100%;aspect-ratio:16/9;object-fit:cover;background:#05050f;border:2px solid #3b82f6;border-radius:8px;';
-    const igTitle = document.createElement('div');
-    igTitle.style.cssText = 'flex:1;min-width:0;display:flex;align-items:center;color:#f1f5f9;font-weight:700;font-size:15px;line-height:1.25;overflow:hidden;font-family:system-ui,sans-serif;';
-    igBottom.appendChild(igCam); igBottom.appendChild(igTitle);
-    igBox.appendChild(igScreen); igBox.appendChild(igBottom);
+    igCamWrap.appendChild(igCam);
+    igBox.appendChild(igTitle); igBox.appendChild(igScreen); igBox.appendChild(igCamWrap);
     igFrame.appendChild(igBox);
 
     const igBadge = document.createElement('div');
