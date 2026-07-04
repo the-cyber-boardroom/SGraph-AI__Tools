@@ -3,10 +3,10 @@
  * Canvas compositor for the "Infographic" vertical layout: 1080×1920 (9:16).
  *
  * Purpose: shorts-style videos where the *shared tab is itself vertical* — e.g.
- * narrating a portrait infographic. Unlike the Shorts layout (which caps the screen
- * at ~35 % and stacks screen / title / camera vertically), this hands the screen the
- * maximum possible area at the top and puts the title + camera SIDE BY SIDE in a
- * compact bottom bar.
+ * narrating a portrait infographic. Layout top→bottom: TITLE band (reclaims the space
+ * a wide-ish tab would otherwise letterbox above the screen), SCREEN maximised in the
+ * middle, and the CAMERA centred along the bottom with a date · elapsed · attribution
+ * footer. When the recording is unnamed the title band collapses so the screen grows.
  *
  * Deliberate non-goal — we do NOT stretch/upscale the screen to force it to fill the
  * region. It is drawn "contain" (aspect preserved, letterboxed if it doesn't match).
@@ -24,21 +24,26 @@ import { startBackgroundSafeTicker, captureCanvasStream } from '/core/sg-capture
 
 // ── Layout constants ────────────────────────────────────────────────────────────
 
-const W        = 1080;
-const H        = 1920;
-const SIDE_PAD = 20;
-const TOP_PAD  = 20;
-const GAP      = 16;
-const BAR_H    = 300;                  // bottom camera + title strip
-const BAR_PAD  = 16;
-const RADIUS   = 14;
-const ACCENT   = '#3b82f6';
+const W          = 1080;
+const H          = 1920;
+const SIDE_PAD   = 20;
+const TOP_PAD    = 28;
+const BOT_PAD    = 20;
+const GAP        = 16;
+const TITLE_H    = 210;                // top band reserved for the title (when present)
+const CAM_H      = 300;                // centred camera height at the bottom
+const FOOTER_H   = 40;                 // date · elapsed · attribution line at the very bottom
+const RADIUS     = 14;
+const ACCENT     = '#3b82f6';
 
 // ── Public API ────────────────────────────────────────────────────────────────
 
 /**
- * Merge a (vertical) screen stream and a camera stream into a 1080×1920 canvas with
- * the screen maximised on top and title + camera side by side along the bottom.
+ * Merge a (vertical) screen stream and a camera stream into a 1080×1920 canvas laid
+ * out top→bottom as: title (top band — uses the space a tall screen would otherwise
+ * letterbox), screen maximised in the middle (contain, no upscaling/distortion), and
+ * the camera centred along the bottom, with a small date · elapsed · attribution
+ * footer. When the recording is unnamed the title band collapses and the screen grows.
  *
  * @param {MediaStream} screenStream
  * @param {MediaStream} cameraStream
@@ -62,31 +67,39 @@ export async function mergeAsInfographic(screenStream, cameraStream, options = {
     await Promise.all([_ready(sv), _ready(cv)]);
 
     // ── Fixed geometry (computed once) ─────────────────────────────────────────
-    // Screen region: the whole frame above the bottom bar.
+    // No placeholder — leave the title blank (and collapse its band) when unnamed.
+    const TITLE_TXT = title ? _clip(title, 120) : '';
+    const hasTitle  = TITLE_TXT.length > 0;
+
+    // Title band at the top (collapses to nothing when there is no title).
+    const TITLE_Y      = TOP_PAD;
+    const TITLE_BAND_H = hasTitle ? TITLE_H : 0;
+
+    // Footer + centred camera along the bottom.
+    const FOOTER_TOP = H - BOT_PAD - FOOTER_H;
+    const cSet       = cameraStream.getVideoTracks()[0]?.getSettings() ?? {};
+    const cNatW      = cSet.width  || 1280;
+    const cNatH      = cSet.height || 720;
+    const CAM_W      = Math.round(CAM_H * (cNatW / cNatH));  // camera keeps its own aspect
+    const CAM_X      = Math.round((W - CAM_W) / 2);          // centred horizontally
+    const CAM_Y      = FOOTER_TOP - GAP - CAM_H;
+    const cFit       = _fitInto(cNatW, cNatH, CAM_W, CAM_H);
+
+    // Screen fills everything between the title band and the camera.
     const SCREEN_X = SIDE_PAD;
-    const SCREEN_Y = TOP_PAD;
+    const SCREEN_Y = TITLE_Y + TITLE_BAND_H + (hasTitle ? GAP : 0);
     const SCREEN_W = W - SIDE_PAD * 2;
-    const SCREEN_H = H - TOP_PAD - BAR_H - GAP;
-
-    // Bottom bar: camera (left, aspect-preserved) + title (right).
-    const BAR_Y     = H - BAR_H;
-    const cSet      = cameraStream.getVideoTracks()[0]?.getSettings() ?? {};
-    const cNatW     = cSet.width  || 1280;
-    const cNatH     = cSet.height || 720;
-    const CAM_H     = BAR_H - BAR_PAD * 2;
-    const CAM_W     = Math.round(CAM_H * (cNatW / cNatH));   // camera keeps its own aspect
-    const CAM_X     = SIDE_PAD;
-    const CAM_Y     = BAR_Y + BAR_PAD;
-    const cFit      = _fitInto(cNatW, cNatH, CAM_W, CAM_H);
-
-    const TITLE_X   = CAM_X + CAM_W + GAP;
-    const TITLE_W   = W - SIDE_PAD - TITLE_X;
-    const TITLE_TXT = _clip(title || 'Recording', 120);
+    const SCREEN_H = (CAM_Y - GAP) - SCREEN_Y;
 
     // ── Draw loop ──────────────────────────────────────────────────────────────
     function draw() {
         ctx.fillStyle = '#0a0a18';
         ctx.fillRect(0, 0, W, H);
+
+        // ── Title (top band, centred, wrapped, adaptive) ──
+        if (hasTitle) {
+            _drawWrappedTitle(ctx, TITLE_TXT, W / 2, TITLE_Y, W - SIDE_PAD * 2, TITLE_BAND_H, 'center');
+        }
 
         // ── Screen — contain (no upscaling/distortion), clipped to a rounded card ──
         // Read natural size each frame; a shared window can be resized mid-recording.
@@ -109,7 +122,7 @@ export async function mergeAsInfographic(screenStream, cameraStream, options = {
         ctx.roundRect(SCREEN_X, SCREEN_Y, SCREEN_W, SCREEN_H, RADIUS);
         ctx.stroke();
 
-        // ── Camera (bottom-left) — rounded clip + border + glow ──
+        // ── Camera (bottom, centred) — rounded clip + border + glow ──
         ctx.save();
         ctx.shadowColor = 'rgba(59,130,246,0.4)';
         ctx.shadowBlur  = 20;
@@ -126,21 +139,15 @@ export async function mergeAsInfographic(screenStream, cameraStream, options = {
         ctx.roundRect(CAM_X, CAM_Y, CAM_W, CAM_H, 12);
         ctx.stroke();
 
-        // ── Title (bottom-right of camera) — wrapped, adaptive size ──
-        const FOOTER_H = 30;
-        const titleTop = CAM_Y;
-        const titleBot = CAM_Y + CAM_H - FOOTER_H;
-        _drawWrappedTitle(ctx, TITLE_TXT, TITLE_X, titleTop, TITLE_W, titleBot - titleTop);
-
-        // ── Footer line under the title ──
+        // ── Footer line (centred, very bottom) ──
         const now     = new Date();
         const dateStr = now.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
         ctx.font         = '20px system-ui, -apple-system, sans-serif';
         ctx.fillStyle    = '#64748b';
-        ctx.textAlign    = 'left';
-        ctx.textBaseline = 'alphabetic';
+        ctx.textAlign    = 'center';
+        ctx.textBaseline = 'middle';
         ctx.fillText(`${dateStr}  ·  ${_dur(_elapsedMs())}  ·  tools.sgraph.ai`,
-                     TITLE_X, CAM_Y + CAM_H - 6);
+                     W / 2, FOOTER_TOP + FOOTER_H / 2);
     }
 
     // ── Background-safe pump (same mechanism as merge-vertical / sg-capture) ──
@@ -168,9 +175,10 @@ export async function mergeAsInfographic(screenStream, cameraStream, options = {
  * Draw a title wrapped to fit maxW, largest font first, vertically centred within
  * boxH. Falls back to fewer lines / smaller font, ellipsising if it still overflows.
  */
-function _drawWrappedTitle(ctx, text, x, y, maxW, boxH) {
+function _drawWrappedTitle(ctx, text, x, y, maxW, boxH, align = 'left') {
+    if (!text) return;   // no placeholder when the recording is unnamed
     ctx.fillStyle    = '#f1f5f9';
-    ctx.textAlign    = 'left';
+    ctx.textAlign    = align;   // when 'center', x is the centre X
     ctx.textBaseline = 'top';
 
     for (const size of [46, 40, 34, 28, 24]) {

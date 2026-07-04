@@ -90,7 +90,8 @@ function normalisePartUrls(raw) {
         if (typeof entry === 'string') {
             url = entry;
         } else if (entry && typeof entry === 'object') {
-            url = entry.url ?? entry.signed_url ?? entry.signedUrl
+            url = entry.url ?? entry.upload_url ?? entry.uploadUrl
+               ?? entry.signed_url ?? entry.signedUrl
                ?? entry.presigned_url ?? entry.presignedUrl
                ?? entry.Url ?? entry.URL ?? null;
             partNumber = entry.part_number ?? entry.partNumber ?? (i + 1);

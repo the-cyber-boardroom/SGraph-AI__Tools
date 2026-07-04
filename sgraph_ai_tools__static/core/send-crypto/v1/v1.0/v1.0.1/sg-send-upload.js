@@ -67,7 +67,8 @@ function normalisePart(entry, index) {
     return { url: entry, partNumber: index + 1 };
   }
   if (entry && typeof entry === 'object') {
-    const url = entry.url ?? entry.signed_url ?? entry.signedUrl
+    const url = entry.url ?? entry.upload_url ?? entry.uploadUrl
+             ?? entry.signed_url ?? entry.signedUrl
              ?? entry.presigned_url ?? entry.presignedUrl
              ?? entry.Url ?? entry.URL ?? null;
     const partNumber = entry.part_number ?? entry.partNumber ?? (index + 1);
