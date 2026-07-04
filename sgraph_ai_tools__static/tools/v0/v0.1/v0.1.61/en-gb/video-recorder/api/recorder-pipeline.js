@@ -19,6 +19,7 @@
 
 import { getCameraStream, getAudioStream, getScreenStream, mergeAsPiP } from '/core/sg-capture/v0/v0.1/v0.1.1/sg-capture.js';
 import { mergeAsShorts }                                                 from './merge-vertical.js';
+import { mergeAsInfographic }                                            from './merge-infographic.js';
 import { getBestMimeType }                                   from '/core/sg-video-recorder/v0/v0.1/v0.1.2/sg-video-recorder.js';
 import { RecordingConfig, RecordingState }                   from './recorder-state.js';
 import { SGA_RECORDER }                                      from './recorder-events.js';
@@ -429,24 +430,24 @@ export async function startPipeline() {
             }
         }
 
-        // ── PiP / Shorts composite recorder (camera+screen modes only) ────────
+        // ── PiP / Shorts / Infographic composite recorder (camera+screen modes only) ──
         if (!rawViz && rawCamera && rawScreen && startCombined) {
+            // Live elapsed source so burned-in footer clocks exclude paused time.
+            const getElapsedMs = () => {
+                if (!state.startedAt) return 0;
+                let paused = state.pausedDurationMs;
+                if (state.status === 'paused' && state.lastPausedAt) {
+                    paused += Date.now() - state.lastPausedAt;
+                }
+                return Date.now() - state.startedAt - paused;
+            };
+            const vOpts = { fps: config.fps, title: config.recordingName, startedAt: Date.now(), getElapsedMs };
+
             let composite;
             if (config.layout === 'shorts') {
-                composite = await mergeAsShorts(rawScreen, rawCamera, {
-                    fps:          config.fps,
-                    title:        config.recordingName,
-                    startedAt:    Date.now(),
-                    // Live elapsed source so the burned-in footer clock excludes paused time.
-                    getElapsedMs: () => {
-                        if (!state.startedAt) return 0;
-                        let paused = state.pausedDurationMs;
-                        if (state.status === 'paused' && state.lastPausedAt) {
-                            paused += Date.now() - state.lastPausedAt;
-                        }
-                        return Date.now() - state.startedAt - paused;
-                    },
-                });
+                composite = await mergeAsShorts(rawScreen, rawCamera, vOpts);
+            } else if (config.layout === 'infographic') {
+                composite = await mergeAsInfographic(rawScreen, rawCamera, vOpts);
             } else {
                 composite = await mergeAsPiP(rawScreen, rawCamera, config.pipOptions);
             }

@@ -1,0 +1,10 @@
+{
+  "name": "sg-send-crypto",
+  "version": "1.0.1",
+  "description": "Simple token generation, SGMETA envelope, and SG/Send upload client. v1.0.1: multipart upload accepts presigned parts as URL strings or per-part objects (fixes '[object Object]' PUT / 501).",
+  "exports": {
+    "sg-send-crypto.js": ["isFriendlyToken", "generateToken", "deriveTransferId", "deriveKey", "buildSgmetaEnvelope", "encrypt", "SALT", "ITERATIONS", "TOKEN_PATTERN"],
+    "sg-send-upload.js": ["uploadFile", "DIRECT_UPLOAD_LIMIT"],
+    "wordlist.js": ["WORDLIST"]
+  }
+}

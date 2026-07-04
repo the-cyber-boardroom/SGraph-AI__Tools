@@ -1,7 +1,7 @@
 {
   "name": "Video Recorder",
   "slug": "video-recorder",
-  "description": "Browser-based video/audio/screen recorder with 9 capture modes (incl. 2 audio-visualisation modes), optional PiP / vertical-Shorts compositing, and save to SG/Send. Each recording opens in its own tab — drag to compare or reorder.",
+  "description": "Browser-based video/audio/screen recorder with 9 capture modes (incl. 2 audio-visualisation modes), camera+screen compositing in three layouts (Landscape PiP, vertical Shorts, and Infographic for tall tabs), and save to SG/Send. Each recording opens in its own tab — drag to compare or reorder.",
   "icon": "🎙",
   "version": "0.1.61",
   "status": "live",
@@ -13,8 +13,8 @@
       { "module": "sg-capture",        "path": "/core/sg-capture/v0/v0.1/v0.1.1/sg-capture.js" },
       { "module": "sg-video-recorder", "path": "/core/sg-video-recorder/v0/v0.1/v0.1.1/sg-video-recorder.js" },
       { "module": "sg-video",          "path": "/core/video/v1/v1.0/v1.0.1/sg-video.js" },
-      { "module": "sg-send-crypto",    "path": "/core/send-crypto/v1/v1.0/v1.0.0/sg-send-crypto.js" },
-      { "module": "sg-send-upload",    "path": "/core/send-crypto/v1/v1.0/v1.0.0/sg-send-upload.js" },
+      { "module": "sg-send-crypto",    "path": "/core/send-crypto/v1/v1.0/v1.0.1/sg-send-crypto.js" },
+      { "module": "sg-send-upload",    "path": "/core/send-crypto/v1/v1.0/v1.0.1/sg-send-upload.js" },
       { "module": "manifest-loader",   "path": "/core/manifest-loader/v0/v0.1/v0.1.0/manifest-loader.js" }
     ],
     "shared": [

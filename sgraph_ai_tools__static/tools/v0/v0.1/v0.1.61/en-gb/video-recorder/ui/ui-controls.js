@@ -164,6 +164,8 @@ export function initControls(container, state, config, api, emit) {
                         <div class="ctrl-toggle-group" id="layout-group">
                             <button class="ctrl-toggle" data-value="landscape">Landscape</button>
                             <button class="ctrl-toggle" data-value="shorts">Vertical (Shorts 9:16)</button>
+                            <button class="ctrl-toggle" data-value="infographic"
+                                    title="For a tall/vertical shared tab (e.g. a portrait infographic): screen maximised on top, title + camera side by side at the bottom. Size your tab tall to fill the frame — the preview shows the exact framing.">Infographic (tall tab)</button>
                         </div>
                     </div>
                 </div>
