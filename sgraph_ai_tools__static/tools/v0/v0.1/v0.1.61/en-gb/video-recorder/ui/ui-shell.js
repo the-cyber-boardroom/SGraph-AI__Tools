@@ -319,9 +319,11 @@ function _initPreviewTab(el, state, config, layout) {
     // ── Infographic-layout preview: a 9:16 frame approximating the composited output ──
     // Fed by the RAW screen + camera tracks (safe with multiple sinks), NOT the
     // recorder's canvas-capture track — sharing that track with a <video> can
-    // intermittently starve the MediaRecorder. Proportions mirror merge-infographic
-    // (title on top, screen maximised in the middle, camera centred at the bottom) so
-    // the user can see the letterboxing and resize their tall tab to fill the frame.
+    // intermittently starve the MediaRecorder. Proportions mirror merge-infographic:
+    // the screen video shrink-wraps to its own aspect (width:100% + height:auto) and
+    // sits just above the centred camera, while the title vertically centres in the
+    // slack that remains at the top — so the user can see the framing and resize
+    // their tall tab to fill the frame.
     const igFrame = document.createElement('div');
     igFrame.style.cssText = 'position:absolute;inset:0;display:none;align-items:center;justify-content:center;padding:12px;box-sizing:border-box;';
     const igBox = document.createElement('div');
@@ -331,11 +333,13 @@ function _initPreviewTab(el, state, config, layout) {
         'box-sizing:border-box', 'background:#0a0a18',
         'border:1px solid rgba(59,130,246,0.35)', 'border-radius:10px', 'overflow:hidden',
     ].join(';');
-    const igTitle = document.createElement('div');   // top band (collapses when empty)
-    igTitle.style.cssText = 'flex:0 0 auto;max-height:20%;overflow:hidden;display:flex;align-items:center;justify-content:center;text-align:center;color:#f1f5f9;font-weight:700;font-size:15px;line-height:1.25;padding:0 4px;font-family:system-ui,sans-serif;';
+    const igTitle = document.createElement('div');   // absorbs the top slack; text centres in it
+    igTitle.style.cssText = 'flex:1 1 0;min-height:0;overflow:hidden;display:flex;align-items:center;justify-content:center;text-align:center;color:#f1f5f9;font-weight:700;font-size:15px;line-height:1.25;padding:0 4px;font-family:system-ui,sans-serif;';
     const igScreen = document.createElement('video');
     igScreen.autoplay = true; igScreen.muted = true; igScreen.setAttribute('playsinline', '');
-    igScreen.style.cssText = 'flex:1;min-height:0;width:100%;object-fit:contain;background:#05050f;border:1px solid rgba(59,130,246,0.35);border-radius:8px;';
+    // width:100% + height:auto shrink-wraps the element to the video's intrinsic aspect
+    // (once metadata loads); flex-shrink + object-fit:contain handle very tall sources.
+    igScreen.style.cssText = 'flex:0 1 auto;min-height:0;width:100%;height:auto;object-fit:contain;background:#05050f;border:1px solid rgba(59,130,246,0.35);border-radius:8px;';
     const igCamWrap = document.createElement('div');  // centred camera row at the bottom
     igCamWrap.style.cssText = 'flex:0 0 auto;height:15.6%;display:flex;align-items:center;justify-content:center;';
     const igCam = document.createElement('video');
