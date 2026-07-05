@@ -320,21 +320,21 @@ function _initPreviewTab(el, state, config, layout) {
     // Fed by the RAW screen + camera tracks (safe with multiple sinks), NOT the
     // recorder's canvas-capture track — sharing that track with a <video> can
     // intermittently starve the MediaRecorder. Proportions mirror merge-infographic:
-    // the screen video shrink-wraps to its own aspect (width:100% + height:auto) and
-    // sits just above the centred camera, while the title vertically centres in the
-    // slack that remains at the top — so the user can see the framing and resize
-    // their tall tab to fill the frame.
+    // title, screen (shrink-wrapped to its own aspect via width:100% + height:auto),
+    // and camera stack with small gaps and centre vertically as one block — so the
+    // user can see the framing and resize their tall tab to fill the frame.
     const igFrame = document.createElement('div');
     igFrame.style.cssText = 'position:absolute;inset:0;display:none;align-items:center;justify-content:center;padding:12px;box-sizing:border-box;';
     const igBox = document.createElement('div');
     igBox.style.cssText = [
         'aspect-ratio:1080/1920', 'height:100%', 'max-width:100%',
-        'display:flex', 'flex-direction:column', 'gap:1%', 'padding:1.8%',
+        'display:flex', 'flex-direction:column', 'justify-content:center',
+        'gap:1.2%', 'padding:1.8%',
         'box-sizing:border-box', 'background:#0a0a18',
         'border:1px solid rgba(59,130,246,0.35)', 'border-radius:10px', 'overflow:hidden',
     ].join(';');
-    const igTitle = document.createElement('div');   // absorbs the top slack; text centres in it
-    igTitle.style.cssText = 'flex:1 1 0;min-height:0;overflow:hidden;display:flex;align-items:center;justify-content:center;text-align:center;color:#f1f5f9;font-weight:700;font-size:15px;line-height:1.25;padding:0 4px;font-family:system-ui,sans-serif;';
+    const igTitle = document.createElement('div');   // natural height; centres with the block
+    igTitle.style.cssText = 'flex:0 0 auto;max-height:14%;overflow:hidden;display:flex;align-items:center;justify-content:center;text-align:center;color:#f1f5f9;font-weight:700;font-size:15px;line-height:1.25;padding:0 4px;font-family:system-ui,sans-serif;';
     const igScreen = document.createElement('video');
     igScreen.autoplay = true; igScreen.muted = true; igScreen.setAttribute('playsinline', '');
     // width:100% + height:auto shrink-wraps the element to the video's intrinsic aspect
