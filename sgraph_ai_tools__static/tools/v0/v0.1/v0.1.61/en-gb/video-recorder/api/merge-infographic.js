@@ -3,11 +3,10 @@
  * Canvas compositor for the "Infographic" vertical layout: 1080×1920 (9:16).
  *
  * Purpose: shorts-style videos where the *shared tab is itself vertical* — e.g.
- * narrating a portrait infographic. Layout top→bottom: TITLE vertically centred in
- * the top slack, SCREEN card shrink-wrapped to its fitted content (no internal
- * letterbox bars) and anchored just above the CAMERA centred at the bottom, with a
- * date · elapsed · attribution footer. Whatever height the fitted screen doesn't use
- * flows to the title area; when the recording is unnamed the screen gets it all.
+ * narrating a portrait infographic. TITLE, SCREEN card (shrink-wrapped to its fitted
+ * content — no internal letterbox bars), and CAMERA are stacked with uniform gaps
+ * and vertically centred as one block, over a date · elapsed · attribution footer
+ * pinned at the very bottom. Unnamed recordings drop the title row entirely.
  *
  * Deliberate non-goal — we do NOT stretch/upscale the screen to force it to fill the
  * region. It is drawn "contain" (aspect preserved, letterboxed if it doesn't match).
@@ -30,9 +29,10 @@ const H           = 1920;
 const SIDE_PAD    = 20;
 const TOP_PAD     = 28;
 const BOT_PAD     = 20;
-const GAP         = 16;
-const MIN_TITLE_H = 130;               // minimum top space guaranteed for the title (when present)
-const CAM_H       = 300;               // centred camera height at the bottom
+const GAP         = 16;                // footer breathing room
+const EL_GAP      = 24;                // uniform gap between title / screen / camera
+const MAX_TITLE_H = 240;               // wrap box for the title (up to ~4 lines at max size)
+const CAM_H       = 300;               // centred camera height
 const FOOTER_H    = 40;                // date · elapsed · attribution line at the very bottom
 const RADIUS      = 14;
 const ACCENT      = '#3b82f6';
@@ -40,11 +40,11 @@ const ACCENT      = '#3b82f6';
 // ── Public API ────────────────────────────────────────────────────────────────
 
 /**
- * Merge a (vertical) screen stream and a camera stream into a 1080×1920 canvas laid
- * out top→bottom as: title (vertically centred in the top slack), screen card
- * shrink-wrapped to the fitted content (contain — no upscaling, no letterbox bars
- * inside the card) sitting just above the camera centred at the bottom, plus a small
- * date · elapsed · attribution footer.
+ * Merge a (vertical) screen stream and a camera stream into a 1080×1920 canvas.
+ * Title, screen card (shrink-wrapped to the fitted content — contain, no upscaling,
+ * no letterbox bars inside the card), and camera are stacked with uniform gaps and
+ * the whole block is vertically centred in the frame, above a small
+ * date · elapsed · attribution footer pinned at the very bottom.
  *
  * @param {MediaStream} screenStream
  * @param {MediaStream} cameraStream
@@ -72,39 +72,56 @@ export async function mergeAsInfographic(screenStream, cameraStream, options = {
     const TITLE_TXT = title ? _clip(title, 120) : '';
     const hasTitle  = TITLE_TXT.length > 0;
 
-    // Footer + centred camera along the bottom.
+    // Footer pinned at the very bottom; camera keeps its own aspect at CAM_H tall.
     const FOOTER_TOP = H - BOT_PAD - FOOTER_H;
     const cSet       = cameraStream.getVideoTracks()[0]?.getSettings() ?? {};
     const cNatW      = cSet.width  || 1280;
     const cNatH      = cSet.height || 720;
-    const CAM_W      = Math.round(CAM_H * (cNatW / cNatH));  // camera keeps its own aspect
+    const CAM_W      = Math.round(CAM_H * (cNatW / cNatH));
     const CAM_X      = Math.round((W - CAM_W) / 2);          // centred horizontally
-    const CAM_Y      = FOOTER_TOP - GAP - CAM_H;
     const cFit       = _fitInto(cNatW, cNatH, CAM_W, CAM_H);
 
-    // Max box available to the screen: full padded width, from below the (minimum)
-    // title space down to just above the camera. The actual card shrink-wraps the
-    // fitted content, so any slack goes to the title area at the top — not into
-    // letterbox bars inside the card.
+    // Vertical region available to the title+screen+camera block.
     const SCREEN_MAX_W = W - SIDE_PAD * 2;
-    const SCREEN_MAX_H = (CAM_Y - GAP) - (TOP_PAD + (hasTitle ? MIN_TITLE_H + GAP : 0));
+    const AVAIL_TOP    = TOP_PAD;
+    const AVAIL_BOT    = FOOTER_TOP - GAP;
 
     // ── Draw loop ──────────────────────────────────────────────────────────────
+    // All geometry is recomputed per frame: the screen's natural size can change
+    // mid-recording (window resize), which re-fits the card and re-centres the block.
     function draw() {
         ctx.fillStyle = '#0a0a18';
         ctx.fillRect(0, 0, W, H);
 
-        // ── Screen — contain (no upscaling/distortion), card shrink-wrapped to the
-        // fitted content and anchored just above the camera. Natural size is read
-        // each frame — a shared window can be resized mid-recording, and the title
-        // reflows into whatever space remains above.
+        // Measure the title at its final wrap/size so the block uses its real height.
+        const titleLayout = hasTitle
+            ? _layoutTitle(ctx, TITLE_TXT, W - SIDE_PAD * 2, MAX_TITLE_H)
+            : null;
+        const titleH = titleLayout ? titleLayout.height : 0;
+
+        // Fit the screen (contain — no upscaling/distortion) into what the block
+        // can give it after the title and camera take their share.
         const sSet  = screenStream.getVideoTracks()[0]?.getSettings() ?? {};
         const sNatW = sSet.width  || sv.videoWidth  || 1080;
         const sNatH = sSet.height || sv.videoHeight || 1920;
-        const sFit  = _fitInto(sNatW, sNatH, SCREEN_MAX_W, SCREEN_MAX_H);
-        const SX    = Math.round((W - sFit.dw) / 2);          // centred horizontally
-        const SY    = (CAM_Y - GAP) - sFit.dh;                // bottom-anchored above camera
+        const maxScreenH = (AVAIL_BOT - AVAIL_TOP) - CAM_H - EL_GAP - (hasTitle ? titleH + EL_GAP : 0);
+        const sFit  = _fitInto(sNatW, sNatH, SCREEN_MAX_W, maxScreenH);
 
+        // Stack title / screen / camera with uniform EL_GAP and centre the whole
+        // block vertically — balanced margins instead of a floating title above a
+        // bottom-pinned screen+camera.
+        const contentH = (hasTitle ? titleH + EL_GAP : 0) + sFit.dh + EL_GAP + CAM_H;
+        let y = AVAIL_TOP + Math.max(0, Math.round(((AVAIL_BOT - AVAIL_TOP) - contentH) / 2));
+
+        // ── Title ──
+        if (titleLayout) {
+            _drawTitle(ctx, titleLayout, W / 2, y);
+            y += titleH + EL_GAP;
+        }
+
+        // ── Screen — card shrink-wrapped to the fitted content ──
+        const SX = Math.round((W - sFit.dw) / 2);
+        const SY = y;
         ctx.save();
         ctx.beginPath();
         ctx.roundRect(SX, SY, sFit.dw, sFit.dh, RADIUS);
@@ -118,27 +135,24 @@ export async function mergeAsInfographic(screenStream, cameraStream, options = {
         ctx.beginPath();
         ctx.roundRect(SX, SY, sFit.dw, sFit.dh, RADIUS);
         ctx.stroke();
+        y = SY + sFit.dh + EL_GAP;
 
-        // ── Title — vertically centred in the space between the top and the screen ──
-        if (hasTitle) {
-            _drawWrappedTitle(ctx, TITLE_TXT, W / 2, TOP_PAD, W - SIDE_PAD * 2, (SY - GAP) - TOP_PAD, 'center');
-        }
-
-        // ── Camera (bottom, centred) — rounded clip + border + glow ──
+        // ── Camera (centred, directly below the screen) — clip + border + glow ──
+        const camY = y;
         ctx.save();
         ctx.shadowColor = 'rgba(59,130,246,0.4)';
         ctx.shadowBlur  = 20;
         ctx.beginPath();
-        ctx.roundRect(CAM_X, CAM_Y, CAM_W, CAM_H, 12);
+        ctx.roundRect(CAM_X, camY, CAM_W, CAM_H, 12);
         ctx.clip();
         ctx.fillStyle = '#05050f';
-        ctx.fillRect(CAM_X, CAM_Y, CAM_W, CAM_H);
-        ctx.drawImage(cv, CAM_X + cFit.dx, CAM_Y + cFit.dy, cFit.dw, cFit.dh);
+        ctx.fillRect(CAM_X, camY, CAM_W, CAM_H);
+        ctx.drawImage(cv, CAM_X + cFit.dx, camY + cFit.dy, cFit.dw, cFit.dh);
         ctx.restore();
         ctx.strokeStyle = ACCENT;
         ctx.lineWidth   = 3;
         ctx.beginPath();
-        ctx.roundRect(CAM_X, CAM_Y, CAM_W, CAM_H, 12);
+        ctx.roundRect(CAM_X, camY, CAM_W, CAM_H, 12);
         ctx.stroke();
 
         // ── Footer line (centred, very bottom) ──
@@ -174,26 +188,30 @@ export async function mergeAsInfographic(screenStream, cameraStream, options = {
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
 /**
- * Draw a title wrapped to fit maxW, largest font first, vertically centred within
- * boxH. Falls back to fewer lines / smaller font, ellipsising if it still overflows.
+ * Wrap the title to fit maxW, largest font first, within a box of at most maxBoxH.
+ * Falls back to fewer lines / smaller font, ellipsising if it still overflows.
+ * Returns the measured layout so the caller can stack it precisely.
+ * @returns {{ rows: string[], size: number, lineH: number, height: number }}
  */
-function _drawWrappedTitle(ctx, text, x, y, maxW, boxH, align = 'left') {
-    if (!text) return;   // no placeholder when the recording is unnamed
-    ctx.fillStyle    = '#f1f5f9';
-    ctx.textAlign    = align;   // when 'center', x is the centre X
-    ctx.textBaseline = 'top';
-
+function _layoutTitle(ctx, text, maxW, maxBoxH) {
     for (const size of [46, 40, 34, 28, 24]) {
         ctx.font = `bold ${size}px system-ui, -apple-system, sans-serif`;
-        const lineH   = Math.round(size * 1.18);
-        const maxLines = Math.max(1, Math.floor(boxH / lineH));
+        const lineH    = Math.round(size * 1.18);
+        const maxLines = Math.max(1, Math.floor(maxBoxH / lineH));
         const lines    = _wrap(ctx, text, maxW, maxLines);
         if (lines.overflow && size > 24) continue;   // try a smaller size before ellipsising
-        const blockH = lines.rows.length * lineH;
-        let ty = y + Math.round((boxH - blockH) / 2);
-        for (const row of lines.rows) { ctx.fillText(row, x, ty); ty += lineH; }
-        return;
+        return { rows: lines.rows, size, lineH, height: lines.rows.length * lineH };
     }
+}
+
+/** Render a title layout from _layoutTitle, horizontally centred on centerX. */
+function _drawTitle(ctx, layout, centerX, topY) {
+    ctx.fillStyle    = '#f1f5f9';
+    ctx.textAlign    = 'center';
+    ctx.textBaseline = 'top';
+    ctx.font = `bold ${layout.size}px system-ui, -apple-system, sans-serif`;
+    let ty = topY;
+    for (const row of layout.rows) { ctx.fillText(row, centerX, ty); ty += layout.lineH; }
 }
 
 /** Greedy word-wrap into at most maxLines; ellipsises the last line on overflow. */
