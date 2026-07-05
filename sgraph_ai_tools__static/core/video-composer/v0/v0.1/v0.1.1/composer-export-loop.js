@@ -86,7 +86,16 @@ export function createExportLoop(cfg) {
             v.addEventListener('ended', fn);
             endedListeners.push({ v, fn });
         }
-        paintBlack(ctx, canvas);
+        // Paint the REAL t=0 frame before the clock starts — the recorder is
+        // already rolling, so a paintBlack here used to be captured as the
+        // opening frame(s) of every export. Videos/images were pre-rolled by
+        // exportProject (prepareVideosForExport + imageReg.whenReady), so the
+        // first frame draws actual content. Black stays as the error fallback.
+        try {
+            paintExportFrame({ ctx, canvas, project, t: 0, videos, getImage });
+        } catch (_) {
+            paintBlack(ctx, canvas);
+        }
         exportStart = performance.now();
         debug('clip-active', { phase: 'wall-clock-start' });
         raf = requestAnimationFrame(tick);

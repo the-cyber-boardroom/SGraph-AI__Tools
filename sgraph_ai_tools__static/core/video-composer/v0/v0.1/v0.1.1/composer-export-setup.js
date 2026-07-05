@@ -46,6 +46,52 @@ export function buildVideoElements(project, assets) {
 }
 
 /**
+ * Pre-roll every export video so the FIRST recorded frames show content.
+ *
+ * Without this, the recorder + wall clock start while the videos are still
+ * decoding (buildVideoElements only assigns `src`); the per-tick draw skips
+ * any video with `readyState < 2`, so the export opens on ~100–500 ms of
+ * black frames and that sliver of clip content is silently skipped. Here we
+ * wait for each clip's element to have data AND pre-seek it to the clip's
+ * `inPoint`, so the very first painted frame is the correct clip frame.
+ *
+ * Per-video timeout keeps a broken/huge asset from hanging the export —
+ * worst case that clip just opens black, as before.
+ *
+ * @param {object} project
+ * @param {Map<string, HTMLVideoElement>} videos  Keyed by clip.id.
+ * @param {{ timeoutMs?: number }} [opts]
+ * @returns {Promise<void>}
+ */
+export async function prepareVideosForExport(project, videos, { timeoutMs = 5000 } = {}) {
+    const jobs = [];
+    for (const track of getVideoTracks(project)) {
+        for (const clip of (track.clips || [])) {
+            const v = videos.get(clip.id);
+            if (!v) continue;
+            jobs.push(new Promise((resolve) => {
+                const timer = setTimeout(resolve, timeoutMs);
+                const done = () => { clearTimeout(timer); resolve(); };
+                const seekToInPoint = () => {
+                    const target = Math.max(0, clip.inPoint || 0);
+                    // Seeking to (near) the current position may not fire
+                    // `seeked`; frame 0 is already displayable — skip the seek.
+                    if (target < 0.05) { done(); return; }
+                    v.addEventListener('seeked', done, { once: true });
+                    try { v.currentTime = target; } catch (_) { done(); }
+                };
+                if (v.readyState >= 2) seekToInPoint();
+                else {
+                    v.addEventListener('loadeddata', seekToInPoint, { once: true });
+                    v.addEventListener('error', done, { once: true });
+                }
+            }));
+        }
+    }
+    await Promise.allSettled(jobs);
+}
+
+/**
  * Build an AudioContext + MediaStreamDestination with connect/disconnect helpers.
  * Always connects a near-silent oscillator (gain ~1e-4) so the audio track
  * stays live for the entire export even when no video clip is connected

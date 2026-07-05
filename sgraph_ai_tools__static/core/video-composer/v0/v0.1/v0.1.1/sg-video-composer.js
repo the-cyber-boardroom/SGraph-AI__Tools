@@ -7,7 +7,12 @@
  * video-element map by clip.assetId while the export tick looked up by
  * clip.id, so exports containing video clips rendered black with no clip
  * audio. The map is now keyed by clip.id (one element per clip), matching
- * both the export tick and the playback path. No API changes.
+ * both the export tick and the playback path. Also fixes the black opening
+ * frames: exportProject now pre-rolls media BEFORE starting the recorder
+ * (prepareVideosForExport awaits loadeddata + seeks each clip video to its
+ * inPoint; createImageRegistry gains whenReady() to pre-decode images) and
+ * the export loop paints the real t=0 frame instead of paintBlack as the
+ * first captured frame. No API changes.
  */
 
 import {

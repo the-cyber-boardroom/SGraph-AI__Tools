@@ -23,6 +23,7 @@ import {
 import { createImageRegistry } from './composer-images.js';
 import {
     buildVideoElements, buildAudioGraph, buildRecorder, teardownVideos,
+    prepareVideosForExport,
 } from './composer-export-setup.js';
 import { createExportLoop } from './composer-export-loop.js';
 import { debug } from './composer-export-debug.js';
@@ -89,14 +90,32 @@ export function exportProject({ project, assets, fps, mimeType, bitsPerSecond, o
             reject(err);
         };
 
-        try {
-            recorder.start(100);
-            debug('recorder-start', { timesliceMs: 100 });
-        } catch (e) {
-            debug('error', { stage: 'recorder-start', message: e && e.message });
-            reject(e); return;
-        }
-        if (audio.audioCtx.state === 'suspended') audio.audioCtx.resume().catch(() => {});
-        loop.start();
+        // Pre-roll BEFORE the recorder starts: wait for every clip video to
+        // have decodable data (seeked to its inPoint) and every image asset to
+        // be decoded. Previously recorder.start() ran immediately and the loop
+        // painted black until the media was ready — every export opened on a
+        // few black frames while that first sliver of clip content was skipped.
+        (async () => {
+            if (typeof onProgress === 'function') {
+                onProgress({ time: 0, total, ratio: 0, phase: 'preparing' });
+            }
+            if (typeof onLog === 'function') onLog('preparing media');
+            await prepareVideosForExport(project, videos);
+            if (typeof imageReg.whenReady === 'function') await imageReg.whenReady();
+            debug('media-ready', {});
+            try {
+                recorder.start(100);
+                debug('recorder-start', { timesliceMs: 100 });
+            } catch (e) {
+                debug('error', { stage: 'recorder-start', message: e && e.message });
+                reject(e); return;
+            }
+            if (audio.audioCtx.state === 'suspended') audio.audioCtx.resume().catch(() => {});
+            loop.start();
+        })().catch((e) => {
+            debug('error', { stage: 'prepare', message: e && e.message });
+            try { recorder.stop(); } catch (_) {}
+            reject(e);
+        });
     });
 }
