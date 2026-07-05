@@ -64,15 +64,32 @@ function _withTimeout(promise, ms, label) {
 }
 
 /**
- * Choose the best video mime type, preferring avc3 over avc1.
- * avc1 stores codec params in the container header and cannot handle mid-stream
- * resolution changes (e.g. captured window resize); the browser logs an error and
- * may terminate the recorder. avc3 (in-band SPS/PPS) tolerates this transparently.
+ * Choose the video mime type for a recorder.
+ *
+ * Fixed-size sources (canvas composites, camera) keep getBestMimeType() as-is —
+ * on Chrome/Safari that is MP4/avc1, which QuickTime plays. Do NOT "upgrade" these
+ * to avc3: Chrome accepts it, but QuickTime has no avc3 support, so downloads were
+ * reported as "media isn't compatible with QuickTime Player" (Chrome-recorded files
+ * only — Safari rejects the avc3 variant and stayed on avc1, masking the bug).
+ *
+ * Resize-prone sources (screen capture — the user can resize the shared window
+ * mid-recording) can't use avc1: its codec params live in the container header and a
+ * resolution change kills the encoder. For those, prefer WebM (handles resolution
+ * changes natively AND plays back in the recording browser), then avc3 (in-band
+ * SPS/PPS — survives resizes; plays in Chrome/VLC but not QuickTime), then best.
+ *
+ * Exported for tests.
+ * @param {{ resizable?: boolean }} [opts]
  * @returns {string}
  */
-function _getVideoMimeType() {
+export function pickVideoMimeType({ resizable = false } = {}) {
     const best = getBestMimeType();
+    if (!resizable) return best;
+
     if (best.includes('avc1')) {
+        for (const m of ['video/webm;codecs=vp9,opus', 'video/webm;codecs=vp8,opus']) {
+            if (MediaRecorder.isTypeSupported(m)) return m;
+        }
         // Replace avc1[.profile] with avc3[.profile] — same codec, different parameter delivery
         const avc3 = best.replace(/avc1(\.[a-fA-F0-9]+)?/, 'avc3$1');
         if (MediaRecorder.isTypeSupported(avc3)) return avc3;
@@ -101,12 +118,14 @@ class RecordingSession {
      * Create and start a named MediaRecorder for the given stream.
      * @param {string}      name
      * @param {MediaStream} stream
+     * @param {{ resizable?: boolean }} [opts]  resizable — the stream carries a raw
+     *   screen track whose resolution can change mid-recording (window resize).
      */
-    startRecorder(name, stream) {
+    startRecorder(name, stream, { resizable = false } = {}) {
         const isAudioOnly = stream.getVideoTracks().length === 0;
         const mimeType    = isAudioOnly
             ? (MediaRecorder.isTypeSupported('audio/webm;codecs=opus') ? 'audio/webm;codecs=opus' : 'audio/webm')
-            : _getVideoMimeType();
+            : pickVideoMimeType({ resizable });
         const opts = isAudioOnly
             ? { mimeType, audioBitsPerSecond: config.audioBitsPerSecond }
             : { mimeType, videoBitsPerSecond: config.videoBitsPerSecond, audioBitsPerSecond: config.audioBitsPerSecond };
@@ -410,8 +429,9 @@ export async function startPipeline() {
         }
 
         // ── Screen: video tracks only ─────────────────────────────────────
+        // resizable — the shared window can change resolution mid-recording.
         if (!rawViz && rawScreen && rawScreen.getVideoTracks().length > 0 && startSeparate) {
-            session.startRecorder('screen', new MediaStream(rawScreen.getVideoTracks()));
+            session.startRecorder('screen', new MediaStream(rawScreen.getVideoTracks()), { resizable: true });
         }
 
         // ── Audio ─────────────────────────────────────────────────────────
@@ -426,7 +446,9 @@ export async function startPipeline() {
                 ...(rawScreen ? rawScreen.getVideoTracks() : []),
             ];
             if (videoTracks.length > 0 && audioTracks.length > 0) {
-                session.startRecorder('combined', new MediaStream([...videoTracks, ...audioTracks]));
+                // Carries the RAW screen track in screen+audio mode → resize-prone.
+                session.startRecorder('combined', new MediaStream([...videoTracks, ...audioTracks]),
+                                      { resizable: !!rawScreen });
             }
         }
 
