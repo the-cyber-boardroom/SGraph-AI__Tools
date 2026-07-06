@@ -51,6 +51,21 @@ export function createImageRegistry(assets, blobs) {
         return entry.img;
     }
 
+    /** Pre-warm every image asset and resolve when all are decoded. Without
+     *  this, the first `getImage` call happens on the first draw tick — the
+     *  returned `<img>` is not yet decoded, `drawImage` paints nothing, and
+     *  an image-leading export opens on black frames. Missing blobs resolve
+     *  immediately (the draw path skips them anyway). */
+    function whenReady() {
+        const waits = [];
+        for (const id of imageAssetIds) {
+            getImage(id);                       // populate the cache entry
+            const entry = cache.get(id);
+            if (entry && entry.ready) waits.push(entry.ready);
+        }
+        return Promise.allSettled(waits);
+    }
+
     function destroy() {
         for (const entry of cache.values()) {
             try { URL.revokeObjectURL(entry.url); } catch (_) {}
@@ -58,5 +73,5 @@ export function createImageRegistry(assets, blobs) {
         cache.clear();
     }
 
-    return { getImage, destroy };
+    return { getImage, whenReady, destroy };
 }

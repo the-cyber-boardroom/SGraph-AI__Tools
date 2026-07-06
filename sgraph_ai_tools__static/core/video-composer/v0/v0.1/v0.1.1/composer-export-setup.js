@@ -46,6 +46,52 @@ export function buildVideoElements(project, assets) {
 }
 
 /**
+ * Pre-roll every export video so the FIRST recorded frames show content.
+ *
+ * Without this, the recorder + wall clock start while the videos are still
+ * decoding (buildVideoElements only assigns `src`); the per-tick draw skips
+ * any video with `readyState < 2`, so the export opens on ~100–500 ms of
+ * black frames and that sliver of clip content is silently skipped. Here we
+ * wait for each clip's element to have data AND pre-seek it to the clip's
+ * `inPoint`, so the very first painted frame is the correct clip frame.
+ *
+ * Per-video timeout keeps a broken/huge asset from hanging the export —
+ * worst case that clip just opens black, as before.
+ *
+ * @param {object} project
+ * @param {Map<string, HTMLVideoElement>} videos  Keyed by clip.id.
+ * @param {{ timeoutMs?: number }} [opts]
+ * @returns {Promise<void>}
+ */
+export async function prepareVideosForExport(project, videos, { timeoutMs = 5000 } = {}) {
+    const jobs = [];
+    for (const track of getVideoTracks(project)) {
+        for (const clip of (track.clips || [])) {
+            const v = videos.get(clip.id);
+            if (!v) continue;
+            jobs.push(new Promise((resolve) => {
+                const timer = setTimeout(resolve, timeoutMs);
+                const done = () => { clearTimeout(timer); resolve(); };
+                const seekToInPoint = () => {
+                    const target = Math.max(0, clip.inPoint || 0);
+                    // Seeking to (near) the current position may not fire
+                    // `seeked`; frame 0 is already displayable — skip the seek.
+                    if (target < 0.05) { done(); return; }
+                    v.addEventListener('seeked', done, { once: true });
+                    try { v.currentTime = target; } catch (_) { done(); }
+                };
+                if (v.readyState >= 2) seekToInPoint();
+                else {
+                    v.addEventListener('loadeddata', seekToInPoint, { once: true });
+                    v.addEventListener('error', done, { once: true });
+                }
+            }));
+        }
+    }
+    await Promise.allSettled(jobs);
+}
+
+/**
  * Build an AudioContext + MediaStreamDestination with connect/disconnect helpers.
  * Always connects a near-silent oscillator (gain ~1e-4) so the audio track
  * stays live for the entire export even when no video clip is connected
@@ -103,15 +149,33 @@ export function buildAudioGraph() {
  * @returns {{ recorder: MediaRecorder, chunks: Array<Blob> }}
  */
 export function buildRecorder(canvas, fps, audioDest, mimeType, bitsPerSecond) {
-    const videoStream = canvas.captureStream(fps);
-    const tracks = [...videoStream.getVideoTracks()];
+    // Manual frame delivery where supported: captureStream(0) + requestFrame()
+    // pushed by the export loop after every paint. Automatic capture
+    // (captureStream(fps)) hands the encoder a synthetic blank frame at
+    // track-connect — the "first exported frame is black" bug — and its frame
+    // delivery rides the page's render pipeline. Explicit pushes make the
+    // first encoded frame the first PAINTED frame, deterministically.
+    // Fallback for browsers without requestFrame (older Safari): automatic
+    // capture at fps, pushFrame is a no-op (pre-fix behaviour).
+    let videoStream = canvas.captureStream(0);
+    let videoTrack = videoStream.getVideoTracks()[0];
+    let pushFrame;
+    if (videoTrack && typeof videoTrack.requestFrame === 'function') {
+        pushFrame = () => videoTrack.requestFrame();
+    } else {
+        try { videoStream.getTracks().forEach((t) => t.stop()); } catch (_) {}
+        videoStream = canvas.captureStream(fps);
+        videoTrack = videoStream.getVideoTracks()[0];
+        pushFrame = () => {};
+    }
+    const tracks = [videoTrack];
     const audioTracks = audioDest.stream.getAudioTracks();
     if (audioTracks.length > 0) tracks.push(audioTracks[0]);
     const stream = new MediaStream(tracks);
     const recorder = new MediaRecorder(stream, { mimeType, bitsPerSecond });
     const chunks = [];
     recorder.ondataavailable = (e) => { if (e.data.size > 0) chunks.push(e.data); };
-    return { recorder, chunks };
+    return { recorder, chunks, pushFrame };
 }
 
 /**
