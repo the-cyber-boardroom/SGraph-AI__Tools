@@ -149,15 +149,33 @@ export function buildAudioGraph() {
  * @returns {{ recorder: MediaRecorder, chunks: Array<Blob> }}
  */
 export function buildRecorder(canvas, fps, audioDest, mimeType, bitsPerSecond) {
-    const videoStream = canvas.captureStream(fps);
-    const tracks = [...videoStream.getVideoTracks()];
+    // Manual frame delivery where supported: captureStream(0) + requestFrame()
+    // pushed by the export loop after every paint. Automatic capture
+    // (captureStream(fps)) hands the encoder a synthetic blank frame at
+    // track-connect — the "first exported frame is black" bug — and its frame
+    // delivery rides the page's render pipeline. Explicit pushes make the
+    // first encoded frame the first PAINTED frame, deterministically.
+    // Fallback for browsers without requestFrame (older Safari): automatic
+    // capture at fps, pushFrame is a no-op (pre-fix behaviour).
+    let videoStream = canvas.captureStream(0);
+    let videoTrack = videoStream.getVideoTracks()[0];
+    let pushFrame;
+    if (videoTrack && typeof videoTrack.requestFrame === 'function') {
+        pushFrame = () => videoTrack.requestFrame();
+    } else {
+        try { videoStream.getTracks().forEach((t) => t.stop()); } catch (_) {}
+        videoStream = canvas.captureStream(fps);
+        videoTrack = videoStream.getVideoTracks()[0];
+        pushFrame = () => {};
+    }
+    const tracks = [videoTrack];
     const audioTracks = audioDest.stream.getAudioTracks();
     if (audioTracks.length > 0) tracks.push(audioTracks[0]);
     const stream = new MediaStream(tracks);
     const recorder = new MediaRecorder(stream, { mimeType, bitsPerSecond });
     const chunks = [];
     recorder.ondataavailable = (e) => { if (e.data.size > 0) chunks.push(e.data); };
-    return { recorder, chunks };
+    return { recorder, chunks, pushFrame };
 }
 
 /**

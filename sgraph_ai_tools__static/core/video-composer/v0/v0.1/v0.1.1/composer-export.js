@@ -26,6 +26,7 @@ import {
     prepareVideosForExport,
 } from './composer-export-setup.js';
 import { createExportLoop } from './composer-export-loop.js';
+import { paintExportFrame } from './composer-export-tick.js';
 import { debug } from './composer-export-debug.js';
 
 /**
@@ -50,19 +51,25 @@ export function exportProject({ project, assets, fps, mimeType, bitsPerSecond, o
     const { videos, urls } = buildVideoElements(project, assets);
     const imageReg = createImageRegistry(project.assets || [], assets);
     const audio = buildAudioGraph();
-    const { recorder, chunks } = buildRecorder(canvas, fps, audio.audioDest, mimeType, bitsPerSecond);
 
     debug('start', { mimeType, fps, total, width: project.width, height: project.height });
     if (typeof onLog === 'function') onLog('starting');
 
     return new Promise((resolve, reject) => {
         let finished = false;
+        // Created inside the async pre-roll below, AFTER the first frame is
+        // painted — a capture stream taken from a still-blank canvas hands the
+        // recorder a blank first frame regardless of what we paint later.
+        let recorder = null;
+        let chunks = null;
+        let pushFrame = () => {};   // assigned with the recorder; loop reads via closure
         const loop = createExportLoop({
             project, total, ctx, canvas, videos,
             getImage: (id) => imageReg.getImage(id),
             audio,
+            pushFrame: () => pushFrame(),   // explicit frame delivery after every paint
             onProgress: (info) => { if (typeof onProgress === 'function') onProgress(info); },
-            onError: (err) => { if (!finished) { finished = true; debug('error', { message: err && err.message }); try { recorder.stop(); } catch (_) {} reject(err); } },
+            onError: (err) => { if (!finished) { finished = true; debug('error', { message: err && err.message }); try { if (recorder) recorder.stop(); } catch (_) {} reject(err); } },
             onFinish: () => {
                 if (finished) return;
                 finished = true;
@@ -74,27 +81,14 @@ export function exportProject({ project, assets, fps, mimeType, bitsPerSecond, o
             },
         });
 
-        recorder.onstop = () => {
-            try {
-                teardownVideos(videos, urls);
-                imageReg.destroy();
-                audio.close();
-            } catch (_) {}
-            const blob = new Blob(chunks, { type: mimeType });
-            debug('blob', { size: blob.size, type: blob.type, chunks: chunks.length });
-            resolve(blob);
-        };
-        recorder.onerror = (e) => {
-            const err = (e && e.error) || new Error('MediaRecorder error');
-            debug('error', { stage: 'recorder', message: err.message });
-            reject(err);
-        };
-
-        // Pre-roll BEFORE the recorder starts: wait for every clip video to
+        // Pre-roll BEFORE the recorder exists: wait for every clip video to
         // have decodable data (seeked to its inPoint) and every image asset to
-        // be decoded. Previously recorder.start() ran immediately and the loop
-        // painted black until the media was ready — every export opened on a
-        // few black frames while that first sliver of clip content was skipped.
+        // be decoded, paint the real t=0 frame, give the paint one display
+        // frame to commit, and only THEN create + start the recorder. Order
+        // matters twice over: (1) media must be ready or the first ticks paint
+        // nothing; (2) the capture stream + recorder must be born AFTER the
+        // first paint, or the encoder's first frame is the blank canvas — the
+        // "first exported frame is black" bug.
         (async () => {
             if (typeof onProgress === 'function') {
                 onProgress({ time: 0, total, ratio: 0, phase: 'preparing' });
@@ -103,6 +97,30 @@ export function exportProject({ project, assets, fps, mimeType, bitsPerSecond, o
             await prepareVideosForExport(project, videos);
             if (typeof imageReg.whenReady === 'function') await imageReg.whenReady();
             debug('media-ready', {});
+
+            // First real frame onto the canvas, then two rAFs so the painted
+            // bitmap is committed before the capture stream snapshots it.
+            try {
+                paintExportFrame({ ctx, canvas, project, t: 0, videos, getImage: (id) => imageReg.getImage(id) });
+            } catch (_) { /* draw errors surface via the loop's onError later */ }
+            await new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)));
+
+            ({ recorder, chunks, pushFrame } = buildRecorder(canvas, fps, audio.audioDest, mimeType, bitsPerSecond));
+            recorder.onstop = () => {
+                try {
+                    teardownVideos(videos, urls);
+                    imageReg.destroy();
+                    audio.close();
+                } catch (_) {}
+                const blob = new Blob(chunks, { type: mimeType });
+                debug('blob', { size: blob.size, type: blob.type, chunks: chunks.length });
+                resolve(blob);
+            };
+            recorder.onerror = (e) => {
+                const err = (e && e.error) || new Error('MediaRecorder error');
+                debug('error', { stage: 'recorder', message: err.message });
+                reject(err);
+            };
             try {
                 recorder.start(100);
                 debug('recorder-start', { timesliceMs: 100 });
@@ -110,11 +128,15 @@ export function exportProject({ project, assets, fps, mimeType, bitsPerSecond, o
                 debug('error', { stage: 'recorder-start', message: e && e.message });
                 reject(e); return;
             }
+            // Push the already-painted t=0 frame as the encoder's FIRST frame.
+            // Frames delivered before start() are dropped; this one, delivered
+            // immediately after, is deterministically the opening frame.
+            pushFrame();
             if (audio.audioCtx.state === 'suspended') audio.audioCtx.resume().catch(() => {});
             loop.start();
         })().catch((e) => {
             debug('error', { stage: 'prepare', message: e && e.message });
-            try { recorder.stop(); } catch (_) {}
+            try { if (recorder) recorder.stop(); } catch (_) {}
             reject(e);
         });
     });

@@ -33,6 +33,7 @@ import { debug } from './composer-export-debug.js';
  */
 export function createExportLoop(cfg) {
     const { project, total, ctx, canvas, videos, getImage, audio } = cfg;
+    const pushFrame = typeof cfg.pushFrame === 'function' ? cfg.pushFrame : () => {};
     let raf = 0;
     let stopped = false;
     let exportStart = 0;
@@ -61,6 +62,7 @@ export function createExportLoop(cfg) {
         const t = (performance.now() - exportStart) / 1000;
         try {
             paintExportFrame({ ctx, canvas, project, t, videos, getImage });
+            pushFrame();
             updateAudio(project, t);
         } catch (err) {
             cfg.onError(err);
@@ -75,6 +77,7 @@ export function createExportLoop(cfg) {
         const hasAnyClip = getVideoTracks(project).some(tr => tr.clips && tr.clips.length > 0);
         if (!hasAnyClip || total <= 0) {
             paintBlack(ctx, canvas);
+            pushFrame();
             progress(0, 'recording');
             finish();
             return;
@@ -96,6 +99,7 @@ export function createExportLoop(cfg) {
         } catch (_) {
             paintBlack(ctx, canvas);
         }
+        pushFrame();
         exportStart = performance.now();
         debug('clip-active', { phase: 'wall-clock-start' });
         raf = requestAnimationFrame(tick);
