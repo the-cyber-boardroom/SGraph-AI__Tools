@@ -17,7 +17,7 @@
         "shared": [
             { "module": "sg-site-header",       "path": "/components/site-header/v1/v1.0/v1.0.3/sg-site-header.js" },
             { "module": "sg-layout",            "path": "/core/sg-layout/v0.1.0/sg-layout.js" },
-            { "module": "sg-timeline",          "path": "/components/sg-timeline/v0/v0.1/v0.1.0/sg-timeline.js" },
+            { "module": "sg-timeline",          "path": "/components/sg-timeline/v0/v0.1/v0.1.1/sg-timeline.js" },
             { "module": "sg-preview-canvas",    "path": "/components/sg-preview-canvas/v0/v0.1/v0.1.0/sg-preview-canvas.js" },
             { "module": "sg-json-viewer",       "path": "/components/sg-json-viewer/v0/v0.1/v0.1.0/sg-json-viewer.js" },
             { "module": "sg-markdown",          "path": "/core/markdown/v1/v1.0/v1.0.0/sg-markdown.js" },
@@ -30,7 +30,7 @@
             { "phase": 1, "type": "css", "path": "/core/sg-layout/v0.1.0/sg-layout.css" },
             { "phase": 1, "type": "css", "path": "./styles/sg-video-editor.css" },
             { "phase": 2, "type": "js",  "path": "/core/sg-layout/v0.1.0/sg-layout.js" },
-            { "phase": 2, "type": "js",  "path": "/components/sg-timeline/v0/v0.1/v0.1.0/sg-timeline.js" },
+            { "phase": 2, "type": "js",  "path": "/components/sg-timeline/v0/v0.1/v0.1.1/sg-timeline.js" },
             { "phase": 2, "type": "js",  "path": "/components/sg-preview-canvas/v0/v0.1/v0.1.0/sg-preview-canvas.js" },
             { "phase": 2, "type": "js",  "path": "/components/sg-json-viewer/v0/v0.1/v0.1.0/sg-json-viewer.js" },
             { "phase": 2, "type": "js",  "path": "/components/tool-api/sg-tool-api-explorer/v0/v0.1/v0.1.0/sg-tool-api-explorer.js" },

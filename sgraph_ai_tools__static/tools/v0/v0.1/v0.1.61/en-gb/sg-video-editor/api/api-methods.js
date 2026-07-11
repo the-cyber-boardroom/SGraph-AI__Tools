@@ -20,6 +20,37 @@ function logHeap(tag) {
 }
 
 function badArg(msg) { return Object.assign(new Error(msg), { code: 'invalid-arg' }); }
+
+function emitToast(message, kind = 'info') {
+    if (typeof document === 'undefined') return;
+    document.dispatchEvent(new CustomEvent('tool:toast', { detail: { message, kind } }));
+}
+
+/**
+ * Auto-adopt the project output size from the FIRST asset dropped into a
+ * pristine project (no assets yet, no clips on any track). Handles the
+ * "portrait recording dropped into a default 1280x720 landscape canvas" case:
+ * without this the video pillarboxes inside huge black bars and the user has
+ * to know to change Output by hand. Manual edits stay authoritative — once
+ * any asset or clip exists this never runs again, and the change is applied
+ * via setProject so it participates in undo history.
+ * @returns {boolean} true if the project dimensions were changed.
+ */
+function adoptProjectDimsFromFirstAsset(state, wrappedBefore, width, height, assetName) {
+    if (!Number.isFinite(width) || !Number.isFinite(height) || width < 2 || height < 2) return false;
+    const hadAssets = Array.isArray(wrappedBefore.assets) && wrappedBefore.assets.length > 0;
+    const hadClips = (wrappedBefore.tracks || []).some(t => t && t.clips && t.clips.length > 0);
+    if (hadAssets || hadClips) return false;
+    const meta = wrappedBefore.project || {};
+    if (meta.width === width && meta.height === height) return false;
+    const next = state.getProject();          // includes the just-added asset
+    next.project.width = Math.round(width);
+    next.project.height = Math.round(height);
+    state.setProject(next);
+    const orient = height > width ? 'portrait' : (width > height ? 'landscape' : 'square');
+    emitToast(`Output set to ${Math.round(width)} × ${Math.round(height)} (${orient}) to match "${assetName}" — editable under Properties → Output`);
+    return true;
+}
 function unsupportedMime(mime) {
     return Object.assign(new Error(`unsupported mime: ${mime || 'unknown'}`), { code: 'unsupported-mime' });
 }
@@ -45,10 +76,12 @@ export function buildApiMethods({ state, getComposer, setComposer, hostEl }) {
         const assetId = `a_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 8)}`;
         if (mime.startsWith('image/')) {
             const { width, height } = await probeImageFile(file);
+            const wrappedBefore = state.getProject();
             state.addAsset({
                 assetId, name: file.name || 'asset', mime,
                 width, height, bytes: file.size, blob: file, assetType: 'image',
             });
+            adoptProjectDimsFromFirstAsset(state, wrappedBefore, width, height, file.name || 'asset');
             // Round-9-M observability: large images are also a memory risk.
             debugLog(`asset added (image): id=${assetId} name=${file.name || ''}`,
                 `size=${file.size}B`, `mime=${mime}`, `dims=${width}×${height}`);
@@ -57,10 +90,12 @@ export function buildApiMethods({ state, getComposer, setComposer, hostEl }) {
         }
         if (mime.startsWith('video/') || !mime) {
             const { duration, width, height } = await probeVideoFile(file);
+            const wrappedBefore = state.getProject();
             state.addAsset({
                 assetId, name: file.name || 'asset', mime: mime || 'video/mp4',
                 duration, width, height, bytes: file.size, blob: file, assetType: 'video',
             });
+            adoptProjectDimsFromFirstAsset(state, wrappedBefore, width, height, file.name || 'asset');
             // Round-9-M observability — these are the numbers we need to
             // recognise the high-resolution-screen-recording case.
             debugLog(`asset added (video): id=${assetId} name=${file.name || ''}`,
