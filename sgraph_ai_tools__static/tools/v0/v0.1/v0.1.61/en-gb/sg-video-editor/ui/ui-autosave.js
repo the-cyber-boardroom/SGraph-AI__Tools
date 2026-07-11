@@ -66,12 +66,31 @@ export function attachAutosave({ state, api, debounceMs }) {
         } catch (_) { /* banner sync is best-effort */ }
     }
 
+    let warnedAutosaveFail = false;
+
     async function flush() {
         if (destroyed) return;
         if (timer) { clearTimeout(timer); timer = null; }
         try {
             const r = await api.autosave();
             if (r && r.savedAt) lastFlushAt = r.savedAt;
+            if (r && r.ok === false && !warnedAutosaveFail) {
+                // Autosave failing silently leaves the UNSAVED CHANGES banner
+                // on forever with no clue why — surface it once per session.
+                warnedAutosaveFail = true;
+                document.dispatchEvent(new CustomEvent('tool:toast', {
+                    detail: { message: `Autosave failed: ${r.error || 'unknown error'}`, kind: 'error' },
+                }));
+            }
+            if (r && r.ok !== false) {
+                // Diagnostic: a successful autosave must leave the project
+                // clean. If it doesn't, the saved-baseline hash and the live
+                // hash recipe have diverged — log loudly so it's debuggable.
+                const d = await api.hasUnsavedChanges();
+                if (d && d.hasUnsavedChanges === true) {
+                    console.warn('[sgve] autosave succeeded but hasUnsavedChanges() is still true — dirty-hash divergence; banner will stay on');
+                }
+            }
             await syncDirtyBanner();
         } catch (_) { /* don't propagate — autosave is best-effort */ }
     }

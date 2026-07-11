@@ -49,7 +49,12 @@ function fmtTime(t) {
 /** Compute the rendered surface width in px from project + pps. */
 export function computeSurfaceWidth(project, pps) {
     const dur = project ? getProjectDuration(project) : 0;
-    const minSec = Math.max(dur + 5, 30);
+    // v0.1.1: the 30s floor now only applies to EMPTY projects (a workable
+    // starting canvas). A project with content gets duration + 5s of runway —
+    // a 10s video no longer sits inside a 30s surface, which users read as
+    // "my project is 30 seconds" (especially with the selected-track tint
+    // covering the whole lane).
+    const minSec = dur > 0 ? dur + 5 : 30;
     return Math.ceil(minSec * pps);
 }
 
