@@ -56,16 +56,45 @@ export function renderProjectSection({ root, project, api, getProject }) {
                 await api.setProject({ project: p });
             } catch (err) { emitErr('setOutputSize', err); }
         }
-        const dimsInput = inlineRenameInput({
-            value: `${meta.width} × ${meta.height}`,
-            onCommit: (v) => {
-                const m = String(v || '').match(/^\s*(\d{2,5})\s*[x×,*\s]\s*(\d{2,5})\s*$/i);
-                if (!m) { emitErr('setOutputSize', new Error(`Cannot parse "${v}" — use e.g. 1080 x 1920`)); return; }
-                applyDims(Math.min(7680, Math.max(16, parseInt(m[1], 10))),
-                          Math.min(7680, Math.max(16, parseInt(m[2], 10))));
-            },
+        // Deliberate commit model: resizing the canvas re-fits every clip, so
+        // it only happens on the Apply button or Enter — never on blur.
+        // Escape restores the current value.
+        const dimsWrap = document.createElement('div');
+        dimsWrap.style.cssText = 'display:flex;gap:6px;align-items:center;';
+        const dimsInput = document.createElement('input');
+        dimsInput.type = 'text';
+        dimsInput.className = 'sgve-prop-input';
+        dimsInput.value = `${meta.width} × ${meta.height}`;
+        dimsInput.spellcheck = false;
+        dimsInput.style.flex = '1';
+        dimsInput.title = 'Output size, e.g. 1080 x 1920 — press Enter or Apply';
+        const applyBtn = document.createElement('button');
+        applyBtn.type = 'button';
+        applyBtn.className = 'sgve-prop-btn sgve-prop-btn--secondary';
+        applyBtn.textContent = 'Apply';
+        applyBtn.title = 'Resize the output canvas (undoable)';
+        function commitDims() {
+            const m = String(dimsInput.value || '').match(/^\s*(\d{2,5})\s*[x×,*\s]\s*(\d{2,5})\s*$/i);
+            if (!m) { emitErr('setOutputSize', new Error(`Cannot parse "${dimsInput.value}" — use e.g. 1080 x 1920`)); return; }
+            // Blur before applying: the properties panel skips its re-render
+            // while a text field inside it has focus, so committing from
+            // Enter would otherwise leave the chips/value stale until reload.
+            dimsInput.blur();
+            applyDims(Math.min(7680, Math.max(16, parseInt(m[1], 10))),
+                      Math.min(7680, Math.max(16, parseInt(m[2], 10))));
+        }
+        applyBtn.addEventListener('click', commitDims);
+        dimsInput.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter') { e.preventDefault(); commitDims(); }
+            else if (e.key === 'Escape') {
+                e.preventDefault();
+                dimsInput.value = `${meta.width} × ${meta.height}`;
+                dimsInput.blur();
+            }
         });
-        sec.appendChild(row('Output', dimsInput));
+        dimsWrap.appendChild(dimsInput);
+        dimsWrap.appendChild(applyBtn);
+        sec.appendChild(row('Output', dimsWrap));
 
         // Preset chips — common landscape + vertical (Shorts) sizes. The
         // active chip highlights; the panel re-renders on project change so
