@@ -671,8 +671,11 @@
  * 1px inset edge at ~40% alpha reads as "this is the active lane" without
  * competing with the clip-selection glow above it. */
 .lane-row--selected .lane {
-    background-color: rgba(20, 184, 166, 0.10);
-    box-shadow: inset 0 0 0 1px rgba(20, 184, 166, 0.40);
+    /* v0.1.1: tint only — the inset ring wrapped the ENTIRE lane (including
+     * the empty runway after the clips), which users read as a mysterious
+     * unselectable box sitting on the timeline. The header accent bar +
+     * background tint carry the selected state without drawing an object. */
+    background-color: rgba(20, 184, 166, 0.08);
 }
 
 .lane--locked,
