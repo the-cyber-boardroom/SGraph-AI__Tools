@@ -1,0 +1,32 @@
+/* sg-pipeline-steps — pipeline-spine step rows (dark tools family) */
+
+:host { display: block; color: #e2e8f0; font-size: 0.92rem; }
+
+.sgps { display: flex; flex-direction: column; gap: 10px; }
+.sgps-list { display: flex; flex-direction: column; gap: 10px; }
+
+.sgps-step {
+    display: flex; align-items: center; gap: 8px;
+    padding: 8px 10px; border: 1px solid #2d2d4a; border-radius: 8px;
+    cursor: pointer;
+}
+.sgps-step:hover { border-color: #14b8a6; }
+
+.sgps-step__icon { width: 1.2em; text-align: center; }
+.sgps-step[data-status="done"]    .sgps-step__icon { color: #34d399; }
+.sgps-step[data-status="running"] .sgps-step__icon { color: #fbbf24; animation: sgps-spin 1s linear infinite; }
+.sgps-step[data-status="error"]   .sgps-step__icon { color: #f87171; }
+
+.sgps-step__label { font-weight: 600; }
+.sgps-step__info  { margin-left: auto; color: #94a3b8; font-size: 0.84rem; }
+
+.sgps-step__rerun {
+    background: #1e1e38; color: #e2e8f0;
+    border: 1px solid #2d2d4a; border-radius: 6px;
+    padding: 3px 8px; font: inherit; font-size: 0.8rem; cursor: pointer;
+}
+.sgps-step__rerun:hover { border-color: #14b8a6; }
+
+.sgps-note { color: #94a3b8; font-size: 0.84rem; }
+
+@keyframes sgps-spin { to { transform: rotate(360deg); } }
