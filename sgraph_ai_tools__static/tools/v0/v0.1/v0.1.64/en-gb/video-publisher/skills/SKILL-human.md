@@ -1,0 +1,54 @@
+# Video Publisher — Human Guide
+
+**URL:** `/en-gb/video-publisher/` · **Version:** 0.1.0 (alpha)
+
+One page from recording to YouTube URL. The tool consolidates the old
+four-tool workflow (video-recorder → video-tools → audio-transcribe →
+youtube-editor) — the video never leaves the page between steps.
+
+## The 5-interaction walkthrough
+
+1. **Record** — click *● Start recording* (defaults: screen + camera PiP +
+   mic, 2.5 Mbps, landscape). Pick the screen/tab to share. Talk.
+2. **Stop** — click *■ Stop*. The pipeline runs on its own: audio is taken
+   from the separate audio stream (free), transcribed via OpenRouter, and a
+   title/description/tags are generated. Watch the Steps panel.
+3. **Review** — tweak the title/description in the *Metadata* tab if needed
+   (or click *↺ Regenerate* with guidance like "shorter, more emojis").
+4. **Upload** — in the *Publish* tab, click *⬆ Upload to YouTube*
+   (sign in with Google the first time).
+5. **Copy** the YouTube URL. Done.
+
+Alternative entries: drag-drop an existing MP4/WebM into the *Import* tab,
+or click **🚀 Publish** on a recording in the standalone Video Recorder.
+
+## Accounts (one panel, nothing re-entered)
+
+| Credential | Where it lives | Shared with |
+|---|---|---|
+| OpenRouter API key | `localStorage['sg-openrouter-mgmt-key']` | Audio Transcribe |
+| Google OAuth client ID | `localStorage['sg-youtube-client-id']` (default bundled) | YouTube Editor |
+
+If you've used those tools before, both are already set.
+
+## Costs
+
+Transcription and metadata generation are billable OpenRouter calls
+(default model Gemini 3.5 Flash — a 5-minute video is typically well under
+$0.10 total). Costs show per step and roll up in `getCostSummary`.
+No key set? The pipeline stops after audio extraction; you can still fill
+metadata by hand and upload.
+
+## Caveats
+
+- **Nothing uploads automatically.** Auto-run always stops at
+  ready-to-publish; the Upload click (or `publish({confirm:true})`) is the
+  only path to YouTube.
+- Google access tokens last ~1 h; the tool silently refreshes at T-5 min
+  and before every upload, so you'll normally sign in once per browser
+  session. Safari's tracking prevention may force the popup more often.
+- Extracted audio over 25 MB (roughly > 1.5 h of speech) is rejected —
+  segmented transcription is not in v0.1.
+- Imported files may trigger a one-off ~30 MB FFmpeg WASM download (CDN);
+  fresh recordings skip FFmpeg entirely.
+- Handoffs from Video Recorder need popups allowed for tools.sgraph.ai.
