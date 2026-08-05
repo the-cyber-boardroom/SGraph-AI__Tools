@@ -26,7 +26,10 @@ const REFRESH_LEAD_MS = 5 * 60_000;            // proactive silent refresh at T-
 export const DEFAULT_CLIENT_ID =
     '595529627627-i1fjfhoh8dnscpg6u09uqt1o8qc5ffnf.apps.googleusercontent.com';
 
-let _api = null, _upload = null, _refreshTimer = null;
+let _api = null, _upload = null, _refreshTimer = null, _uploadAbort = null;
+
+/** Abort the in-flight upload, if any (no-op otherwise). */
+export function abortUpload() { _uploadAbort?.abort(); }
 
 function _cached() {
     const t = getToken(PROVIDER);
@@ -135,9 +138,11 @@ export async function uploadVideo(file, metadata, { emit } = {}) {
     state.youtube.uploadProgress = 0;
     emit?.(VP_EVENTS.UPLOAD_START, { fileName: file.name, fileSize: file.size, metadata });
 
+    _uploadAbort = new AbortController();
     try {
         const result = await _withAuth(
             () => _upload.uploadVideo(file, metadata, {
+                signal: _uploadAbort.signal,
                 onProgress: p => {
                     state.youtube.uploadProgress = p.percent;
                     emit?.(VP_EVENTS.UPLOAD_PROGRESS, p);
@@ -154,5 +159,7 @@ export async function uploadVideo(file, metadata, { emit } = {}) {
     } catch (err) {
         state.youtube.uploadStatus = 'error';
         throw err;
+    } finally {
+        _uploadAbort = null;
     }
 }

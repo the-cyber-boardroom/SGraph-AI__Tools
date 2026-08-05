@@ -11,6 +11,7 @@ import { pickupHandoff } from '../handoff/sg-publish-handoff.js';
 import { acceptHandoff } from '../api/publisher-pipeline.js';
 import { initRecordTab }  from './ui-record.js';
 import { initSourceTab }  from './ui-source.js';
+import { initPreviewTab } from './ui-preview.js';
 import { initStepsPanel } from './ui-steps.js';
 import { initAccounts }   from './ui-accounts.js';
 import { initTranscriptTab } from './ui-transcript.js';
@@ -49,8 +50,9 @@ export async function init(state, api, emit) {
     const mobile = matchMedia('(max-width: 900px)').matches;
 
     const inputTabs = [
-        { type: 'tab', id: 't-record', title: '⏺ Record',  tag: 'div', locked: true, closable: false },
-        { type: 'tab', id: 't-import', title: '📥 Import', tag: 'div', locked: true, closable: false },
+        { type: 'tab', id: 't-record',  title: '⏺ Record',  tag: 'div', locked: true, closable: false },
+        { type: 'tab', id: 't-import',  title: '📥 Import',  tag: 'div', locked: true, closable: false },
+        { type: 'tab', id: 't-preview', title: '🎬 Preview', tag: 'div', locked: true, closable: false },
     ];
     const workTabs = [
         { type: 'tab', id: 't-transcript', title: '📝 Transcript', tag: 'div', locked: true, closable: false },
@@ -86,6 +88,7 @@ export async function init(state, api, emit) {
 
     initRecordTab(panel('t-record'), state, api, emit);
     initSourceTab(panel('t-import'), state, api, emit);
+    initPreviewTab(panel('t-preview'), state, api, emit, layout);
     initStepsPanel(panel('t-steps'), state, api, emit, layout);
     initAccounts(panel('t-accounts'), state, api, emit);
     initTranscriptTab(panel('t-transcript'), state, api, emit);
@@ -97,9 +100,7 @@ export async function init(state, api, emit) {
     const handoff = pickupHandoff();
     if (handoff?.blob) {
         // Defer a tick so all panels have their DOM mounted before events fire.
-        Promise.resolve().then(() => {
-            acceptHandoff(handoff);
-            layout.focusPanel('t-import');
-        });
+        // The Preview tab focuses itself on vp:job:loaded.
+        Promise.resolve().then(() => acceptHandoff(handoff));
     }
 }

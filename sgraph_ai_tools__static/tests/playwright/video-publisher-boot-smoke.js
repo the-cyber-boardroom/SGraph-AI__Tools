@@ -33,9 +33,9 @@ const HEADLESS = process.env.HEADLESS !== 'false';
 const EXPECTED_ACTIONS = [
     'setRecordConfig', 'getRecordConfig', 'startPreview', 'stopPreview',
     'startRecording', 'pauseRecording', 'resumeRecording', 'stopRecording',
-    'importFile', 'getJob', 'reset', 'setAutoRun',
+    'importFile', 'getJob', 'reset', 'setAutoRun', 'setAutoPublish', 'cancelRun',
     'extractAudio', 'transcribe', 'getTranscript', 'listModels', 'setApiKey',
-    'generateMetadata', 'setMetadata', 'getMetadata', 'getCostSummary',
+    'generateMetadata', 'setMetadata', 'getMetadata', 'setDefaultPrivacy', 'getCostSummary',
     'setClientId', 'connectYouTube', 'disconnectYouTube', 'getMyChannel',
     'upload', 'publish', 'getStatus', 'health',
 ];
@@ -100,7 +100,7 @@ async function run() {
             'all four steps idle');
 
         // [5] panels rendered
-        for (const sel of ['#vp-rec-start', '#vp-drop', 'sg-pipeline-steps .sgps-step[data-step="audio"]', '#vp-md-title', '#vp-pub-upload', '#vp-acc-or-key']) {
+        for (const sel of ['#vp-rec-start', '#vp-rec-autopub', '#vp-rec-cancel', '#vp-drop', '#vp-prev-player', 'sg-pipeline-steps .sgps-step[data-step="audio"]', '#vp-md-title', '#vp-md-remember', '#vp-pub-upload', '#vp-acc-or-key']) {
             assert(await page.$(sel) !== null, `panel element present: ${sel}`);
         }
 
@@ -126,6 +126,18 @@ async function run() {
             assert(flow.audioOutcome.code === 'no-audio-stream',
                 `fake-blob failure is the typed no-audio-stream error (got ${flow.audioOutcome.code})`);
         }
+
+        // [7] cancelRun is safe and terminal: cancels, keeps the blob, clears the flag
+        const cancel = await page.evaluate(async () => {
+            const t = window.__tool;
+            const r = await t.cancelRun();
+            await new Promise(res => setTimeout(res, 50));   // flag clears on a microtask
+            const job = await t.getJob();
+            return { r, phase: job.phase, flag: job.cancelRequested, stillLoaded: job.byteSize != null };
+        });
+        assert(cancel.r?.cancelled === true, 'cancelRun resolves { cancelled: true }');
+        assert(cancel.flag === false, 'cancel flag consumed after the run');
+        assert(cancel.stillLoaded, 'loaded blob kept after cancel');
 
         assert(errors.length === 0, 'zero uncaught errors after exercise', errors.join(' | '));
     } catch (err) {

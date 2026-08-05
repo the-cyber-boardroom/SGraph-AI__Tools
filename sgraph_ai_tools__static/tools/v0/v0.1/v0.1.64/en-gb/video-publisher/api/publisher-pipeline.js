@@ -26,6 +26,8 @@ import { itemStore } from './transcribe-store.js';
 import { VP_EVENTS } from './publisher-events.js';
 import * as Steps from './publisher-steps.js';
 import * as YT from './publisher-youtube.js';
+import { initAutoPublish, autoPublishFlow, getAutoPublish as _getAutoPublish,
+         getDefaultPrivacy as _getDefaultPrivacy } from './publisher-autopublish.js';
 
 export { listModels, recState };
 export { extractAudio, transcribe, generateMetadata, setMetadata, getCostSummary }
@@ -62,8 +64,9 @@ export function boot({ emit }) {
     });
 
     // In-tool recording: when the engine stops, its blobs land in the job.
+    // A cancelled run discards the recording instead (cancelRun handles it).
     window.addEventListener(SGA_RECORDER.RECORD_STOP, () => {
-        if (state.phase !== 'recording') return;
+        if (state.phase !== 'recording' || state.cancelRequested) return;
         _loadBlobs({
             videoBlob: recState.blob,
             audioBlob: recState.blobs?.audio || null,
@@ -72,6 +75,8 @@ export function boot({ emit }) {
         });
     });
 
+    initAutoPublish({ emit: (n, d) => _emit(n, d), upload, stopEngine: stopPipeline, resetEngine: resetPipeline });
+    state.metadata.privacy = _getDefaultPrivacy();
     YT.hydrate({ emit: _emit });
 }
 
@@ -80,6 +85,13 @@ export function setApiKey(apiKey)  {
     if (apiKey) localStorage.setItem(KEY_STORAGE, apiKey.trim());
     else        localStorage.removeItem(KEY_STORAGE);
 }
+
+// Publish preferences + auto-publish flow + cancelRun live in
+// publisher-autopublish.js (deps injected at boot); re-exported here so the
+// UI and publisher-api keep a single import surface.
+export { getStoredPrivacy, getDefaultPrivacy, setDefaultPrivacy,
+         getAutoPublish, setAutoPublish, cancelRun, AUTOPUBLISH_GRACE_S }
+    from './publisher-autopublish.js';
 
 // ── Job intake ───────────────────────────────────────────────────────────────
 
@@ -93,12 +105,19 @@ function _loadBlobs({ videoBlob, audioBlob, filename, source }) {
     state.filename  = filename || 'recording.webm';
     state.source    = source;
     state.phase     = 'loaded';
+    state.cancelRequested = false;
     for (const k of ['audio', 'transcript', 'metadata', 'publish']) state.steps[k] = { status: 'idle' };
     _emit(VP_EVENTS.JOB_LOADED, {
         source, filename: state.filename,
         byteSize: videoBlob.size, hasAudioBlob: !!audioBlob,
     });
-    if (state.autoRun) Steps.autoRunSteps();
+    if (state.autoRun) {
+        Steps.autoRunSteps().then(ok => {
+            // Two-click publish: only a fully completed auto-run continues
+            // into the (cancellable, countdown-guarded) auto upload.
+            if (ok && _getAutoPublish() && !state.cancelRequested) return autoPublishFlow();
+        });
+    }
 }
 
 /** Load a video file (drag-drop / file pick / API). */
@@ -122,6 +141,7 @@ export function acceptHandoff(handoff) {
 export function reset() {
     resetJob();
     resetPipeline();
+    state.metadata.privacy = _getDefaultPrivacy();
     _emit(VP_EVENTS.JOB_RESET, {});
 }
 
