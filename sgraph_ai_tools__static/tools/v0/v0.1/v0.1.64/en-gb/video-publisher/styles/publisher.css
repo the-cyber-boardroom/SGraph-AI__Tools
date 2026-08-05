@@ -1,6 +1,6 @@
 /* video-publisher — panel styles (dark, matching the tools family) */
 
-.vp-record, .vp-source, .vp-steps, .vp-transcript,
+.vp-record, .vp-source, .vp-transcript,
 .vp-metadata, .vp-publish, .vp-accounts {
     display: flex; flex-direction: column; gap: 10px;
     color: #e2e8f0; font-size: 0.92rem;
@@ -40,20 +40,9 @@ label > .vp-input { margin-top: 4px; width: 100%; box-sizing: border-box; }
 .vp-advanced summary { cursor: pointer; color: #94a3b8; font-size: 0.85rem; }
 .vp-advanced label { display: block; margin-top: 8px; }
 
-/* Steps spine */
-.vp-step {
-    display: flex; align-items: center; gap: 8px;
-    padding: 8px 10px; border: 1px solid #2d2d4a; border-radius: 8px;
-    cursor: pointer;
-}
-.vp-step:hover { border-color: #14b8a6; }
-.vp-step__icon { width: 1.2em; text-align: center; }
-.vp-step[data-status="done"]    .vp-step__icon { color: #34d399; }
-.vp-step[data-status="running"] .vp-step__icon { color: #fbbf24; animation: vp-spin 1s linear infinite; }
-.vp-step[data-status="error"]   .vp-step__icon { color: #f87171; }
-.vp-step__label { font-weight: 600; }
-.vp-step__info  { margin-left: auto; }
-@keyframes vp-spin { to { transform: rotate(360deg); } }
+/* Steps spine styles live in components/sg-pipeline-steps (shadow DOM). */
+
+.vp-hidden { display: none; }
 
 .vp-chip {
     display: inline-block; padding: 4px 10px; border-radius: 999px;

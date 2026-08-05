@@ -15,7 +15,7 @@ export function initSourceTab(container, state, api, emit) {
             label="Drop a video here" sublabel="or click to choose a file"></sg-upload-dropzone>
         <div id="vp-src-notice" class="vp-notice" hidden></div>
         <div id="vp-src-info" class="vp-muted" hidden></div>
-        <sg-video-player id="vp-src-player" style="display:none"></sg-video-player>
+        <sg-video-player id="vp-src-player" class="vp-hidden"></sg-video-player>
       </div>`;
 
     const drop = container.querySelector('#vp-drop');
@@ -45,13 +45,13 @@ export function initSourceTab(container, state, api, emit) {
         if (state.videoBlob) {
             objectUrl = URL.createObjectURL(state.videoBlob);
             player.setAttribute('src', objectUrl);
-            player.style.display = 'block';
+            player.classList.remove('vp-hidden');
         }
     });
 
     window.addEventListener(VP_EVENTS.JOB_RESET, () => {
         if (objectUrl) { URL.revokeObjectURL(objectUrl); objectUrl = null; }
-        player.style.display = 'none';
+        player.classList.add('vp-hidden');
         info.hidden = true;
         notice.hidden = true;
     });

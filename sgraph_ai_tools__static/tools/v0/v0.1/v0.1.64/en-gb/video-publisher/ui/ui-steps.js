@@ -1,81 +1,64 @@
 /**
  * ui-steps.js
- * The pipeline spine — four step rows with live status, cost, and a re-run
- * affordance. Clicking a row focuses its tab on the right.
+ * Thin adapter between the job state / vp:* events and the generic
+ * <sg-pipeline-steps> component: maps step transitions to setStatus calls,
+ * formats tool-specific info strings (routes, costs), and turns the
+ * component's intents into API calls / tab focus.
  * @module ui-steps
  */
 
 import { VP_EVENTS } from '../api/publisher-events.js';
 
 const STEPS = [
-    { key: 'audio',      label: '① Audio',      tab: null },
-    { key: 'transcript', label: '② Transcript', tab: 't-transcript' },
-    { key: 'metadata',   label: '③ Metadata',   tab: 't-metadata' },
-    { key: 'publish',    label: '④ Publish',    tab: 't-publish' },
+    { key: 'audio',      label: '① Audio',      tab: null,           rerunnable: true },
+    { key: 'transcript', label: '② Transcript', tab: 't-transcript', rerunnable: true },
+    { key: 'metadata',   label: '③ Metadata',   tab: 't-metadata',   rerunnable: true },
+    { key: 'publish',    label: '④ Publish',    tab: 't-publish',    rerunnable: false },
 ];
-const ICONS = { idle: '○', running: '◐', done: '✓', error: '✗' };
+
+function infoFor(step, s) {
+    if (!s.info) return '';
+    if (step === 'audio')      return `route: ${s.info.route}`;
+    if (step === 'publish')    return 'uploaded';
+    if (s.info.costUsd != null) return `$${s.info.costUsd.toFixed(4)}`;
+    return s.info.model || '';
+}
 
 export function initStepsPanel(container, state, api, emit, layout) {
     if (!container) return;
-    container.innerHTML = `
-      <div class="vp-steps">
-        ${STEPS.map(s => `
-          <div class="vp-step" data-step="${s.key}" ${s.tab ? `data-tab="${s.tab}"` : ''}>
-            <span class="vp-step__icon" data-icon>○</span>
-            <span class="vp-step__label">${s.label}</span>
-            <span class="vp-step__info vp-muted" data-info></span>
-            <button class="vp-btn vp-btn--mini" data-rerun hidden title="Re-run">↺</button>
-          </div>`).join('')}
-        <div id="vp-steps-note" class="vp-muted"></div>
-      </div>`;
-
-    const note = container.querySelector('#vp-steps-note');
-    const rows = {};
-    for (const el of container.querySelectorAll('.vp-step')) rows[el.dataset.step] = el;
+    const steps = document.createElement('sg-pipeline-steps');
+    container.appendChild(steps);
+    steps.whenReady().then(() => steps.setSteps(STEPS)).catch(() => {});
 
     function render(step) {
-        const el = rows[step];
-        if (!el) return;
-        const s = state.steps[step] || { status: 'idle' };
-        el.querySelector('[data-icon]').textContent = ICONS[s.status] || '○';
-        el.dataset.status = s.status;
-        const info = el.querySelector('[data-info]');
-        if (s.status === 'error') info.textContent = s.error || 'failed';
-        else if (step === 'audio' && s.info)      info.textContent = `route: ${s.info.route}`;
-        else if (step === 'transcript' && s.info) info.textContent = s.info.costUsd != null ? `$${s.info.costUsd.toFixed(4)}` : (s.info.model || '');
-        else if (step === 'metadata' && s.info)   info.textContent = s.info.costUsd != null ? `$${s.info.costUsd.toFixed(4)}` : '';
-        else if (step === 'publish' && s.info)    info.textContent = 'uploaded';
-        else info.textContent = '';
-        el.querySelector('[data-rerun]').hidden = !(s.status === 'done' || s.status === 'error') || step === 'publish';
+        if (!step || !state.steps[step]) return;
+        const s = state.steps[step];
+        steps.setStatus(step, { status: s.status, error: s.error, info: infoFor(step, s) });
     }
 
-    container.addEventListener('click', e => {
-        const rerun = e.target.closest('[data-rerun]');
-        const row   = e.target.closest('.vp-step');
-        if (rerun && row) {
-            const step = row.dataset.step;
-            if (step === 'audio')      api.extractAudio().catch(() => {});
-            else if (step === 'transcript') api.transcribe().catch(() => {});
-            else if (step === 'metadata')   api.generateMetadata().catch(() => {});
-            return;
-        }
-        if (row?.dataset.tab && layout) layout.focusPanel(row.dataset.tab);
+    steps.addEventListener('sg-pipeline-steps:step-selected', e => {
+        if (e.detail?.tab && layout) layout.focusPanel(e.detail.tab);
+    });
+    steps.addEventListener('sg-pipeline-steps:step-rerun', e => {
+        const step = e.detail?.key;
+        if (step === 'audio')           api.extractAudio().catch(() => {});
+        else if (step === 'transcript') api.transcribe().catch(() => {});
+        else if (step === 'metadata')   api.generateMetadata().catch(() => {});
     });
 
     window.addEventListener(VP_EVENTS.STEP_CHANGED, e => render(e.detail?.step));
     window.addEventListener(VP_EVENTS.JOB_LOADED, () => {
         STEPS.forEach(s => render(s.key));
-        note.textContent = state.autoRun
+        steps.setNote(state.autoRun
             ? 'Running: audio → transcript → metadata. Publish stays manual.'
-            : 'Auto-run off — drive each step from its tab.';
+            : 'Auto-run off — drive each step from its tab.');
     });
-    window.addEventListener(VP_EVENTS.JOB_RESET, () => { STEPS.forEach(s => render(s.key)); note.textContent = ''; });
+    window.addEventListener(VP_EVENTS.JOB_RESET, () => { steps.resetStatuses(); steps.setNote(''); });
     window.addEventListener(VP_EVENTS.METADATA_COMPLETE, () => {
-        note.textContent = 'Ready to publish — review Metadata, then Upload from the Publish tab.';
+        steps.setNote('Ready to publish — review Metadata, then Upload from the Publish tab.');
     });
     window.addEventListener(VP_EVENTS.UPLOAD_COMPLETE, e => {
-        note.textContent = `Published: ${e.detail?.url || ''}`;
+        steps.setNote(`Published: ${e.detail?.url || ''}`);
         render('publish');
     });
-    STEPS.forEach(s => render(s.key));
 }

@@ -100,7 +100,7 @@ async function run() {
             'all four steps idle');
 
         // [5] panels rendered
-        for (const sel of ['#vp-rec-start', '#vp-drop', '.vp-step[data-step="audio"]', '#vp-md-title', '#vp-pub-upload', '#vp-acc-or-key']) {
+        for (const sel of ['#vp-rec-start', '#vp-drop', 'sg-pipeline-steps .sgps-step[data-step="audio"]', '#vp-md-title', '#vp-pub-upload', '#vp-acc-or-key']) {
             assert(await page.$(sel) !== null, `panel element present: ${sel}`);
         }
 

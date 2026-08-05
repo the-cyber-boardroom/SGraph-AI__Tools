@@ -4,7 +4,7 @@ Tool name `video-publisher` · API 0.1.0 · `window.__tool` live after
 `tool:ready`. All calls return Promises (SgToolApi). The manifest's `api`
 section is authoritative for the event catalogue.
 
-## Actions (28)
+## Actions (29)
 
 **Record** — thin delegations to `core/sg-recorder` v0.1.0; `tool:record:*`
 events fire unchanged.

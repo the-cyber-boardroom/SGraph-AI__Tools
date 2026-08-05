@@ -23,6 +23,7 @@
       { "module": "sg-site-header",           "path": "/components/site-header/v1/v1.0/v1.0.2/sg-site-header.js" },
       { "module": "sg-upload-dropzone",       "path": "/components/upload-dropzone/v1/v1.0/v1.0.0/sg-upload-dropzone.js" },
       { "module": "sg-video-player",          "path": "/components/sg-video-player/v0/v0.1/v0.1.0/sg-video-player.js" },
+      { "module": "sg-pipeline-steps",        "path": "/components/sg-pipeline-steps/v0/v0.1/v0.1.0/sg-pipeline-steps.js" },
       { "module": "sg-auth-tokens",           "path": "/components/auth/sg-auth-tokens/v0/v0.1/v0.1.0/sg-auth-tokens.js" },
       { "module": "sg-llm-request",           "path": "/components/llm/sg-llm-request/v0/v0.1/v0.1.6/sg-llm-request.js" },
       { "module": "sg-llm-events",            "path": "/components/llm/sg-llm-events/v0/v0.1/v0.1.0/sg-llm-events.js" },

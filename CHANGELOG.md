@@ -12,7 +12,11 @@ All notable changes to `sgraph_ai_tools__static` are documented here.
 - **`handoff/sg-publish-handoff.js`** — shared consume-once handoff helper (sg-youtube-handoff protocol + separate `audioBlob`).
 - **Boot smoke** (`tests/playwright/video-publisher-boot-smoke.js`) — 17 checks against the layered union via the run-locally server; all green in headless Chromium, alongside clean boot checks for the five touched tools.
 
+### Added (quality pass, same day)
+- **`sg-pipeline-steps` component** (`components/sg-pipeline-steps/v0/v0.1/v0.1.0/`) — generic pipeline-spine step rows (status icons, info slot, re-run intent), shadow DOM with js/html/css as sibling files via `SgComponent`. video-publisher's Steps panel is the first consumer (`ui-steps.js` shrinks to a ~65-line adapter).
+
 ### Changed
+- **video-publisher api/ split (same-day quality pass)** — `publisher-pipeline.js` (298 lines, at the ceiling) split one-concern-per-file: step runners + auto-run + cost roll-up → `api/publisher-steps.js` (deps injected via `initSteps()`, one-directional imports); the transcribe item/version store → `api/transcribe-store.js`; the pipeline stays as the intake/record/publish façade re-exporting the step surface. Inline display toggles replaced with a `.vp-hidden` class. SKILL-api action count corrected 28→29; SKILL-browser Steps selectors updated to the component's shadow rows.
 - **video-recorder v0.1.64** — `api/` engine files became re-export shims to `core/sg-recorder` (behaviour + events unchanged); recording tab gains a **Publish** button (hands the recording plus its separate audio stream to video-publisher); `sendToPublisher` / `sendToYouTubeEditor` registered as API actions (the YouTube handoff was previously UI-only); manifest's sg-video-recorder pin corrected v0.1.1→v0.1.2.
 - **audio-transcribe v0.1.27** — the seven engine files became re-export shims to `core/sg-transcribe`; live-transcribe's cross-tool imports flow through the shims unchanged.
 

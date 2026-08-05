@@ -9,7 +9,8 @@
 import { SgToolApi } from '/core/sg-tool-api/v0/v0.1/v0.1.0/sg-tool-api.js';
 import { listModels } from '/core/sg-transcribe/v0/v0.1/v0.1.0/audio-models.js';
 import { VP_EVENTS } from './publisher-events.js';
-import { state, itemStore } from './publisher-state.js';
+import { state } from './publisher-state.js';
+import { itemStore } from './transcribe-store.js';
 import * as P  from './publisher-pipeline.js';
 import * as YT from './publisher-youtube.js';
 import { init as initShell } from '../ui/ui-shell.js';

@@ -23,8 +23,8 @@ Panels are sg-layout tabs; all content is in light DOM.
 | Record advanced | `#vp-rec-mode` `#vp-rec-quality` `#vp-rec-layout` | inside `<details>` |
 | Import | `#vp-drop` (`<sg-upload-dropzone>`) | dispatch `files-selected` or use its hidden input |
 | Import info | `#vp-src-info` `#vp-src-notice` `#vp-src-player` | |
-| Steps | `.vp-step[data-step="audio|transcript|metadata|publish"]` | `data-status` attr = idle/running/done/error |
-| Step re-run | `.vp-step [data-rerun]` | visible on done/error |
+| Steps | `sg-pipeline-steps .sgps-step[data-step="audio|transcript|metadata|publish"]` | shadow DOM (Playwright CSS pierces open roots); `data-status` attr = idle/running/done/error |
+| Step re-run | `sg-pipeline-steps .sgps-step [data-rerun]` | visible on done/error (not on publish) |
 | Transcript | `#vp-tr-model` `#vp-tr-run` `#vp-tr-text` | |
 | Metadata | `#vp-md-generate` `#vp-md-guidance` `#vp-md-regen` `#vp-md-title` `#vp-md-desc` `#vp-md-tags` `#vp-md-privacy` | |
 | Publish | `#vp-pub-connect` `#vp-pub-upload` `#vp-pub-progress` `#vp-pub-link` `#vp-pub-copy` | connect opens a Google popup |

@@ -21,6 +21,7 @@ import { initApiPane }       from './ui-api-pane.js';
 import '/core/sg-layout/v0.1.0/sg-layout.js';
 import '/components/upload-dropzone/v1/v1.0/v1.0.0/sg-upload-dropzone.js';
 import '/components/sg-video-player/v0/v0.1/v0.1.0/sg-video-player.js';
+import '/components/sg-pipeline-steps/v0/v0.1/v0.1.0/sg-pipeline-steps.js';
 import '/components/openrouter/sg-openrouter-key-stats/v0/v0.1/v0.1.0/sg-openrouter-key-stats.js';
 import '/components/tool-api/sg-tool-api-explorer/v0/v0.1/v0.1.0/sg-tool-api-explorer.js';
 import '/components/tool-api/sg-tool-api-console/v0/v0.1/v0.1.0/sg-tool-api-console.js';

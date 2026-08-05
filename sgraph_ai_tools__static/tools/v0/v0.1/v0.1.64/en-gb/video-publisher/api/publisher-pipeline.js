@@ -1,8 +1,10 @@
 /**
  * publisher-pipeline.js
- * Orchestration: record/import → audio route → transcribe → metadata →
- * ready-to-publish → upload. Composes the extracted core engines
- * (sg-recorder, sg-transcribe) — the UI never imports core directly.
+ * Orchestration façade: boot wiring, job intake (record / import / handoff),
+ * thin recording delegation to core/sg-recorder, and the two publish paths.
+ * Step runners live in publisher-steps.js (injected at boot, re-exported
+ * here so publisher-api.js has a single import surface); the YouTube session
+ * lives in publisher-youtube.js.
  *
  * Auto-run advances through audio/transcript/metadata; it ALWAYS stops at
  * ready-to-publish. Nothing reaches YouTube without an explicit upload().
@@ -19,19 +21,19 @@ import { makeIsolatedTransport } from '/core/sg-transcribe/v0/v0.1/v0.1.0/llm-tr
 import { fetchGenerationCostDeferred } from '/core/sg-transcribe/v0/v0.1/v0.1.0/openrouter-cost.js';
 import { DEFAULT_MODEL, listModels } from '/core/sg-transcribe/v0/v0.1/v0.1.0/audio-models.js';
 
-export { listModels };
-
-import { state, itemStore, resetJob } from './publisher-state.js';
+import { state, resetJob } from './publisher-state.js';
+import { itemStore } from './transcribe-store.js';
 import { VP_EVENTS } from './publisher-events.js';
-import { routeAudio } from './audio-router.js';
-import { generateMetadata as genMeta } from './metadata-gen.js';
+import * as Steps from './publisher-steps.js';
 import * as YT from './publisher-youtube.js';
+
+export { listModels, recState };
+export { extractAudio, transcribe, generateMetadata, setMetadata, getCostSummary }
+    from './publisher-steps.js';
 
 export const KEY_STORAGE = 'sg-openrouter-mgmt-key';   // shared with audio-transcribe
 
 let _emit = () => {};
-let _transcribeMethods = null;
-let _sendToLlm = null;
 
 // ── Boot ─────────────────────────────────────────────────────────────────────
 
@@ -41,17 +43,22 @@ export function boot({ emit }) {
 
     const host = document.createElement('div');
     host.setAttribute('data-vp-llm-host', '');
-    host.style.display = 'none';
+    host.hidden = true;
     document.body.appendChild(host);
-    _sendToLlm = makeIsolatedTransport(host, getApiKey);
+    const sendToLlm = makeIsolatedTransport(host, getApiKey);
 
     itemStore.setActiveModel(DEFAULT_MODEL);
-    _transcribeMethods = buildTranscribeMethods({
-        state: itemStore,
-        emit:  (name, detail) => _emit(name, detail),   // AT_EVENTS pass through unchanged
-        sendToLlm: _sendToLlm,
-        getActiveModel: () => itemStore.getActiveModel(),
-        fetchCost: fetchGenerationCostDeferred,
+    Steps.initSteps({
+        emit: (name, detail) => _emit(name, detail),
+        getApiKey,
+        sendToLlm,
+        transcribeMethods: buildTranscribeMethods({
+            state: itemStore,
+            emit:  (name, detail) => _emit(name, detail),   // AT_EVENTS pass through unchanged
+            sendToLlm,
+            getActiveModel: () => itemStore.getActiveModel(),
+            fetchCost: fetchGenerationCostDeferred,
+        }),
     });
 
     // In-tool recording: when the engine stops, its blobs land in the job.
@@ -73,14 +80,8 @@ export function setApiKey(apiKey)  {
     if (apiKey) localStorage.setItem(KEY_STORAGE, apiKey.trim());
     else        localStorage.removeItem(KEY_STORAGE);
 }
-export function getSendToLlm()     { return _sendToLlm; }
 
 // ── Job intake ───────────────────────────────────────────────────────────────
-
-function _setStep(step, status, extra = {}) {
-    state.steps[step] = { status, ...extra };
-    _emit(VP_EVENTS.STEP_CHANGED, { step, status, ...extra });
-}
 
 function _loadBlobs({ videoBlob, audioBlob, filename, source }) {
     if (!videoBlob || !videoBlob.size) {
@@ -97,7 +98,7 @@ function _loadBlobs({ videoBlob, audioBlob, filename, source }) {
         source, filename: state.filename,
         byteSize: videoBlob.size, hasAudioBlob: !!audioBlob,
     });
-    if (state.autoRun) _autoRun();
+    if (state.autoRun) Steps.autoRunSteps();
 }
 
 /** Load a video file (drag-drop / file pick / API). */
@@ -163,94 +164,14 @@ export async function stopRecording() {
     return { filename: state.filename, byteSize: state.videoBlob?.size || 0, hasAudioBlob: !!state.audioBlob };
 }
 
-export { startPreview, stopPreview, pausePipeline as pauseRecording, resumePipeline as resumeRecording, recState };
-
-// ── Steps ────────────────────────────────────────────────────────────────────
-
-async function _autoRun() {
-    try {
-        await extractAudio();
-        if (!getApiKey()) return;            // no key — stop before billable steps
-        await transcribe();
-        await generateMetadata();
-    } catch (_e) { /* recorded on the step; user can retry from the UI */ }
-}
-
-export async function extractAudio() {
-    if (!state.videoBlob) throw new Error('No video loaded.');
-    _setStep('audio', 'running');
-    _emit(VP_EVENTS.AUDIO_START, {});
-    try {
-        const r = await routeAudio(
-            { videoBlob: state.videoBlob, audioBlob: state.audioBlob, filename: state.filename },
-            { onProgress: info => _emit(VP_EVENTS.STEP_CHANGED, { step: 'audio', status: 'running', ...info }) },
-        );
-        state.audio = r;
-        itemStore.setAudioItem({ blob: r.blob, name: r.name });
-        _setStep('audio', 'done', { info: { route: r.route, bytes: r.blob.size } });
-        _emit(VP_EVENTS.AUDIO_COMPLETE, { route: r.route, bytes: r.blob.size, mime: r.mime });
-        return { route: r.route, bytes: r.blob.size, mime: r.mime };
-    } catch (err) {
-        _setStep('audio', 'error', { error: err.message, code: err.code });
-        _emit(VP_EVENTS.STEP_ERROR, { step: 'audio', code: err.code || 'audio-error', message: err.message });
-        throw err;
-    }
-}
-
-export async function transcribe({ model } = {}) {
-    if (!state.audio) await extractAudio();
-    if (!getApiKey()) throw Object.assign(new Error('No OpenRouter key set.'), { code: 'key-missing' });
-    _setStep('transcript', 'running');
-    _emit(VP_EVENTS.TRANSCRIBE_START, { model: model || itemStore.getActiveModel() });
-    try {
-        const r = await _transcribeMethods.transcribeItem({ id: 'job-audio', model });
-        state.transcript = r.text;
-        _setStep('transcript', 'done', { info: { model: r.model, costUsd: r.usage?.costUsd } });
-        _emit(VP_EVENTS.TRANSCRIBE_COMPLETE, { model: r.model, costUsd: r.usage?.costUsd, chars: r.text.length });
-        return { text: r.text, model: r.model, costUsd: r.usage?.costUsd, generationId: r.generationId };
-    } catch (err) {
-        _setStep('transcript', 'error', { error: err.message, code: err.code });
-        _emit(VP_EVENTS.STEP_ERROR, { step: 'transcript', code: err.code || 'llm-error', message: err.message });
-        throw err;
-    }
-}
-
-export async function generateMetadata({ guidance, model } = {}) {
-    if (!state.transcript) throw Object.assign(new Error('No transcript yet.'), { code: 'no-transcript' });
-    _setStep('metadata', 'running');
-    _emit(VP_EVENTS.METADATA_START, { model: model || DEFAULT_MODEL });
-    try {
-        const r = await genMeta(
-            { sendToLlm: _sendToLlm, onCost: e => itemStore.addAuxCost(e) },
-            { transcript: state.transcript, guidance, model },
-        );
-        state.metadata = { ...state.metadata, title: r.title, description: r.description, tags: r.tags };
-        state.phase = 'ready-to-publish';
-        _setStep('metadata', 'done', { info: { model: r.model, costUsd: r.costUsd } });
-        _emit(VP_EVENTS.METADATA_COMPLETE, { title: r.title, tags: r.tags, costUsd: r.costUsd });
-        return r;
-    } catch (err) {
-        _setStep('metadata', 'error', { error: err.message, code: err.code });
-        _emit(VP_EVENTS.STEP_ERROR, { step: 'metadata', code: err.code || 'llm-error', message: err.message });
-        throw err;
-    }
-}
-
-export function setMetadata({ title, description, tags, privacy } = {}) {
-    if (title !== undefined)       state.metadata.title = String(title).slice(0, 100);
-    if (description !== undefined) state.metadata.description = String(description);
-    if (tags !== undefined)        state.metadata.tags = Array.isArray(tags) ? tags : String(tags).split(',').map(t => t.trim()).filter(Boolean);
-    if (privacy !== undefined)     state.metadata.privacy = privacy;
-    if (state.videoBlob && state.metadata.title && state.phase === 'loaded') state.phase = 'ready-to-publish';
-    return { ...state.metadata };
-}
+export { startPreview, stopPreview, pausePipeline as pauseRecording, resumePipeline as resumeRecording };
 
 // ── Publish ──────────────────────────────────────────────────────────────────
 
 export async function upload() {
     if (!state.videoBlob) throw new Error('No video loaded.');
     if (!state.metadata.title) throw Object.assign(new Error('Set a title first.'), { code: 'no-title' });
-    _setStep('publish', 'running');
+    Steps.setStep('publish', 'running');
     state.phase = 'uploading';
     try {
         const file = state.videoBlob instanceof File
@@ -261,11 +182,11 @@ export async function upload() {
             tags: state.metadata.tags, privacyStatus: state.metadata.privacy,
         }, { emit: _emit });
         state.phase = 'published';
-        _setStep('publish', 'done', { info: { id: result.id, url: result.url } });
+        Steps.setStep('publish', 'done', { info: { id: result.id, url: result.url } });
         return { id: result.id, url: result.url };
     } catch (err) {
         state.phase = 'ready-to-publish';
-        _setStep('publish', 'error', { error: err.message, code: err.code });
+        Steps.setStep('publish', 'error', { error: err.message, code: err.code });
         _emit(VP_EVENTS.STEP_ERROR, { step: 'publish', code: err.code || 'upload-failed', message: err.message });
         throw err;
     }
@@ -280,19 +201,11 @@ export async function publish({ file, model, guidance, privacy, confirm } = {}) 
         try { importFile(file); } finally { state.autoRun = wasAuto; }
     }
     if (!state.videoBlob) throw new Error('No video loaded.');
-    if (!state.audio)      await extractAudio();
-    if (!state.transcript) await transcribe({ model });
-    if (!state.metadata.title || guidance) await generateMetadata({ guidance, model });
-    if (privacy) setMetadata({ privacy });
+    if (!state.audio)      await Steps.extractAudio();
+    if (!state.transcript) await Steps.transcribe({ model });
+    if (!state.metadata.title || guidance) await Steps.generateMetadata({ guidance, model });
+    if (privacy) Steps.setMetadata({ privacy });
     if (confirm !== true) return { phase: state.phase, metadata: { ...state.metadata }, note: 'Stopped at ready-to-publish — pass confirm:true to upload.' };
     if (!state.youtube.connected) await YT.connect({ emit: _emit });
     return await upload();
-}
-
-export function getCostSummary() {
-    let transcription = 0;
-    for (const it of itemStore.getItems()) for (const v of (it.versions || [])) if (typeof v.costUsd === 'number') transcription += v.costUsd;
-    let aux = 0;
-    for (const a of itemStore.getAuxCosts()) if (typeof a.usd === 'number') aux += a.usd;
-    return { transcriptionUsd: transcription, metadataUsd: aux, totalUsd: transcription + aux };
 }
