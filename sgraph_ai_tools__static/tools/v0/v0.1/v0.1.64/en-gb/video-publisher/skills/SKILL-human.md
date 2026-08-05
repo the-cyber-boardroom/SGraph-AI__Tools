@@ -10,11 +10,15 @@ youtube-editor) — the video never leaves the page between steps.
 
 1. **Record** — click *● Start recording* (defaults: screen + camera PiP +
    mic, 2.5 Mbps, landscape). Pick the screen/tab to share. Talk.
-2. **Stop** — click *■ Stop*. The pipeline runs on its own: audio is taken
+2. **Stop** — click *■ Stop*. The recording opens in the *Preview* tab so
+   you can watch it back, while the pipeline runs on its own: audio is taken
    from the separate audio stream (free), transcribed via OpenRouter, and a
    title/description/tags are generated. Watch the Steps panel.
 3. **Review** — tweak the title/description in the *Metadata* tab if needed
    (or click *↺ Regenerate* with guidance like "shorter, more emojis").
+   Privacy defaults to *Unlisted*; if you always publish public, pick
+   *Public* and tick **Remember this privacy as my default** — the choice is
+   saved in this browser and pre-selected from then on.
 4. **Upload** — in the *Publish* tab, click *⬆ Upload to YouTube*
    (sign in with Google the first time).
 5. **Copy** the YouTube URL. Done.

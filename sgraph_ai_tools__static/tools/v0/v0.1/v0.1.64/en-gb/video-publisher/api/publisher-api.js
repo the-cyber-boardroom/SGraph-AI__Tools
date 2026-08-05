@@ -82,6 +82,7 @@ api
     .register('generateMetadata', async (p = {}) => await P.generateMetadata(p), { async: true, events: [VP_EVENTS.METADATA_START, VP_EVENTS.METADATA_COMPLETE, VP_EVENTS.STEP_ERROR] })
     .register('setMetadata',  (p = {}) => P.setMetadata(p),             { async: false })
     .register('getMetadata',  () => ({ ...state.metadata }),            { async: false })
+    .register('setDefaultPrivacy', ({ privacy = null } = {}) => P.setDefaultPrivacy(privacy), { async: false })
     .register('getCostSummary', () => P.getCostSummary(),               { async: false })
     // Publish
     .register('setClientId',  ({ clientId }) => { YT.setClientId(clientId); return { clientId: YT.getClientId() }; },

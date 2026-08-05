@@ -35,7 +35,7 @@ const EXPECTED_ACTIONS = [
     'startRecording', 'pauseRecording', 'resumeRecording', 'stopRecording',
     'importFile', 'getJob', 'reset', 'setAutoRun',
     'extractAudio', 'transcribe', 'getTranscript', 'listModels', 'setApiKey',
-    'generateMetadata', 'setMetadata', 'getMetadata', 'getCostSummary',
+    'generateMetadata', 'setMetadata', 'getMetadata', 'setDefaultPrivacy', 'getCostSummary',
     'setClientId', 'connectYouTube', 'disconnectYouTube', 'getMyChannel',
     'upload', 'publish', 'getStatus', 'health',
 ];
@@ -100,7 +100,7 @@ async function run() {
             'all four steps idle');
 
         // [5] panels rendered
-        for (const sel of ['#vp-rec-start', '#vp-drop', 'sg-pipeline-steps .sgps-step[data-step="audio"]', '#vp-md-title', '#vp-pub-upload', '#vp-acc-or-key']) {
+        for (const sel of ['#vp-rec-start', '#vp-drop', '#vp-prev-player', 'sg-pipeline-steps .sgps-step[data-step="audio"]', '#vp-md-title', '#vp-md-remember', '#vp-pub-upload', '#vp-acc-or-key']) {
             assert(await page.$(sel) !== null, `panel element present: ${sel}`);
         }
 

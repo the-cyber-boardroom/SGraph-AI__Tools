@@ -6,6 +6,7 @@
  */
 
 import { VP_EVENTS } from '../api/publisher-events.js';
+import { getStoredPrivacy } from '../api/publisher-pipeline.js';
 
 export function initMetadataTab(container, state, api, emit) {
     if (!container) return;
@@ -36,11 +37,17 @@ export function initMetadataTab(container, state, api, emit) {
             <option value="private">Private</option>
           </select>
         </label>
+        <label class="vp-check">
+          <input id="vp-md-remember" type="checkbox">
+          Remember this privacy as my default (saved in this browser)
+        </label>
       </div>`;
 
     const $ = s => container.querySelector(s);
     const titleEl = $('#vp-md-title'), descEl = $('#vp-md-desc'), tagsEl = $('#vp-md-tags');
     const privacyEl = $('#vp-md-privacy'), statusEl = $('#vp-md-status'), countEl = $('#vp-md-count');
+    const rememberEl = $('#vp-md-remember');
+    rememberEl.checked = !!getStoredPrivacy();
 
     function fill() {
         titleEl.value = state.metadata.title || '';
@@ -59,6 +66,15 @@ export function initMetadataTab(container, state, api, emit) {
     }
     for (const el of [titleEl, descEl, tagsEl, privacyEl]) el.addEventListener('change', push);
     titleEl.addEventListener('input', () => { countEl.textContent = `${titleEl.value.length}/100`; });
+
+    // Remembered default: while checked, the current privacy choice persists
+    // across sessions (localStorage); unchecking reverts to unlisted.
+    privacyEl.addEventListener('change', () => {
+        if (rememberEl.checked) api.setDefaultPrivacy({ privacy: privacyEl.value });
+    });
+    rememberEl.addEventListener('change', () => {
+        api.setDefaultPrivacy({ privacy: rememberEl.checked ? privacyEl.value : null });
+    });
 
     $('#vp-md-generate').addEventListener('click', () => api.generateMetadata().catch(() => {}));
     $('#vp-md-regen').addEventListener('click', () => {

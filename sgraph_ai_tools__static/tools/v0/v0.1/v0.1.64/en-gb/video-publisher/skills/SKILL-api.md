@@ -4,7 +4,7 @@ Tool name `video-publisher` · API 0.1.0 · `window.__tool` live after
 `tool:ready`. All calls return Promises (SgToolApi). The manifest's `api`
 section is authoritative for the event catalogue.
 
-## Actions (29)
+## Actions (30)
 
 **Record** — thin delegations to `core/sg-recorder` v0.1.0; `tool:record:*`
 events fire unchanged.
@@ -39,6 +39,7 @@ events fire unchanged.
 | `generateMetadata` | `{ guidance?, model? }` | `{ title, description, tags, costUsd }` |
 | `setMetadata` | `{ title?, description?, tags?, privacy? }` | metadata |
 | `getMetadata` | — | metadata |
+| `setDefaultPrivacy` | `{ privacy: 'public'\|'unlisted'\|'private'\|null }` | `{ stored }` — persists a remembered default (null clears; tool default stays unlisted) |
 | `getCostSummary` | — | `{ transcriptionUsd, metadataUsd, totalUsd }` |
 
 **Publish**
@@ -66,7 +67,8 @@ also fire `vp:step:error { step, code, message }`.
 
 `sg-openrouter-mgmt-key` · `sg-youtube-client-id` ·
 `sg-auth-token-video-publisher` (via sg-auth-tokens, provider
-`video-publisher`).
+`video-publisher`) · `sg-video-publisher-privacy` (opt-in remembered
+privacy default).
 
 ## End-to-end run
 

@@ -72,6 +72,7 @@ export function boot({ emit }) {
         });
     });
 
+    state.metadata.privacy = getDefaultPrivacy();
     YT.hydrate({ emit: _emit });
 }
 
@@ -79,6 +80,30 @@ export function getApiKey()        { return localStorage.getItem(KEY_STORAGE) ||
 export function setApiKey(apiKey)  {
     if (apiKey) localStorage.setItem(KEY_STORAGE, apiKey.trim());
     else        localStorage.removeItem(KEY_STORAGE);
+}
+
+// ── Default privacy (persisted preference) ───────────────────────────────────
+// The tool default stays 'unlisted'; a user who always publishes public can
+// opt in to remembering their choice (Metadata tab checkbox).
+
+const PRIVACY_STORAGE = 'sg-video-publisher-privacy';
+const PRIVACY_VALUES  = ['public', 'unlisted', 'private'];
+
+/** The stored preference, or null when the user hasn't opted in. */
+export function getStoredPrivacy() {
+    const v = localStorage.getItem(PRIVACY_STORAGE);
+    return PRIVACY_VALUES.includes(v) ? v : null;
+}
+
+/** The effective default: stored preference, else 'unlisted'. */
+export function getDefaultPrivacy() { return getStoredPrivacy() || 'unlisted'; }
+
+/** Persist (privacy value) or clear (null) the remembered default. */
+export function setDefaultPrivacy(privacy) {
+    if (privacy == null) { localStorage.removeItem(PRIVACY_STORAGE); return { stored: null }; }
+    if (!PRIVACY_VALUES.includes(privacy)) throw Object.assign(new Error(`Invalid privacy: ${privacy}`), { code: 'bad-params' });
+    localStorage.setItem(PRIVACY_STORAGE, privacy);
+    return { stored: privacy };
 }
 
 // ── Job intake ───────────────────────────────────────────────────────────────
@@ -122,6 +147,7 @@ export function acceptHandoff(handoff) {
 export function reset() {
     resetJob();
     resetPipeline();
+    state.metadata.privacy = getDefaultPrivacy();
     _emit(VP_EVENTS.JOB_RESET, {});
 }
 
