@@ -1,0 +1,15 @@
+{
+  "name": "sg-transcribe",
+  "version": "0.1.0",
+  "description": "Transcription engine extracted unchanged from the audio-transcribe tool (v0.1.60): OpenRouter chat-completion transcription with curated models, in-browser decode-to-WAV via core/sg-audio-decode, isolated per-request LLM transport, typed error classification, deferred per-generation cost lookup, and the frozen AT_EVENTS contract. Consumers: audio-transcribe, live-transcribe, video-publisher.",
+  "note": "Dependency-injected and DOM-free apart from llm-transport's throwaway hidden bus element. Cross-core import: sg-audio-decode v0.1.0 (relative). Component import kept as-is from the tool: /components/llm/sg-llm-events v0.1.0 (pure constants — the LLM wire contract). Event names and payload shapes are frozen; embedders and SKILL files depend on them.",
+  "exports": {
+    "api-transcribe.js": ["buildTranscribeMethods"],
+    "audio-format.js": ["OR_SUPPORTED", "extOf", "isAudioFile", "isSupportedAudio", "toSupportedDataUrl"],
+    "audio-models.js": ["DEFAULT_MODEL", "AUDIO_MODEL_IDS", "MODEL_METADATA", "listModels", "isAvailableModel"],
+    "audio-transcribe-events.js": ["AT_EVENTS"],
+    "llm-errors.js": ["LLM_ERROR_CODES", "classifyLlmError", "friendlyLlmError"],
+    "llm-transport.js": ["readComplete", "makeIsolatedTransport"],
+    "openrouter-cost.js": ["OPENROUTER_BASE", "fetchGenerationCost", "fetchGenerationCostDeferred"]
+  }
+}
