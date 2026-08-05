@@ -40,7 +40,7 @@
   },
   "api": {
     "version": "0.1.0",
-    "note": "window.__tool live after tool:ready. Screen capture requires a user gesture. All processing is local — no server calls except SG/Send upload. v0.1.64: recording engine extracted to core/sg-recorder v0.1.0 — tool api/ engine files are now re-export shims; behaviour and event contract unchanged.",
+    "note": "window.__tool live after tool:ready. Screen capture requires a user gesture. All processing is local — no server calls except SG/Send upload. v0.1.64: recording engine extracted to core/sg-recorder v0.1.0 — tool api/ engine files are now re-export shims; behaviour and event contract unchanged. New: Publish button + sendToPublisher/sendToYouTubeEditor API actions hand the recording (incl. the separate audio stream) to Video Publisher / YouTube Editor via the shared consume-once handoff helpers.",
     "events": [
       { "name": "tool:ready",           "when": "activate() called",         "detail": "{ instanceId, tool, version }" },
       { "name": "tool:mode:set",        "when": "setMode() called",          "detail": "{ mode }" },
