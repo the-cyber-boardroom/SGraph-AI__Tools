@@ -1,0 +1,69 @@
+{
+  "name": "Video Publisher",
+  "slug": "video-publisher",
+  "description": "One page from recording to YouTube URL: record (or import) a video, extract/route the audio, transcribe via OpenRouter, generate the title/description/tags, review, and upload — the whole pipeline in-browser, blob never leaves the page. Consolidates the video-recorder → video-tools → audio-transcribe → youtube-editor workflow.",
+  "icon": "🚀",
+  "version": "0.1.0",
+  "status": "alpha",
+  "category": "media",
+  "keywords": ["video", "publish", "youtube", "recorder", "transcribe", "metadata", "openrouter", "upload"],
+  "dependencies": {
+    "core": [
+      { "module": "sg-tool-api",     "path": "/core/sg-tool-api/v0/v0.1/v0.1.0/sg-tool-api.js" },
+      { "module": "sg-recorder",     "path": "/core/sg-recorder/v0/v0.1/v0.1.0/recorder-pipeline.js" },
+      { "module": "sg-transcribe",   "path": "/core/sg-transcribe/v0/v0.1/v0.1.0/api-transcribe.js" },
+      { "module": "sg-video",        "path": "/core/video/v1/v1.0/v1.0.2/sg-video.js" },
+      { "module": "sg-audio-decode", "path": "/core/sg-audio-decode/v0/v0.1/v0.1.0/sg-audio-decode.js" },
+      { "module": "youtube-upload",  "path": "/core/youtube-upload/v0/v0.1/v0.1.0/sg-youtube-upload.js" },
+      { "module": "youtube-api",     "path": "/core/youtube-api/v0/v0.1/v0.1.0/sg-youtube-api.js" },
+      { "module": "sg-layout",       "path": "/core/sg-layout/v0.1.0/sg-layout.js" },
+      { "module": "manifest-loader", "path": "/core/manifest-loader/v0/v0.1/v0.1.0/manifest-loader.js" }
+    ],
+    "shared": [
+      { "module": "sg-site-header",           "path": "/components/site-header/v1/v1.0/v1.0.2/sg-site-header.js" },
+      { "module": "sg-upload-dropzone",       "path": "/components/upload-dropzone/v1/v1.0/v1.0.0/sg-upload-dropzone.js" },
+      { "module": "sg-video-player",          "path": "/components/sg-video-player/v0/v0.1/v0.1.0/sg-video-player.js" },
+      { "module": "sg-auth-tokens",           "path": "/components/auth/sg-auth-tokens/v0/v0.1/v0.1.0/sg-auth-tokens.js" },
+      { "module": "sg-llm-request",           "path": "/components/llm/sg-llm-request/v0/v0.1/v0.1.6/sg-llm-request.js" },
+      { "module": "sg-llm-events",            "path": "/components/llm/sg-llm-events/v0/v0.1/v0.1.0/sg-llm-events.js" },
+      { "module": "sg-openrouter-key-stats",  "path": "/components/openrouter/sg-openrouter-key-stats/v0/v0.1/v0.1.0/sg-openrouter-key-stats.js" },
+      { "module": "sg-tool-api-explorer",     "path": "/components/tool-api/sg-tool-api-explorer/v0/v0.1/v0.1.0/sg-tool-api-explorer.js" },
+      { "module": "sg-tool-api-console",      "path": "/components/tool-api/sg-tool-api-console/v0/v0.1/v0.1.0/sg-tool-api-console.js" },
+      { "module": "sg-tool-api-manifest",     "path": "/components/tool-api/sg-tool-api-manifest/v0/v0.1/v0.1.0/sg-tool-api-manifest.js" }
+    ],
+    "loader": [
+      { "phase": 1, "type": "css", "path": "/core/sg-layout/v0.1.0/sg-layout.css" },
+      { "phase": 1, "type": "css", "path": "./styles/publisher.css" },
+      { "phase": 2, "type": "js",  "path": "/components/llm/sg-llm-request/v0/v0.1/v0.1.6/sg-llm-request.js" },
+      { "phase": 3, "type": "js",  "entry": true, "path": "./api/publisher-api.js" }
+    ]
+  },
+  "api": {
+    "version": "0.1.0",
+    "note": "window.__tool live after tool:ready. Recording delegates to core/sg-recorder (SGA_RECORDER tool:* events fire unchanged); transcription/metadata are billable OpenRouter calls (BYOK, localStorage 'sg-openrouter-mgmt-key'); upload goes browser→googleapis.com directly. Auto-run stops at ready-to-publish — nothing uploads without an explicit upload() / publish({confirm:true}).",
+    "events": [
+      { "name": "tool:ready",              "when": "activate() called",                    "detail": "{ instanceId, tool, version }" },
+      { "name": "vp:job:loaded",           "when": "a video lands (record/import/handoff)", "detail": "{ source, filename, byteSize, hasAudioBlob }" },
+      { "name": "vp:job:reset",            "when": "reset() called",                       "detail": "{}" },
+      { "name": "vp:step:changed",         "when": "any step status transition",           "detail": "{ step, status, ... }" },
+      { "name": "vp:audio:start",          "when": "audio routing begins",                 "detail": "{}" },
+      { "name": "vp:audio:complete",       "when": "audio ready",                          "detail": "{ route, bytes, mime }" },
+      { "name": "vp:transcribe:start",     "when": "transcription begins",                 "detail": "{ model }" },
+      { "name": "vp:transcribe:complete",  "when": "transcript ready",                     "detail": "{ model, costUsd, chars }" },
+      { "name": "vp:metadata:start",       "when": "metadata generation begins",           "detail": "{ model }" },
+      { "name": "vp:metadata:complete",    "when": "metadata ready (job at ready-to-publish)", "detail": "{ title, tags, costUsd }" },
+      { "name": "vp:upload:start",         "when": "upload begins",                        "detail": "{ fileName, fileSize, metadata }" },
+      { "name": "vp:upload:progress",      "when": "upload progress",                      "detail": "{ loaded, total, percent }" },
+      { "name": "vp:upload:complete",      "when": "YouTube upload done",                  "detail": "{ id, url }" },
+      { "name": "vp:youtube:connected",    "when": "OAuth token acquired",                 "detail": "{ expiresAt, fromCache }" },
+      { "name": "vp:youtube:disconnected", "when": "signed out / token dropped",           "detail": "{}" },
+      { "name": "vp:handoff-received",     "when": "opened via sendToPublisher()",         "detail": "{ sourceTool, filename, byteSize, hasAudioBlob }" },
+      { "name": "vp:step:error",           "when": "any step fails",                       "detail": "{ step, code, message }" }
+    ],
+    "skills": {
+      "human":   "./skills/SKILL-human.md",
+      "browser": "./skills/SKILL-browser.md",
+      "api":     "./skills/SKILL-api.md"
+    }
+  }
+}
