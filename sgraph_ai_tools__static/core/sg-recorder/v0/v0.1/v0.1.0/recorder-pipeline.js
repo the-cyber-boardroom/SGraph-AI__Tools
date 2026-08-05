@@ -109,6 +109,8 @@ class RecordingSession {
         this._recorders = new Map();
         /** @type {Map<string, Blob[]>} */
         this._chunks    = new Map();
+        /** Per-recorder Date.now() captured at rec.start(). @type {Map<string, number>} */
+        this._startTimes = new Map();
         /** @type {Function|null} Stops the PiP canvas compositor. */
         this._pipStop   = null;
         /** @type {MediaStream|null} Cloned mic stream given to vizProvider. */
@@ -165,15 +167,22 @@ class RecordingSession {
 
         this._recorders.set(name, rec);
         rec.start(100);
+        // Per-recorder media start. Recorders do NOT all start together —
+        // the composite recorder starts after an async canvas build that can
+        // take seconds — so a single pipeline-level start time understates
+        // the earlier-started tracks' real length (and a too-short EBML
+        // Duration header makes players cut the tail: "lost last seconds").
+        this._startTimes.set(name, Date.now());
     }
 
     /**
-     * Stop a named recorder and return its assembled Blob.
+     * Stop a named recorder and return its assembled Blob plus the
+     * recorder's own measured media length.
      * Resolves null if the recorder never started or produced no data.
      * Rejects (via timeout) if onstop does not fire within timeoutMs.
      * @param {string} name
      * @param {number} [timeoutMs=10000]
-     * @returns {Promise<Blob|null>}
+     * @returns {Promise<{ blob: Blob, mediaMs: number|null }|null>}
      */
     stopRecorder(name, timeoutMs = 10_000) {
         return new Promise((resolve, reject) => {
@@ -183,6 +192,7 @@ class RecordingSession {
             const timer = setTimeout(() => {
                 this._chunks.delete(name);
                 this._recorders.delete(name);
+                this._startTimes.delete(name);
                 reject(new Error(`[recorder:${name}] stop() timed out after ${timeoutMs}ms`));
             }, timeoutMs);
 
@@ -190,9 +200,15 @@ class RecordingSession {
                 clearTimeout(timer);
                 const chunks = this._chunks.get(name) ?? [];
                 const blob   = new Blob(chunks, { type: rec.mimeType });
+                // THIS recorder's real media length (start → final flush). A
+                // slight overshoot from flush latency is harmless; a too-short
+                // value truncates playback.
+                const startTime = this._startTimes.get(name);
+                const mediaMs   = startTime ? Date.now() - startTime : null;
                 this._chunks.delete(name);
                 this._recorders.delete(name);
-                resolve(blob.size > 0 ? blob : null);
+                this._startTimes.delete(name);
+                resolve(blob.size > 0 ? { blob, mediaMs } : null);
             }, { once: true });
 
             try {
@@ -201,6 +217,7 @@ class RecordingSession {
                 clearTimeout(timer);
                 this._chunks.delete(name);
                 this._recorders.delete(name);
+                this._startTimes.delete(name);
                 reject(err);
             }
         });
@@ -209,19 +226,22 @@ class RecordingSession {
     /**
      * Stop all four named recorders in parallel.
      * Promise.allSettled means a timed-out recorder never blocks the others.
-     * @returns {Promise<{ camera: Blob|null, screen: Blob|null, audio: Blob|null, combined: Blob|null }>}
+     * @returns {Promise<{ blobs: Object<string, Blob|null>, mediaMs: Object<string, number|null> }>}
      */
     async stopAll() {
         const NAMES   = ['camera', 'screen', 'audio', 'combined'];
         const results = await Promise.allSettled(NAMES.map(n => this.stopRecorder(n)));
         const blobs   = {};
+        const mediaMs = {};
         results.forEach((r, i) => {
-            blobs[NAMES[i]] = r.status === 'fulfilled' ? r.value : null;
+            const v = r.status === 'fulfilled' ? r.value : null;
+            blobs[NAMES[i]]   = v?.blob ?? null;
+            mediaMs[NAMES[i]] = v?.mediaMs ?? null;
             if (r.status === 'rejected') {
                 console.warn(`[pipeline] ${r.reason?.message}`);
             }
         });
-        return blobs;
+        return { blobs, mediaMs };
     }
 
     /**
@@ -237,6 +257,7 @@ class RecordingSession {
         }
         this._recorders.clear();
         this._chunks.clear();
+        this._startTimes.clear();
         if (this._pipStop) {
             try { this._pipStop(); } catch (_) {}
             this._pipStop = null;
@@ -542,8 +563,8 @@ export async function stopPipeline() {
 
     try {
         // Stop all recorders in parallel; each times out independently after 10 s
-        const { camera: cameraBlob, screen: screenBlob, audio: audioBlob, combined: combinedBlob } =
-            await session.stopAll();
+        const { blobs: b, mediaMs } = await session.stopAll();
+        const { camera: cameraBlob, screen: screenBlob, audio: audioBlob, combined: combinedBlob } = b;
 
         // Tear down PiP canvas compositor after recorders have flushed their data
         if (session._pipStop) { session._pipStop(); session._pipStop = null; }
@@ -557,11 +578,20 @@ export async function stopPipeline() {
 
         // Patch WebM duration metadata — MediaRecorder writes Duration=0 in the EBML
         // header; fix it so players and upload platforms read the correct length.
+        //
+        // Each blob gets ITS OWN recorder's measured lifetime, NOT the shared
+        // pipeline durationMs: the separate track recorders start seconds before
+        // state.startedAt (the composite canvas build in between is async), so
+        // stamping the shared number understated their length and players cut
+        // the tail ("recording lost the last couple of seconds"). Recorders
+        // pause together, so the shared paused total applies to each.
+        const perBlobMs = name =>
+            (mediaMs[name] != null ? Math.max(0, mediaMs[name] - totalPausedMs) : durationMs);
         const [fixedCamera, fixedScreen, fixedAudio, fixedCombined] = await Promise.all([
-            cameraBlob   ? _fixWebMDuration(cameraBlob,   durationMs) : null,
-            screenBlob   ? _fixWebMDuration(screenBlob,   durationMs) : null,
-            audioBlob    ? _fixWebMDuration(audioBlob,    durationMs) : null,
-            combinedBlob ? _fixWebMDuration(combinedBlob, durationMs) : null,
+            cameraBlob   ? _fixWebMDuration(cameraBlob,   perBlobMs('camera'))   : null,
+            screenBlob   ? _fixWebMDuration(screenBlob,   perBlobMs('screen'))   : null,
+            audioBlob    ? _fixWebMDuration(audioBlob,    perBlobMs('audio'))    : null,
+            combinedBlob ? _fixWebMDuration(combinedBlob, perBlobMs('combined')) : null,
         ]);
 
         if (fixedCamera)   state.blobs.camera   = fixedCamera;
