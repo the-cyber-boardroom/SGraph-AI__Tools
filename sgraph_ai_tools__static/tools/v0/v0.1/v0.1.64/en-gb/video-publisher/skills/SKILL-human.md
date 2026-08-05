@@ -26,6 +26,24 @@ youtube-editor) — the video never leaves the page between steps.
 Alternative entries: drag-drop an existing MP4/WebM into the *Import* tab,
 or click **🚀 Publish** on a recording in the standalone Video Recorder.
 
+## Two-click publish (auto-publish mode)
+
+Tick **🚀 Auto-publish after recording** in the Record tab and the whole
+workflow becomes *Start → Stop*: after the pipeline finishes, the upload
+starts on its own — using your remembered privacy default — after a
+**5-second countdown** during which the big **✖ Cancel** button stops
+everything. The setting is remembered in this browser.
+
+Requirements and safety rails:
+- You must have signed in to YouTube **once** before (the auto flow uses the
+  silent token path — no popups without a click). If sign-in is needed, the
+  run pauses at the Publish step instead of uploading.
+- The countdown message shows exactly what will happen ("Auto-publishing
+  (public) in 5s"), and Cancel works at any stage: while recording (discards
+  the recording), during transcription, during the countdown, or mid-upload
+  (aborts the transfer — the video and transcript are kept, nothing is
+  published).
+
 ## Accounts (one panel, nothing re-entered)
 
 | Credential | Where it lives | Shared with |

@@ -8,7 +8,7 @@
 
 import { SGA_RECORDER } from '/core/sg-recorder/v0/v0.1/v0.1.0/recorder-events.js';
 import { VP_EVENTS } from '../api/publisher-events.js';
-import { recState } from '../api/publisher-pipeline.js';
+import { recState, getAutoPublish, getDefaultPrivacy, AUTOPUBLISH_GRACE_S } from '../api/publisher-pipeline.js';
 
 const MODES = [
     ['camera+screen+audio', 'Screen + camera + mic (default)'],
@@ -29,6 +29,11 @@ export function initRecordTab(container, state, api, emit) {
           <button id="vp-rec-pause" class="vp-btn" hidden>⏸ Pause</button>
           <button id="vp-rec-stop"  class="vp-btn vp-btn--danger" disabled>■ Stop</button>
         </div>
+        <label class="vp-check">
+          <input id="vp-rec-autopub" type="checkbox">
+          <span>🚀 Auto-publish after recording — <span id="vp-rec-autopub-detail"></span></span>
+        </label>
+        <button id="vp-rec-cancel" class="vp-btn vp-btn--danger vp-btn--big" hidden>✖ Cancel — stop the whole workflow</button>
         <div id="vp-rec-status" class="vp-muted">Screen + camera + mic · 2.5 Mbps · landscape · separate audio stream kept for free transcription</div>
         <video id="vp-rec-preview" class="vp-preview" autoplay muted playsinline hidden></video>
         <details class="vp-advanced"><summary>Advanced</summary>
@@ -41,6 +46,23 @@ export function initRecordTab(container, state, api, emit) {
     const $ = sel => container.querySelector(sel);
     const startBtn = $('#vp-rec-start'), stopBtn = $('#vp-rec-stop'), pauseBtn = $('#vp-rec-pause');
     const statusEl = $('#vp-rec-status'), previewEl = $('#vp-rec-preview'), nameEl = $('#vp-rec-name');
+    const autopubEl = $('#vp-rec-autopub'), cancelBtn = $('#vp-rec-cancel');
+
+    // Auto-publish toggle: persisted preference; the detail text keeps the
+    // stakes visible (which privacy the auto upload will use).
+    const autopubDetail = $('#vp-rec-autopub-detail');
+    function renderAutopub() {
+        autopubEl.checked = getAutoPublish();
+        autopubDetail.textContent = `uploads as ${getDefaultPrivacy()} after a ${AUTOPUBLISH_GRACE_S}s cancel window`;
+    }
+    autopubEl.addEventListener('change', async () => {
+        await api.setAutoPublish({ enabled: autopubEl.checked });
+        renderAutopub();
+    });
+    renderAutopub();
+
+    cancelBtn.addEventListener('click', () => { cancelBtn.disabled = true; api.cancelRun(); });
+    const showCancel = show => { cancelBtn.hidden = !show; cancelBtn.disabled = false; };
 
     // Publishing sweet spot defaults (Decision 4 / part 3 of the brief).
     api.setRecordConfig({ mode: 'camera+screen+audio', quality: 2_500_000, layout: 'landscape', recordingMode: 'combined+separate' });
@@ -75,6 +97,7 @@ export function initRecordTab(container, state, api, emit) {
         stopBtn.disabled = false; pauseBtn.hidden = false; pauseBtn.textContent = '⏸ Pause';
         timer = setInterval(tick, 500); tick();
         if (recState.stream) { previewEl.srcObject = recState.stream; previewEl.hidden = false; }
+        showCancel(true);
     });
     window.addEventListener(SGA_RECORDER.RECORD_PROGRESS, e => { bytes = e.detail?.totalBytes ?? bytes; });
     window.addEventListener(SGA_RECORDER.RECORD_STOP, e => {
@@ -94,5 +117,26 @@ export function initRecordTab(container, state, api, emit) {
         if (e.detail?.source === 'record' && !nameEl.value.trim() && e.detail.filename) {
             nameEl.value = e.detail.filename.replace(/\.[^.]+$/, '');
         }
+        // Keep Cancel available while the auto pipeline runs on this job.
+        if (state.autoRun) showCancel(true);
+        renderAutopub();   // remembered privacy may have changed since boot
+    });
+    window.addEventListener(VP_EVENTS.AUTOPUBLISH_COUNTDOWN, e => {
+        const s = e.detail?.secondsLeft ?? 0;
+        statusEl.textContent = s > 0
+            ? `🚀 Auto-publishing (${getDefaultPrivacy()}) in ${s}s — Cancel to stop`
+            : 'Uploading to YouTube…';
+        showCancel(true);
+    });
+    window.addEventListener(VP_EVENTS.RUN_CANCELLED, e => {
+        showCancel(false);
+        statusEl.textContent = e.detail?.during === 'recording'
+            ? 'Cancelled — recording discarded.'
+            : 'Cancelled — the video is kept; nothing was published.';
+    });
+    window.addEventListener(VP_EVENTS.UPLOAD_COMPLETE, () => { showCancel(false); statusEl.textContent = '✓ Published.'; });
+    window.addEventListener(VP_EVENTS.STEP_ERROR, () => showCancel(false));
+    window.addEventListener(VP_EVENTS.METADATA_COMPLETE, () => {
+        if (!getAutoPublish()) showCancel(false);   // workflow ends here in manual mode
     });
 }

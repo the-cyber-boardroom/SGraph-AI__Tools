@@ -41,7 +41,7 @@
   },
   "api": {
     "version": "0.1.0",
-    "note": "window.__tool live after tool:ready. Recording delegates to core/sg-recorder (SGA_RECORDER tool:* events fire unchanged); transcription/metadata are billable OpenRouter calls (BYOK, localStorage 'sg-openrouter-mgmt-key'); upload goes browser→googleapis.com directly. Auto-run stops at ready-to-publish — nothing uploads without an explicit upload() / publish({confirm:true}).",
+    "note": "window.__tool live after tool:ready. Recording delegates to core/sg-recorder (SGA_RECORDER tool:* events fire unchanged); transcription/metadata are billable OpenRouter calls (BYOK, localStorage 'sg-openrouter-mgmt-key'); upload goes browser→googleapis.com directly. Auto-run stops at ready-to-publish — nothing uploads without an explicit upload() / publish({confirm:true}) — UNLESS the user opts in to auto-publish (persisted 'sg-video-publisher-autopublish'): then a completed auto-run continues into the upload after a 5s cancellable countdown, using the silent (previously granted) token path. cancelRun() stops the whole workflow at any stage.",
     "events": [
       { "name": "tool:ready",              "when": "activate() called",                    "detail": "{ instanceId, tool, version }" },
       { "name": "vp:job:loaded",           "when": "a video lands (record/import/handoff)", "detail": "{ source, filename, byteSize, hasAudioBlob }" },
@@ -59,6 +59,8 @@
       { "name": "vp:youtube:connected",    "when": "OAuth token acquired",                 "detail": "{ expiresAt, fromCache }" },
       { "name": "vp:youtube:disconnected", "when": "signed out / token dropped",           "detail": "{}" },
       { "name": "vp:handoff-received",     "when": "opened via sendToPublisher()",         "detail": "{ sourceTool, filename, byteSize, hasAudioBlob }" },
+      { "name": "vp:autopublish:countdown","when": "each second of the grace window before an auto-publish upload", "detail": "{ secondsLeft }" },
+      { "name": "vp:run:cancelled",        "when": "cancelRun() stopped the workflow",     "detail": "{ during: 'recording'|'steps'|'upload' }" },
       { "name": "vp:step:error",           "when": "any step fails",                       "detail": "{ step, code, message }" }
     ],
     "skills": {

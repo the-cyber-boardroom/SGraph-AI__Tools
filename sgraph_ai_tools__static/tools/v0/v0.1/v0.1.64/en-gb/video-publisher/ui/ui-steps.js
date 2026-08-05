@@ -61,4 +61,12 @@ export function initStepsPanel(container, state, api, emit, layout) {
         steps.setNote(`Published: ${e.detail?.url || ''}`);
         render('publish');
     });
+    window.addEventListener(VP_EVENTS.AUTOPUBLISH_COUNTDOWN, e => {
+        const s = e.detail?.secondsLeft ?? 0;
+        steps.setNote(s > 0 ? `🚀 Auto-publishing in ${s}s — Cancel (Record tab) to stop.` : 'Uploading…');
+    });
+    window.addEventListener(VP_EVENTS.RUN_CANCELLED, () => {
+        STEPS.forEach(s => render(s.key));
+        steps.setNote('Cancelled — nothing was published.');
+    });
 }

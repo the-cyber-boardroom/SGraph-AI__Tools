@@ -17,6 +17,8 @@ export const state = {
     /** 'idle'|'recording'|'loaded'|'ready-to-publish'|'uploading'|'published' */
     phase:      'idle',
     autoRun:    true,
+    /** Set by cancelRun(); checked between (and inside) workflow stages. */
+    cancelRequested: false,
 
     /** Loaded video. */
     videoBlob:  null,
@@ -50,6 +52,7 @@ export const state = {
 
 export function resetJob() {
     state.phase      = 'idle';
+    state.cancelRequested = false;
     state.videoBlob  = null;
     state.audioBlob  = null;
     state.filename   = null;

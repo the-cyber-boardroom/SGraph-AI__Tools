@@ -28,6 +28,7 @@ label > .vp-input { margin-top: 4px; width: 100%; box-sizing: border-box; }
 .vp-btn--primary:hover:not(:disabled) { background: #14b8a6; }
 .vp-btn--danger  { background: #7f1d3a; border-color: #7f1d3a; }
 .vp-btn--mini    { padding: 3px 8px; font-size: 0.8rem; }
+.vp-btn--big     { padding: 14px 18px; font-size: 1.05rem; font-weight: 700; width: 100%; }
 
 .vp-muted  { color: #94a3b8; font-size: 0.84rem; }
 .vp-notice {

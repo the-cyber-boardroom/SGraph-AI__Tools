@@ -35,6 +35,8 @@ P.boot({ emit });
 function getJob() {
     return {
         phase: state.phase, source: state.source, filename: state.filename,
+        autoRun: state.autoRun, autoPublish: P.getAutoPublish(),
+        cancelRequested: state.cancelRequested,
         byteSize: state.videoBlob?.size || null, hasAudioBlob: !!state.audioBlob,
         steps: JSON.parse(JSON.stringify(state.steps)),
         audioRoute: state.audio?.route || null,
@@ -67,6 +69,8 @@ api
     .register('getJob',       getJob,                                   { async: false })
     .register('reset',        () => { P.reset(); return { ok: true }; },{ async: false, events: [VP_EVENTS.JOB_RESET] })
     .register('setAutoRun',   ({ enabled }) => { state.autoRun = !!enabled; return { autoRun: state.autoRun }; }, { async: false })
+    .register('setAutoPublish', ({ enabled }) => P.setAutoPublish(!!enabled), { async: false })
+    .register('cancelRun',    async () => await P.cancelRun(),          { async: true, events: [VP_EVENTS.RUN_CANCELLED] })
     // Audio
     .register('extractAudio', async () => await P.extractAudio(),       { async: true, events: [VP_EVENTS.AUDIO_START, VP_EVENTS.AUDIO_COMPLETE, VP_EVENTS.STEP_ERROR] })
     // Transcribe

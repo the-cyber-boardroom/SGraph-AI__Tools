@@ -23,5 +23,7 @@ export const VP_EVENTS = Object.freeze({
     YT_CONNECTED:      'vp:youtube:connected', // { expiresAt, fromCache }
     YT_DISCONNECTED:   'vp:youtube:disconnected', // {}
     HANDOFF_RECEIVED:  'vp:handoff-received',  // { sourceTool, filename, byteSize, hasAudioBlob }
+    AUTOPUBLISH_COUNTDOWN: 'vp:autopublish:countdown', // { secondsLeft } — grace window before auto upload
+    RUN_CANCELLED:     'vp:run:cancelled',     // { during: 'recording'|'steps'|'countdown'|'upload' }
     STEP_ERROR:        'vp:step:error',        // { step, code, message }
 });

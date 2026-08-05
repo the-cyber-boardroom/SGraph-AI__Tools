@@ -19,6 +19,7 @@ Panels are sg-layout tabs; all content is in light DOM.
 | Area | Selector | Notes |
 |---|---|---|
 | Record | `#vp-rec-name` `#vp-rec-start` `#vp-rec-pause` `#vp-rec-stop` | Start requires a user gesture (getDisplayMedia) |
+| Auto-publish | `#vp-rec-autopub` (checkbox) `#vp-rec-cancel` (big cancel) | cancel visible while any workflow stage runs |
 | Record status | `#vp-rec-status` | `REC m:ss · x.x MB` while live |
 | Record advanced | `#vp-rec-mode` `#vp-rec-quality` `#vp-rec-layout` | inside `<details>` |
 | Import | `#vp-drop` (`<sg-upload-dropzone>`) `#vp-src-notice` | dispatch `files-selected` or use its hidden input |

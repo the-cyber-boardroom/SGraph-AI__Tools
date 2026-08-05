@@ -31,14 +31,27 @@ function _stepError(step, err, fallbackCode) {
     _ctx.emit(VP_EVENTS.STEP_ERROR, { step, code: err.code || fallbackCode, message: err.message });
 }
 
-/** Auto-advance audio → transcript → metadata. Never reaches publish. */
+/**
+ * Auto-advance audio → transcript → metadata. Never uploads itself.
+ * @returns {Promise<boolean>} true if all three steps completed (the
+ *          auto-publish continuation in the pipeline keys off this).
+ */
 export async function autoRunSteps() {
     try {
         await extractAudio();
-        if (!_ctx.getApiKey()) return;       // no key — stop before billable steps
+        if (state.cancelRequested || !_ctx.getApiKey()) return false;
         await transcribe();
+        if (state.cancelRequested) return false;
         await generateMetadata();
-    } catch (_e) { /* recorded on the step; user can retry from the UI */ }
+        return !state.cancelRequested;
+    } catch (_e) {
+        return false;                        // recorded on the step; user can retry from the UI
+    }
+}
+
+/** Abort any in-flight transcription request (no-op when idle). */
+export function cancelTranscribe() {
+    try { _ctx.transcribeMethods?.cancelItem({ id: 'job-audio' }); } catch (_e) { /* no-op */ }
 }
 
 export async function extractAudio() {

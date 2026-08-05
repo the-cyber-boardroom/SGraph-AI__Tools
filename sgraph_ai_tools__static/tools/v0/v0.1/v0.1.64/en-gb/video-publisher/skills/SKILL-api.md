@@ -4,7 +4,7 @@ Tool name `video-publisher` · API 0.1.0 · `window.__tool` live after
 `tool:ready`. All calls return Promises (SgToolApi). The manifest's `api`
 section is authoritative for the event catalogue.
 
-## Actions (30)
+## Actions (32)
 
 **Record** — thin delegations to `core/sg-recorder` v0.1.0; `tool:record:*`
 events fire unchanged.
@@ -26,6 +26,8 @@ events fire unchanged.
 | `getJob` / `getStatus` | — | full job snapshot (phase, steps, route, metadata, youtube, costs) |
 | `reset` | — | `{ ok }` |
 | `setAutoRun` | `{ enabled }` | `{ autoRun }` |
+| `setAutoPublish` | `{ enabled }` | `{ autoPublish }` — persisted; a completed auto-run then uploads after a 5 s cancellable countdown (silent token path; pauses with `auth-required` if never signed in) |
+| `cancelRun` | — | `{ cancelled, during }` — stops the whole workflow: recording (discarded), steps, countdown, or upload (aborted) |
 
 **Pipeline**
 
@@ -68,7 +70,12 @@ also fire `vp:step:error { step, code, message }`.
 `sg-openrouter-mgmt-key` · `sg-youtube-client-id` ·
 `sg-auth-token-video-publisher` (via sg-auth-tokens, provider
 `video-publisher`) · `sg-video-publisher-privacy` (opt-in remembered
-privacy default).
+privacy default) · `sg-video-publisher-autopublish` (opt-in two-click
+publish).
+
+Key events for the auto flow: `vp:autopublish:countdown { secondsLeft }`
+(each second of the grace window; 0 = upload starting) and
+`vp:run:cancelled { during }`.
 
 ## End-to-end run
 

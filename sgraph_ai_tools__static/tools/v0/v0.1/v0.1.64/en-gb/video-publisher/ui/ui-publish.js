@@ -81,6 +81,11 @@ export function initPublishTab(container, state, api, emit) {
         statusEl.textContent = 'Uploaded successfully.';
         refresh();
     });
+    window.addEventListener(VP_EVENTS.RUN_CANCELLED, () => {
+        progressEl.hidden = true;
+        statusEl.textContent = 'Cancelled — nothing was published.';
+        refresh();
+    });
     for (const ev of [VP_EVENTS.YT_CONNECTED, VP_EVENTS.YT_DISCONNECTED, VP_EVENTS.JOB_LOADED,
                       VP_EVENTS.METADATA_COMPLETE, VP_EVENTS.STEP_CHANGED, VP_EVENTS.JOB_RESET]) {
         window.addEventListener(ev, refresh);

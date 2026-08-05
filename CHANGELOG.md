@@ -16,6 +16,8 @@ All notable changes to `sgraph_ai_tools__static` are documented here.
 - **`sg-pipeline-steps` component** (`components/sg-pipeline-steps/v0/v0.1/v0.1.0/`) — generic pipeline-spine step rows (status icons, info slot, re-run intent), shadow DOM with js/html/css as sibling files via `SgComponent`. video-publisher's Steps panel is the first consumer (`ui-steps.js` shrinks to a ~65-line adapter).
 
 ### Changed (post-first-use feedback, same day)
+- **video-publisher: two-click publish (auto-publish mode)** — opt-in Record-tab toggle (persisted `sg-video-publisher-autopublish`): a completed auto-run continues straight into the YouTube upload after a **5-second cancellable countdown**, using the remembered privacy default and the silent token path (pauses with `auth-required` if YouTube was never signed in). Start → Stop is the whole workflow.
+- **video-publisher: big Cancel** — `✖ Cancel — stop the whole workflow` button in the Record tab, visible at every running stage; `cancelRun` API action stops recording (discards it), in-flight transcription (engine `cancelItem`), the countdown, or the upload itself (AbortController through the upload core). New events `vp:autopublish:countdown` / `vp:run:cancelled`; 32 actions total.
 - **video-publisher: Preview tab** — the loaded video now plays in a dedicated 🎬 Preview tab (auto-focused when a recording/import/handoff lands) instead of rendering inside the Import tab; Import is back to just the dropzone + handoff notice.
 - **video-publisher: remembered privacy default** — privacy still defaults to unlisted, but a Metadata-tab checkbox ("Remember this privacy as my default") persists the choice in `localStorage['sg-video-publisher-privacy']`; new `setDefaultPrivacy` API action (30 total).
 
