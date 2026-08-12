@@ -19,6 +19,8 @@ export function initPublishTab(container, state, api, emit) {
         <div id="vp-pub-summary" class="vp-muted">Load a video and set a title first.</div>
         <button id="vp-pub-upload" class="vp-btn vp-btn--primary" disabled>⬆ Upload to YouTube</button>
         <progress id="vp-pub-progress" class="vp-progress" max="100" value="0" hidden></progress>
+        <button id="vp-pub-download" class="vp-btn vp-btn--big" disabled>⬇ Download video</button>
+        <div class="vp-muted">Grab the file to publish elsewhere too — e.g. LinkedIn.</div>
         <div id="vp-pub-result" class="vp-result" hidden>
           <a id="vp-pub-link" target="_blank" rel="noopener"></a>
           <button id="vp-pub-copy" class="vp-btn vp-btn--mini">Copy</button>
@@ -31,8 +33,15 @@ export function initPublishTab(container, state, api, emit) {
     const uploadBtn = $('#vp-pub-upload'), progressEl = $('#vp-pub-progress');
     const resultEl = $('#vp-pub-result'), linkEl = $('#vp-pub-link'), statusEl = $('#vp-pub-status');
 
+    const downloadBtn = $('#vp-pub-download');
+    downloadBtn.addEventListener('click', () => { api.downloadVideo().catch(() => {}); });
+
     function refresh() {
         const yt = state.youtube;
+        downloadBtn.disabled = !state.videoBlob;
+        if (state.videoBlob) {
+            downloadBtn.textContent = `⬇ Download video (${(state.videoBlob.size / (1024 * 1024)).toFixed(1)} MB)`;
+        }
         chip.textContent = yt.connected
             ? `● ${yt.channel?.title || 'Connected'}`
             : '○ Not connected';

@@ -145,6 +145,23 @@ export function reset() {
     _emit(VP_EVENTS.JOB_RESET, {});
 }
 
+/**
+ * Download the loaded video to disk (e.g. to also publish it on LinkedIn).
+ * Browser-native anchor download of the in-memory blob — no re-encode.
+ * @returns {{ filename: string, byteSize: number }}
+ */
+export function downloadVideo() {
+    if (!state.videoBlob) throw new Error('No video loaded.');
+    const ext  = (state.videoBlob.type || '').includes('mp4') ? 'mp4' : 'webm';
+    const name = (state.filename || 'recording').replace(/\.[^.]+$/, '') + '.' + ext;
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(state.videoBlob);
+    a.download = name;
+    a.click();
+    setTimeout(() => URL.revokeObjectURL(a.href), 10_000);
+    return { filename: name, byteSize: state.videoBlob.size };
+}
+
 // ── Recording (thin delegation to core/sg-recorder) ──────────────────────────
 
 export function setRecordConfig({ mode, quality, layout, recordingMode, recordingName } = {}) {

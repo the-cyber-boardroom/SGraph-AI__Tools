@@ -96,6 +96,7 @@ api
     .register('disconnectYouTube', () => { YT.disconnect({ emit }); return { ok: true }; },
         { async: false, events: [VP_EVENTS.YT_DISCONNECTED] })
     .register('getMyChannel', async () => await YT.getMyChannel({ emit }), { async: true })
+    .register('downloadVideo', () => P.downloadVideo(),                 { async: false })
     .register('upload',       async () => await P.upload(),             { async: true, events: [VP_EVENTS.UPLOAD_START, VP_EVENTS.UPLOAD_PROGRESS, VP_EVENTS.UPLOAD_COMPLETE, VP_EVENTS.STEP_ERROR] })
     .register('publish',      async (p = {}) => await P.publish(p),     { async: true, events: [VP_EVENTS.UPLOAD_COMPLETE, VP_EVENTS.STEP_ERROR] })
     // Standard

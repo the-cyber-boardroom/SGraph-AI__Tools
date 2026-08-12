@@ -37,7 +37,7 @@ const EXPECTED_ACTIONS = [
     'extractAudio', 'transcribe', 'getTranscript', 'listModels', 'setApiKey',
     'generateMetadata', 'setMetadata', 'getMetadata', 'setDefaultPrivacy', 'getCostSummary',
     'setClientId', 'connectYouTube', 'disconnectYouTube', 'getMyChannel',
-    'upload', 'publish', 'getStatus', 'health',
+    'downloadVideo', 'upload', 'publish', 'getStatus', 'health',
 ];
 
 let passed = 0, failed = 0;
@@ -100,7 +100,7 @@ async function run() {
             'all four steps idle');
 
         // [5] panels rendered
-        for (const sel of ['#vp-rec-start', '#vp-rec-autopub', '#vp-rec-cancel', '#vp-rec-layout-seg .vp-seg__btn--active[data-layout="landscape"]', '#vp-drop', '#vp-prev-player', 'sg-pipeline-steps .sgps-step[data-step="audio"]', '#vp-md-title', '#vp-md-model', '#vp-md-remember', '#vp-pub-upload', '#vp-acc-or-key']) {
+        for (const sel of ['#vp-rec-start', '#vp-rec-autopub', '#vp-rec-cancel', '#vp-rec-layout-seg .vp-seg__btn--active[data-layout="landscape"]', '#vp-drop', '#vp-prev-player', 'sg-pipeline-steps .sgps-step[data-step="audio"]', '#vp-md-title', '#vp-md-model', '#vp-md-remember', '#vp-pub-upload', '#vp-pub-download', '#vp-acc-or-key']) {
             assert(await page.$(sel) !== null, `panel element present: ${sel}`);
         }
 
