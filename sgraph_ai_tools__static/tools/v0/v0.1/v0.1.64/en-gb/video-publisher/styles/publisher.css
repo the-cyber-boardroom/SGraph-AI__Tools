@@ -38,6 +38,24 @@ label > .vp-input { margin-top: 4px; width: 100%; box-sizing: border-box; }
 
 .vp-preview { width: 100%; border-radius: 8px; background: #000; max-height: 220px; }
 
+/* Layout picker — big, always visible, current choice unmissable */
+.vp-seg { display: flex; gap: 8px; }
+.vp-seg__btn {
+    flex: 1; display: flex; flex-direction: column; align-items: center; gap: 2px;
+    padding: 10px 6px; cursor: pointer; font: inherit;
+    background: #131327; color: #94a3b8;
+    border: 2px solid #2d2d4a; border-radius: 10px;
+}
+.vp-seg__btn:hover { border-color: #14b8a6; }
+.vp-seg__icon  { font-size: 1.4rem; }
+.vp-seg__label { font-weight: 700; font-size: 0.9rem; }
+.vp-seg__sub   { font-size: 0.72rem; }
+.vp-seg__btn--active {
+    background: #0f2e2b; border-color: #14b8a6; color: #5eead4;
+    box-shadow: 0 0 0 1px #14b8a6 inset;
+}
+.vp-seg__btn--active .vp-seg__label { color: #e2e8f0; }
+
 .vp-advanced summary { cursor: pointer; color: #94a3b8; font-size: 0.85rem; }
 .vp-advanced label { display: block; margin-top: 8px; }
 

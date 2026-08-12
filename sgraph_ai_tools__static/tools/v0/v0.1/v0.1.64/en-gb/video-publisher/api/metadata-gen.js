@@ -6,7 +6,18 @@
  * @module metadata-gen
  */
 
-import { DEFAULT_MODEL } from '/core/sg-transcribe/v0/v0.1/v0.1.0/audio-models.js';
+/**
+ * Curated metadata/description models (the audio-transcribe chat set).
+ * Sonnet default — it writes noticeably better descriptions than the flash
+ * tiers; the transcription default (gemini flash) stays cheap separately.
+ */
+export const METADATA_MODELS = [
+    { id: 'anthropic/claude-sonnet-4-6',   label: 'Claude Sonnet 4.6 (best descriptions)' },
+    { id: 'google/gemini-3.5-flash',       label: 'Gemini 3.5 Flash (fast + cheap)' },
+    { id: 'anthropic/claude-haiku-4.5',    label: 'Claude Haiku 4.5' },
+    { id: 'google/gemini-3.1-flash-lite',  label: 'Gemini 3.1 Flash Lite' },
+];
+export const METADATA_DEFAULT_MODEL = METADATA_MODELS[0].id;
 
 const SYSTEM_PROMPT = [
     'You write YouTube upload metadata from a video transcript.',
@@ -35,7 +46,7 @@ export async function generateMetadata({ sendToLlm, fetchCost, onCost }, params 
     const transcript = (params.transcript || '').trim();
     if (!transcript) throw Object.assign(new Error('No transcript to generate metadata from'), { code: 'no-transcript' });
 
-    const model = params.model || DEFAULT_MODEL;
+    const model = params.model || METADATA_DEFAULT_MODEL;
     const messages = [
         { role: 'system', content: `${SYSTEM_PROMPT}\n\nTRANSCRIPT:\n${transcript}` },
         { role: 'user',   content: params.guidance
