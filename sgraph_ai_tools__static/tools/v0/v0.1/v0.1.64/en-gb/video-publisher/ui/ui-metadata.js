@@ -7,6 +7,7 @@
 
 import { VP_EVENTS } from '../api/publisher-events.js';
 import { getStoredPrivacy } from '../api/publisher-pipeline.js';
+import { METADATA_MODELS } from '../api/metadata-gen.js';
 
 export function initMetadataTab(container, state, api, emit) {
     if (!container) return;
@@ -14,6 +15,9 @@ export function initMetadataTab(container, state, api, emit) {
       <div class="vp-metadata">
         <div class="vp-row">
           <button id="vp-md-generate" class="vp-btn vp-btn--primary">✨ Generate from transcript</button>
+          <select id="vp-md-model" class="vp-input" title="Model used to write the title/description">
+            ${METADATA_MODELS.map((m, i) => `<option value="${m.id}" ${i === 0 ? 'selected' : ''}>${m.label}</option>`).join('')}
+          </select>
           <span id="vp-md-cost" class="vp-muted"></span>
         </div>
         <div class="vp-row">
@@ -76,9 +80,15 @@ export function initMetadataTab(container, state, api, emit) {
         api.setDefaultPrivacy({ privacy: rememberEl.checked ? privacyEl.value : null });
     });
 
-    $('#vp-md-generate').addEventListener('click', () => api.generateMetadata().catch(() => {}));
+    const modelEl = $('#vp-md-model');
+    $('#vp-md-generate').addEventListener('click', () => {
+        api.generateMetadata({ model: modelEl.value }).catch(() => {});
+    });
     $('#vp-md-regen').addEventListener('click', () => {
-        api.generateMetadata({ guidance: $('#vp-md-guidance').value.trim() || undefined }).catch(() => {});
+        api.generateMetadata({
+            model: modelEl.value,
+            guidance: $('#vp-md-guidance').value.trim() || undefined,
+        }).catch(() => {});
     });
 
     window.addEventListener(VP_EVENTS.METADATA_START, () => { statusEl.textContent = 'Generating…'; });

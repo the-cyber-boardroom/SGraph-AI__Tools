@@ -8,12 +8,11 @@
  * @module publisher-steps
  */
 
-import { DEFAULT_MODEL } from '/core/sg-transcribe/v0/v0.1/v0.1.0/audio-models.js';
 import { state } from './publisher-state.js';
 import { itemStore } from './transcribe-store.js';
 import { VP_EVENTS } from './publisher-events.js';
 import { routeAudio } from './audio-router.js';
-import { generateMetadata as genMeta } from './metadata-gen.js';
+import { generateMetadata as genMeta, METADATA_DEFAULT_MODEL } from './metadata-gen.js';
 
 let _ctx = { emit: () => {}, getApiKey: () => '', sendToLlm: null, transcribeMethods: null };
 
@@ -94,7 +93,7 @@ export async function transcribe({ model } = {}) {
 export async function generateMetadata({ guidance, model } = {}) {
     if (!state.transcript) throw Object.assign(new Error('No transcript yet.'), { code: 'no-transcript' });
     setStep('metadata', 'running');
-    _ctx.emit(VP_EVENTS.METADATA_START, { model: model || DEFAULT_MODEL });
+    _ctx.emit(VP_EVENTS.METADATA_START, { model: model || METADATA_DEFAULT_MODEL });
     try {
         const r = await genMeta(
             { sendToLlm: _ctx.sendToLlm, onCost: e => itemStore.addAuxCost(e) },

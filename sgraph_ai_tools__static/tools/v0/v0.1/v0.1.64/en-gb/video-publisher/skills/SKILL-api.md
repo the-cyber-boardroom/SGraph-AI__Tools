@@ -38,7 +38,7 @@ events fire unchanged.
 | `getTranscript` | — | `{ text }` |
 | `listModels` | — | curated model list (audio-transcribe's) |
 | `setApiKey` | `{ apiKey, model? }` | `{ ok }` (persists `sg-openrouter-mgmt-key`) |
-| `generateMetadata` | `{ guidance?, model? }` | `{ title, description, tags, costUsd }` |
+| `generateMetadata` | `{ guidance?, model? }` | `{ title, description, tags, costUsd }` — default model `anthropic/claude-sonnet-4-6` (curated list: `METADATA_MODELS` in metadata-gen.js; transcription keeps its own cheaper default) |
 | `setMetadata` | `{ title?, description?, tags?, privacy? }` | metadata |
 | `getMetadata` | — | metadata |
 | `setDefaultPrivacy` | `{ privacy: 'public'\|'unlisted'\|'private'\|null }` | `{ stored }` — persists a remembered default (null clears; tool default stays unlisted) |

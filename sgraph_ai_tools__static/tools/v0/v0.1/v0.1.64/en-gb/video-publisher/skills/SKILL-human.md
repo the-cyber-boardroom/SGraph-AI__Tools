@@ -8,14 +8,19 @@ youtube-editor) — the video never leaves the page between steps.
 
 ## The 5-interaction walkthrough
 
-1. **Record** — click *● Start recording* (defaults: screen + camera PiP +
-   mic, 2.5 Mbps, landscape). Pick the screen/tab to share. Talk.
+1. **Record** — pick the layout with the big buttons (🖥 Landscape /
+   📱 Vertical Shorts / 📊 Infographic — the active one is highlighted and
+   locked once recording starts), then click *● Start recording*
+   (defaults: screen + camera PiP + mic, 2.5 Mbps). Pick the screen/tab to
+   share. Talk.
 2. **Stop** — click *■ Stop*. The recording opens in the *Preview* tab so
    you can watch it back, while the pipeline runs on its own: audio is taken
    from the separate audio stream (free), transcribed via OpenRouter, and a
    title/description/tags are generated. Watch the Steps panel.
 3. **Review** — tweak the title/description in the *Metadata* tab if needed
    (or click *↺ Regenerate* with guidance like "shorter, more emojis").
+   Descriptions are written by **Claude Sonnet 4.6** by default — the model
+   picker next to Generate offers cheaper/faster options.
    Privacy defaults to *Unlisted*; if you always publish public, pick
    *Public* and tick **Remember this privacy as my default** — the choice is
    saved in this browser and pre-selected from then on.

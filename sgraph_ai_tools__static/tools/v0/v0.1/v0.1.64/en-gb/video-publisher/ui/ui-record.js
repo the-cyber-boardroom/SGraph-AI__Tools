@@ -17,7 +17,11 @@ const MODES = [
     ['screen',              'Screen only'],
 ];
 const QUALITIES = [[1_000_000, '1 Mbps'], [2_500_000, '2.5 Mbps'], [5_000_000, '5 Mbps']];
-const LAYOUTS   = [['landscape', 'Landscape'], ['shorts', 'Vertical (Shorts 9:16)'], ['infographic', 'Infographic (tall tab)']];
+const LAYOUTS   = [
+    ['landscape',   '🖥', 'Landscape',         '16:9 · YouTube standard'],
+    ['shorts',      '📱', 'Vertical (Shorts)', '9:16 · 1080×1920'],
+    ['infographic', '📊', 'Infographic',       'tall shared tab'],
+];
 
 export function initRecordTab(container, state, api, emit) {
     if (!container) return;
@@ -29,17 +33,24 @@ export function initRecordTab(container, state, api, emit) {
           <button id="vp-rec-pause" class="vp-btn" hidden>⏸ Pause</button>
           <button id="vp-rec-stop"  class="vp-btn vp-btn--danger" disabled>■ Stop</button>
         </div>
+        <div class="vp-seg" id="vp-rec-layout-seg" role="group" aria-label="Recording layout">
+          ${LAYOUTS.map(([v, icon, label, sub], i) => `
+            <button type="button" class="vp-seg__btn${i === 0 ? ' vp-seg__btn--active' : ''}" data-layout="${v}">
+              <span class="vp-seg__icon">${icon}</span>
+              <span class="vp-seg__label">${label}</span>
+              <span class="vp-seg__sub">${sub}</span>
+            </button>`).join('')}
+        </div>
         <label class="vp-check">
           <input id="vp-rec-autopub" type="checkbox">
           <span>🚀 Auto-publish after recording — <span id="vp-rec-autopub-detail"></span></span>
         </label>
         <button id="vp-rec-cancel" class="vp-btn vp-btn--danger vp-btn--big" hidden>✖ Cancel — stop the whole workflow</button>
-        <div id="vp-rec-status" class="vp-muted">Screen + camera + mic · 2.5 Mbps · landscape · separate audio stream kept for free transcription</div>
+        <div id="vp-rec-status" class="vp-muted"></div>
         <video id="vp-rec-preview" class="vp-preview" autoplay muted playsinline hidden></video>
         <details class="vp-advanced"><summary>Advanced</summary>
           <label>Mode <select id="vp-rec-mode" class="vp-input">${MODES.map(([v, l]) => `<option value="${v}">${l}</option>`).join('')}</select></label>
           <label>Quality <select id="vp-rec-quality" class="vp-input">${QUALITIES.map(([v, l]) => `<option value="${v}" ${v === 2_500_000 ? 'selected' : ''}>${l}</option>`).join('')}</select></label>
-          <label>Layout <select id="vp-rec-layout" class="vp-input">${LAYOUTS.map(([v, l]) => `<option value="${v}">${l}</option>`).join('')}</select></label>
         </details>
       </div>`;
 
@@ -64,6 +75,26 @@ export function initRecordTab(container, state, api, emit) {
     cancelBtn.addEventListener('click', () => { cancelBtn.disabled = true; api.cancelRun(); });
     const showCancel = show => { cancelBtn.hidden = !show; cancelBtn.disabled = false; };
 
+    // Layout: big always-visible segmented buttons — a wrong aspect ratio
+    // ruins a take, so the current choice must be unmissable.
+    const layoutSeg = $('#vp-rec-layout-seg');
+    let currentLayout = 'landscape';
+    function idleStatus() {
+        const l = LAYOUTS.find(x => x[0] === currentLayout);
+        statusEl.textContent = `Screen + camera + mic · 2.5 Mbps · ${l ? l[2] : currentLayout} · separate audio stream kept for free transcription`;
+    }
+    layoutSeg.addEventListener('click', async e => {
+        const btn = e.target.closest('[data-layout]');
+        if (!btn || startedAt) return;                    // locked while recording
+        currentLayout = btn.dataset.layout;
+        for (const b of layoutSeg.querySelectorAll('[data-layout]')) {
+            b.classList.toggle('vp-seg__btn--active', b === btn);
+        }
+        await api.setRecordConfig({ layout: currentLayout });
+        idleStatus();
+    });
+    idleStatus();
+
     // Publishing sweet spot defaults (Decision 4 / part 3 of the brief).
     api.setRecordConfig({ mode: 'camera+screen+audio', quality: 2_500_000, layout: 'landscape', recordingMode: 'combined+separate' });
 
@@ -75,7 +106,7 @@ export function initRecordTab(container, state, api, emit) {
     startBtn.addEventListener('click', async () => {
         await api.setRecordConfig({
             mode: $('#vp-rec-mode').value, quality: Number($('#vp-rec-quality').value),
-            layout: $('#vp-rec-layout').value, recordingMode: 'combined+separate',
+            layout: currentLayout, recordingMode: 'combined+separate',
             recordingName: nameEl.value.trim(),
         });
         startBtn.disabled = true;
