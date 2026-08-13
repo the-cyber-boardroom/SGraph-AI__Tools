@@ -1,0 +1,15 @@
+{
+  "name": "whatsapp-bridge",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Local companion-device bridge for WhatsApp Desk Bridge mode (unofficial; expendable-number use only).",
+  "scripts": {
+    "start": "node src/server.js",
+    "start:mock": "node src/server.js --mock",
+    "test": "node tests/handlers.test.mjs"
+  },
+  "dependencies": {
+    "@whiskeysockets/baileys": "^6.7.0"
+  }
+}
