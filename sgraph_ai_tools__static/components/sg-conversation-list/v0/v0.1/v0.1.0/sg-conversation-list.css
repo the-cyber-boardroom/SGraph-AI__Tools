@@ -1,0 +1,35 @@
+/* sg-conversation-list — conversation rows (dark tools family) */
+
+:host { display: block; color: #e2e8f0; font-size: 0.9rem; }
+
+.sgcl-empty { color: #64748b; font-size: 0.85rem; padding: 10px; }
+.sgcl-list { display: flex; flex-direction: column; gap: 6px; }
+
+.sgcl-row {
+    display: flex; align-items: center; justify-content: space-between; gap: 8px;
+    padding: 8px 10px; border: 1px solid #2d2d4a; border-radius: 8px;
+    cursor: pointer;
+}
+.sgcl-row:hover { border-color: #14b8a6; }
+.sgcl-row--active { background: #0f2e2b; border-color: #14b8a6; }
+
+.sgcl-main { min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.sgcl-name { font-weight: 600; }
+.sgcl-snippet {
+    color: #94a3b8; font-size: 0.8rem;
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 220px;
+}
+
+.sgcl-side { display: flex; align-items: center; gap: 6px; flex-shrink: 0; }
+
+.sgcl-chip {
+    font-size: 0.72rem; padding: 2px 8px; border-radius: 999px; border: 1px solid #2d2d4a;
+}
+.sgcl-chip--ok    { color: #5eead4; border-color: #14524b; }
+.sgcl-chip--warn  { color: #fbbf24; border-color: #4d3d1a; }
+.sgcl-chip--muted { color: #94a3b8; }
+
+.sgcl-unread {
+    background: #0d9488; color: #fff; font-size: 0.72rem; font-weight: 700;
+    border-radius: 999px; min-width: 1.5em; text-align: center; padding: 2px 6px;
+}
