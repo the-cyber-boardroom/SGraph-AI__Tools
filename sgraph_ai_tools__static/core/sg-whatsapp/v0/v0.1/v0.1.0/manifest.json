@@ -1,0 +1,13 @@
+{
+  "name": "sg-whatsapp",
+  "version": "0.1.0",
+  "description": "Meta WhatsApp Cloud API engine: Graph client (send text/template/media, media up/download, mark-read, templates) with injectable fetch, webhook-payload normalizer, relay pull client, frozen WA_EVENTS contract, and typed Graph-error classification. Pure JS, no DOM. MOCK-VERIFIED ONLY until Phase-0 live probes run (browser CORS on graph.facebook.com and the media CDN are assumptions; baseUrl is overridable to a relay proxy if they fail).",
+  "note": "Consumers: whatsapp-desk tool (Tier 1), the future whatsapp_relay Tier-2 responder. Event names and detail shapes in sg-whatsapp-events.js are frozen.",
+  "exports": {
+    "sg-whatsapp-api.js": ["GRAPH_VERSION", "GRAPH_BASE", "WhatsAppApi"],
+    "sg-whatsapp-parse.js": ["parseWebhookPayload", "windowExpiry"],
+    "sg-whatsapp-relay.js": ["RelayClient"],
+    "sg-whatsapp-events.js": ["WA_EVENTS"],
+    "sg-whatsapp-errors.js": ["WA_ERROR_CODES", "classifyGraphError"]
+  }
+}
