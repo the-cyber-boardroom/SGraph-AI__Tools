@@ -35,6 +35,20 @@ export function initAccounts(container, state, api, emit) {
           </div>
           <div class="wa-muted">Deploy: see <code>whatsapp_relay/README.md</code>. Inbound needs it; outbound doesn't.</div>
         </div>
+        <div class="wa-account wa-account--bridge">
+          <span id="wa-acc-bridge-chip" class="wa-chip">○ Bridge (companion)</span>
+          <div class="wa-muted">⚠️ Unofficial companion link (like an iPad). <b>Expendable number only</b> — ban risk is on that number, never your phone apps. See <code>whatsapp_bridge/README.md</code>.</div>
+          <div class="wa-row">
+            <input id="wa-acc-bridge-url"   class="wa-input" type="text" placeholder="http://127.0.0.1:8787" autocomplete="off">
+            <input id="wa-acc-bridge-token" class="wa-input" type="password" placeholder="Bridge token" autocomplete="off">
+          </div>
+          <div class="wa-row">
+            <button id="wa-acc-bridge-save"    class="wa-btn wa-btn--mini">Save</button>
+            <button id="wa-acc-bridge-connect" class="wa-btn wa-btn--mini">Connect (Bridge)</button>
+            <span id="wa-acc-bridge-status" class="wa-muted"></span>
+          </div>
+          <div id="wa-acc-bridge-qr" class="wa-muted" hidden></div>
+        </div>
         <div class="wa-account">
           <span id="wa-acc-or-chip" class="wa-chip">○ OpenRouter</span>
           <div class="wa-row">
@@ -61,6 +75,11 @@ export function initAccounts(container, state, api, emit) {
         relayChip.textContent = state.relayOk ? '● Relay' : (c.relayUrl ? '◐ Relay (saved)' : '○ Relay');
         relayChip.classList.toggle('wa-chip--on', state.relayOk);
         if (c.relayUrl) $('#wa-acc-relay-url').placeholder = c.relayUrl;
+        const bridgeChip = $('#wa-acc-bridge-chip');
+        const bridgeOn = state.connected && state.mode === 'bridge';
+        bridgeChip.textContent = bridgeOn ? `● Bridge${state.verifiedName ? ` · ${state.verifiedName}` : ''}` : (c.bridgeUrl ? '◐ Bridge (saved)' : '○ Bridge (companion)');
+        bridgeChip.classList.toggle('wa-chip--on', bridgeOn);
+        if (c.bridgeUrl) $('#wa-acc-bridge-url').placeholder = c.bridgeUrl;
         const orChip = $('#wa-acc-or-chip');
         const hasKey = !!getOpenRouterKey();
         orChip.textContent = hasKey ? '● OpenRouter' : '○ OpenRouter';
@@ -92,6 +111,31 @@ export function initAccounts(container, state, api, emit) {
             relayToken: $('#wa-acc-relay-token').value.trim() || undefined,
         });
         $('#wa-acc-relay-token').value = '';
+        refresh();
+    });
+
+    $('#wa-acc-bridge-save').addEventListener('click', async () => {
+        await api.setCreds({
+            bridgeUrl: $('#wa-acc-bridge-url').value.trim() || undefined,
+            bridgeToken: $('#wa-acc-bridge-token').value.trim() || undefined,
+        });
+        $('#wa-acc-bridge-token').value = '';
+        refresh();
+    });
+
+    const bridgeQr = $('#wa-acc-bridge-qr');
+    const bridgeStatusEl = $('#wa-acc-bridge-status');
+    $('#wa-acc-bridge-connect').addEventListener('click', async () => {
+        bridgeStatusEl.textContent = 'connecting…';
+        try {
+            const r = await api.connectBridge();
+            if (r.linked) { bridgeStatusEl.textContent = `linked${r.me?.id ? ` · ${r.me.id}` : ''}`; bridgeQr.hidden = true; }
+            else {
+                bridgeStatusEl.textContent = 'scan the QR in the terminal running the bridge';
+                bridgeQr.hidden = false;
+                bridgeQr.textContent = 'The bridge process prints the QR — scan it with WhatsApp → Linked Devices. Re-click Connect once linked.';
+            }
+        } catch (err) { bridgeStatusEl.textContent = err.message; }
         refresh();
     });
 

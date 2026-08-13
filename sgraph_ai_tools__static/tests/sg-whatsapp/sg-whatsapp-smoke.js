@@ -11,6 +11,7 @@
 import { WhatsAppApi, GRAPH_BASE } from '../../core/sg-whatsapp/v0/v0.1/v0.1.0/sg-whatsapp-api.js';
 import { parseWebhookPayload, windowExpiry } from '../../core/sg-whatsapp/v0/v0.1/v0.1.0/sg-whatsapp-parse.js';
 import { RelayClient } from '../../core/sg-whatsapp/v0/v0.1/v0.1.0/sg-whatsapp-relay.js';
+import { BridgeClient } from '../../core/sg-whatsapp/v0/v0.1/v0.1.0/sg-whatsapp-bridge.js';
 import { classifyGraphError } from '../../core/sg-whatsapp/v0/v0.1/v0.1.0/sg-whatsapp-errors.js';
 
 let passed = 0, failed = 0;
@@ -128,6 +129,23 @@ const run = async () => {
         const relay = new RelayClient({ url: 'https://relay.example', token: 'bad', fetchImpl });
         try { await relay.pull(); throw new Error('should have thrown'); }
         catch (e) { assert(e.code === 'relay-auth', `got ${e.code}`); }
+    });
+
+    await test('BridgeClient.pull normalizes + advances cursor', async () => {
+        const events = [{ kind: 'message', conversationId: '4477', messageId: 'b1', direction: 'in', type: 'text', text: 'hi', timestamp: 1 }];
+        const { fetchImpl, calls } = makeFetch([{ status: 200, body: { events, cursor: '1' } }]);
+        const bridge = new BridgeClient({ url: 'http://127.0.0.1:8787/', token: 'BT', fetchImpl });
+        const r = await bridge.pull('0');
+        assert(r.events.length === 1 && r.cursor === '1');
+        assert(calls[0].url === 'http://127.0.0.1:8787/pull?since=0', 'trailing slash stripped');
+        assert(calls[0].opts.headers.Authorization === 'Bearer BT');
+    });
+
+    await test('BridgeClient 401 → bridge-auth typed error', async () => {
+        const { fetchImpl } = makeFetch([{ status: 401, body: {} }]);
+        const bridge = new BridgeClient({ url: 'http://127.0.0.1:8787', token: 'bad', fetchImpl });
+        try { await bridge.status(); throw new Error('should have thrown'); }
+        catch (e) { assert(e.code === 'bridge-auth', `got ${e.code}`); }
     });
 
     console.log(`\n${passed} passed, ${failed} failed\n`);

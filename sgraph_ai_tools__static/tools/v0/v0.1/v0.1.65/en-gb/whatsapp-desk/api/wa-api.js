@@ -32,7 +32,7 @@ Voice.bootVoice({ emit });
 
 function getStatus() {
     return {
-        connected: state.connected, demo: state.demo,
+        connected: state.connected, mode: state.mode, demo: state.demo,
         displayNumber: state.displayNumber, verifiedName: state.verifiedName,
         relayOk: state.relayOk, cursor: state.cursor,
         conversations: state.conversations.size,
@@ -58,7 +58,7 @@ async function downloadMedia({ messageId }) {
     if (!message) throw Object.assign(new Error(`Unknown message: ${messageId}`), { code: 'wa-error' });
     const { blob, mimeType } = message.demoBlob
         ? { blob: message.demoBlob, mimeType: message.mimeType }
-        : await P.getApi().fetchMedia(message.mediaId);
+        : await P.fetchMedia(message.id, message.mediaId);
     const a = document.createElement('a');
     a.href = URL.createObjectURL(blob);
     a.download = `${messageId}.${(mimeType || '').split('/')[1]?.split(';')[0] || 'bin'}`;
@@ -71,7 +71,9 @@ api
     // Account
     .register('setCreds',   (p = {}) => P.setCreds(p), { async: false,
         sanitiseParams: p => ({ ...p, token: p.token ? '••••' : undefined, relayToken: p.relayToken ? '••••' : undefined }) })
-    .register('connect',    async () => await P.connect(),      { async: true,  events: [WA_EVENTS.CONNECTED, WA_EVENTS.ERROR] })
+    .register('connect',       async () => await P.connect(),       { async: true,  events: [WA_EVENTS.CONNECTED, WA_EVENTS.ERROR] })
+    .register('connectBridge', async () => await P.connectBridge(), { async: true,  events: [WA_EVENTS.CONNECTED, WA_EVENTS.ERROR] })
+    .register('bridgeStatus',  async () => await P.bridgeStatus(),  { async: true })
     .register('disconnect', () => { P.disconnect(); return { ok: true }; }, { async: false, events: [WA_EVENTS.DISCONNECTED] })
     .register('setOpenRouterKey', ({ apiKey }) => { Voice.setOpenRouterKey(apiKey); return { ok: true }; },
         { async: false, sanitiseParams: p => ({ ...p, apiKey: '••••' }) })

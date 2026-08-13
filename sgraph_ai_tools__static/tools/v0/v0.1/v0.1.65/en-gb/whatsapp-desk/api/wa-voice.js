@@ -13,7 +13,7 @@ import { fetchGenerationCostDeferred } from '/core/sg-transcribe/v0/v0.1/v0.1.0/
 import { DEFAULT_MODEL } from '/core/sg-transcribe/v0/v0.1/v0.1.0/audio-models.js';
 import { WA_EVENTS } from '/core/sg-whatsapp/v0/v0.1/v0.1.0/sg-whatsapp-events.js';
 import { state, getConversation } from './wa-state.js';
-import { getApi } from './wa-pipeline.js';
+import { fetchMedia as sourceFetchMedia } from './wa-pipeline.js';
 
 export const KEY_STORAGE = 'sg-openrouter-mgmt-key';   // shared across the tools family
 
@@ -87,10 +87,11 @@ export async function transcribeVoiceNote({ messageId, model } = {}) {
     if (message.type !== 'audio') throw Object.assign(new Error('Not an audio message.'), { code: 'wa-error' });
     if (!getOpenRouterKey()) throw Object.assign(new Error('No OpenRouter key set (Accounts).'), { code: 'key-missing' });
 
-    // Demo messages carry their blob directly; live ones fetch from Meta.
+    // Demo messages carry their blob directly; live ones fetch via the active
+    // source (Cloud API media id, or the bridge by message id).
     const { blob, mimeType } = message.demoBlob
         ? { blob: message.demoBlob, mimeType: message.mimeType }
-        : await getApi().fetchMedia(message.mediaId);
+        : await sourceFetchMedia(message.id, message.mediaId);
 
     const ext  = (mimeType || '').includes('ogg') ? 'ogg' : 'bin';
     const name = `${messageId}.${ext}`;

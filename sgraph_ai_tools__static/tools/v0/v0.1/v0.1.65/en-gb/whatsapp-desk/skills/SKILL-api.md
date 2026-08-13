@@ -5,12 +5,14 @@ All calls return Promises (SgToolApi). **Drafts never send; `sendText` /
 `sendTemplate` are the only sending actions** (brief Decision 5). Demo mode
 (`loadDemo`) keeps every send local.
 
-## Actions (22)
+## Actions (24)
 
 | Action | Params | Returns / notes |
 |---|---|---|
-| `setCreds` | `{ token?, phoneNumberId?, wabaId?, relayUrl?, relayToken? }` | persists (localStorage); secrets masked in logs |
-| `connect` | — | validates live (`GET` phone number) → `{ displayNumber, verifiedName, relay }`; arms the 10s visible-tab poll when relay configured |
+| `setCreds` | `{ token?, phoneNumberId?, wabaId?, relayUrl?, relayToken?, bridgeUrl?, bridgeToken? }` | persists (localStorage); secrets masked in logs |
+| `connect` | — | **Cloud API mode**: validates live (`GET` phone number) → `{ displayNumber, verifiedName, relay }`; arms the 10s poll when relay configured |
+| `connectBridge` | — | **Bridge mode** (companion, unofficial, expendable number): `{ mode:'bridge', linked, qr, me }`; polls the local whatsapp_bridge; no 24h window |
+| `bridgeStatus` | — | `{ linked, qr, me }` — poll while the user scans the QR |
 | `disconnect` | — | `{ ok }` — clears state, keeps stored creds |
 | `setOpenRouterKey` | `{ apiKey }` | shared `sg-openrouter-mgmt-key` |
 | `syncInbound` | — | one relay pull → `{ newMessages, receipts }` |

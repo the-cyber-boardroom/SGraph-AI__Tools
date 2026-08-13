@@ -21,7 +21,7 @@ const TOOL_URL = process.env.WHATSAPP_DESK_URL || 'http://localhost:10063/en-gb/
 const HEADLESS = process.env.HEADLESS !== 'false';
 
 const EXPECTED_ACTIONS = [
-    'setCreds', 'connect', 'disconnect', 'setOpenRouterKey',
+    'setCreds', 'connect', 'connectBridge', 'bridgeStatus', 'disconnect', 'setOpenRouterKey',
     'syncInbound', 'listConversations', 'openConversation', 'getMessages', 'markRead',
     'sendText', 'sendTemplate', 'sendMedia', 'listTemplates',
     'transcribeVoiceNote', 'draftReply', 'listDraftModels', 'getCostSummary',
@@ -69,7 +69,7 @@ async function run() {
         assert(rep.missing.length === 0, `all ${EXPECTED_ACTIONS.length} actions registered`, `missing: ${rep.missing.join(',')}`);
         assert(rep.isPromise, 'actions return Promises (SgToolApi contract)');
 
-        for (const sel of ['#wa-demo-btn', 'sg-conversation-list', '#wa-acc-token', '#wa-acc-relay-url', '#wa-acc-or-key']) {
+        for (const sel of ['#wa-demo-btn', 'sg-conversation-list', '#wa-acc-token', '#wa-acc-relay-url', '#wa-acc-bridge-url', '#wa-acc-bridge-connect', '#wa-acc-or-key']) {
             assert(await page.$(sel) !== null, `panel element present: ${sel}`);
         }
 

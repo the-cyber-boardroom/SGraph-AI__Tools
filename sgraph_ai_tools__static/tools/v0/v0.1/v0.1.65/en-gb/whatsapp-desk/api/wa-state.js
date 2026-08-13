@@ -11,6 +11,8 @@ import { windowExpiry } from '/core/sg-whatsapp/v0/v0.1/v0.1.0/sg-whatsapp-parse
 
 export const state = {
     connected:     false,
+    /** 'cloud' (Meta Cloud API) | 'bridge' (companion, no 24h window) | null */
+    mode:          null,
     displayNumber: null,
     verifiedName:  null,
     relayOk:       false,
@@ -48,8 +50,10 @@ export function getConversation(id, { create = false, name } = {}) {
     return c ?? null;
 }
 
-/** True while the free-form 24h service window is open. */
+/** True while the free-form 24h service window is open.
+ *  Bridge/companion mode is a normal client — no window; free text always. */
 export function windowOpen(conv, now = Date.now()) {
+    if (state.mode === 'bridge') return true;
     return !!conv?.windowExpiresAt && conv.windowExpiresAt > now;
 }
 
@@ -65,19 +69,28 @@ export function applyEvents(events) {
         if (ev.kind === 'message') {
             const conv = getConversation(ev.conversationId, { create: true, name: ev.name });
             if (conv.messages.some(m => m.id === ev.messageId)) continue;   // dedupe re-pulls
+            // Bridge events carry their own direction (own messages come back too);
+            // Cloud-API webhook messages are always inbound.
+            const direction = ev.direction || 'in';
             conv.messages.push({
-                id: ev.messageId, direction: 'in', type: ev.type,
+                id: ev.messageId, direction, type: ev.type,
                 text: ev.text, timestamp: ev.timestamp,
                 mediaId: ev.mediaId, mimeType: ev.mimeType, voice: ev.voice,
-                senderName: conv.name,
+                senderName: direction === 'in' ? conv.name : undefined,
+                status: direction === 'out' ? 'sent' : undefined,
             });
             conv.messages.sort((a, b) => a.timestamp - b.timestamp);
-            conv.unread += 1;
             conv.lastActivity = Math.max(conv.lastActivity, ev.timestamp);
-            const expiry = windowExpiry(ev.timestamp);
-            if (expiry !== conv.windowExpiresAt && expiry > (conv.windowExpiresAt ?? 0)) {
-                conv.windowExpiresAt = expiry;
-                windowChanges.push({ conversationId: conv.id, windowExpiresAt: expiry });
+            if (direction === 'in') {
+                conv.unread += 1;
+                // 24h window is a Cloud-API concept only; bridge is a normal client.
+                if (state.mode !== 'bridge') {
+                    const expiry = windowExpiry(ev.timestamp);
+                    if (expiry > (conv.windowExpiresAt ?? 0)) {
+                        conv.windowExpiresAt = expiry;
+                        windowChanges.push({ conversationId: conv.id, windowExpiresAt: expiry });
+                    }
+                }
             }
             newMessages++;
         } else if (ev.kind === 'receipt') {
@@ -108,13 +121,16 @@ export function conversationRows(now = Date.now()) {
         .map(c => {
             const last = c.messages[c.messages.length - 1];
             const open = windowOpen(c, now);
-            const hoursLeft = open ? Math.max(1, Math.round((c.windowExpiresAt - now) / 3_600_000)) : 0;
+            const hoursLeft = open && c.windowExpiresAt ? Math.max(1, Math.round((c.windowExpiresAt - now) / 3_600_000)) : 0;
+            // Bridge/companion mode has no window concept — no chip.
+            const chip = state.mode === 'bridge' ? undefined
+                : open ? { label: `⏱ ${hoursLeft}h`, tone: 'ok' }
+                       : { label: '📋 template', tone: 'warn' };
             return {
                 id: c.id, name: c.name,
                 snippet: last ? (last.text || (last.voice ? '🎙 voice note' : last.type)) : '',
                 unread: c.unread || undefined,
-                chip: open ? { label: `⏱ ${hoursLeft}h`, tone: 'ok' }
-                           : { label: '📋 template', tone: 'warn' },
+                chip,
             };
         });
 }

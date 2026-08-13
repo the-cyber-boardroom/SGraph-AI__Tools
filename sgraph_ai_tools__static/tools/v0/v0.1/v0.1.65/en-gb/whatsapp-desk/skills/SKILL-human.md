@@ -27,7 +27,23 @@ recorded locally — the network is never touched.
 4. OpenRouter key (shared with Audio Transcribe / Video Publisher) for
    transcription + drafts.
 
-## The 24-hour rule, made visible
+## Bridge mode — see an app number's chats (like an iPad)
+
+A second way to connect, in Accounts: **Bridge mode** links a number as a
+*companion device* (QR scan, same as your iPad) via the local
+`whatsapp_bridge` service — so you see and reply to that number's real
+existing chats inside the desk, with end-to-end encryption preserved (it
+terminates in your local bridge, not Meta's cloud), and no 24-hour-window
+restriction (it behaves as a normal client).
+
+**Safety, plainly:** your iPhone/iPad WhatsApp apps are *never* at risk —
+they're Meta's official clients. Bridge mode uses an unofficial library, so
+the **number you link there** carries a real ban risk (bulk/bot-like sending
+is the trigger). **Only link an expendable number** — never your personal or
+the business/API number. Full guide: `whatsapp_bridge/README.md`. Try it
+risk-free first with the bridge's `--mock` mode.
+
+## The 24-hour rule, made visible (Cloud API mode only)
 
 Free-form messages are only allowed within 24h of the customer's last
 message. Each conversation shows a chip — `⏱ window open · ~6h left` or

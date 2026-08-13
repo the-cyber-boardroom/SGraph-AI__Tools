@@ -33,6 +33,7 @@
 
 .wa-account { border: 1px solid #2d2d4a; border-radius: 8px; padding: 10px; display: flex; flex-direction: column; gap: 8px; }
 .wa-account code { color: #5eead4; font-size: 0.8rem; }
+.wa-account--bridge { border-color: #4d3d1a; background: #1a1710; }
 
 .wa-welcome h3 { margin: 0; }
 

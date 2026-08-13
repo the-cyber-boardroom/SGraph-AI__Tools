@@ -8,28 +8,31 @@
 
 import { WhatsAppApi } from '/core/sg-whatsapp/v0/v0.1/v0.1.0/sg-whatsapp-api.js';
 import { RelayClient } from '/core/sg-whatsapp/v0/v0.1/v0.1.0/sg-whatsapp-relay.js';
+import { BridgeClient } from '/core/sg-whatsapp/v0/v0.1/v0.1.0/sg-whatsapp-bridge.js';
 import { WA_EVENTS } from '/core/sg-whatsapp/v0/v0.1/v0.1.0/sg-whatsapp-events.js';
 import { state, getConversation, windowOpen, applyEvents, recordOutbound, resetState } from './wa-state.js';
 
 const KEYS = Object.freeze({
-    token:      'sg-whatsapp-token',
-    phoneId:    'sg-whatsapp-phone-id',
-    wabaId:     'sg-whatsapp-waba-id',
-    relayUrl:   'sg-whatsapp-relay-url',
-    relayToken: 'sg-whatsapp-relay-token',
+    token:       'sg-whatsapp-token',
+    phoneId:     'sg-whatsapp-phone-id',
+    wabaId:      'sg-whatsapp-waba-id',
+    relayUrl:    'sg-whatsapp-relay-url',
+    relayToken:  'sg-whatsapp-relay-token',
+    bridgeUrl:   'sg-whatsapp-bridge-url',
+    bridgeToken: 'sg-whatsapp-bridge-token',
 });
 
 const POLL_MS = 10_000;
 
 let _emit = () => {};
-let _api = null, _relay = null, _pollTimer = null;
+let _api = null, _relay = null, _bridge = null, _source = null, _pollTimer = null;
 
 export function boot({ emit }) {
     _emit = emit;
     // Pause polling in hidden tabs (unattended flows are Tier-2's job, not ours).
     document.addEventListener('visibilitychange', () => {
         if (document.hidden) _stopPoll();
-        else if (state.connected && state.relayOk) _startPoll();
+        else if (state.connected && _source) _startPoll();
     });
 }
 
@@ -38,20 +41,23 @@ export function boot({ emit }) {
 export function getCreds() {
     const g = k => localStorage.getItem(k) || '';
     return { token: g(KEYS.token), phoneNumberId: g(KEYS.phoneId), wabaId: g(KEYS.wabaId),
-             relayUrl: g(KEYS.relayUrl), relayToken: g(KEYS.relayToken) };
+             relayUrl: g(KEYS.relayUrl), relayToken: g(KEYS.relayToken),
+             bridgeUrl: g(KEYS.bridgeUrl), bridgeToken: g(KEYS.bridgeToken) };
 }
 
-export function setCreds({ token, phoneNumberId, wabaId, relayUrl, relayToken } = {}) {
+export function setCreds({ token, phoneNumberId, wabaId, relayUrl, relayToken, bridgeUrl, bridgeToken } = {}) {
     const s = (k, v) => { if (v !== undefined) { v ? localStorage.setItem(k, String(v).trim()) : localStorage.removeItem(k); } };
     s(KEYS.token, token); s(KEYS.phoneId, phoneNumberId); s(KEYS.wabaId, wabaId);
     s(KEYS.relayUrl, relayUrl); s(KEYS.relayToken, relayToken);
+    s(KEYS.bridgeUrl, bridgeUrl); s(KEYS.bridgeToken, bridgeToken);
     return maskedCreds();
 }
 
 export function maskedCreds() {
     const c = getCreds();
     return { tokenSet: !!c.token, phoneNumberId: c.phoneNumberId, wabaId: c.wabaId,
-             relayUrl: c.relayUrl, relayTokenSet: !!c.relayToken };
+             relayUrl: c.relayUrl, relayTokenSet: !!c.relayToken,
+             bridgeUrl: c.bridgeUrl, bridgeTokenSet: !!c.bridgeToken };
 }
 
 // ── Connect ──────────────────────────────────────────────────────────────────
@@ -65,12 +71,14 @@ export async function connect() {
     _api = new WhatsAppApi({ token: c.token, phoneNumberId: c.phoneNumberId, wabaId: c.wabaId });
     const info = await _api.getPhoneNumber();     // throws typed on bad creds
     state.connected     = true;
+    state.mode          = 'cloud';
     state.demo          = false;
     state.displayNumber = info?.display_phone_number ?? null;
     state.verifiedName  = info?.verified_name ?? null;
 
     if (c.relayUrl && c.relayToken) {
         _relay = new RelayClient({ url: c.relayUrl, token: c.relayToken });
+        _source = _relay;
         state.relayOk = true;
         _startPoll();
     }
@@ -78,9 +86,39 @@ export async function connect() {
     return { displayNumber: state.displayNumber, verifiedName: state.verifiedName, relay: state.relayOk };
 }
 
+/**
+ * Connect in Bridge (companion) mode — inbound + outbound both via the local
+ * whatsapp_bridge. No 24h window, no templates; a normal client.
+ * ⚠️ Unofficial route — expendable-number use only (whatsapp_bridge/README.md).
+ */
+export async function connectBridge() {
+    const c = getCreds();
+    if (!c.bridgeUrl || !c.bridgeToken) {
+        throw Object.assign(new Error('Set the bridge URL and token first (Accounts).'), { code: 'bridge-auth' });
+    }
+    _bridge = new BridgeClient({ url: c.bridgeUrl, token: c.bridgeToken });
+    const st = await _bridge.status();            // throws typed if unreachable
+    state.connected     = true;
+    state.mode          = 'bridge';
+    state.demo          = false;
+    state.relayOk       = false;
+    state.displayNumber = st?.me?.id ?? null;
+    state.verifiedName  = st?.me?.name ?? 'Bridge (companion)';
+    _source = _bridge;
+    _startPoll();
+    _emit(WA_EVENTS.CONNECTED, { mode: 'bridge', displayNumber: state.displayNumber, linked: !!st?.linked, qr: st?.qr ?? null });
+    return { mode: 'bridge', linked: !!st?.linked, qr: st?.qr ?? null, me: st?.me ?? null };
+}
+
+/** Poll the bridge's link status (QR → linked) while the user scans. */
+export async function bridgeStatus() {
+    if (!_bridge) throw Object.assign(new Error('Bridge not connected.'), { code: 'bridge-auth' });
+    return _bridge.status();
+}
+
 export function disconnect() {
     _stopPoll();
-    _api = null; _relay = null;
+    _api = null; _relay = null; _bridge = null; _source = null;
     resetState();
     _emit(WA_EVENTS.DISCONNECTED, {});
 }
@@ -90,11 +128,11 @@ export function getApi() {
     return _api;
 }
 
-// ── Inbound (relay poll) ─────────────────────────────────────────────────────
+// ── Inbound (relay or bridge poll — same pull() contract) ────────────────────
 
 export async function syncInbound() {
-    if (!_relay) throw Object.assign(new Error('Relay not configured (Accounts).'), { code: 'relay-unreachable' });
-    const { events, cursor } = await _relay.pull(state.cursor);
+    if (!_source) throw Object.assign(new Error('No inbound source (configure the relay or bridge in Accounts).'), { code: 'relay-unreachable' });
+    const { events, cursor } = await _source.pull(state.cursor);
     state.cursor = cursor;
     const summary = applyEvents(events);
     for (const ev of events) {
@@ -121,10 +159,18 @@ export async function sendText({ conversationId, to, body }) {
     if (conv && !windowOpen(conv)) {
         throw Object.assign(new Error('24h window closed — use sendTemplate.'), { code: 'window-expired' });
     }
-    const { messageId } = await getApi().sendText(target, body);
+    const { messageId } = state.mode === 'bridge'
+        ? await _bridge.sendText(target, body)
+        : await getApi().sendText(target, body);
     recordOutbound(target, { messageId, type: 'text', text: body });
     _emit(WA_EVENTS.MESSAGE_OUT, { conversationId: target, messageId });
     return { messageId };
+}
+
+/** Fetch a media blob via whichever source is active (bridge or Cloud API). */
+export async function fetchMedia(messageId, mediaId) {
+    if (state.mode === 'bridge') return _bridge.fetchMedia(messageId);
+    return getApi().fetchMedia(mediaId);
 }
 
 export async function sendTemplate({ to, conversationId, name, lang = 'en_GB', components }) {
