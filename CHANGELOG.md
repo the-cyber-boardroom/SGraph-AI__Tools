@@ -2,6 +2,19 @@
 
 All notable changes to `sgraph_ai_tools__static` are documented here.
 
+## [0.1.65] — 2026-08-13
+
+### Added (whatsapp-desk — Bridge mode, same day)
+- **Bridge mode** — a second way to connect the desk: link a number as a WhatsApp *companion device* (like an iPad — QR scan, E2E preserved, no 24h window) via a new local **`whatsapp_bridge/`** Node service (repo root). The same conversation list / chat tabs / voice-note transcription / draft-reply flow render the linked number's real chats; sends and media are mode-routed. **Unofficial (Baileys) — expendable-number use only; official iPhone/iPad apps are never at risk.** The bridge has a mock provider (Node tests 10/10, runs over real HTTP verified) and a real Baileys provider (written to the API, unverified here). New core `BridgeClient` (mirrors `RelayClient.pull`), `connectBridge`/`bridgeStatus` actions (24 total), Accounts Bridge panel with the safety framing. Boot smoke 22/22.
+
+### Added (whatsapp-desk — Tier-1 slice, MOCK/DEMO-VERIFIED ONLY)
+- **`whatsapp-desk` tool** (`tools/v0/v0.1/v0.1.65/en-gb/whatsapp-desk/`, v0.1.0 alpha) — inbox + composer for the Business WhatsApp number on the official Meta Cloud API: Conversations/Accounts left column, per-chat sg-layout tabs, first-class 24h-window handling (chip + composer mode-switch + client-side typed `window-expired`), 10s visible-tab relay poll, receipts, voice-note transcription via `core/sg-transcribe`, **draft-only** AI replies (default `anthropic/claude-sonnet-4-6`; `sendText`/`sendTemplate` are the only sending actions), media download, cost roll-up. 21 SgToolApi actions, `wa:*` events, 3 SKILL files, and a **credential-free demo mode** (`loadDemo` — sends recorded locally, network untouched). Boot smoke 20/20 incl. the full demo flow.
+- **`core/sg-whatsapp` v0.1.0** — Cloud API engine: Graph client (injectable fetch, relay-proxy-ready `baseUrl`), webhook normalizer + `windowExpiry`, `RelayClient`, frozen `WA_EVENTS`, typed Graph errors. Node smoke 10/10 (mocked fetch).
+- **`whatsapp_relay/`** (repo root) — ~150-LOC stateless Cloudflare Worker template: `hub.challenge` handshake, `X-Hub-Signature-256` verification, KV storage with 72h TTL, bearer-authed `GET /messages` with CORS; holds no Meta token. Node tests 8/8. Tier-2 responder seams documented.
+- **Chat components v0.1.0** — `sg-chat-thread`, `sg-chat-composer` (template-only mode), `sg-conversation-list`: platform-neutral SgComponents (js/html/css sibling files) reusable beyond WhatsApp.
+- **Registry v0.1.65** adds `whatsapp-desk` under Media.
+- **Not yet done (needs Meta):** business verification, number migration decision, Phase-0 live probes (Graph CORS, relay round-trip, media CDN, multi-computer token), relay deployment. No live Graph call has been made.
+
 ## [0.1.64] — 2026-08-05
 
 ### Fixed
@@ -20,6 +33,7 @@ All notable changes to `sgraph_ai_tools__static` are documented here.
 - **`sg-pipeline-steps` component** (`components/sg-pipeline-steps/v0/v0.1/v0.1.0/`) — generic pipeline-spine step rows (status icons, info slot, re-run intent), shadow DOM with js/html/css as sibling files via `SgComponent`. video-publisher's Steps panel is the first consumer (`ui-steps.js` shrinks to a ~65-line adapter).
 
 ### Changed (post-first-use feedback, same day)
+- **video-publisher: big Download button on the Publish tab** — `⬇ Download video (x.x MB)` browser-native download of the loaded video for cross-posting (e.g. LinkedIn); `downloadVideo` API action (33 total).
 - **video-publisher: layout picker promoted out of Advanced** — big always-visible segmented buttons (🖥 Landscape / 📱 Vertical Shorts / 📊 Infographic) with the active choice strongly highlighted and locked while recording, after wrong-layout takes in first use. The idle status line echoes the current layout.
 - **video-publisher: metadata model picker, Sonnet default** — title/description generation now defaults to `anthropic/claude-sonnet-4-6` (noticeably better descriptions) with a picker next to Generate (Sonnet / Gemini 3.5 Flash / Haiku 4.5 / Gemini Flash Lite); transcription keeps its cheaper gemini-flash default.
 - **video-publisher: two-click publish (auto-publish mode)** — opt-in Record-tab toggle (persisted `sg-video-publisher-autopublish`): a completed auto-run continues straight into the YouTube upload after a **5-second cancellable countdown**, using the remembered privacy default and the silent token path (pauses with `auth-required` if YouTube was never signed in). Start → Stop is the whole workflow.

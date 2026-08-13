@@ -1,0 +1,24 @@
+{
+  "name": "sg-conversation-list",
+  "version": "0.1.0",
+  "description": "Conversation-row Web Component: name, snippet, unread badge, configurable status chip (WhatsApp Desk uses it for the 24h window). Selection is an intent event. Shadow DOM; js/html/css as sibling files via SgComponent.",
+  "exports": {
+    "sg-conversation-list.js": [
+      "SgConversationList"
+    ]
+  },
+  "element": "sg-conversation-list",
+  "methods": [
+    "setConversations",
+    "setActive"
+  ],
+  "events": [
+    {
+      "name": "sg-conversation-list:select",
+      "detail": "{ id }"
+    }
+  ],
+  "consumers": [
+    "whatsapp-desk (planned)"
+  ]
+}

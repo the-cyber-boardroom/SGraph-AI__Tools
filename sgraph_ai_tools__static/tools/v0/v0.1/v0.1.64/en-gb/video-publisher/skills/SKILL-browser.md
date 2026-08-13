@@ -29,7 +29,7 @@ Panels are sg-layout tabs; all content is in light DOM.
 | Step re-run | `sg-pipeline-steps .sgps-step [data-rerun]` | visible on done/error (not on publish) |
 | Transcript | `#vp-tr-model` `#vp-tr-run` `#vp-tr-text` | |
 | Metadata | `#vp-md-generate` `#vp-md-model` `#vp-md-guidance` `#vp-md-regen` `#vp-md-title` `#vp-md-desc` `#vp-md-tags` `#vp-md-privacy` `#vp-md-remember` | model select defaults to Claude Sonnet 4.6; remember-checkbox persists the privacy default |
-| Publish | `#vp-pub-connect` `#vp-pub-upload` `#vp-pub-progress` `#vp-pub-link` `#vp-pub-copy` | connect opens a Google popup |
+| Publish | `#vp-pub-connect` `#vp-pub-upload` `#vp-pub-download` `#vp-pub-progress` `#vp-pub-link` `#vp-pub-copy` | connect opens a Google popup; download enabled once a video is loaded |
 | Accounts | `#vp-acc-or-key` `#vp-acc-or-save` `#vp-acc-yt-cid` `#vp-acc-yt-save` | chips: `#vp-acc-or-chip` `#vp-acc-yt-chip` (`.vp-chip--on` when set) |
 | Dev pane | `.vp-footer-bar__inner` toggles Explorer/Console/Manifest/Skills | |
 

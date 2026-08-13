@@ -4,7 +4,7 @@ Tool name `video-publisher` · API 0.1.0 · `window.__tool` live after
 `tool:ready`. All calls return Promises (SgToolApi). The manifest's `api`
 section is authoritative for the event catalogue.
 
-## Actions (32)
+## Actions (33)
 
 **Record** — thin delegations to `core/sg-recorder` v0.1.0; `tool:record:*`
 events fire unchanged.
@@ -52,6 +52,7 @@ events fire unchanged.
 | `connectYouTube` | `{ silent? }` | `{ ok }` — cache → silent → popup; proactive refresh armed |
 | `disconnectYouTube` | — | `{ ok }` |
 | `getMyChannel` | — | channel |
+| `downloadVideo` | — | `{ filename, byteSize }` — browser-native download of the loaded video (publish elsewhere, e.g. LinkedIn) |
 | `upload` | — | `{ id, url }` — the ONLY action that sends to YouTube |
 | `publish` | `{ file?, model?, guidance?, privacy?, confirm }` | end-to-end; without `confirm:true` stops at ready-to-publish |
 | `health` | — | `{ ok, phase, keySet, youtubeConnected, clientIdSet }` |

@@ -1,0 +1,59 @@
+{
+  "name": "WhatsApp Desk",
+  "slug": "whatsapp-desk",
+  "description": "Inbox + composer for a Business WhatsApp number on the official Meta Cloud API: conversations as tabs, first-class 24h-window handling (free text inside, approved templates outside), inbound via the whatsapp_relay worker, voice-note transcription (core/sg-transcribe — WhatsApp opus is its headline case), and draft-only AI replies. Demo mode works with zero credentials.",
+  "icon": "💬",
+  "version": "0.1.0",
+  "status": "alpha",
+  "category": "media",
+  "keywords": ["whatsapp", "business", "messaging", "cloud-api", "transcribe", "voice-note", "inbox", "desk"],
+  "dependencies": {
+    "core": [
+      { "module": "sg-tool-api",     "path": "/core/sg-tool-api/v0/v0.1/v0.1.0/sg-tool-api.js" },
+      { "module": "sg-whatsapp",     "path": "/core/sg-whatsapp/v0/v0.1/v0.1.0/sg-whatsapp-api.js" },
+      { "module": "sg-transcribe",   "path": "/core/sg-transcribe/v0/v0.1/v0.1.0/api-transcribe.js" },
+      { "module": "sg-audio-decode", "path": "/core/sg-audio-decode/v0/v0.1/v0.1.0/sg-audio-decode.js" },
+      { "module": "sg-layout",       "path": "/core/sg-layout/v0.1.0/sg-layout.js" },
+      { "module": "manifest-loader", "path": "/core/manifest-loader/v0/v0.1/v0.1.0/manifest-loader.js" }
+    ],
+    "shared": [
+      { "module": "sg-site-header",       "path": "/components/site-header/v1/v1.0/v1.0.2/sg-site-header.js" },
+      { "module": "sg-conversation-list", "path": "/components/sg-conversation-list/v0/v0.1/v0.1.0/sg-conversation-list.js" },
+      { "module": "sg-chat-thread",       "path": "/components/sg-chat-thread/v0/v0.1/v0.1.0/sg-chat-thread.js" },
+      { "module": "sg-chat-composer",     "path": "/components/sg-chat-composer/v0/v0.1/v0.1.0/sg-chat-composer.js" },
+      { "module": "sg-upload-dropzone",   "path": "/components/upload-dropzone/v1/v1.0/v1.0.0/sg-upload-dropzone.js" },
+      { "module": "sg-llm-request",       "path": "/components/llm/sg-llm-request/v0/v0.1/v0.1.6/sg-llm-request.js" },
+      { "module": "sg-tool-api-explorer", "path": "/components/tool-api/sg-tool-api-explorer/v0/v0.1/v0.1.0/sg-tool-api-explorer.js" },
+      { "module": "sg-tool-api-console",  "path": "/components/tool-api/sg-tool-api-console/v0/v0.1/v0.1.0/sg-tool-api-console.js" },
+      { "module": "sg-tool-api-manifest", "path": "/components/tool-api/sg-tool-api-manifest/v0/v0.1/v0.1.0/sg-tool-api-manifest.js" }
+    ],
+    "loader": [
+      { "phase": 1, "type": "css", "path": "/core/sg-layout/v0.1.0/sg-layout.css" },
+      { "phase": 1, "type": "css", "path": "./styles/desk.css" },
+      { "phase": 2, "type": "js",  "path": "/components/llm/sg-llm-request/v0/v0.1/v0.1.6/sg-llm-request.js" },
+      { "phase": 3, "type": "js",  "entry": true, "path": "./api/wa-api.js" }
+    ]
+  },
+  "api": {
+    "version": "0.1.0",
+    "note": "window.__tool live after tool:ready. MOCK/DEMO-VERIFIED ONLY until live probes run. TWO connection modes: (1) Cloud API — outbound browser→graph.facebook.com with a BYOK system-user token, inbound via the whatsapp_relay worker, 24h-window rules apply; (2) Bridge — the local whatsapp_bridge companion service (like an iPad, no 24h window, E2E preserved), UNOFFICIAL and expendable-number-only (ban risk on that number; your phone apps are never at risk). Transcription + drafts are billable OpenRouter calls (shared 'sg-openrouter-mgmt-key'). Drafts NEVER send — sendText/sendTemplate are the only sending actions; demo mode blocks the network entirely. E2E honesty: on the Cloud API road encryption terminates at Meta's cloud and the relay transiently holds plaintext; on the Bridge road E2E terminates in your local bridge.",
+    "events": [
+      { "name": "tool:ready",              "when": "activate() called",              "detail": "{ instanceId, tool, version }" },
+      { "name": "wa:connected",            "when": "creds validated (live GET)",     "detail": "{ phoneNumberId, displayNumber }" },
+      { "name": "wa:disconnected",         "when": "disconnect()",                   "detail": "{}" },
+      { "name": "wa:sync",                 "when": "relay pull applied / demo load", "detail": "{ newMessages, cursor }" },
+      { "name": "wa:message:in",           "when": "inbound message landed",         "detail": "{ conversationId, messageId, type }" },
+      { "name": "wa:message:out",          "when": "send succeeded",                 "detail": "{ conversationId, messageId }" },
+      { "name": "wa:receipt",              "when": "delivery/read receipt",          "detail": "{ messageId, status }" },
+      { "name": "wa:window:changed",       "when": "24h window opened/refreshed",    "detail": "{ conversationId, windowExpiresAt, open }" },
+      { "name": "wa:transcript:complete",  "when": "voice note transcribed",         "detail": "{ messageId, costUsd }" },
+      { "name": "wa:draft:ready",          "when": "AI draft produced (NOT sent)",   "detail": "{ conversationId }" },
+      { "name": "wa:error",                "when": "any step fails",                 "detail": "{ step, code, message }" }
+    ],
+    "skills": {
+      "human":   "./skills/SKILL-human.md",
+      "browser": "./skills/SKILL-browser.md",
+      "api":     "./skills/SKILL-api.md"
+    }
+  }
+}

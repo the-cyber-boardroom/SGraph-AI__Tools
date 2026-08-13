@@ -1,0 +1,19 @@
+# whatsapp_relay — Cloudflare Worker config template.
+# Copy, set your ids, then:
+#   wrangler kv namespace create RELAY_KV        # paste the id below
+#   wrangler secret put META_APP_SECRET          # Meta app → Settings → Basic
+#   wrangler secret put META_VERIFY_TOKEN        # any random string; also pasted in Meta's webhook UI
+#   wrangler secret put RELAY_TOKEN              # any random string; also pasted in the desk's Accounts panel
+#   wrangler deploy
+
+name = "whatsapp-relay"
+main = "src/worker.js"
+compatibility_date = "2026-08-01"
+
+kv_namespaces = [
+  { binding = "KV", id = "REPLACE_WITH_KV_NAMESPACE_ID" }
+]
+
+[vars]
+# Optional override; default 259200 (72 h).
+RETENTION_SECONDS = "259200"

@@ -1,0 +1,31 @@
+{
+  "name": "sg-chat-composer",
+  "version": "0.1.0",
+  "description": "Composer Web Component: text + attach + send, with a template-only mode (picker + reason chip) for platforms with messaging windows. Platform-neutral; templates injected by the host. Shadow DOM; js/html/css as sibling files via SgComponent.",
+  "exports": {
+    "sg-chat-composer.js": [
+      "SgChatComposer"
+    ]
+  },
+  "element": "sg-chat-composer",
+  "methods": [
+    "setDraft",
+    "getDraft",
+    "setTemplates",
+    "setReason",
+    "clear"
+  ],
+  "events": [
+    {
+      "name": "sg-chat-composer:send",
+      "detail": "{ kind:'text', body } | { kind:'template', name, lang }"
+    },
+    {
+      "name": "sg-chat-composer:attach",
+      "detail": "{}"
+    }
+  ],
+  "consumers": [
+    "whatsapp-desk (planned)"
+  ]
+}

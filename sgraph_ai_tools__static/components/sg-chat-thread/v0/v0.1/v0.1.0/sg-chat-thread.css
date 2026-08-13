@@ -1,0 +1,41 @@
+/* sg-chat-thread — message bubbles (dark tools family) */
+
+:host { display: block; height: 100%; color: #e2e8f0; font-size: 0.92rem; }
+
+.sgct, .sgct-list { height: 100%; }
+.sgct-list {
+    overflow-y: auto; display: flex; flex-direction: column; gap: 6px;
+    padding: 10px; box-sizing: border-box;
+}
+
+.sgct-row { display: flex; }
+.sgct-row--in  { justify-content: flex-start; }
+.sgct-row--out { justify-content: flex-end; }
+
+.sgct-bubble {
+    max-width: 78%; padding: 8px 12px; border-radius: 12px;
+    background: #1e1e38; border: 1px solid #2d2d4a;
+}
+.sgct-row--out .sgct-bubble { background: #0f2e2b; border-color: #14524b; }
+
+.sgct-name { color: #5eead4; font-size: 0.78rem; font-weight: 600; margin-bottom: 2px; }
+.sgct-text { white-space: pre-wrap; word-break: break-word; line-height: 1.4; }
+
+.sgct-media {
+    background: #131327; color: #94a3b8;
+    border: 1px solid #2d2d4a; border-radius: 6px;
+    padding: 4px 8px; font: inherit; font-size: 0.82rem; cursor: pointer;
+    margin-bottom: 4px;
+}
+.sgct-media:hover { border-color: #14b8a6; color: #5eead4; }
+
+.sgct-transcript {
+    margin-top: 6px; padding: 6px 8px; border-left: 2px solid #14b8a6;
+    background: #131327; border-radius: 0 6px 6px 0;
+    color: #cbd5e1; font-size: 0.85rem; white-space: pre-wrap;
+}
+
+.sgct-meta { margin-top: 4px; color: #64748b; font-size: 0.72rem; text-align: right; }
+.sgct-tick { letter-spacing: -0.15em; }
+.sgct-tick--read   { color: #38bdf8; }
+.sgct-tick--failed { color: #f87171; }

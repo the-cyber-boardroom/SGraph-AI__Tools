@@ -26,7 +26,9 @@ youtube-editor) — the video never leaves the page between steps.
    saved in this browser and pre-selected from then on.
 4. **Upload** — in the *Publish* tab, click *⬆ Upload to YouTube*
    (sign in with Google the first time).
-5. **Copy** the YouTube URL. Done.
+5. **Copy** the YouTube URL. Done. The Publish tab also has a big
+   **⬇ Download video** button — grab the file to post it elsewhere too
+   (e.g. LinkedIn).
 
 Alternative entries: drag-drop an existing MP4/WebM into the *Import* tab,
 or click **🚀 Publish** on a recording in the standalone Video Recorder.
