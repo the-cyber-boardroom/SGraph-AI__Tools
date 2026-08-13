@@ -2,6 +2,16 @@
 
 All notable changes to `sgraph_ai_tools__static` are documented here.
 
+## [0.1.65] — 2026-08-13
+
+### Added (whatsapp-desk — Tier-1 slice, MOCK/DEMO-VERIFIED ONLY)
+- **`whatsapp-desk` tool** (`tools/v0/v0.1/v0.1.65/en-gb/whatsapp-desk/`, v0.1.0 alpha) — inbox + composer for the Business WhatsApp number on the official Meta Cloud API: Conversations/Accounts left column, per-chat sg-layout tabs, first-class 24h-window handling (chip + composer mode-switch + client-side typed `window-expired`), 10s visible-tab relay poll, receipts, voice-note transcription via `core/sg-transcribe`, **draft-only** AI replies (default `anthropic/claude-sonnet-4-6`; `sendText`/`sendTemplate` are the only sending actions), media download, cost roll-up. 21 SgToolApi actions, `wa:*` events, 3 SKILL files, and a **credential-free demo mode** (`loadDemo` — sends recorded locally, network untouched). Boot smoke 20/20 incl. the full demo flow.
+- **`core/sg-whatsapp` v0.1.0** — Cloud API engine: Graph client (injectable fetch, relay-proxy-ready `baseUrl`), webhook normalizer + `windowExpiry`, `RelayClient`, frozen `WA_EVENTS`, typed Graph errors. Node smoke 10/10 (mocked fetch).
+- **`whatsapp_relay/`** (repo root) — ~150-LOC stateless Cloudflare Worker template: `hub.challenge` handshake, `X-Hub-Signature-256` verification, KV storage with 72h TTL, bearer-authed `GET /messages` with CORS; holds no Meta token. Node tests 8/8. Tier-2 responder seams documented.
+- **Chat components v0.1.0** — `sg-chat-thread`, `sg-chat-composer` (template-only mode), `sg-conversation-list`: platform-neutral SgComponents (js/html/css sibling files) reusable beyond WhatsApp.
+- **Registry v0.1.65** adds `whatsapp-desk` under Media.
+- **Not yet done (needs Meta):** business verification, number migration decision, Phase-0 live probes (Graph CORS, relay round-trip, media CDN, multi-computer token), relay deployment. No live Graph call has been made.
+
 ## [0.1.64] — 2026-08-05
 
 ### Fixed

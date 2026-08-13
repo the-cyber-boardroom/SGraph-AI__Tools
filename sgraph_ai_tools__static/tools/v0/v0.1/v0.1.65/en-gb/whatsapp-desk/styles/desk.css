@@ -1,0 +1,72 @@
+/* whatsapp-desk — panel styles (dark tools family; components carry their own) */
+
+.wa-convs, .wa-accounts, .wa-welcome {
+    display: flex; flex-direction: column; gap: 10px;
+    color: #e2e8f0; font-size: 0.92rem;
+}
+
+.wa-row { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+.wa-muted { color: #94a3b8; font-size: 0.84rem; }
+
+.wa-input {
+    background: #131327; color: #e2e8f0;
+    border: 1px solid #2d2d4a; border-radius: 6px;
+    padding: 7px 10px; font: inherit; min-width: 0; flex: 1;
+}
+.wa-input:focus { outline: none; border-color: #14b8a6; }
+.wa-input--slim { padding: 4px 8px; font-size: 0.84rem; }
+
+.wa-btn {
+    background: #1e1e38; color: #e2e8f0;
+    border: 1px solid #2d2d4a; border-radius: 6px;
+    padding: 8px 14px; font: inherit; cursor: pointer; white-space: nowrap;
+}
+.wa-btn:hover:not(:disabled) { border-color: #14b8a6; }
+.wa-btn--mini { padding: 4px 10px; font-size: 0.84rem; }
+
+.wa-chip {
+    display: inline-block; padding: 4px 10px; border-radius: 999px;
+    border: 1px solid #2d2d4a; color: #94a3b8; font-size: 0.82rem;
+    align-self: flex-start;
+}
+.wa-chip--on { border-color: #14b8a6; color: #5eead4; }
+
+.wa-account { border: 1px solid #2d2d4a; border-radius: 8px; padding: 10px; display: flex; flex-direction: column; gap: 8px; }
+.wa-account code { color: #5eead4; font-size: 0.8rem; }
+
+.wa-welcome h3 { margin: 0; }
+
+/* Chat tab: head / thread / composer vertical split */
+.wa-chat { display: flex; flex-direction: column; height: 100%; }
+.wa-chat__head {
+    display: flex; gap: 8px; align-items: center; flex-wrap: wrap;
+    padding: 8px 10px; border-bottom: 1px solid #2d2d4a; flex-shrink: 0;
+}
+.wa-chat sg-chat-thread { flex: 1; min-height: 0; }
+.wa-chat sg-chat-composer { flex-shrink: 0; border-top: 1px solid #2d2d4a; }
+
+/* Dev pane + footer (adapted pattern) */
+.wa-dev-panel__tabs { display: flex; gap: 2px; background: #131327; padding: 4px 8px 0; }
+.wa-dev-panel__tab {
+    background: none; border: none; color: #94a3b8; padding: 6px 12px;
+    font: inherit; font-size: 0.85rem; cursor: pointer;
+    border-bottom: 2px solid transparent;
+}
+.wa-dev-panel__tab.is-active { color: #5eead4; border-bottom-color: #14b8a6; }
+.wa-dev-panel__content { flex: 1; overflow: auto; padding: 8px; }
+.wa-dev-panel__pane { height: 100%; }
+.wa-skills__card { border: 1px solid #2d2d4a; border-radius: 6px; margin-bottom: 6px; }
+.wa-skills__header { display: flex; justify-content: space-between; padding: 8px 10px; cursor: pointer; color: #e2e8f0; }
+.wa-skills__chev { color: #94a3b8; font-size: 0.8rem; }
+.wa-skills__body { display: none; padding: 10px; margin: 0; color: #cbd5e1; font-size: 0.78rem; white-space: pre-wrap; }
+
+.wa-footer-bar {
+    flex-shrink: 0; background: #0d0d20; border-top: 1px solid #2d2d4a;
+    font-size: 0.82rem; color: #94a3b8;
+}
+.wa-footer-bar__inner {
+    display: flex; gap: 10px; align-items: center;
+    padding: 6px 14px; cursor: pointer; user-select: none;
+}
+.wa-footer-bar__inner .ft-name { color: #e2e8f0; font-weight: 600; }
+.wa-footer-bar__inner .ft-arrow { margin-left: auto; transition: transform 0.2s; }
