@@ -153,24 +153,35 @@ export function slicePcm(tStart, tEnd) {
 }
 
 /**
- * Boundary snap (Decision 2): the latest sustained-silence frame within
- * `[t − lookbackMs, t]`, else `t − fallbackLeadMs`, floored at 0.
+ * Boundary snap (Decision 2) — recover the start of the sentence the narrator
+ * had already begun when they pressed.
+ *
+ * The gap must be SUSTAINED (`minSilenceMs`, default 400 ms). Requiring only a
+ * short dip fails on real speech: ordinary word gaps and plosives are ~120 ms,
+ * so the snap lands mid-sentence. That was measured against live narration —
+ * every segment lost ~3 s off the front and bled into the next utterance.
+ *
+ * We take the LATEST qualifying gap in the window, which is the one immediately
+ * before the current utterance, then back off `snapPreRollMs` so the onset is
+ * not clipped. Because "latest" is self-correcting, a generous `lookbackMs` is
+ * safe and handles long utterances.
+ *
  * @param {number} t press time (ms)
  * @returns {number} snapped boundary (ms)
  */
 export function snapBoundary(t) {
     const from = Math.max(0, Math.floor((t - config.lookbackMs) / frameMs));
     const to = Math.min(cap.rms.length, Math.floor(t / frameMs));
-    const needed = Math.max(1, Math.round(120 / frameMs));   // ≥120ms of quiet
+    const needed = Math.max(1, Math.round(config.minSilenceMs / frameMs));
     let run = 0;
     let best = -1;
     for (let i = from; i < to; i++) {
         if (cap.rms[i] <= config.silenceThreshold) {
             run += 1;
-            if (run >= needed) best = i;                      // latest qualifying silence
+            if (run >= needed) best = i;   // last frame of a qualifying gap
         } else run = 0;
     }
-    if (best >= 0) return Math.round((best - Math.floor(needed / 2)) * frameMs);
+    if (best >= 0) return Math.max(0, Math.round(best * frameMs) - config.snapPreRollMs);
     return Math.max(0, t - config.fallbackLeadMs);
 }
 

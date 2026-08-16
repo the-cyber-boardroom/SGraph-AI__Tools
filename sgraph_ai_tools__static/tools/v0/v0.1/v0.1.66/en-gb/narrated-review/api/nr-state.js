@@ -12,8 +12,19 @@
 
 /** Tool configuration (persisted subset → localStorage 'nr-config'). */
 export const config = {
-    lookbackMs: 4000,          // boundary snap search window before a press
-    fallbackLeadMs: 2000,      // fixed lead-in when no silence found in window
+    // Boundary snapping. The rule is "the latest SUSTAINED silence before the
+    // press" — sustained matters: real speech is full of ~120 ms gaps between
+    // words, and snapping to one of those lands mid-sentence (found in the live
+    // OpenRouter test, which lost ~3 s off the front of every segment).
+    lookbackMs: 30000,         // how far back to look for that gap. Generous is
+                               // safe: taking the LATEST qualifying gap is
+                               // self-correcting, and real utterances run long.
+    minSilenceMs: 700,         // a gap this long separates utterances, not words
+                               // (400 ms still caught sentence-internal pauses in
+                               // live narration; 700 ms separated topic from
+                               // sentence. Tunable — see setSnapConfig.)
+    snapPreRollMs: 150,        // start a hair before speech resumes
+    fallbackLeadMs: 2000,      // fixed lead-in when no qualifying gap is found
     silenceThreshold: 0.01,    // RMS at/below which a frame counts as silence
     suggestionSilenceMs: 700,  // sustained silence that logs an unmarked suggestion
     frameMs: 20,               // PCM frame size (matches sg-live-capture default)

@@ -88,6 +88,7 @@
       "getDocument":      { "returns": "{ markdown }|null", "async": false },
       "downloadZip":      { "params": { "include": { "type": "object", "optional": true } }, "returns": "Promise<{ name, zipSize, count }>", "async": true },
       "setCleanupMode":   { "params": { "mode": { "type": "string" } }, "returns": "{ mode }", "async": false, "note": "'grounded' | 'text-only' | 'off'" },
+      "setSnapConfig":    { "params": { "minSilenceMs": { "type": "number", "optional": true }, "lookbackMs": { "type": "number", "optional": true }, "silenceThreshold": { "type": "number", "optional": true } }, "returns": "the snap config", "async": false, "note": "tune boundary snapping to how the narrator speaks; minSilenceMs must exceed their sentence-internal pauses" },
       "getCostSummary":   { "returns": "{ sessionUsd, transcribeUsd, cleanUsd, pending, perPair }", "async": false },
       "setSpendCap":      { "params": { "usd": { "type": "number" } }, "returns": "{ cap }", "async": false, "note": "soft cap across both lanes; null clears" }
     },

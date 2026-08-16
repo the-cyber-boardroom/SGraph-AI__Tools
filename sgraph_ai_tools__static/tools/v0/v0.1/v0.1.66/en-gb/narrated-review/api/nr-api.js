@@ -170,6 +170,24 @@ function setCleanupMode(p = {}) {
     return { mode };
 }
 
+/**
+ * Tune boundary snapping. The right `minSilenceMs` depends on how the narrator
+ * actually speaks (the brief's open question): too low and the snap lands on a
+ * gap between words or sentences, too high and it falls back to a fixed lead.
+ * @param {{ minSilenceMs?: number, lookbackMs?: number, silenceThreshold?: number, snapPreRollMs?: number, fallbackLeadMs?: number }} p
+ */
+function setSnapConfig(p = {}) {
+    for (const k of ['minSilenceMs', 'lookbackMs', 'silenceThreshold', 'snapPreRollMs', 'fallbackLeadMs']) {
+        if (typeof p[k] === 'number') config[k] = p[k];
+    }
+    saveConfig();
+    return {
+        minSilenceMs: config.minSilenceMs, lookbackMs: config.lookbackMs,
+        silenceThreshold: config.silenceThreshold, snapPreRollMs: config.snapPreRollMs,
+        fallbackLeadMs: config.fallbackLeadMs,
+    };
+}
+
 function setSpendCap(p = {}) {
     config.spendCapUsd = (p.usd == null) ? null : Number(p.usd);
     saveConfig();
@@ -232,6 +250,7 @@ api
     .register('downloadZip',      downloadZip,      { async: true,  events: [NR_EVENTS.BUNDLE_CREATED] })
 
     .register('setCleanupMode',   setCleanupMode,   { async: false })
+    .register('setSnapConfig',    setSnapConfig,    { async: false })
     .register('getCostSummary',   costSummary,      { async: false })
     .register('setSpendCap',      setSpendCap,      { async: false });
 
