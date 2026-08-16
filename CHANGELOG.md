@@ -2,6 +2,19 @@
 
 All notable changes to `sgraph_ai_tools__static` are documented here.
 
+## [0.1.66] — 2026-08-16
+
+### Added (narrated-review — author a document, don't record a video)
+- **`narrated-review` tool** (`tools/v0/v0.1/v0.1.66/en-gb/narrated-review/`, v0.1.0 alpha) — narrate a walk through a screen and press a key at each moment that matters. The keypress does three jobs: marks a **screenshot** (canvas grab at the press instant, full resolution), bounds an **audio segment** over a continuous recording, and creates the **alignment** between them. The unit is the *pair*, and everything downstream operates on the ordered list: parallel per-segment transcription (`core/sg-transcribe`), sequential **screenshot-grounded cleanup** (raw text + the pair's screenshot + a rolling summary → strict JSON, uncertain spans **marked** rather than silently resolved), then a single `review.md` of heading + image + words, with the raw transcripts preserved in an appendix. Exports as a zip (`review.md` + `images/` + `audio/` + `raw/` + `session.json`) or an SG/Send encrypted link. **No video is ever recorded.** 27 SgToolApi actions, `nr:*` events, 3 SKILL files. Spec: `team/humans/dinis_cruz/claude-code-web/08/16/v0.2.86__brief__tools-team__narrated-review__1-5`.
+  - **Audio is continuous; the keypress is a marker, not a switch** — so a sentence begun *before* the press is not lost. Segment bounds snap back to the nearest sustained silence within a 4 s lookback (verified: pressed at 5000 ms → segment starts at 3920 ms, speech began at 4000 ms). Bounds are data, not file edges, so they stay adjustable in review.
+  - **Privacy** — nothing leaves the browser except audio segments and, in `grounded` cleanup mode only, the pair's screenshot, both direct to OpenRouter under the user's BYOK key. `setCleanupMode({mode:'text-only'|'off'})` stops screenshots leaving; session content is in-memory only.
+  - **Headless path** — `addRecording → markAt → transcribeAll → cleanAll → buildDocument` needs no gestures, so agents and Playwright drive the same pipeline.
+- **`core/sg-live-capture` v0.1.0** — continuous mic capture + energy VAD, promoted VERBATIM from audio-transcribe v0.1.60 (`live-capture.js` + `live-vad.js`). Closes the capture half of the "no standalone STT module" gap noted in the v0.1.93 integration guide. audio-transcribe/live-transcribe are NOT yet re-pinned onto it (additive extraction — nothing existing changed).
+- **`core/sg-zip` v0.1.0** — `loadJSZip()` + `zipEntries([{path, blob?|text?}])`, filling the "no ZIP core module" gap the reality document flagged. JSZip injectable for headless tests.
+- **Registry v0.1.66** adds `narrated-review` under Media (42 slugs).
+- **Tests** — `tests/playwright/narrated-review-boot-smoke.js` (21/21) and `tests/playwright/narrated-review-pipeline-smoke.js` (33/33: the full headless run with OpenRouter mocked, asserting speak-before-press recovery, ordered image+words pairs, grounded correction + unsure marks, raw survival, rolling-summary accumulation, cost roll-up, bundle shape, spend cap).
+- **Not yet verified in a browser:** the live gesture leg (real screen picker + mic + physical keypresses), live OpenRouter calls, and the SG/Send share leg.
+
 ## [0.1.65] — 2026-08-13
 
 ### Added (whatsapp-desk — Bridge mode, same day)

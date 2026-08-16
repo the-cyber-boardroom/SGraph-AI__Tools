@@ -1,0 +1,99 @@
+{
+  "name": "Narrated Review",
+  "slug": "narrated-review",
+  "description": "Narrate a walk through your screen and press a key at each moment that matters: the keypress marks a screenshot, bounds an audio segment over a continuous recording, and binds the two into an ordered pair. Out comes a markdown document of image + words pairs any AI assistant can read directly — no video recorded, transcription + screenshot-grounded cleanup via OpenRouter (BYOK), everything in-browser.",
+  "icon": "🎬",
+  "version": "0.1.0",
+  "status": "alpha",
+  "category": "media",
+  "keywords": ["narrate", "review", "screenshot", "screen", "transcribe", "markdown", "pairs", "openrouter", "feedback"],
+  "dependencies": {
+    "core": [
+      { "module": "sg-tool-api",      "path": "/core/sg-tool-api/v0/v0.1/v0.1.0/sg-tool-api.js" },
+      { "module": "sg-capture",       "path": "/core/sg-capture/v0/v0.1/v0.1.1/sg-capture.js" },
+      { "module": "sg-live-capture",  "path": "/core/sg-live-capture/v0/v0.1/v0.1.0/live-capture.js" },
+      { "module": "sg-transcribe",    "path": "/core/sg-transcribe/v0/v0.1/v0.1.0/api-transcribe.js" },
+      { "module": "sg-audio-decode",  "path": "/core/sg-audio-decode/v0/v0.1/v0.1.0/sg-audio-decode.js" },
+      { "module": "sg-zip",           "path": "/core/sg-zip/v0/v0.1/v0.1.0/sg-zip.js" },
+      { "module": "markdown",         "path": "/core/markdown/v1/v1.0/v1.0.0/sg-markdown.js" },
+      { "module": "sg-layout",        "path": "/core/sg-layout/v0.1.0/sg-layout.js" },
+      { "module": "manifest-loader",  "path": "/core/manifest-loader/v0/v0.1/v0.1.0/manifest-loader.js" }
+    ],
+    "shared": [
+      { "module": "sg-site-header",       "path": "/components/site-header/v1/v1.0/v1.0.2/sg-site-header.js" },
+      { "module": "sg-pipeline-steps",    "path": "/components/sg-pipeline-steps/v0/v0.1/v0.1.0/sg-pipeline-steps.js" },
+      { "module": "sg-send-drop",         "path": "/components/send-drop/v1/v1.0/v1.0.0/sg-send-drop.js" },
+      { "module": "sg-llm-request",       "path": "/components/llm/sg-llm-request/v0/v0.1/v0.1.6/sg-llm-request.js" },
+      { "module": "sg-llm-events",        "path": "/components/llm/sg-llm-events/v0/v0.1/v0.1.0/sg-llm-events.js" },
+      { "module": "sg-tool-api-explorer", "path": "/components/tool-api/sg-tool-api-explorer/v0/v0.1/v0.1.0/sg-tool-api-explorer.js" },
+      { "module": "sg-tool-api-console",  "path": "/components/tool-api/sg-tool-api-console/v0/v0.1/v0.1.0/sg-tool-api-console.js" },
+      { "module": "sg-tool-api-manifest", "path": "/components/tool-api/sg-tool-api-manifest/v0/v0.1/v0.1.0/sg-tool-api-manifest.js" }
+    ],
+    "loader": [
+      { "phase": 1, "type": "css", "path": "/core/sg-layout/v0.1.0/sg-layout.css" },
+      { "phase": 1, "type": "css", "path": "./styles/nr.css" },
+      { "phase": 2, "type": "js",  "path": "/components/llm/sg-llm-request/v0/v0.1/v0.1.6/sg-llm-request.js" },
+      { "phase": 3, "type": "js",  "entry": true, "path": "./api/nr-api.js" }
+    ]
+  },
+  "api": {
+    "version": "0.1.0",
+    "global": "window.__tool",
+    "note": "window.__tool live after tool:ready. startSession() must run in a user gesture (screen picker + mic). No video is ever recorded — the screen stream is a frame source only; audio is continuous (keypress = marker, not a switch). Transcription + cleanup are billable OpenRouter calls (BYOK, localStorage 'sg-openrouter-mgmt-key'); in 'grounded' cleanup mode each pair's SCREENSHOT is sent to the model — setCleanupMode({mode:'text-only'|'off'}) to prevent that. Raw transcripts are immutable; edits touch clean text only. Headless path: addRecording → markAt → transcribeAll → cleanAll → buildDocument needs no gestures.",
+    "events": [
+      { "name": "tool:ready",             "when": "activate() called",                       "detail": "{ instanceId, tool, version }" },
+      { "name": "nr:session:started",     "when": "screen + mic live, PCM rolling",          "detail": "{ screen:{width,height}, sampleRate, mimeType }" },
+      { "name": "nr:mark",                "when": "a moment is marked (key/click/markAt)",   "detail": "{ id, seq, tPress }" },
+      { "name": "nr:suggestion",          "when": "sustained unmarked silence detected",     "detail": "{ t }" },
+      { "name": "nr:pair:added",          "when": "a pair is created",                       "detail": "{ id, seq, tPress }" },
+      { "name": "nr:pair:updated",        "when": "bounds/raw/clean change",                 "detail": "{ id, field }" },
+      { "name": "nr:pair:removed",        "when": "removePair()",                            "detail": "{ id }" },
+      { "name": "nr:transcribe:started",  "when": "a segment goes to the model",             "detail": "{ id, model }" },
+      { "name": "nr:transcribe:complete", "when": "raw text landed",                         "detail": "{ id, chars, costUsd }" },
+      { "name": "nr:transcribe:error",    "when": "typed failure",                           "detail": "{ id, code }" },
+      { "name": "nr:session:ended",       "when": "take finalised, lanes auto-running",      "detail": "{ pairs, durationMs, takeSizeBytes }" },
+      { "name": "nr:clean:started",       "when": "cleanup call sent",                       "detail": "{ id, model, mode }" },
+      { "name": "nr:clean:complete",      "when": "clean text + marks landed",               "detail": "{ id, marks, costUsd }" },
+      { "name": "nr:clean:error",         "when": "cleanup failed (raw stands)",             "detail": "{ id, code }" },
+      { "name": "nr:summary:updated",     "when": "rolling summary advanced",                "detail": "{ length, atSeq }" },
+      { "name": "nr:document:built",      "when": "buildDocument()",                         "detail": "{ pairs, bytes }" },
+      { "name": "nr:bundle:created",      "when": "downloadZip()",                           "detail": "{ zipSize, name }" },
+      { "name": "nr:error",               "when": "session-level failure",                   "detail": "{ code, step, message }" },
+      { "name": "nr:reset",               "when": "reset()",                                 "detail": "{}" }
+    ],
+    "actions": {
+      "setApiKey":        { "params": { "apiKey": { "type": "string", "secret": true } }, "returns": "{ ok, present }", "async": false, "note": "shared BYOK slot 'sg-openrouter-mgmt-key'" },
+      "listModels":       { "returns": "[{id,label,cost,speed,available,default}]", "async": false },
+      "getStatus":        { "returns": "{ status, sessionId, pairs, durationMs, hasScreen, hasKey, cleanup, spendCapUsd, costs }", "async": false },
+      "startSession":     { "params": { "cleanup": { "type": "string", "optional": true } }, "returns": "Promise<{ sessionId, screen, mimeType }>", "async": true, "note": "user gesture required (screen picker + mic)" },
+      "markMoment":       { "returns": "Promise<{ id, seq, tPress }>", "async": true, "note": "the keypress: screenshot + VAD-snapped boundary + pair" },
+      "endSession":       { "returns": "Promise<{ pairs, durationMs, takeSizeBytes }>", "async": true, "note": "auto-runs transcribeAll then cleanAll when a key is set" },
+      "reset":            { "returns": "{ ok }", "async": false },
+      "addRecording":     { "params": { "file": { "type": "File" } }, "returns": "Promise<{ durationMs, sampleRate }>", "async": true, "note": "headless: audio file becomes the take" },
+      "markAt":           { "params": { "t": { "type": "number" }, "image": { "type": "Blob", "optional": true } }, "returns": "Promise<{ id, seq }>", "async": true, "note": "plant markers in ascending order" },
+      "transcribeAll":    { "params": { "concurrency": { "type": "number", "optional": true } }, "returns": "Promise<{ done, failed }>", "async": true },
+      "getSession":       { "returns": "serialisable session (no blobs)", "async": false },
+      "getPairs":         { "returns": "[pair]", "async": false },
+      "getPair":          { "params": { "id": { "type": "string" } }, "returns": "pair|null", "async": false },
+      "getPairImage":     { "params": { "id": { "type": "string" } }, "returns": "Promise<{ dataUrl }>", "async": true },
+      "setBoundary":      { "params": { "id": { "type": "string" }, "tStart": { "type": "number", "optional": true }, "tEnd": { "type": "number", "optional": true } }, "returns": "pair", "async": false },
+      "setText":          { "params": { "id": { "type": "string" }, "text": { "type": "string" } }, "returns": "pair", "async": false, "note": "edits CLEAN text only — raw is immutable" },
+      "removePair":       { "params": { "id": { "type": "string" } }, "returns": "{ removed }", "async": false },
+      "retranscribePair": { "params": { "id": { "type": "string" }, "model": { "type": "string", "optional": true } }, "returns": "Promise<{ id, text, model }>", "async": true, "note": "previous raw kept in rawVersions" },
+      "cleanPair":        { "params": { "id": { "type": "string" }, "model": { "type": "string", "optional": true } }, "returns": "Promise<{ id, cleanText, marks }>", "async": true },
+      "cleanAll":         { "returns": "Promise<{ done, failed }>", "async": true, "note": "sequential, seq order (rolling summary is order-dependent)" },
+      "getSummary":       { "returns": "{ summary, atSeq }", "async": false },
+      "buildDocument":    { "returns": "{ markdown, images:[{name,pairId}] }", "async": false },
+      "getDocument":      { "returns": "{ markdown }|null", "async": false },
+      "downloadZip":      { "params": { "include": { "type": "object", "optional": true } }, "returns": "Promise<{ name, zipSize, count }>", "async": true },
+      "setCleanupMode":   { "params": { "mode": { "type": "string" } }, "returns": "{ mode }", "async": false, "note": "'grounded' | 'text-only' | 'off'" },
+      "getCostSummary":   { "returns": "{ sessionUsd, transcribeUsd, cleanUsd, pending, perPair }", "async": false },
+      "setSpendCap":      { "params": { "usd": { "type": "number" } }, "returns": "{ cap }", "async": false, "note": "soft cap across both lanes; null clears" }
+    },
+    "skills": {
+      "human":   "./skills/SKILL-human.md",
+      "browser": "./skills/SKILL-browser.md",
+      "api":     "./skills/SKILL-api.md"
+    }
+  }
+}
