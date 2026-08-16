@@ -28,6 +28,11 @@ export function initDocument(el, state, api) {
         markdown = doc.markdown;
         for (const u of urls.splice(0)) URL.revokeObjectURL(u);
         let html = renderMarkdown(markdown);
+        // core/markdown v1.0.0 has no image syntax — it renders `![alt](src)`
+        // as a literal "!" followed by a link. Promote those back to real
+        // <img> tags so the preview shows the pairs (the exported review.md is
+        // plain markdown and unaffected).
+        html = html.replace(/!<a href="([^"]+)"[^>]*>([^<]*)<\/a>/g, '<img src="$1" alt="$2">');
         // Swap bundle-relative image refs for live blobs.
         for (const p of state.pairs) {
             if (!p.screenshot) continue;

@@ -189,8 +189,15 @@ function getStatus() {
 
 // ── Registration (JS-API-first) ──────────────────────────────────────────────
 
+/** Set the key and tell the UI, so the chip is right however the key arrived. */
+function setApiKey(p = {}) {
+    const r = Pipe.setApiKey(p);
+    emit(NR_EVENTS.KEY_SET, { present: true });
+    return r;
+}
+
 api
-    .register('setApiKey',        Pipe.setApiKey,   { async: false, sanitiseParams: p => ({ ...p, apiKey: p?.apiKey ? '••••' : undefined }) })
+    .register('setApiKey',        setApiKey,        { async: false, events: [NR_EVENTS.KEY_SET], sanitiseParams: p => ({ ...p, apiKey: p?.apiKey ? '••••' : undefined }) })
     .register('listModels',       Pipe.listModels,  { async: false })
     .register('getStatus',        getStatus,        { async: false })
 

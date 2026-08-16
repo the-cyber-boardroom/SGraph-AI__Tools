@@ -61,6 +61,8 @@ export function initCapture(el, state, config, api, emit, marker) {
         refreshKey();
     });
     refreshKey();
+    // The key can also arrive via the JS API (agents, embedders) — keep the chip honest.
+    window.addEventListener('nr:key:set', refreshKey);
 
     q('#nr-cleanup-mode').value = config.cleanup;
     q('#nr-cleanup-mode').addEventListener('change', e => api.setCleanupMode({ mode: e.target.value }));

@@ -42,6 +42,7 @@
     "note": "window.__tool live after tool:ready. startSession() must run in a user gesture (screen picker + mic). No video is ever recorded — the screen stream is a frame source only; audio is continuous (keypress = marker, not a switch). Transcription + cleanup are billable OpenRouter calls (BYOK, localStorage 'sg-openrouter-mgmt-key'); in 'grounded' cleanup mode each pair's SCREENSHOT is sent to the model — setCleanupMode({mode:'text-only'|'off'}) to prevent that. Raw transcripts are immutable; edits touch clean text only. Headless path: addRecording → markAt → transcribeAll → cleanAll → buildDocument needs no gestures.",
     "events": [
       { "name": "tool:ready",             "when": "activate() called",                       "detail": "{ instanceId, tool, version }" },
+      { "name": "nr:key:set",             "when": "the OpenRouter key is set (UI or API)",    "detail": "{ present }" },
       { "name": "nr:session:started",     "when": "screen + mic live, PCM rolling",          "detail": "{ screen:{width,height}, sampleRate, mimeType }" },
       { "name": "nr:mark",                "when": "a moment is marked (key/click/markAt)",   "detail": "{ id, seq, tPress }" },
       { "name": "nr:suggestion",          "when": "sustained unmarked silence detected",     "detail": "{ t }" },

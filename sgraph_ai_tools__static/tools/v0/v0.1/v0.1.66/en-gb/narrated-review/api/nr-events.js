@@ -11,6 +11,8 @@
 export const NR_EVENTS = Object.freeze({
     READY:               'tool:ready',
 
+    KEY_SET:             'nr:key:set',             // { present } — key changed (UI or API)
+
     SESSION_STARTED:     'nr:session:started',    // { screen:{width,height}, sampleRate, mimeType }
     SESSION_ENDED:       'nr:session:ended',      // { pairs, durationMs, takeSizeBytes }
     MARK:                'nr:mark',               // { id, seq, tPress }
