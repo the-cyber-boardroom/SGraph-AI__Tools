@@ -31,7 +31,15 @@ export const NR_EVENTS = Object.freeze({
     CLEAN_ERROR:         'nr:clean:error',         // { id, code }
     SUMMARY_UPDATED:     'nr:summary:updated',     // { length, atSeq }
 
+    PAIRS_REORDERED:     'nr:pairs:reordered',     // { id?, from?, to?, order? }
+    CHAT_STARTED:        'nr:chat:started',        // { scope:'pair'|'session', id?, model }
+    CHAT_COMPLETE:       'nr:chat:complete',       // { scope, id?, chars?, steps?, changes?, costUsd }
+
     DOCUMENT_BUILT:      'nr:document:built',      // { pairs, bytes }
+    PDF_CREATED:         'nr:pdf:created',         // { name, pages, bytes }
+    VAULT_STARTED:       'nr:vault:started',       // { vaultId, files, includeAudio }
+    VAULT_PROGRESS:      'nr:vault:progress',      // { written, total, path }
+    VAULT_COMPLETE:      'nr:vault:complete',      // { vaultId, base, written, includeAudio }
     BUNDLE_CREATED:      'nr:bundle:created',      // { zipSize, name }
     SEND_STARTED:        'nr:send:started',        // {}
     SEND_COMPLETE:       'nr:send:complete',       // { shareUrl }

@@ -46,6 +46,26 @@ await page.evaluate(async () => {
 
 `nr:mark`, `nr:pair:added`, `nr:transcribe:complete`, `nr:session:ended`, `nr:clean:complete`, `nr:document:built`, `nr:bundle:created`. All fire on `window`; detail carries `instanceId`.
 
+## Authoring and editing without any audio or model
+
+```js
+await page.evaluate(async () => {
+  const t = window.__tool;
+  const a = await t.insertPair({ text: 'first point', notes: 'follow up on this' });
+  const b = await t.insertPair({ text: 'second point', afterId: a.id });
+  await t.movePair({ id: b.id, toIndex: 0 });        // reorder
+  return (await t.getPairs()).map(p => [p.id, p.seq]);
+});
+```
+
+## Chat (needs a key)
+
+```js
+await t.askPair({ id: 'p02', text: 'What is on this screen?' });   // one capture
+const r = await t.askSession({ text: 'Add a note to capture 2 and summarise at the end.' });
+r.changes;   // [{ tool: 'set_notes', args }, { tool: 'insert_capture', args }]
+```
+
 ## Stable DOM ids
 
 | Id | What |
@@ -56,7 +76,10 @@ await page.evaluate(async () => {
 | `#nr-key` / `#nr-key-save` | BYOK key input |
 | `#nr-cleanup-mode` | grounded / text-only / off |
 | `#nr-doc-build` / `#nr-doc-copy` | Document tab |
-| `#nr-ex-zip` / `#nr-ex-send` | Export tab |
+| `#nr-ex-zip` / `#nr-ex-pdf` / `#nr-ex-send` | Export tab |
+| `#nr-vault-id` / `#nr-vault-secret` / `#nr-vault-audio` / `#nr-vault-save` | Vault save |
+| `#nr-chat-input` / `#nr-chat-send` | Chat tab (scope radio: `input[name=nr-scope]`) |
+| `#nr-insert-end` | Add a capture at the end |
 
 ## Console quickies
 

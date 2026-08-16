@@ -30,6 +30,33 @@ Audio is captured **continuously** — the keypress is a marker, not a start/sto
 
 **The bar this tool is measured against:** press send with no cleanup afterwards. If a session needs editing before it can be shared, that's a bug worth reporting.
 
+## Editing the review
+
+- **Extra comments.** Each capture has a **notes** box, separate from the transcript.
+  The transcript is what you said; notes are what you want to add now. They appear
+  as quoted notes in the document, so nobody mistakes one for the other.
+- **Reorder.** ↑ ↓ on any row in Pairs, or in the Review pane. Numbering follows.
+- **Add a capture anywhere.** "+ Add capture", or "+" on a row to insert straight
+  after it. A capture is only ever an image, some words, or both — so an added one
+  needs no audio.
+
+## Chat about the review
+
+The Chat tab has two scopes:
+- **This capture** — the model gets that screenshot, the raw transcript, the
+  cleaned text and your notes. Good for "what is this showing?" or "is this a bug?".
+- **Whole review (can edit)** — the model can also *change* things: attach notes,
+  correct the analysis, reorder, insert a capture. It tells you what it changed.
+  It cannot touch raw transcripts.
+
+## Saving to a vault
+
+Export → **Save to a vault**: vault id + write passphrase (or a Simple Token).
+Writes the document, images, raw transcripts, notes and session.json.
+**Include raw audio** is off by default — tick it if you may want to re-transcribe
+with a better model later, re-cut a boundary, or build something else (a video,
+for instance) out of the same materials. It is much the largest part.
+
 ## Tips
 
 - The tool window must have **focus** for keys to register — that's a browser limit, and why the narrow side-window layout matters. A click on the MARK area works too.

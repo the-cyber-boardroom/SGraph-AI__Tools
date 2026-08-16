@@ -21,6 +21,8 @@ export function initReview(el, state, config, api) {
             <button id="nr-rv-apply" class="nr-btn nr-btn--sm">Apply bounds</button>
             <button id="nr-rv-retranscribe" class="nr-btn nr-btn--sm">↻ Re-transcribe</button>
             <button id="nr-rv-reclean" class="nr-btn nr-btn--sm">✨ Re-clean</button>
+            <button id="nr-rv-up" class="nr-btn nr-btn--sm">↑ earlier</button>
+            <button id="nr-rv-down" class="nr-btn nr-btn--sm">↓ later</button>
             <button id="nr-rv-remove" class="nr-btn nr-btn--sm nr-btn--danger">🗑 Remove</button>
           </div>
           <div class="nr-review__cols">
@@ -28,6 +30,12 @@ export function initReview(el, state, config, api) {
             <div><h4>Clean (editable)</h4><textarea id="nr-rv-clean" class="nr-review__clean" rows="8"></textarea>
               <div id="nr-rv-marks" class="nr-muted"></div>
               <button id="nr-rv-save" class="nr-btn nr-btn--sm">Save text</button></div>
+          </div>
+          <div class="nr-review__notes">
+            <h4>Extra comments (notes)</h4>
+            <textarea id="nr-rv-notes" class="nr-review__clean" rows="3"
+              placeholder="Commentary added after the fact — kept separate from the transcript, and marked as a note in the document."></textarea>
+            <button id="nr-rv-notes-save" class="nr-btn nr-btn--sm">Save notes</button>
           </div>
         </div>
       </div>`;
@@ -51,6 +59,7 @@ export function initReview(el, state, config, api) {
         q('#nr-rv-raw').textContent = (p.raw && p.raw.text) || '(no raw transcript yet)';
         q('#nr-rv-clean').value = (p.clean && p.clean.text) || '';
         const marks = (p.clean && p.clean.marks) || [];
+        q('#nr-rv-notes').value = p.notes || '';
         q('#nr-rv-marks').textContent = marks.length
             ? `Unsure: ${marks.map(m => `"${m.span}" (${m.note})`).join(' · ')}`
             : '';
@@ -77,4 +86,10 @@ export function initReview(el, state, config, api) {
         if (!currentId) return;
         api.setText({ id: currentId, text: q('#nr-rv-clean').value });
     });
+    q('#nr-rv-notes-save').addEventListener('click', () => {
+        if (!currentId) return;
+        api.setNotes({ id: currentId, notes: q('#nr-rv-notes').value });
+    });
+    q('#nr-rv-up').addEventListener('click',   () => currentId && api.movePair({ id: currentId, by: -1 }));
+    q('#nr-rv-down').addEventListener('click', () => currentId && api.movePair({ id: currentId, by:  1 }));
 }

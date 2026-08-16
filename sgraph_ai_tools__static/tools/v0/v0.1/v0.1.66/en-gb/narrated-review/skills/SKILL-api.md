@@ -2,6 +2,11 @@
 
 `window.__tool` after `tool:ready`. All actions return Promises. The manifest `api` section is authoritative; this file adds semantics.
 
+## What changed in v0.1.1
+
+Structural editing, two chat surfaces, vault save and PDF export. 37 actions.
+Boundary snapping was also corrected against live narration — see `setSnapConfig`.
+
 ## Data model
 
 The unit is the **pair** — an ordered list drives everything:
@@ -14,10 +19,50 @@ pair = {
   hasScreenshot: true,        // blob served via getPairImage({id})
   raw:   { text, model, costUsd },              // IMMUTABLE once set
   clean: { text, marks:[{span,note}], model, costUsd },
+  notes: '',                  // extra comments — commentary, NOT a transcript
+  source: 'capture'|'inserted',
   status: 'marked'|'transcribing'|'raw'|'cleaning'|'clean'|'error',
   error: { code, step } | null,
 }
 ```
+
+`seq` is the DOCUMENT ORDER and is re-derived from array position after every
+move or insert. `id` never changes, so chat threads, events and API callers keep
+pointing at the same capture across reordering.
+
+### Three kinds of text, deliberately separate
+| Field | Whose words | Editable |
+|---|---|---|
+| `raw` | the recogniser's | never |
+| `clean` | the speaker's, corrected | yes (`setText`, or the session chat) |
+| `notes` | yours or an agent's, added after | yes (`setNotes`) |
+
+## Structural editing
+
+- `insertPair({ text?, notes?, image?, raw?, afterId?, atIndex? })` — a capture is
+  only ever a screenshot, some words and (usually) audio, so one can be authored
+  directly. No audio means it never goes through transcription.
+- `movePair({ id, toIndex })` or `({ id, by: -1 })` ; `reorderPairs({ order: [id,…] })`
+- `setNotes({ id, notes })` ; `removePair({ id })`
+
+## Chat
+
+- `askPair({ id, text })` — scoped to ONE capture: its screenshot, raw, analysis,
+  notes, plus the rolling summary. Flat cost, answers about that moment.
+- `askSession({ text, maxSteps })` — the whole review **with tools**:
+  `list_captures`, `get_capture`, `set_notes`, `set_analysis`, `move_capture`,
+  `insert_capture`. Returns `{ text, steps, changes }` where `changes` lists what
+  it actually did. Raw transcripts are not exposed as writable.
+
+## Saving and exporting
+
+- `downloadZip({ include })` · `downloadPdf({ includeRaw })` · `sendViaSgSend()`
+- `saveToVault({ vaultId, passphrase | token, includeAudio })` → writes
+  `reviews/<sessionId>/review.md`, `images/`, `raw/`, `notes/`, `session.json`,
+  and `audio/` only when `includeAudio` is true. Audio is off by default: it is
+  the bulk of the size, and only needed to re-transcribe later with a better
+  model, re-cut a boundary, or build something else (a video, say) from the same
+  materials. `previewVaultFiles()` shows the exact file list without writing.
 
 - `raw` is never overwritten: `retranscribePair` pushes the old raw into an internal version history; `setText` edits `clean` only.
 - Bounds are markers over ONE continuous recording — `setBoundary` re-slices; segments may overlap (duplicated words beat lost ones).
@@ -60,5 +105,9 @@ await t.downloadZip();                            // review.md + images/ + audio
 - Session state is in-memory — a reload loses an unexported session.
 - `startSession` requires a real gesture; the marker key requires tool-window focus (browser limits — see the pack's Decision 3).
 - Boundary editing is numeric ms in the UI (draggable timeline queued).
+- `setSnapConfig({ minSilenceMs })` matters: the snap looks for a SUSTAINED gap,
+  because ordinary word gaps are ~120 ms. Default 700 ms. Too low and a segment
+  starts mid-sentence; too high and it falls back to a fixed 2 s lead.
+- `saveToVault` is implemented but has NOT been run against a live vault.
 - The take is webm/opus (or ogg) — the per-pair WAVs are the model-ready audio.
 - Vault-as-home, annotation, and screenshot-only mode are the ranked v0.2 queue.

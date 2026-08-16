@@ -14,6 +14,11 @@ import { buildMarker } from './nr-marker.js';
 import * as Pipe from './nr-pipeline.js';
 import { buildDocument } from './nr-document.js';
 import { buildSessionZip, downloadBlob } from './nr-zip.js';
+import { buildEditMethods } from './nr-edit.js';
+import { buildChatMethods } from './nr-chat.js';
+import { makeChatTransport } from './nr-llm.js';
+import { saveToVault as vaultSave, buildVaultFiles } from './nr-vault.js';
+import { buildPdf } from './nr-pdf.js';
 import { init as initShell } from '../ui/ui-shell.js';
 
 const api = new SgToolApi({
@@ -34,6 +39,16 @@ Pipe.initPipeline({ emit });
 Cap.onSuggestion(t => emit(NR_EVENTS.SUGGESTION, { t }));
 
 let lastDocument = null;
+
+// Structural edits (notes / reorder / insert) live in nr-edit.
+const edit = buildEditMethods({ emit });
+
+// Chat gets its own isolated transport: same one-cell-per-request isolation as
+// transcription, plus tool-calling.
+const chatHost = document.createElement('div');
+chatHost.style.display = 'none';
+document.body.appendChild(chatHost);
+const chatTransport = makeChatTransport(chatHost, Pipe.getApiKey);
 
 // A newly bounded pair transcribes immediately (streams to raw mid-capture).
 const marker = buildMarker({
@@ -145,6 +160,12 @@ async function getPairImage(p = {}) {
     return { dataUrl };
 }
 
+const chat = buildChatMethods({
+    transport: chatTransport,
+    getModel: () => config.cleanupModel || config.transcribeModel || 'google/gemini-3.5-flash',
+    edit, setText, emit,
+});
+
 // ── Document & export ────────────────────────────────────────────────────────
 
 function buildDoc() {
@@ -152,6 +173,18 @@ function buildDoc() {
     lastDocument = doc;
     emit(NR_EVENTS.DOCUMENT_BUILT, { pairs: state.pairs.length, bytes: doc.markdown.length });
     return { markdown: doc.markdown, images: doc.images };
+}
+
+async function downloadPdf(p = {}) {
+    const { blob, name, pages } = await buildPdf(p);
+    downloadBlob(blob, name);
+    emit(NR_EVENTS.PDF_CREATED, { name, pages, bytes: blob.size });
+    return { name, pages, bytes: blob.size };
+}
+
+/** Write the whole session into an SG/Send vault (audio optional). */
+function saveToVault(p = {}) {
+    return vaultSave(p, emit, Pipe.pairWav);
 }
 
 async function downloadZip(p = {}) {
@@ -237,6 +270,10 @@ api
     .register('getPair',          (p = {}) => { const x = getPairById(p.id); return x ? pairToJson(x) : null; }, { async: false })
     .register('getPairImage',     getPairImage,     { async: true })
     .register('setBoundary',      setBoundary,      { async: false, events: [NR_EVENTS.PAIR_UPDATED] })
+    .register('setNotes',         edit.setNotes,    { async: false, events: [NR_EVENTS.PAIR_UPDATED] })
+    .register('movePair',         edit.movePair,    { async: false, events: [NR_EVENTS.PAIRS_REORDERED] })
+    .register('reorderPairs',     edit.reorderPairs,{ async: false, events: [NR_EVENTS.PAIRS_REORDERED] })
+    .register('insertPair',       edit.insertPair,  { async: true,  events: [NR_EVENTS.PAIR_ADDED] })
     .register('setText',          setText,          { async: false, events: [NR_EVENTS.PAIR_UPDATED] })
     .register('removePair',       removePair,       { async: false, events: [NR_EVENTS.PAIR_REMOVED] })
     .register('retranscribePair', Pipe.transcribePair, { async: true, events: [NR_EVENTS.TRANSCRIBE_COMPLETE] })
@@ -245,9 +282,16 @@ api
     .register('cleanAll',         Pipe.cleanAll,    { async: true })
     .register('getSummary',       () => ({ summary: state.rollingSummary, atSeq: state.summaryAtSeq }), { async: false })
 
+    .register('askPair',          chat.askPair,     { async: true,  events: [NR_EVENTS.CHAT_COMPLETE] })
+    .register('askSession',       chat.askSession,  { async: true,  events: [NR_EVENTS.CHAT_COMPLETE] })
+
     .register('buildDocument',    buildDoc,         { async: false, events: [NR_EVENTS.DOCUMENT_BUILT] })
     .register('getDocument',      () => (lastDocument ? { markdown: lastDocument.markdown } : null), { async: false })
     .register('downloadZip',      downloadZip,      { async: true,  events: [NR_EVENTS.BUNDLE_CREATED] })
+    .register('downloadPdf',      downloadPdf,      { async: true,  events: [NR_EVENTS.PDF_CREATED] })
+    .register('saveToVault',      saveToVault,      { async: true,  events: [NR_EVENTS.VAULT_COMPLETE],
+        sanitiseParams: p => ({ ...p, passphrase: p?.passphrase ? '••••' : undefined, token: p?.token ? '••••' : undefined }) })
+    .register('previewVaultFiles', (p = {}) => ({ files: buildVaultFiles(p).files.map(f => f.path) }), { async: false })
 
     .register('setCleanupMode',   setCleanupMode,   { async: false })
     .register('setSnapConfig',    setSnapConfig,    { async: false })

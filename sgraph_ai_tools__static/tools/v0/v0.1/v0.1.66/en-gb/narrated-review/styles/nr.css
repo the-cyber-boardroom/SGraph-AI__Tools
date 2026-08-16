@@ -81,3 +81,28 @@
 .nr-skills__header { display: flex; justify-content: space-between; padding: 8px 12px; cursor: pointer; }
 .nr-skills__body { display: none; white-space: pre-wrap; padding: 8px 12px; margin: 0;
     border-top: 1px solid #1c2740; font-size: 0.8em; max-height: 300px; overflow-y: auto; }
+
+/* ── Notes / ordering / chat (v0.1.1) ── */
+.nr-pairs__bar { display: flex; gap: 10px; align-items: center; margin-bottom: 10px; }
+.nr-pair-row__note { color: #14b8a6; font-size: 0.72em; border: 1px solid #14b8a6; border-radius: 3px; padding: 0 4px; }
+.nr-pair-row__added { color: #a78bfa; font-size: 0.72em; }
+.nr-pair-row__ord { margin-left: auto; display: flex; gap: 2px; }
+.nr-pair-row__ord button { background: #131b2e; color: #9fb0c8; border: 1px solid #2c3a52;
+    border-radius: 4px; width: 22px; cursor: pointer; font-size: 0.8em; }
+.nr-pair-row__ord button:hover { background: #223050; color: #e2e8f0; }
+.nr-review__notes { margin-top: 14px; }
+.nr-review__notes h4 { margin-bottom: 4px; }
+.nr-vault input { flex: 1; min-width: 110px; background: #0e1526; color: #e2e8f0;
+    border: 1px solid #2c3a52; border-radius: 6px; padding: 6px 8px; }
+
+.nr-chat { display: flex; flex-direction: column; height: 100%; gap: 8px; }
+.nr-chat__scope { display: flex; gap: 14px; align-items: center; font-size: 0.85em; flex-wrap: wrap; }
+.nr-chat__log { flex: 1; min-height: 160px; overflow-y: auto; background: #0e1526;
+    border: 1px solid #1c2740; border-radius: 8px; padding: 10px; }
+.nr-chat__msg { margin-bottom: 10px; font-size: 0.9em; }
+.nr-chat__msg b { display: block; color: #7a8699; font-size: 0.78em; margin-bottom: 2px; }
+.nr-chat__msg--bot { color: #d7e2f0; }
+.nr-chat__msg.is-error { color: #fca5a5; }
+.nr-chat__row { display: flex; gap: 8px; }
+.nr-chat__row textarea { flex: 1; background: #0e1526; color: #e2e8f0; border: 1px solid #2c3a52;
+    border-radius: 6px; padding: 8px; font-family: inherit; font-size: 0.9em; resize: vertical; }

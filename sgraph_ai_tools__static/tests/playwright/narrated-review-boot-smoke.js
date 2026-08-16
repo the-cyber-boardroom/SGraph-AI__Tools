@@ -31,7 +31,10 @@ const EXPECTED_ACTIONS = [
     'setBoundary', 'setText', 'removePair', 'retranscribePair',
     'cleanPair', 'cleanAll', 'getSummary',
     'buildDocument', 'getDocument', 'downloadZip',
-    'setCleanupMode', 'getCostSummary', 'setSpendCap',
+    'setCleanupMode', 'setSnapConfig', 'getCostSummary', 'setSpendCap',
+    'setNotes', 'movePair', 'reorderPairs', 'insertPair',
+    'askPair', 'askSession',
+    'downloadPdf', 'saveToVault', 'previewVaultFiles',
 ];
 
 let passed = 0, failed = 0;
@@ -76,7 +79,9 @@ async function run() {
 
         // The DOM contract SKILL-browser promises.
         for (const sel of ['#nr-share', '#nr-finish', '#nr-mark', '#nr-key', '#nr-key-save',
-                           '#nr-cleanup-mode', '#nr-doc-build', '#nr-ex-zip', '#nr-ex-send']) {
+                           '#nr-cleanup-mode', '#nr-doc-build', '#nr-ex-zip', '#nr-ex-send',
+                           '#nr-ex-pdf', '#nr-vault-id', '#nr-vault-audio', '#nr-vault-save',
+                           '#nr-chat-input', '#nr-chat-send', '#nr-insert-end']) {
             assert(await page.$(sel) !== null, `panel element present: ${sel}`);
         }
 
@@ -108,6 +113,32 @@ async function run() {
         const doc = await page.evaluate(() => window.__tool.buildDocument());
         assert(typeof doc.markdown === 'string' && doc.markdown.includes('# Narrated review'),
             'buildDocument works with zero pairs');
+
+        // Structural editing works with no audio and no model at all.
+        const edited = await page.evaluate(async () => {
+            const t = window.__tool;
+            const a = await t.insertPair({ text: 'first authored capture' });
+            const b = await t.insertPair({ text: 'second authored capture', notes: 'a note' });
+            await t.setNotes({ id: a.id, notes: 'added later' });
+            await t.movePair({ id: b.id, toIndex: 0 });
+            const order = (await t.getPairs()).map(p => [p.id, p.seq, p.notes]);
+            const c = await t.insertPair({ text: 'middle', afterId: order[0][0] });
+            const after = (await t.getPairs()).map(p => p.id);
+            const md = (await t.buildDocument()).markdown;
+            const files = await t.previewVaultFiles({});
+            return { a, b, c, order, after, md, files };
+        });
+        assert(edited.order.length === 2, 'insertPair authors a capture with no audio');
+        assert(edited.order[0][0] === edited.b.id, 'movePair reorders the document');
+        assert(edited.order.every((r, i) => r[1] === i), 'seq re-derived from position after a move');
+        assert(edited.after[1] === edited.c.id, 'insertPair places a capture in the MIDDLE via afterId');
+        assert(edited.md.includes('> added later'), 'notes render as commentary in the document');
+        assert(edited.md.includes('## 1. Added'), 'authored captures are headed "Added" (no timestamp)');
+        assert(edited.files.files.some(f => f.endsWith('review.md')), 'previewVaultFiles lists the vault layout');
+        assert(!edited.files.files.some(f => f.includes('/audio/')), 'vault save excludes audio by default');
+        const withAudio = await page.evaluate(() => window.__tool.previewVaultFiles({ includeAudio: true }));
+        assert(Array.isArray(withAudio.files), 'previewVaultFiles honours includeAudio');
+        await page.evaluate(() => window.__tool.reset());
 
         assert(errors.length === 0, 'zero uncaught errors after exercise', errors.join(' | '));
     } catch (err) {

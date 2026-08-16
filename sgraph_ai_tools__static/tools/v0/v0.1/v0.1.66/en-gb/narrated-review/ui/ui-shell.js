@@ -12,6 +12,7 @@ import { initPairs }    from './ui-pairs.js';
 import { initReview }   from './ui-review.js';
 import { initDocument } from './ui-document.js';
 import { initExport }   from './ui-export.js';
+import { initChat }     from './ui-chat.js';
 import { initApiPane }  from './ui-api-pane.js';
 
 import '/core/sg-layout/v0.1.0/sg-layout.js';
@@ -42,6 +43,7 @@ export async function init(state, config, api, emit, marker) {
     const workTabs = [
         { type: 'tab', id: 't-pairs',    title: '🧩 Pairs',    tag: 'div', locked: true, closable: false },
         { type: 'tab', id: 't-review',   title: '🔍 Review',   tag: 'div', locked: true, closable: false },
+        { type: 'tab', id: 't-chat',     title: '💬 Chat',     tag: 'div', locked: true, closable: false },
         { type: 'tab', id: 't-document', title: '📄 Document', tag: 'div', locked: true, closable: false },
         { type: 'tab', id: 't-export',   title: '📦 Export',   tag: 'div', locked: true, closable: false },
     ];
@@ -75,6 +77,7 @@ export async function init(state, config, api, emit, marker) {
     initSteps(panel('t-steps'), state);
     initPairs(panel('t-pairs'), state, api);
     initReview(panel('t-review'), state, config, api);
+    initChat(panel('t-chat'), state, api);
     initDocument(panel('t-document'), state, api);
     initExport(panel('t-export'), state, api);
     initApiPane(wrap, focusTab);

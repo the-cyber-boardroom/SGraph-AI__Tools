@@ -43,7 +43,8 @@ export function buildDocument(session, pairs) {
     const unsureNotes = [];
     for (const p of ordered) {
         lines.push('');
-        lines.push(`## ${p.seq + 1}. At ${fmtTime(p.tPress)}`);
+        // Authored captures carry no timestamp — they were added, not narrated.
+        lines.push(p.tPress == null ? `## ${p.seq + 1}. Added` : `## ${p.seq + 1}. At ${fmtTime(p.tPress)}`);
         lines.push('');
         if (p.screenshot || p.hasScreenshot) {
             const name = imageName(p);
@@ -64,8 +65,14 @@ export function buildDocument(session, pairs) {
             lines.push(text);
         } else if (raw) {
             lines.push(raw);
-        } else {
+        } else if (!p.notes) {
             lines.push('*(no transcript for this segment)*');
+        }
+        // Notes are commentary added after the fact — marked as such so a
+        // reader never mistakes them for what was said.
+        if (p.notes) {
+            lines.push('');
+            for (const l of String(p.notes).split('\n')) lines.push(`> ${l}`);
         }
     }
 

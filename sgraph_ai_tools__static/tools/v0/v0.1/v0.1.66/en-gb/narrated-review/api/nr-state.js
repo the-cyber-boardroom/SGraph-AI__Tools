@@ -71,6 +71,7 @@ export const state = {
     rollingSummary: '',
     summaryAtSeq: -1,
     costs: { transcribeUsd: 0, cleanUsd: 0, pendingCount: 0 },
+    chatCosts: [],             // [{ scope:'pair'|'session', id?, usd }]
     lastError: null,
     _seq: 0,
 
@@ -79,7 +80,8 @@ export const state = {
         this.durationMs = 0; this.screen = null; this.take = null; this.takeSource = null;
         this.pairs = []; this.suggestions = []; this.rollingSummary = '';
         this.summaryAtSeq = -1; this.costs = { transcribeUsd: 0, cleanUsd: 0, pendingCount: 0 };
-        this.lastError = null; this._seq = 0;
+        this.chatCosts = []; this.lastError = null; this._seq = 0;
+        resetIds();
     },
 };
 
@@ -89,22 +91,49 @@ export const state = {
  * @param {{ tPress: number, tStart: number, screenshot: Blob|null }} p
  * @returns {object} the new pair
  */
+let _idCounter = 0;
+
 export function addPair({ tPress, tStart, screenshot }) {
     const seq = state._seq++;
-    const pair = {
-        id: `p${String(seq + 1).padStart(2, '0')}`,
-        seq, tPress,
-        tStart, tEnd: null,
-        screenshot: screenshot || null,
-        raw: null,                 // { text, model, generationId, costUsd|null }
-        rawVersions: [],           // older raws (retranscribe pushes here)
-        clean: null,               // { text, marks:[{span,note}], model, generationId, costUsd|null }
-        status: 'marked',          // marked | transcribing | raw | cleaning | clean | error
-        error: null,               // { code, step }
-    };
+    const pair = makePair({ seq, tPress, tStart, screenshot });
     state.pairs.push(pair);
     return pair;
 }
+
+/**
+ * Build a pair object. `seq` is the DOCUMENT ORDER and is re-derived by
+ * resequence() after any move/insert — `id` stays stable for the life of the
+ * pair so API callers, chat references and events keep pointing at the same
+ * thing.
+ */
+export function makePair({ seq, tPress = null, tStart = null, screenshot = null, source = 'capture' }) {
+    _idCounter += 1;
+    return {
+        id: `p${String(_idCounter).padStart(2, '0')}`,
+        seq, tPress,
+        tStart, tEnd: tStart == null ? null : null,
+        screenshot: screenshot || null,
+        source,                    // 'capture' | 'inserted'
+        raw: null,                 // { text, model, generationId, costUsd|null }
+        rawVersions: [],           // older raws (retranscribe pushes here)
+        clean: null,               // { text, marks:[{span,note}], model, generationId, costUsd|null }
+        notes: '',                 // human/agent commentary — NOT a transcript.
+                                   // Kept separate from `clean` because clean is
+                                   // derived from what was said; notes are added
+                                   // afterwards and must never be mistaken for it.
+        status: 'marked',          // marked | transcribing | raw | cleaning | clean | error
+        error: null,               // { code, step }
+    };
+}
+
+/** Re-derive seq from array position. Call after any structural change. */
+export function resequence() {
+    state.pairs.forEach((p, i) => { p.seq = i; });
+    return state.pairs.length;
+}
+
+/** Reset the id counter (used by state.reset via a fresh session). */
+export function resetIds() { _idCounter = 0; }
 
 /** @param {string} id @returns {object|null} */
 export function getPairById(id) {
@@ -115,9 +144,10 @@ export function getPairById(id) {
 export function pairToJson(p) {
     return {
         id: p.id, seq: p.seq, tPress: p.tPress, tStart: p.tStart, tEnd: p.tEnd,
-        hasScreenshot: !!p.screenshot,
+        hasScreenshot: !!p.screenshot, source: p.source || 'capture',
         raw: p.raw ? { text: p.raw.text, model: p.raw.model, costUsd: p.raw.costUsd } : null,
         clean: p.clean ? { text: p.clean.text, marks: p.clean.marks, model: p.clean.model, costUsd: p.clean.costUsd } : null,
+        notes: p.notes || '',
         status: p.status, error: p.error,
     };
 }
@@ -160,7 +190,9 @@ export function costSummary() {
     for (const v of state.pairs.flatMap(p => p.rawVersions)) {
         if (typeof v.costUsd === 'number') transcribeUsd += v.costUsd;
     }
-    return { sessionUsd: transcribeUsd + cleanUsd, transcribeUsd, cleanUsd, pending, perPair };
+    let chatUsd = 0;
+    for (const c of state.chatCosts) if (typeof c.usd === 'number') chatUsd += c.usd;
+    return { sessionUsd: transcribeUsd + cleanUsd + chatUsd, transcribeUsd, cleanUsd, chatUsd, pending, perPair };
 }
 
 /** Known session spend (resolved costs only) — the spend-cap input. */
