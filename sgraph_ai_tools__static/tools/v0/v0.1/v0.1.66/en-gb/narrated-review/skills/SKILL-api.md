@@ -2,6 +2,15 @@
 
 `window.__tool` after `tool:ready`. All actions return Promises. The manifest `api` section is authoritative; this file adds semantics.
 
+## What changed in v0.1.3
+
+`startSession()` now opens **capture 1** with the screen as shared, and a press
+means **NEXT**: a capture's screenshot is taken when it OPENS, and the words
+until the next press belong to it. Before this, the first press created capture 1
+holding a frame from after you had moved on, so every capture carried the next
+screen's picture. Also: `saveSession`/`listSessions`/`loadSession`/`deleteSession`
+(local, survives a reload), and captures open as their own dockable panels.
+
 ## What changed in v0.1.1
 
 Structural editing, two chat surfaces, vault save and PDF export. 37 actions.
@@ -109,5 +118,10 @@ await t.downloadZip();                            // review.md + images/ + audio
   because ordinary word gaps are ~120 ms. Default 700 ms. Too low and a segment
   starts mid-sentence; too high and it falls back to a fixed 2 s lead.
 - `saveToVault` is implemented but has NOT been run against a live vault.
+- `loadSession` restores the document (captures, images, text, notes, order) but
+  NOT the audio samples, so `retranscribePair` and boundary edits are unavailable
+  on a restored session (`canRetranscribe:false`). Save with `includeAudio:true`
+  to keep the take itself; note `core/sg-vfs` is text-only, so binary is stored
+  base64 (~33% larger).
 - The take is webm/opus (or ogg) — the per-pair WAVs are the model-ready audio.
 - Vault-as-home, annotation, and screenshot-only mode are the ranked v0.2 queue.

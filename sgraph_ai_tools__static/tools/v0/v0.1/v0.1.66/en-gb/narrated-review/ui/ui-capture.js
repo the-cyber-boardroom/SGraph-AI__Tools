@@ -31,8 +31,8 @@ export function initCapture(el, state, config, api, emit, marker) {
         </div>
         <div id="nr-mark" class="nr-mark" tabindex="0">
           <div class="nr-mark__dot">⬤</div>
-          <div class="nr-mark__label">MARK</div>
-          <div class="nr-mark__hint">press any key while narrating</div>
+          <div class="nr-mark__label">NEXT</div>
+          <div class="nr-mark__hint">press any key when you move to the next thing</div>
         </div>
         <div class="nr-cap__meter"><div id="nr-meter" class="nr-cap__meter-fill"></div></div>
         <div class="nr-cap__status">
@@ -127,7 +127,7 @@ export function initCapture(el, state, config, api, emit, marker) {
     window.addEventListener('nr:session:started', () => { setCapturing(true); refreshCounts(); });
     window.addEventListener('nr:session:ended', () => setCapturing(false));
     window.addEventListener('nr:reset', () => { setCapturing(false); refreshCounts(); clockEl.textContent = '00:00'; });
-    for (const ev of ['nr:pair:added', 'nr:pair:removed', 'nr:transcribe:complete', 'nr:clean:complete']) {
+    for (const ev of ['nr:pair:added', 'nr:pair:removed', 'nr:transcribe:complete', 'nr:clean:complete', 'nr:store:loaded']) {
         window.addEventListener(ev, refreshCounts);
     }
 

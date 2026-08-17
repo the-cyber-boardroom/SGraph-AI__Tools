@@ -14,6 +14,7 @@ import { initDocument } from './ui-document.js';
 import { initExport }   from './ui-export.js';
 import { initChat }     from './ui-chat.js';
 import { initApiPane }  from './ui-api-pane.js';
+import { initCaptureTab, tabTitle } from './ui-capture-tab.js';
 
 import '/core/sg-layout/v0.1.0/sg-layout.js';
 import '/components/sg-pipeline-steps/v0/v0.1/v0.1.0/sg-pipeline-steps.js';
@@ -55,18 +56,21 @@ export async function init(state, config, api, emit, marker) {
 
     const captureTab = { type: 'tab', id: 't-capture', title: '🎬 Capture', tag: 'div', locked: true, closable: false };
     const stepsTab   = { type: 'tab', id: 't-steps',   title: '📋 Steps',   tag: 'div', locked: true, closable: false };
+    // The Captures list is the fixed spine — locked and never closable.
+    const listTab = { type: 'tab', id: 't-pairs', title: '🧩 Captures', tag: 'div', locked: true, closable: false };
+    // Everything else is unlocked so sg-layout's drag-to-dock works: these can be
+    // moved, split and stacked, and individual captures open alongside them.
     const workTabs = [
-        { type: 'tab', id: 't-pairs',    title: '🧩 Captures',    tag: 'div', locked: true, closable: false },
-        { type: 'tab', id: 't-review',   title: '🔍 Review',   tag: 'div', locked: true, closable: false },
-        { type: 'tab', id: 't-chat',     title: '💬 Chat',     tag: 'div', locked: true, closable: false },
-        { type: 'tab', id: 't-document', title: '📄 Document', tag: 'div', locked: true, closable: false },
-        { type: 'tab', id: 't-export',   title: '📦 Export',   tag: 'div', locked: true, closable: false },
+        { type: 'tab', id: 't-review',   title: '🔍 Review',   tag: 'div', locked: false, closable: false },
+        { type: 'tab', id: 't-chat',     title: '💬 Chat',     tag: 'div', locked: false, closable: false },
+        { type: 'tab', id: 't-document', title: '📄 Document', tag: 'div', locked: false, closable: false },
+        { type: 'tab', id: 't-export',   title: '📦 Export',   tag: 'div', locked: false, closable: false },
     ];
 
     layout.setLayout(narrow
-        ? { type: 'stack', id: 'root', activeTab: 0, tabs: [captureTab, ...workTabs, stepsTab] }
+        ? { type: 'stack', id: 'root', activeTab: 0, tabs: [captureTab, listTab, ...workTabs, stepsTab] }
         : {
-            type: 'row', id: 'root', sizes: [0.36, 0.64],
+            type: 'row', id: 'root', sizes: [0.26, 0.26, 0.48],
             children: [
                 {
                     type: 'column', id: 'c-left', sizes: [0.66, 0.34],
@@ -75,6 +79,8 @@ export async function init(state, config, api, emit, marker) {
                         { type: 'stack', id: 's-steps',   activeTab: 0, tabs: [stepsTab] },
                     ],
                 },
+                // The list has its own column so opening captures never displaces it.
+                { type: 'stack', id: 's-list', activeTab: 0, tabs: [listTab] },
                 { type: 'stack', id: 's-work', activeTab: 0, tabs: workTabs },
             ],
         });
@@ -85,6 +91,33 @@ export async function init(state, config, api, emit, marker) {
         if (el) el.style.cssText = 'height:100%;overflow-y:auto;padding:12px;box-sizing:border-box;';
         return el;
     };
+
+    // ── Captures open as their own tabs ──────────────────────────────────────
+    // One tab per capture, unlocked + closable so they can be dragged, docked
+    // side by side, and closed — while the Captures list stays put.
+    const openTabs = new Map();          // pairId -> layout tab id
+    function openCaptureTab(pairId) {
+        const pair = state.pairs.find(x => x.id === pairId);
+        if (!pair) return;
+        const existing = openTabs.get(pairId);
+        if (existing) {
+            try { layout.focusPanel(existing); return; } catch (_) { openTabs.delete(pairId); }
+        }
+        const tab = layout.addTabToStack('s-work', {
+            tag: 'div', title: tabTitle(pair), locked: false, closable: true,
+        }, true);
+        const tabId = typeof tab === 'string' ? tab : (tab && tab.id);
+        if (!tabId) return;
+        openTabs.set(pairId, tabId);
+        const el = layout.getPanelElement(tabId);
+        if (el) {
+            el.style.cssText = 'height:100%;overflow-y:auto;padding:12px;box-sizing:border-box;';
+            initCaptureTab(el, pairId, api);
+        }
+    }
+    window.addEventListener('nr:ui:open-capture', e => openCaptureTab(e.detail.id));
+    window.addEventListener('nr:pair:removed', e => openTabs.delete(e.detail.id));
+    window.addEventListener('nr:reset', () => openTabs.clear());
 
     const focusTab = () => {};   // sg-layout focuses on click; selection flows via events
 
@@ -128,7 +161,7 @@ function initSteps(el, state) {
         });
     }
     for (const ev of ['nr:pair:added', 'nr:pair:updated', 'nr:pair:removed', 'nr:transcribe:complete',
-                      'nr:clean:complete', 'nr:session:started', 'nr:session:ended', 'nr:reset']) {
+                      'nr:clean:complete', 'nr:session:started', 'nr:session:ended', 'nr:reset', 'nr:store:loaded']) {
         window.addEventListener(ev, refresh);
     }
     window.addEventListener('nr:document:built', () => steps.setStatus('document', { status: 'done' }));
