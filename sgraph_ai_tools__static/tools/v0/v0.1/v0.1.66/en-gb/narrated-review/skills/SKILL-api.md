@@ -2,6 +2,14 @@
 
 `window.__tool` after `tool:ready`. All actions return Promises. The manifest `api` section is authoritative; this file adds semantics.
 
+## What changed in v0.1.4
+
+A third way to fill the capture list: **`importVideo({file})`**. Video review is
+not a separate tool — once the captures exist, the workflow is identical, so it
+is an INGEST MODE. The recording's audio is cut at its own silences (the pauses
+do what your keypresses do live) and each spoken segment is matched to the frame
+it is about. Plus `getFrameCandidates` / `setFrame`. 44 actions.
+
 ## What changed in v0.1.3
 
 `startSession()` now opens **capture 1** with the screen as shared, and a press
@@ -26,10 +34,11 @@ pair = {
   tPress: 12400,              // ms on the session (audio) clock
   tStart: 10200, tEnd: 31800, // VAD-snapped, adjustable; may overlap neighbours
   hasScreenshot: true,        // blob served via getPairImage({id})
+  videoAt: 41200 | null,      // video-import only: which frame this took (ms)
   raw:   { text, model, costUsd },              // IMMUTABLE once set
   clean: { text, marks:[{span,note}], model, costUsd },
   notes: '',                  // extra comments — commentary, NOT a transcript
-  source: 'capture'|'inserted',
+  source: 'capture'|'inserted'|'video',
   status: 'marked'|'transcribing'|'raw'|'cleaning'|'clean'|'error',
   error: { code, step } | null,
 }
@@ -53,6 +62,57 @@ pointing at the same capture across reordering.
   directly. No audio means it never goes through transcription.
 - `movePair({ id, toIndex })` or `({ id, by: -1 })` ; `reorderPairs({ order: [id,…] })`
 - `setNotes({ id, notes })` ; `removePair({ id })`
+
+## Ingest paths
+
+Three ways to fill the list; everything after it is shared.
+
+| Path | Entry | Gesture? |
+|---|---|---|
+| live | `startSession()` → `markMoment()` × n → `endSession()` | yes (screen picker) |
+| audio | `addRecording({file})` → `markAt({t})` × n | no |
+| **video** | `importVideo({file})` | no |
+
+### `importVideo({ file, …tuning })` → `{ pairs, segments, durationMs, via }`
+
+Resets the session, then:
+
+1. **Audio out.** `decodeAudioData` on the video itself when the browser will
+   take it (`via:'web-audio'`, free); otherwise `core/video` `loadFFmpeg` +
+   `extractAudio` (`via:'ffmpeg'`, a multi-MB CDN load and a slow decode).
+2. **Segments.** `core/sg-live-capture` `createVad` over the stored energy log.
+   The bounds are **structural** — they come from cutting the audio at real
+   silences, not from asking a model where the sentences are. Same discipline as
+   the live path's boundary snap. Defaults are deliberately longer than a live
+   VAD's (`endpointMs: 900`) to get topic-sized rather than sentence-sized
+   segments; over-cutting is recovered by step 4.
+3. **Frames.** For each segment, sample a window spanning `leadMs` (2500) before
+   speech and `lagMs` (1200) after at `stepMs` (400), reduce each sample to a
+   32×18 greyscale signature, find the **last** transition above
+   `changeThreshold` (0.02), and walk forward off anything still animating. This
+   is because **the picture leads the words** — a naive "frame where the words
+   start" hands a capture the *previous* screen whenever the speaker switches
+   late.
+4. **Grouping.** Adjacent segments whose chosen frames differ by less than
+   `mergeThreshold` (0.01) become one capture spanning both.
+
+Errors: `bad-params` · `not-video` (no decodable picture — HEVC `.mov` is the
+usual cause) · `not-audio` (no audio track, or FFmpeg failed) · `no-speech`.
+
+Progress: `nr:video:started`, then `nr:video:progress` with
+`step: 'audio'|'segments'|'frames'|'captures'` (the frame search is the slow
+part and reports `done/total` per segment), then `nr:video:complete`.
+
+- `getFrameCandidates({id})` → `{ id, chosenAt, candidates:[{at,thumb}] }` — every
+  frame that was considered, with a JPEG thumbnail.
+- `setFrame({id, at})` — re-grab at any point in the video (not just a candidate).
+  Requires the source video still loaded: it is held in memory, not persisted, so
+  this is unavailable after a reload or `loadSession`.
+
+**The thresholds are honest guesses.** They are calibrated on synthetic slides
+that change instantly and completely; a real screencast fades, scrolls and
+animates. Every one is a parameter for that reason, and the candidate strip
+exists so a wrong pick costs one click.
 
 ## Chat
 
@@ -83,7 +143,7 @@ pointing at the same capture across reordering.
 
 ## Error codes
 
-`no-session` · `screen-unavailable` · `mic-unavailable` · `bad-params` · `unknown-pair` · `not-audio` · `no-key` · `budget-cap` · `key-invalid`(401) · `budget-exceeded`(402) · `key-exhausted`(403) · `rate-limited`(429) · `clean-parse` (cleanup JSON invalid — raw stands) · `cancelled` · `llm-error`
+`no-session` · `screen-unavailable` · `mic-unavailable` · `bad-params` · `unknown-pair` · `not-audio` · `not-video` · `no-video` · `no-speech` · `no-key` · `budget-cap` · `key-invalid`(401) · `budget-exceeded`(402) · `key-exhausted`(403) · `rate-limited`(429) · `clean-parse` (cleanup JSON invalid — raw stands) · `cancelled` · `llm-error`
 
 Typed provider errors come from the HTTP status via `core/sg-transcribe` — no string matching.
 
@@ -118,6 +178,12 @@ await t.downloadZip();                            // review.md + images/ + audio
   because ordinary word gaps are ~120 ms. Default 700 ms. Too low and a segment
   starts mid-sentence; too high and it falls back to a fixed 2 s lead.
 - `saveToVault` is implemented but has NOT been run against a live vault.
+- Video import: the frame heuristic's thresholds have only been exercised against
+  synthetic slides (`narrated-review-video-smoke.js`), not a real screencast. The
+  source video is held in memory only, so `setFrame` stops working after a reload,
+  and `frameCandidates` are not persisted by `saveSession`.
+- The FFmpeg audio-extraction fallback needs the unpkg CDN, so it cannot run on an
+  offline runner; the free Web Audio path covers ordinary `.mp4`/`.webm`.
 - `loadSession` restores the document (captures, images, text, notes, order) but
   NOT the audio samples, so `retranscribePair` and boundary edits are unavailable
   on a restored session (`canRetranscribe:false`). Save with `includeAudio:true`

@@ -27,6 +27,7 @@ const EXPECTED_ACTIONS = [
     'setApiKey', 'listModels', 'getStatus',
     'startSession', 'markMoment', 'endSession', 'reset',
     'addRecording', 'markAt', 'transcribeAll',
+    'importVideo', 'getFrameCandidates', 'setFrame',
     'getSession', 'getPairs', 'getPair', 'getPairImage',
     'setBoundary', 'setText', 'removePair', 'retranscribePair',
     'cleanPair', 'cleanAll', 'getSummary',
@@ -83,7 +84,8 @@ async function run() {
                            '#nr-cleanup-mode', '#nr-doc-build', '#nr-ex-zip', '#nr-ex-send',
                            '#nr-ex-pdf', '#nr-vault-id', '#nr-vault-audio', '#nr-vault-save',
                            '#nr-chat-input', '#nr-chat-send', '#nr-insert-end',
-                           '#nr-sess-save', '#nr-sess-list', '#nr-sess-name']) {
+                           '#nr-sess-save', '#nr-sess-list', '#nr-sess-name',
+                           '#nr-video-drop', '#nr-video-file']) {
             assert(await page.$(sel) !== null, `panel element present: ${sel}`);
         }
 

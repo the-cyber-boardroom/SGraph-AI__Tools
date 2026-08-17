@@ -233,5 +233,18 @@ export function clearCapture() {
 /** @param {(t:number)=>void} fn */
 export function onSuggestion(fn) { cap.onSuggestion = fn; }
 
+/**
+ * The per-frame energy log for the whole loaded recording.
+ *
+ * Exposed (read-only in practice) so the video-import path can run the same VAD
+ * over it that the live path runs at capture time — the energy is all the
+ * segmenter needs, and the samples themselves stay here.
+ * @returns {number[]}
+ */
+export function rmsLog() { return cap.rms; }
+
+/** ms per stored frame — the resolution of every time in the store. */
+export function getFrameMs() { return frameMs; }
+
 /** True while a live screen stream is attached. */
 export function hasScreen() { return !!cap.videoEl; }

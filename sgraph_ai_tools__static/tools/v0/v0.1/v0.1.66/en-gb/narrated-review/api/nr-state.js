@@ -65,7 +65,8 @@ export const state = {
     sampleRate: 16000,
     screen: null,              // { width, height }
     take: null,                // { blob, mimeType } — the continuous saved audio
-    takeSource: null,          // 'live' | 'import'
+    takeSource: null,          // 'live' | 'import' | 'video'
+    video: null,               // { name, size, durationMs, width, height } when imported from a video
     pairs: [],                 // ordered by seq — THE list
     suggestions: [],           // [tMs] VAD silences without a mark
     rollingSummary: '',
@@ -78,6 +79,7 @@ export const state = {
     reset() {
         this.status = 'idle'; this.sessionId = null; this.startedAt = null;
         this.durationMs = 0; this.screen = null; this.take = null; this.takeSource = null;
+        this.video = null;
         this.pairs = []; this.suggestions = []; this.rollingSummary = '';
         this.summaryAtSeq = -1; this.costs = { transcribeUsd: 0, cleanUsd: 0, pendingCount: 0 };
         this.chatCosts = []; this.lastError = null; this._seq = 0;
@@ -113,7 +115,9 @@ export function makePair({ seq, tPress = null, tStart = null, screenshot = null,
         seq, tPress,
         tStart, tEnd: tStart == null ? null : null,
         screenshot: screenshot || null,
-        source,                    // 'capture' | 'inserted'
+        source,                    // 'capture' | 'inserted' | 'video'
+        videoAt: null,             // video-import only: ms of the frame this took
+        frameCandidates: null,     // video-import only: [{at, thumb}] considered
         raw: null,                 // { text, model, generationId, costUsd|null }
         rawVersions: [],           // older raws (retranscribe pushes here)
         clean: null,               // { text, marks:[{span,note}], model, generationId, costUsd|null }
@@ -145,6 +149,7 @@ export function pairToJson(p) {
     return {
         id: p.id, seq: p.seq, tPress: p.tPress, tStart: p.tStart, tEnd: p.tEnd,
         hasScreenshot: !!p.screenshot, source: p.source || 'capture',
+        videoAt: p.videoAt ?? null,
         raw: p.raw ? { text: p.raw.text, model: p.raw.model, costUsd: p.raw.costUsd } : null,
         clean: p.clean ? { text: p.clean.text, marks: p.clean.marks, model: p.clean.model, costUsd: p.clean.costUsd } : null,
         notes: p.notes || '',
@@ -164,6 +169,7 @@ export function sessionToJson() {
         screen: state.screen,
         takeSource: state.takeSource,
         takeMime: state.take ? state.take.mimeType : null,
+        video: state.video,
         rollingSummary: state.rollingSummary,
         suggestions: state.suggestions.slice(),
         config: {

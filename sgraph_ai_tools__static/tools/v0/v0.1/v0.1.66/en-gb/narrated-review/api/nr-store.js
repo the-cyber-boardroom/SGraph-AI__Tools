@@ -100,6 +100,7 @@ export async function saveSession(p = {}, emit = () => {}) {
         sampleRate: state.sampleRate,
         screen: state.screen,
         takeSource: state.takeSource,
+        video: state.video,
         rollingSummary: state.rollingSummary,
         summaryAtSeq: state.summaryAtSeq,
         suggestions: state.suggestions.slice(),
@@ -108,6 +109,10 @@ export async function saveSession(p = {}, emit = () => {}) {
         pairs: state.pairs.map(x => ({
             id: x.id, seq: x.seq, tPress: x.tPress, tStart: x.tStart, tEnd: x.tEnd,
             source: x.source, status: x.status, notes: x.notes || '',
+            // Which video frame this capture took. The candidate thumbnails and
+            // the video itself are NOT persisted, so this is a record, not a
+            // working reference — setFrame needs the video re-imported.
+            videoAt: x.videoAt ?? null,
             raw: x.raw, rawVersions: x.rawVersions, clean: x.clean,
             hasImage: !!x.screenshot,
         })),
@@ -177,6 +182,7 @@ export async function loadSession(p = {}, emit = () => {}) {
     state.sampleRate = doc.sampleRate || 16000;
     state.screen = doc.screen || null;
     state.takeSource = doc.takeSource || 'restored';
+    state.video = doc.video || null;
     state.rollingSummary = doc.rollingSummary || '';
     state.summaryAtSeq = doc.summaryAtSeq ?? -1;
     state.suggestions = doc.suggestions || [];
@@ -196,6 +202,7 @@ export async function loadSession(p = {}, emit = () => {}) {
         pair.rawVersions = s.rawVersions || [];
         pair.clean = s.clean || null;
         pair.notes = s.notes || '';
+        if (s.videoAt != null) pair.videoAt = s.videoAt;
         pair.status = s.status || (s.clean ? 'clean' : s.raw ? 'raw' : 'marked');
         if (s.hasImage) {
             try {

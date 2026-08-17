@@ -125,5 +125,28 @@ export function buildMarker({ emit, onPairBounded }) {
         return closed;
     }
 
-    return { startFirstCapture, markMoment, markAt, closeLastPair };
+    /**
+     * Create a capture with BOTH bounds already known — the video-import path.
+     *
+     * No snapping happens here, and that is the point: the bounds came from
+     * cutting the audio at its actual silences, so they are already the honest
+     * edges of an utterance. Snapping a boundary that was derived from silence
+     * back to "the nearest silence" would only move it.
+     *
+     * @param {{ tStart: number, tEnd: number, tPress?: number, image?: Blob, source?: string }} p
+     * @returns {object} the new pair (the caller may attach ingest-specific fields)
+     */
+    function markSpan({ tStart, tEnd, tPress = null, image = null, source = 'capture' } = {}) {
+        if (typeof tStart !== 'number' || typeof tEnd !== 'number' || !(tEnd > tStart)) {
+            throw Object.assign(new Error('markSpan needs { tStart, tEnd } with tEnd > tStart'), { code: 'bad-params' });
+        }
+        const pair = addPair({ tPress: tPress == null ? tStart : tPress, tStart, screenshot: image });
+        pair.tEnd = tEnd;
+        pair.source = source;
+        emit('nr:pair:added', { id: pair.id, seq: pair.seq, tPress: pair.tPress });
+        onPairBounded(pair);
+        return pair;
+    }
+
+    return { startFirstCapture, markMoment, markAt, markSpan, closeLastPair };
 }

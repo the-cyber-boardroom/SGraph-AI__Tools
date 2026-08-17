@@ -42,9 +42,38 @@ await page.evaluate(async () => {
 });
 ```
 
+## Video import (headless, no gestures)
+
+`importVideo({ file })` is the third ingest path and needs no gesture at all — it
+resets the session and builds the captures from the recording:
+
+```js
+const r = await page.evaluate(async () => {
+  const file = new File([window.__clip], 'clip.webm', { type: 'video/webm' });
+  return window.__tool.importVideo({ file });     // { pairs, segments, durationMs, via }
+});
+// then the ordinary lanes: transcribeAll → cleanAll → buildDocument
+```
+
+`via` tells you which audio extractor ran: `'web-audio'` (free, in-browser) or
+`'ffmpeg'` (the WASM fallback — a CDN load, so it fails on an offline runner).
+
+The video smoke builds its own screencast in-page (a canvas of coloured slides
+plus a gated oscillator) rather than shipping a fixture — see
+`tests/playwright/narrated-review-video-smoke.js`. Note that a `MediaRecorder`
+webm has no duration in its header; the tool recovers it by seeking past the end,
+so a stream-recorded file imports like any other.
+
+Overriding a picked frame:
+
+```js
+const { candidates, chosenAt } = await page.evaluate(id => window.__tool.getFrameCandidates({ id }), id);
+await page.evaluate(([id, at]) => window.__tool.setFrame({ id, at }), [id, candidates[0].at]);
+```
+
 ## Events to wait on
 
-`nr:mark`, `nr:pair:added`, `nr:transcribe:complete`, `nr:session:ended`, `nr:clean:complete`, `nr:document:built`, `nr:bundle:created`. All fire on `window`; detail carries `instanceId`.
+`nr:mark`, `nr:pair:added`, `nr:transcribe:complete`, `nr:session:ended`, `nr:clean:complete`, `nr:document:built`, `nr:bundle:created`, and for imports `nr:video:started` / `nr:video:progress` / `nr:video:complete`. All fire on `window`; detail carries `instanceId`.
 
 ## Authoring and editing without any audio or model
 

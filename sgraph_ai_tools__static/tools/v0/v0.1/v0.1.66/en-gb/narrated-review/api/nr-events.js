@@ -18,6 +18,10 @@ export const NR_EVENTS = Object.freeze({
     MARK:                'nr:mark',               // { id, seq, tPress }
     SUGGESTION:          'nr:suggestion',         // { t }  (VAD-detected silence, unmarked)
 
+    VIDEO_STARTED:       'nr:video:started',       // { name, durationMs, width, height }
+    VIDEO_PROGRESS:      'nr:video:progress',      // { step:'audio'|'segments'|'frames'|'captures', done?, total?, message? }
+    VIDEO_COMPLETE:      'nr:video:complete',      // { pairs, segments, durationMs, via }
+
     PAIR_ADDED:          'nr:pair:added',          // { id, seq, tPress }
     PAIR_UPDATED:        'nr:pair:updated',        // { id, field }
     PAIR_REMOVED:        'nr:pair:removed',        // { id }

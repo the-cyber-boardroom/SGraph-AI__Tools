@@ -1,9 +1,9 @@
 {
   "name": "Narrated Review",
   "slug": "narrated-review",
-  "description": "Narrate a walk through your screen and press a key at each moment that matters: the keypress marks a screenshot, bounds an audio segment over a continuous recording, and binds the two into an ordered pair. Out comes a markdown document of image + words pairs any AI assistant can read directly — no video recorded, transcription + screenshot-grounded cleanup via OpenRouter (BYOK), everything in-browser.",
+  "description": "Narrate a walk through your screen and press a key at each moment that matters — or hand over a recording and let its pauses do the pressing. Either way you get an ordered list of captures (a screenshot, the words about it, and the alignment between them) that becomes a markdown document any AI assistant can read directly. No video is ever recorded live; transcription + screenshot-grounded cleanup via OpenRouter (BYOK), everything in-browser.",
   "icon": "🎬",
-  "version": "0.1.3",
+  "version": "0.1.4",
   "status": "alpha",
   "category": "media",
   "keywords": [
@@ -15,7 +15,10 @@
     "markdown",
     "pairs",
     "openrouter",
-    "feedback"
+    "feedback",
+    "video",
+    "video-import",
+    "screencast"
   ],
   "dependencies": {
     "core": [
@@ -54,6 +57,16 @@
       {
         "module": "manifest-loader",
         "path": "/core/manifest-loader/v0/v0.1/v0.1.0/manifest-loader.js"
+      },
+      {
+        "module": "sg-video-frames",
+        "path": "/core/sg-video-frames/v0/v0.1/v0.1.0/sg-video-frames.js",
+        "note": "video import: frame extraction reference / FFmpeg audio-extraction fallback"
+      },
+      {
+        "module": "video",
+        "path": "/core/video/v1/v1.0/v1.0.2/sg-video.js",
+        "note": "video import: frame extraction reference / FFmpeg audio-extraction fallback"
       }
     ],
     "shared": [
@@ -117,7 +130,7 @@
   "api": {
     "version": "0.1.0",
     "global": "window.__tool",
-    "note": "window.__tool live after tool:ready. startSession() must run in a user gesture (screen picker + mic) and OPENS CAPTURE 1 with the screen as shared: a capture's screenshot is taken when it OPENS, and the words until the next press belong to it (markMoment means NEXT). No video is ever recorded — the screen stream is a frame source only; audio is continuous. Transcription + cleanup are billable OpenRouter calls (BYOK, localStorage 'sg-openrouter-mgmt-key'); in 'grounded' cleanup mode each capture's SCREENSHOT is sent to the model — setCleanupMode({mode:'text-only'|'off'}) to prevent that. Raw transcripts are immutable; edits touch clean text only. Sessions save/load locally via core/sg-vfs. Headless path: addRecording → markAt → transcribeAll → cleanAll → buildDocument needs no gestures.",
+    "note": "window.__tool live after tool:ready. startSession() must run in a user gesture (screen picker + mic) and OPENS CAPTURE 1 with the screen as shared: a capture's screenshot is taken when it OPENS, and the words until the next press belong to it (markMoment means NEXT). No video is ever recorded — the screen stream is a frame source only; audio is continuous. Transcription + cleanup are billable OpenRouter calls (BYOK, localStorage 'sg-openrouter-mgmt-key'); in 'grounded' cleanup mode each capture's SCREENSHOT is sent to the model — setCleanupMode({mode:'text-only'|'off'}) to prevent that. Raw transcripts are immutable; edits touch clean text only. Sessions save/load locally via core/sg-vfs. Headless path: addRecording → markAt → transcribeAll → cleanAll → buildDocument needs no gestures. THREE INGEST PATHS land in the same capture list and share everything downstream: live (startSession + markMoment), authored (insertPair), and video (importVideo — extracts the audio, cuts it at its silences, and picks the frame each segment is about). importVideo needs no gesture.",
     "events": [
       {
         "name": "tool:ready",
@@ -273,6 +286,21 @@
         "name": "nr:reset",
         "when": "reset()",
         "detail": "{}"
+      },
+      {
+        "name": "nr:video:started",
+        "when": "a video import began",
+        "detail": "{ name, durationMs, width, height }"
+      },
+      {
+        "name": "nr:video:progress",
+        "when": "each stage of a video import",
+        "detail": "{ step:'audio'|'segments'|'frames'|'captures', done?, total?, message? }"
+      },
+      {
+        "name": "nr:video:complete",
+        "when": "the captures are built",
+        "detail": "{ pairs, segments, durationMs, via }"
       }
     ],
     "actions": {
@@ -292,7 +320,7 @@
         "async": false
       },
       "getStatus": {
-        "returns": "{ status, sessionId, pairs, durationMs, hasScreen, hasKey, cleanup, spendCapUsd, costs }",
+        "returns": "{ status, sessionId, pairs, durationMs, hasScreen, hasKey, takeSource, video, cleanup, spendCapUsd, costs }",
         "async": false
       },
       "startSession": {
@@ -715,6 +743,65 @@
         },
         "returns": "Promise<{ deleted }>",
         "async": true
+      },
+      "importVideo": {
+        "params": {
+          "file": {
+            "type": "Blob",
+            "note": "a video file"
+          },
+          "leadMs": {
+            "type": "number",
+            "optional": true
+          },
+          "lagMs": {
+            "type": "number",
+            "optional": true
+          },
+          "stepMs": {
+            "type": "number",
+            "optional": true
+          },
+          "endpointMs": {
+            "type": "number",
+            "optional": true
+          },
+          "changeThreshold": {
+            "type": "number",
+            "optional": true
+          },
+          "mergeThreshold": {
+            "type": "number",
+            "optional": true
+          }
+        },
+        "returns": "Promise<{ pairs, segments, durationMs, via }>",
+        "async": true,
+        "note": "third ingest path — resets the session, then builds captures from the recording. `via` is \"web-audio\" or \"ffmpeg\" (the fallback audio extractor). No gesture required."
+      },
+      "getFrameCandidates": {
+        "params": {
+          "id": {
+            "type": "string"
+          }
+        },
+        "returns": "{ id, chosenAt, candidates:[{at,thumb}] }",
+        "async": false,
+        "note": "the frames considered for a video-imported capture — the pick is a first draft, not a verdict"
+      },
+      "setFrame": {
+        "params": {
+          "id": {
+            "type": "string"
+          },
+          "at": {
+            "type": "number",
+            "note": "ms into the video"
+          }
+        },
+        "returns": "Promise<{ id, at }>",
+        "async": true,
+        "note": "re-grab the capture screenshot at another point; any `at` works, not just a candidate. Needs the source video still loaded."
       }
     },
     "skills": {
