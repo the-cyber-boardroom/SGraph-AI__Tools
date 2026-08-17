@@ -2,6 +2,30 @@
 
 All notable changes to `sgraph_ai_tools__static` are documented here.
 
+## [0.1.67] — 2026-08-17
+
+### Added (media-probe — see a recording's structure before paying a model to guess at it)
+- **`media-probe` tool** (`tools/v0/v0.1/v0.1.67/en-gb/media-probe/`, v0.1.0 alpha) — drop in a recording and measure it. **No key, no uploads, no model calls at all**, so it costs nothing to run: that is the point, because its value is being free to run *before* spending money on the recording you are unsure about. 22 SgToolApi actions, 12 `mp:*` events, 3 SKILL files. Spec: `team/humans/dinis_cruz/claude-code-web/08/17/v0.2.88__brief__tools-team__media-probe__1-5`.
+  - **Why it exists.** narrated-review v0.1.4 cut a real 4m21s screencast into nine slices of exactly 30000 ms, because a fixed absolute RMS silence threshold sat *below* that recording's noise floor. v0.1.5 fixed the constant; **this fixes the reason the constant went unnoticed** — nothing plotted the distribution it was being compared against.
+  - **Timeline** — every measurement on one time axis: energy with the threshold lines drawn *on* it, the gaps that threshold produces, four frame-difference metrics, and two boundary lanes (today vs the plan). **Dragging the threshold slider re-runs the real VAD live**, which is the whole tool: it turns an invisible constant into something you can feel.
+  - **Histograms** — the energy distribution with the floor and speech modes located, the gap-length histogram split into word/sentence/topic populations, and the **candidate-threshold table**: every candidate evaluated at once, so a row reading `0.0100 → topic 0, segments 1` states the original failure in one line.
+  - **Scenes / Alignment / Compare / Findings** — every detected change as a before/after thumbnail with the values that fired; the *measured* picture-leads-words distribution with narrated-review's assumed 2500/1200 window drawn over it; today vs the plan in captures, force-cuts and **dollars**; and the verdict in words, ending with what was NOT measured.
+  - **`plan()` refuses.** `audio-led` / `video-led` / `hybrid` / **`none`**. Every cut carries the evidence that produced it, a cut forced by the length limit is tagged as arbitrary and warns, and when neither signal is usable it returns `strategy:'none'` with a reason rather than inventing boundaries. A plausible set of arbitrary cuts is worse than an honest refusal — that is exactly what shipped the first time.
+  - The insight the strategies encode: narrated-review runs in one direction only (pauses → boundaries → find a frame). When a recording has no usable pauses that chain has no first link, but such a recording usually still has clear *visual* boundaries — so the direction should be chosen per recording.
+- **`core/sg-media-analysis` v0.1.0** — the engine, additive: `audio-metrics` (framewise rms/dBFS/spectral flatness), `distributions` (percentile floor/speech, energy + gap histograms, the candidate table), `sampler` (two-pass video sweep, cancellable, with a pre-flight wall-clock estimate), `frame-metrics` (four metrics), `scenes`, `align`, `plan`, `ffmpeg-lane`. It **replays** `core/sg-live-capture` `createVad` rather than modelling it — a force-cut count is only trustworthy if it comes from the same state machine the pipeline runs. Deliberately **not** wired into narrated-review yet.
+
+### Fixed (three defects found while building media-probe — all the same mistake)
+Each was a statistic chosen without looking at the shape of the data:
+- **`p95 × 1.5` is a bad basis for scene detection.** In a screencast the real changes *are* the top few percent of samples, so p95 lands on a change value and 1.5× it excludes every change but the largest — three slide switches measured as one. Replaced with **Otsu's method**: find the natural break between the quiet mass and the loud tail, with a `separation` guard so pure noise is not split into invented scenes. The percentile path stays switchable for comparison.
+- **A greyscale signature is blind to equal-luma colour change.** `#123a63` → `#7a1e2e` is a violent colour change whose luma differs by nine levels out of 255, and the first implementation missed it entirely — in a screencast that means a theme switch or a highlighted row passes unnoticed. Per-pixel difference is now the **max across R, G and B**; luma is kept only for `edgeDiff`, where brightness edges are the signal. **Note: narrated-review's `nr-frames.js` still uses greyscale-only and still has this blind spot** — a follow-up, not fixed here.
+- **The candidate table rounded thresholds to 4dp**, so the active threshold could never match its own row, breaking the UI highlight and any caller trying to identify it. Formatting is the display layer's job.
+- Also: a synthetic sawtooth measures as *less* spectrally flat than a 60 Hz hum, so the test signal had to be made broadband before the flatness metric meant anything. Synthetic digital silence is precisely what hid the original defect, so the smoke records its clip over a **room-tone floor above the old 0.01 threshold**.
+
+### Tests
+- `tests/playwright/media-probe-smoke.js` — **79 assertions**: the action surface and DOM contract, the reproduction (`at 0.01 there are ZERO topic gaps`, `segmentation collapses into fewer, undifferentiated blobs`, `once a blob outlives the cap the VAD force-cuts`, `a segment is exactly the cap length`), the colour-blindness regression, the refusal path, and the FFmpeg log parsers.
+- **NOT verified:** the FFmpeg lane has never been run in a browser (its WASM build needs the unpkg CDN, unreachable from the build container) — only its log parsers are covered. `plan()` has not been validated against a corpus of real recordings. No real screencast has been through the tool here: the one that prompted it was never available in this container, only its `session.json`.
+- **Registry v0.1.67** adds `media-probe` under Media (43 slugs).
+
 ## [0.1.66] — 2026-08-16
 
 ### Added (narrated-review — author a document, don't record a video)

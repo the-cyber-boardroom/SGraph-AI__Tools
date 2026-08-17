@@ -1,0 +1,420 @@
+{
+  "name": "Media Probe",
+  "slug": "media-probe",
+  "description": "Drop in a recording and see its structure before you pay a model to guess at it: framewise audio energy with the noise floor and speaking level located, a gap-length histogram that says whether topic-length pauses exist at all, four independent frame-difference metrics, detected scene changes with their evidence, the measured picture-leads-words offset, and a plan() that proposes where to cut and where to shoot — or refuses. No model calls, no uploads, no cost.",
+  "icon": "📊",
+  "version": "0.1.0",
+  "status": "alpha",
+  "category": "media",
+  "keywords": [
+    "video",
+    "audio",
+    "analysis",
+    "vad",
+    "silence",
+    "scene-detection",
+    "ffmpeg",
+    "wasm",
+    "segmentation",
+    "diagnostics",
+    "pacing",
+    "screencast"
+  ],
+  "why": "narrated-review v0.1.4 cut a real 4m21s screencast into nine slices of exactly 30000 ms, because a fixed absolute RMS silence threshold (0.01) sat BELOW that recording's noise floor so no frame ever counted as silence. The defect was not the constant — it was that nothing plotted the distribution the constant was being compared against. This tool is that missing instrument.",
+  "dependencies": {
+    "core": [
+      {
+        "module": "sg-tool-api",
+        "path": "/core/sg-tool-api/v0/v0.1/v0.1.0/sg-tool-api.js"
+      },
+      {
+        "module": "sg-media-analysis",
+        "path": "/core/sg-media-analysis/v0/v0.1/v0.1.0/audio-metrics.js",
+        "note": "the measurement engine — audio-metrics, distributions, sampler, frame-metrics, scenes, align, plan, ffmpeg-lane"
+      },
+      {
+        "module": "sg-live-capture",
+        "path": "/core/sg-live-capture/v0/v0.1/v0.1.0/live-vad.js",
+        "note": "createVad is REPLAYED, not modelled: the force-cut count is only trustworthy if it comes from the same state machine narrated-review runs"
+      },
+      {
+        "module": "sg-audio-decode",
+        "path": "/core/sg-audio-decode/v0/v0.1/v0.1.0/sg-audio-decode.js"
+      },
+      {
+        "module": "sg-layout",
+        "path": "/core/sg-layout/v0.1.0/sg-layout.js"
+      },
+      {
+        "module": "sg-zip",
+        "path": "/core/sg-zip/v0/v0.1/v0.1.0/sg-zip.js"
+      },
+      {
+        "module": "markdown",
+        "path": "/core/markdown/v1/v1.0/v1.0.0/sg-markdown.js"
+      },
+      {
+        "module": "video",
+        "path": "/core/video/v1/v1.0/v1.0.2/sg-video.js",
+        "note": "FFmpeg cross-check lane only, loaded on demand"
+      }
+    ],
+    "components": [
+      {
+        "component": "sg-tool-api-explorer",
+        "path": "/components/tool-api/sg-tool-api-explorer/v0/v0.1/v0.1.0/sg-tool-api-explorer.js"
+      },
+      {
+        "component": "sg-tool-api-console",
+        "path": "/components/tool-api/sg-tool-api-console/v0/v0.1/v0.1.0/sg-tool-api-console.js"
+      },
+      {
+        "component": "sg-tool-api-manifest",
+        "path": "/components/tool-api/sg-tool-api-manifest/v0/v0.1/v0.1.0/sg-tool-api-manifest.js"
+      }
+    ],
+    "loader": [
+      {
+        "phase": 1,
+        "type": "css",
+        "path": "/core/sg-layout/v0.1.0/sg-layout.css"
+      },
+      {
+        "phase": 1,
+        "type": "css",
+        "path": "./styles/mp.css"
+      },
+      {
+        "phase": 2,
+        "type": "js",
+        "entry": true,
+        "path": "./api/mp-api.js"
+      }
+    ]
+  },
+  "api": {
+    "version": "0.1.0",
+    "global": "window.__tool",
+    "note": "window.__tool live after tool:ready. NO GESTURE is needed anywhere and NO MODEL IS EVER CALLED — the probe is pure signal processing, costs nothing, and needs no key. That is deliberate: its value is being free to run BEFORE spending money on an import, which is exactly the recording you are unsure about. Lanes are independent and idempotent because their costs differ wildly: analyseAudio is seconds and answers the question that matters most ('will this segment at all?'), while analyseFrames is a seek-per-sample sweep. Every threshold is derived from the recording's own distribution, never absolute. getProbe() is the machine-readable product and always carries `gaps_in_analysis` — so a consumer can tell 'no scenes found' from 'scene detection never ran'.",
+    "events": [
+      {
+        "name": "tool:ready",
+        "when": "activate() called",
+        "detail": "{ instanceId, tool, version }"
+      },
+      {
+        "name": "mp:source:loaded",
+        "when": "a recording is attached",
+        "detail": "{ name, size, durationMs, width, height, hasAudio }"
+      },
+      {
+        "name": "mp:analyse:started",
+        "when": "a lane begins",
+        "detail": "{ lane, estimate? }"
+      },
+      {
+        "name": "mp:analyse:progress",
+        "when": "during the frame sweep",
+        "detail": "{ lane, pass, done, total }"
+      },
+      {
+        "name": "mp:analyse:complete",
+        "when": "a lane ends",
+        "detail": "{ lane, summary }"
+      },
+      {
+        "name": "mp:threshold:changed",
+        "when": "the silence threshold is set or dragged",
+        "detail": "{ value, segments, capped, topicGaps }"
+      },
+      {
+        "name": "mp:plan:ready",
+        "when": "a plan is computed",
+        "detail": "{ strategy, cuts, captures, estimateUsd }"
+      },
+      {
+        "name": "mp:warning",
+        "when": "a measurement is less trustworthy than it looks",
+        "detail": "{ code, message }"
+      },
+      {
+        "name": "mp:ffmpeg:loading",
+        "when": "the WASM lane is loading",
+        "detail": "{ ratio }"
+      },
+      {
+        "name": "mp:ffmpeg:ready",
+        "when": "an FFmpeg pass parsed",
+        "detail": "{ what, rows }"
+      },
+      {
+        "name": "mp:error",
+        "when": "a lane failed",
+        "detail": "{ code, step, message }"
+      },
+      {
+        "name": "mp:reset",
+        "when": "cleared",
+        "detail": "{}"
+      }
+    ],
+    "actions": {
+      "getStatus": {
+        "returns": "{ status, source, lanes, threshold, strategy, ffmpegLoaded, notMeasured }",
+        "async": false
+      },
+      "loadVideo": {
+        "params": {
+          "file": {
+            "type": "Blob",
+            "note": "video or audio"
+          }
+        },
+        "returns": "Promise<{ name, size, durationMs, width, height, hasAudio, sweepEstimate }>",
+        "async": true,
+        "note": "no gesture. A file with no decodable picture still loads — audio-only analysis is the cheap lane and answers the segmentation question on its own."
+      },
+      "estimateSweep": {
+        "returns": "{ samples, estimatedMs }",
+        "async": false,
+        "note": "the wall-clock cost of the current sweep settings, BEFORE committing to it"
+      },
+      "analyseAudio": {
+        "params": {
+          "frameMs": {
+            "type": "number",
+            "optional": true
+          }
+        },
+        "returns": "Promise<{ floor, speech, bimodal, threshold, method, topicGaps }>",
+        "async": true,
+        "note": "framewise rms/dBFS/spectral-flatness, percentile floor and speech levels, energy histogram, gaps, and the candidate threshold table"
+      },
+      "analyseFrames": {
+        "params": {
+          "coarseFps": {
+            "type": "number",
+            "optional": true
+          },
+          "fineFps": {
+            "type": "number",
+            "optional": true
+          },
+          "twoPass": {
+            "type": "boolean",
+            "optional": true
+          }
+        },
+        "returns": "Promise<{ samples, passes, p95, scenes }>",
+        "async": true,
+        "note": "the slow lane: coarse pass everywhere, fine pass only where something moved. Cancellable via cancelSweep()."
+      },
+      "cancelSweep": {
+        "returns": "{ cancelled: true }",
+        "async": false
+      },
+      "analyseAll": {
+        "returns": "Promise<{ lanes }>",
+        "async": true,
+        "note": "every possible lane for this source, cheapest first, then a plan"
+      },
+      "setThreshold": {
+        "params": {
+          "value": {
+            "type": "number"
+          }
+        },
+        "returns": "{ value, gaps, populations, segments, capped }",
+        "async": false,
+        "note": "re-derives the gaps and replays the real VAD. Cheap enough to run on a slider drag."
+      },
+      "replaySegmentation": {
+        "params": {
+          "silenceThreshold": {
+            "type": "number",
+            "optional": true
+          },
+          "speechThreshold": {
+            "type": "number",
+            "optional": true
+          },
+          "endpointMs": {
+            "type": "number",
+            "optional": true
+          },
+          "maxUtteranceMs": {
+            "type": "number",
+            "optional": true
+          }
+        },
+        "returns": "{ segments, capped, cappedRatio }",
+        "async": false,
+        "note": "runs core/sg-live-capture createVad — the ACTUAL pipeline state machine, not a model of it"
+      },
+      "findScenes": {
+        "params": {
+          "metric": {
+            "type": "string",
+            "optional": true,
+            "note": "meanAbs | blockMax | edgeDiff | histDist"
+          },
+          "factor": {
+            "type": "number",
+            "optional": true,
+            "note": "× that metric's own p95"
+          },
+          "threshold": {
+            "type": "number",
+            "optional": true
+          }
+        },
+        "returns": "{ metric, threshold, scenes, perMetric }",
+        "async": false,
+        "note": "perMetric reports how much each metric agrees with the reference — the empirical answer to 'which metric should we use?'"
+      },
+      "alignSignals": {
+        "returns": "{ count, median, p10, p90, suggestedLeadMs, suggestedLagMs, correlated }",
+        "async": false,
+        "note": "measures the picture-leads-words offset instead of assuming narrated-review's 2500/1200, and reports whether the two signals are correlated at all"
+      },
+      "plan": {
+        "params": {
+          "strategy": {
+            "type": "string",
+            "optional": true,
+            "note": "force audio-led | video-led | hybrid"
+          }
+        },
+        "returns": "{ strategy, reason, cuts, shots, estimate, window, warnings, basis }",
+        "async": false,
+        "note": "every cut carries the evidence that produced it. strategy:'none' with a reason is a legitimate answer — a plausible set of arbitrary cuts is worse than an honest refusal."
+      },
+      "compare": {
+        "returns": "{ today, plan, delta, basis }",
+        "async": false,
+        "note": "what narrated-review does now (from a real replay) vs the plan, in captures and in dollars"
+      },
+      "estimateCost": {
+        "params": {
+          "captures": {
+            "type": "number"
+          }
+        },
+        "returns": "{ captures, transcribeUsd, cleanUsd, totalUsd, basis }",
+        "async": false,
+        "note": "per-capture constants measured from a real session, named in `basis`. Spend scales with the NUMBER of captures because cleanup sends a screenshot each time."
+      },
+      "getProbe": {
+        "returns": "the whole probe object incl. gaps_in_analysis",
+        "async": false
+      },
+      "getFindings": {
+        "returns": "{ markdown }",
+        "async": false,
+        "note": "the verdict in words, including what was NOT measured"
+      },
+      "getSceneThumb": {
+        "params": {
+          "at": {
+            "type": "number"
+          },
+          "width": {
+            "type": "number",
+            "optional": true
+          }
+        },
+        "returns": "Promise<{ dataUrl }>",
+        "async": true
+      },
+      "downloadProbe": {
+        "params": {
+          "format": {
+            "type": "string",
+            "note": "json | csv | zip"
+          }
+        },
+        "returns": "Promise<{ name, bytes }>",
+        "async": true
+      },
+      "runFfmpegLane": {
+        "params": {
+          "what": {
+            "type": "string",
+            "note": "silence | scene | loudness"
+          },
+          "noiseDb": {
+            "type": "number",
+            "optional": true
+          },
+          "minSilenceS": {
+            "type": "number",
+            "optional": true
+          },
+          "sceneThreshold": {
+            "type": "number",
+            "optional": true
+          }
+        },
+        "returns": "Promise<{ what, rows, parsed }>",
+        "async": true,
+        "note": "OPTIONAL cross-check at native frame rate, and the only path for codecs the browser refuses. A run that parses to nothing throws {code:'ffmpeg-parse'} — never 'found nothing'. NOT verified in a browser here."
+      },
+      "ffmpegAvailable": {
+        "returns": "{ loaded, wasmSupported }",
+        "async": false
+      },
+      "setConfig": {
+        "params": {
+          "coarseFps": {
+            "type": "number",
+            "optional": true
+          },
+          "fineFps": {
+            "type": "number",
+            "optional": true
+          },
+          "twoPass": {
+            "type": "boolean",
+            "optional": true
+          },
+          "sceneMetric": {
+            "type": "string",
+            "optional": true
+          },
+          "sceneFactor": {
+            "type": "number",
+            "optional": true
+          },
+          "minSceneMs": {
+            "type": "number",
+            "optional": true
+          },
+          "frameMs": {
+            "type": "number",
+            "optional": true
+          }
+        },
+        "returns": "the config",
+        "async": false
+      },
+      "reset": {
+        "returns": "{ ok: true }",
+        "async": false
+      }
+    },
+    "errors": [
+      "bad-params",
+      "no-source",
+      "not-video",
+      "not-audio",
+      "ffmpeg-parse",
+      "cancelled"
+    ]
+  },
+  "limitations": [
+    "Percentile choices (p20 floor, p90 speech, 15%/40% thresholds) and the scene factor (1.5× p95) are starting points, validated on synthetic clips and one real session — not tuned across a corpus.",
+    "The FFmpeg lane has never been run in a browser here: its WASM build needs the unpkg CDN, unreachable from the build container. Its log parsers are covered by unit tests against captured text.",
+    "Frame sampling is a seek per sample. The two-pass sweep and the estimate keep it usable, but a very long recording is still minutes of work.",
+    "plan() has not been validated against a corpus of real recordings; narrated-review does NOT consume it yet, deliberately."
+  ]
+}
