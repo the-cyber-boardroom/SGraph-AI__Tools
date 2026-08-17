@@ -3,7 +3,7 @@
   "slug": "narrated-review",
   "description": "Narrate a walk through your screen and press a key at each moment that matters — or hand over a recording and let its pauses do the pressing. Either way you get an ordered list of captures (a screenshot, the words about it, and the alignment between them) that becomes a markdown document any AI assistant can read directly. No video is ever recorded live; transcription + screenshot-grounded cleanup via OpenRouter (BYOK), everything in-browser.",
   "icon": "🎬",
-  "version": "0.1.4",
+  "version": "0.1.5",
   "status": "alpha",
   "category": "media",
   "keywords": [
@@ -18,7 +18,10 @@
     "feedback",
     "video",
     "video-import",
-    "screencast"
+    "screencast",
+    "billing",
+    "costs",
+    "audit"
   ],
   "dependencies": {
     "core": [
@@ -130,7 +133,7 @@
   "api": {
     "version": "0.1.0",
     "global": "window.__tool",
-    "note": "window.__tool live after tool:ready. startSession() must run in a user gesture (screen picker + mic) and OPENS CAPTURE 1 with the screen as shared: a capture's screenshot is taken when it OPENS, and the words until the next press belong to it (markMoment means NEXT). No video is ever recorded — the screen stream is a frame source only; audio is continuous. Transcription + cleanup are billable OpenRouter calls (BYOK, localStorage 'sg-openrouter-mgmt-key'); in 'grounded' cleanup mode each capture's SCREENSHOT is sent to the model — setCleanupMode({mode:'text-only'|'off'}) to prevent that. Raw transcripts are immutable; edits touch clean text only. Sessions save/load locally via core/sg-vfs. Headless path: addRecording → markAt → transcribeAll → cleanAll → buildDocument needs no gestures. THREE INGEST PATHS land in the same capture list and share everything downstream: live (startSession + markMoment), authored (insertPair), and video (importVideo — extracts the audio, cuts it at its silences, and picks the frame each segment is about). importVideo needs no gesture.",
+    "note": "window.__tool live after tool:ready. startSession() must run in a user gesture (screen picker + mic) and OPENS CAPTURE 1 with the screen as shared: a capture's screenshot is taken when it OPENS, and the words until the next press belong to it (markMoment means NEXT). No video is ever recorded — the screen stream is a frame source only; audio is continuous. Transcription + cleanup are billable OpenRouter calls (BYOK, localStorage 'sg-openrouter-mgmt-key'); in 'grounded' cleanup mode each capture's SCREENSHOT is sent to the model — setCleanupMode({mode:'text-only'|'off'}) to prevent that. Raw transcripts are immutable; edits touch clean text only. Sessions save/load locally via core/sg-vfs. Headless path: addRecording → markAt → transcribeAll → cleanAll → buildDocument needs no gestures. THREE INGEST PATHS land in the same capture list and share everything downstream: live (startSession + markMoment), authored (insertPair), and video (importVideo — extracts the audio, cuts it at its silences, and picks the frame each segment is about). importVideo needs no gesture. EVERY paid call is recorded in a BILLING LEDGER at the transport, so no generation can be made without its id being captured; fetchBilling() then retrieves the provider's own receipt (charged cost, native token counts, provider, latency) from GET /api/v1/generation, and the ledger ships as billing.json in the zip and the vault. Exports also carry a machine-readable moments[] array in session.json joining each capture's image, words, audio and raw transcript, plus a README.md naming that surface — consumers should never parse review.md.",
     "events": [
       {
         "name": "tool:ready",
@@ -301,6 +304,31 @@
         "name": "nr:video:complete",
         "when": "the captures are built",
         "detail": "{ pairs, segments, durationMs, via }"
+      },
+      {
+        "name": "nr:video:warning",
+        "when": "segmentation found no usable pauses",
+        "detail": "{ code:\"no-pauses-found\", message, capped, segments, calibration }"
+      },
+      {
+        "name": "nr:billing:recorded",
+        "when": "a generation id is captured (every paid call)",
+        "detail": "{ id, scope, pairId }"
+      },
+      {
+        "name": "nr:billing:fetching",
+        "when": "a receipt sweep starts",
+        "detail": "{ pending }"
+      },
+      {
+        "name": "nr:billing:resolved",
+        "when": "one receipt arrives",
+        "detail": "{ id, usd }"
+      },
+      {
+        "name": "nr:billing:complete",
+        "when": "the sweep finishes",
+        "detail": "{ resolved, unresolved, failed, totals }"
       }
     ],
     "actions": {
@@ -383,7 +411,7 @@
         "async": true
       },
       "getSession": {
-        "returns": "serialisable session (no blobs)",
+        "returns": "{ tool, schema, files, sessionId, status, startedAt, durationMs, screen, video, videoImport, rollingSummary, costs, moments, pairs }",
         "async": false
       },
       "getPairs": {
@@ -775,9 +803,9 @@
             "optional": true
           }
         },
-        "returns": "Promise<{ pairs, segments, durationMs, via }>",
+        "returns": "Promise<{ pairs, segments, durationMs, via, capped, calibration }>",
         "async": true,
-        "note": "third ingest path — resets the session, then builds captures from the recording. `via` is \"web-audio\" or \"ffmpeg\" (the fallback audio extractor). No gesture required."
+        "note": "third ingest path — resets the session, then builds captures from the recording. `via` is \"web-audio\" or \"ffmpeg\" (the fallback audio extractor). No gesture required. Segmentation thresholds are CALIBRATED from the recording's own energy distribution (a fixed 0.01 RMS silence threshold failed completely on a real screencast: every segment force-cut at maxUtteranceMs). `capped` counts segments cut at the length limit rather than at a pause — non-zero means the boundaries are suspect."
       },
       "getFrameCandidates": {
         "params": {
@@ -802,6 +830,34 @@
         "returns": "Promise<{ id, at }>",
         "async": true,
         "note": "re-grab the capture screenshot at another point; any `at` works, not just a candidate. Needs the source video still loaded."
+      },
+      "fetchBilling": {
+        "params": {
+          "delayMs": {
+            "type": "number",
+            "optional": true
+          },
+          "retries": {
+            "type": "number",
+            "optional": true
+          },
+          "force": {
+            "type": "boolean",
+            "optional": true
+          },
+          "ids": {
+            "type": "string[]",
+            "optional": true
+          }
+        },
+        "returns": "Promise<{ resolved, unresolved, failed, totals }>",
+        "async": true,
+        "note": "fetches the provider receipt for every generation lacking one. Idempotent. The generation row is not queryable the instant a completion returns, hence delayMs + retries. Exports call it best-effort first, and it can never block or fail an export."
+      },
+      "getBilling": {
+        "returns": "{ tool, sessionId, note, totals, generations:[{ id, at, scope, pairId, step, model, localCostUsd, chargedUsd, fetchedAt, attempts, lastError, data }] }",
+        "async": false,
+        "note": "the ledger, same shape as billing.json. `data` is the provider record VERBATIM. `localCostUsd` is what the completion claimed; `chargedUsd` is what was charged. Entries with data:null were never resolved — the id is still valid and can be looked up later."
       }
     },
     "skills": {

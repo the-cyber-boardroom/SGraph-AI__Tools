@@ -21,6 +21,8 @@
 
 import { state, sessionToJson } from './nr-state.js';
 import { buildDocument, imageName } from './nr-document.js';
+import { billingToJson } from './nr-billing.js';
+import { buildReadme } from './nr-zip.js';
 
 const VAULT_CLIENT = '/core/vault-client/v1/v1.2/v1.2.2/sg-vault-client.js';
 const VAULT_WRITE = '/core/vault-write/v1/v1.1/v1.1.1/sg-vault-write.js';
@@ -43,7 +45,10 @@ export function buildVaultFiles(opts = {}) {
     const base = opts.folder || `reviews/${state.sessionId || 'session'}`;
     const { markdown, images } = buildDocument(state, state.pairs);
 
-    const files = [{ path: `${base}/review.md`, text: markdown }];
+    const files = [
+        { path: `${base}/README.md`, text: buildReadme({ audio: includeAudio }) },
+        { path: `${base}/review.md`, text: markdown },
+    ];
     for (const { name, pairId } of images) {
         const pair = state.pairs.find(p => p.id === pairId);
         if (pair && pair.screenshot) files.push({ path: `${base}/images/${name}`, blob: pair.screenshot });
@@ -53,6 +58,9 @@ export function buildVaultFiles(opts = {}) {
         if (pair.notes) files.push({ path: `${base}/notes/${pair.id}.md`, text: pair.notes });
     }
     files.push({ path: `${base}/session.json`, text: JSON.stringify(sessionToJson(), null, 2) });
+    // The spend record travels with the artefact: what was charged, by which
+    // model, for which capture — auditable from the vault months later.
+    if (state.billing.length) files.push({ path: `${base}/billing.json`, text: JSON.stringify(billingToJson(), null, 2) });
     if (includeTake && state.take && state.take.blob) {
         const ext = /ogg/.test(state.take.mimeType || '') ? 'ogg' : 'webm';
         files.push({ path: `${base}/audio/take.${ext}`, blob: state.take.blob });

@@ -33,6 +33,7 @@ const EXPECTED_ACTIONS = [
     'cleanPair', 'cleanAll', 'getSummary',
     'buildDocument', 'getDocument', 'downloadZip',
     'setCleanupMode', 'setSnapConfig', 'getCostSummary', 'setSpendCap',
+    'fetchBilling', 'getBilling',
     'setNotes', 'movePair', 'reorderPairs', 'insertPair',
     'askPair', 'askSession',
     'downloadPdf', 'saveToVault', 'previewVaultFiles',
@@ -85,9 +86,20 @@ async function run() {
                            '#nr-ex-pdf', '#nr-vault-id', '#nr-vault-audio', '#nr-vault-save',
                            '#nr-chat-input', '#nr-chat-send', '#nr-insert-end',
                            '#nr-sess-save', '#nr-sess-list', '#nr-sess-name',
-                           '#nr-video-drop', '#nr-video-file']) {
+                           '#nr-video-drop', '#nr-video-file',
+                           '#nr-bill-fetch', '#nr-bill-table']) {
             assert(await page.$(sel) !== null, `panel element present: ${sel}`);
         }
+
+        // The ledger is empty but present, and fetching with nothing to fetch is
+        // a no-op rather than a "no key" refusal.
+        const bill = await page.evaluate(async () => ({
+            empty: await window.__tool.getBilling(),
+            fetched: await window.__tool.fetchBilling({ delayMs: 0 }).catch(e => ({ code: e.code })),
+        }));
+        assert(bill.empty.totals.generations === 0, 'billing ledger starts empty');
+        assert(bill.fetched.unresolved === 0 && !bill.fetched.code,
+            'fetchBilling with nothing to fetch is a no-op, not a key error');
 
         const status = await page.evaluate(() => window.__tool.getStatus());
         assert(status.status === 'idle' && status.pairs === 0, 'clean idle status before any session');

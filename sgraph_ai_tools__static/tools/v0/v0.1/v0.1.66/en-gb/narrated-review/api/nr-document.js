@@ -19,6 +19,66 @@ export function imageName(pair) {
     return `pair-${String(pair.seq + 1).padStart(2, '0')}.png`;
 }
 
+/** Per-pair audio filename in an export bundle. */
+export function audioName(pair) { return `${pair.id}.wav`; }
+
+/**
+ * The machine-readable projection of the review — `moments[]`.
+ *
+ * WHY THIS EXISTS. The first agent handed one of these bundles had to parse
+ * `review.md` headings to pair each image with its words, because nothing else
+ * joined them: `pairs[]` carried the text but no image filename, and the images
+ * are named `pair-01.png` by document position while the pairs are keyed `p01`
+ * by identity. Everything needed was in the bundle and none of it was
+ * addressable. That is an export defect, not a consumer problem.
+ *
+ * So each moment carries the join explicitly: the words inline (no second file
+ * to open), the bundle-relative paths to the image, the audio and the raw
+ * transcript, and `index` matching the `## N.` headings in `review.md` and the
+ * `Moment N` labels in the PDF — so a consumer can cite either interchangeably.
+ *
+ * `text` is the best available words with `textSource` saying which they are —
+ * because "corrected" and "as the recogniser heard it" are not the same claim,
+ * and a consumer must be able to tell without guessing. `marks` are spans the
+ * cleanup model flagged rather than resolved: an LLM reading this should treat
+ * them as uncertain, which is exactly why they are structured here instead of
+ * only appearing as `[unsure]` inside prose.
+ *
+ * Paths describe where things sit in an EXPORT (zip or vault folder). An export
+ * may omit `audio/` by option, so a path is a location, not a guarantee.
+ *
+ * @param {object[]} pairs
+ * @returns {object[]} one entry per capture, in document order
+ */
+export function momentsToJson(pairs) {
+    return [...pairs].sort((a, b) => a.seq - b.seq).map(p => {
+        const clean = p.clean && p.clean.text ? p.clean.text : null;
+        const raw = p.raw && p.raw.text ? p.raw.text : null;
+        const hasImage = !!(p.screenshot || p.hasScreenshot);
+        return {
+            index: p.seq + 1,
+            id: p.id,
+            tMs: p.tPress ?? null,
+            at: p.tPress == null ? null : fmtTime(p.tPress),
+            tStart: p.tStart ?? null,
+            tEnd: p.tEnd ?? null,
+            durationMs: p.tStart != null && p.tEnd != null ? p.tEnd - p.tStart : null,
+            image: hasImage ? `images/${imageName(p)}` : null,
+            audio: p.tEnd != null ? `audio/${audioName(p)}` : null,
+            rawFile: raw ? `raw/${p.id}.txt` : null,
+            text: clean || raw || null,
+            textSource: clean ? 'clean' : raw ? 'raw' : 'none',
+            rawText: raw,
+            notes: p.notes || '',
+            marks: (p.clean && p.clean.marks) || [],
+            source: p.source || 'capture',
+            videoAt: p.videoAt ?? null,
+            models: { transcribe: (p.raw && p.raw.model) || null, clean: (p.clean && p.clean.model) || null },
+            costUsd: { transcribe: (p.raw && p.raw.costUsd) ?? null, clean: (p.clean && p.clean.costUsd) ?? null },
+        };
+    });
+}
+
 /**
  * Build the review document.
  * @param {object} session  the serialisable session (nr-state sessionToJson shape

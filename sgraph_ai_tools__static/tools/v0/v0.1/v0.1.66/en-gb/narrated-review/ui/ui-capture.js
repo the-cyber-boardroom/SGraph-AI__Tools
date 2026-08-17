@@ -109,7 +109,9 @@ export function initCapture(el, state, config, api, emit, marker) {
         vState.textContent = `${file.name} — extracting audio…`;
         try {
             const r = await api.importVideo({ file });
-            vState.textContent = `${r.pairs} captures from ${r.segments} segments`;
+            vState.textContent = `${r.pairs} captures from ${r.segments} segments`
+                + (r.capped ? ` · ${r.capped} cut at the length limit, not at a pause` : '');
+            drop.classList.toggle('is-warn', r.capped > r.segments / 2);
         } catch (err) {
             vState.textContent = err.message || 'Import failed';
             emit('nr:error', { code: err.code || 'not-video', step: 'import-video', message: err.message });
@@ -129,6 +131,13 @@ export function initCapture(el, state, config, api, emit, marker) {
     }
     drop.addEventListener('drop', e => runImport(e.dataTransfer && e.dataTransfer.files && e.dataTransfer.files[0]));
 
+    // A segmentation that found no pauses produced a plausible-looking document
+    // built on arbitrary boundaries once already. It says so now.
+    window.addEventListener('nr:video:warning', e => {
+        const d = e.detail || {};
+        vState.textContent = d.message || 'segmentation may be unreliable';
+        drop.classList.add('is-warn');
+    });
     window.addEventListener('nr:video:progress', e => {
         const d = e.detail || {};
         if (d.message) vState.textContent = d.message;

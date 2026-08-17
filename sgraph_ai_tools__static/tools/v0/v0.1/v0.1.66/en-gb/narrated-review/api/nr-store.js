@@ -105,6 +105,10 @@ export async function saveSession(p = {}, emit = () => {}) {
         summaryAtSeq: state.summaryAtSeq,
         suggestions: state.suggestions.slice(),
         chatCosts: state.chatCosts.slice(),
+        // The spend record is part of the session: the generation ids stay
+        // valid, so a receipt missed today can be fetched from a reloaded
+        // session tomorrow.
+        billing: state.billing.slice(),
         config: { cleanup: config.cleanup, transcribeModel: config.transcribeModel, cleanupModel: config.cleanupModel },
         pairs: state.pairs.map(x => ({
             id: x.id, seq: x.seq, tPress: x.tPress, tStart: x.tStart, tEnd: x.tEnd,
@@ -187,6 +191,7 @@ export async function loadSession(p = {}, emit = () => {}) {
     state.summaryAtSeq = doc.summaryAtSeq ?? -1;
     state.suggestions = doc.suggestions || [];
     state.chatCosts = doc.chatCosts || [];
+    state.billing = doc.billing || [];
     state.status = 'reviewing';
     if (doc.config) {
         for (const k of ['cleanup', 'transcribeModel', 'cleanupModel']) {

@@ -10,6 +10,8 @@
  * @module nr-state
  */
 
+import { momentsToJson } from './nr-document.js';
+
 /** Tool configuration (persisted subset → localStorage 'nr-config'). */
 export const config = {
     // Boundary snapping. The rule is "the latest SUSTAINED silence before the
@@ -67,22 +69,24 @@ export const state = {
     take: null,                // { blob, mimeType } — the continuous saved audio
     takeSource: null,          // 'live' | 'import' | 'video'
     video: null,               // { name, size, durationMs, width, height } when imported from a video
+    videoImport: null,          // { segments, capped, calibration } — how segmentation actually went
     pairs: [],                 // ordered by seq — THE list
     suggestions: [],           // [tMs] VAD silences without a mark
     rollingSummary: '',
     summaryAtSeq: -1,
     costs: { transcribeUsd: 0, cleanUsd: 0, pendingCount: 0 },
     chatCosts: [],             // [{ scope:'pair'|'session', id?, usd }]
+    billing: [],               // one entry per OpenRouter generation — see nr-billing
     lastError: null,
     _seq: 0,
 
     reset() {
         this.status = 'idle'; this.sessionId = null; this.startedAt = null;
         this.durationMs = 0; this.screen = null; this.take = null; this.takeSource = null;
-        this.video = null;
+        this.video = null; this.videoImport = null;
         this.pairs = []; this.suggestions = []; this.rollingSummary = '';
         this.summaryAtSeq = -1; this.costs = { transcribeUsd: 0, cleanUsd: 0, pendingCount: 0 };
-        this.chatCosts = []; this.lastError = null; this._seq = 0;
+        this.chatCosts = []; this.billing = []; this.lastError = null; this._seq = 0;
         resetIds();
     },
 };
@@ -161,6 +165,22 @@ export function pairToJson(p) {
 export function sessionToJson() {
     return {
         tool: 'narrated-review',
+        // The consumer-facing contract, declared so a reader knows what it has.
+        schema: {
+            name: 'narrated-review/session',
+            version: 2,
+            moments: 'THE MACHINE-READABLE VIEW. One entry per capture in document order, '
+                + 'each joining its image, words, audio and raw transcript. `index` matches the '
+                + '"## N." headings in review.md and the "Moment N" labels in the PDF. Read this '
+                + 'instead of parsing review.md.',
+            pairs: 'The internal per-capture records (same order, keyed by stable `id`). '
+                + '`moments` is derived from these and is the preferred surface.',
+            paths: 'Relative to the export root. An export may omit audio/ by option.',
+        },
+        files: {
+            review: 'review.md', session: 'session.json', billing: 'billing.json',
+            images: 'images/', audio: 'audio/', raw: 'raw/', notes: 'notes/',
+        },
         sessionId: state.sessionId,
         status: state.status,
         startedAt: state.startedAt,
@@ -170,6 +190,7 @@ export function sessionToJson() {
         takeSource: state.takeSource,
         takeMime: state.take ? state.take.mimeType : null,
         video: state.video,
+        videoImport: state.videoImport,
         rollingSummary: state.rollingSummary,
         suggestions: state.suggestions.slice(),
         config: {
@@ -178,6 +199,7 @@ export function sessionToJson() {
             cleanupModel: config.cleanupModel,
         },
         costs: costSummary(),
+        moments: momentsToJson(state.pairs),
         pairs: state.pairs.map(pairToJson),
     };
 }

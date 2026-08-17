@@ -21,6 +21,7 @@ import { saveToVault as vaultSave, buildVaultFiles } from './nr-vault.js';
 import { buildPdf } from './nr-pdf.js';
 import * as Store from './nr-store.js';
 import * as Video from './nr-video.js';
+import * as Billing from './nr-billing.js';
 import { init as initShell } from '../ui/ui-shell.js';
 
 const api = new SgToolApi({
@@ -37,6 +38,7 @@ const api = new SgToolApi({
 function emit(name, detail = {}) { api._emit(name, detail); }
 
 loadConfig();
+Billing.initBilling({ emit, getApiKey: Pipe.getApiKey });
 Pipe.initPipeline({ emit });
 Cap.onSuggestion(t => emit(NR_EVENTS.SUGGESTION, { t }));
 
@@ -50,7 +52,7 @@ const edit = buildEditMethods({ emit });
 const chatHost = document.createElement('div');
 chatHost.style.display = 'none';
 document.body.appendChild(chatHost);
-const chatTransport = makeChatTransport(chatHost, Pipe.getApiKey);
+const chatTransport = Billing.billed(makeChatTransport(chatHost, Pipe.getApiKey), { scope: 'chat' });
 
 // A newly bounded pair transcribes immediately (streams to raw mid-capture).
 const marker = buildMarker({
@@ -90,8 +92,13 @@ async function endSession() {
         takeSizeBytes: state.take ? state.take.blob.size : 0,
     });
     // Auto-run the two lanes in the background; explicit calls are idempotent.
+    // The receipts are swept once the lanes settle — that is the "a bit later"
+    // the generation endpoint needs.
     if (Pipe.getApiKey()) {
-        Pipe.transcribeAll().then(() => (config.cleanup !== 'off' ? Pipe.cleanAll() : null)).catch(() => {});
+        Pipe.transcribeAll()
+            .then(() => (config.cleanup !== 'off' ? Pipe.cleanAll() : null))
+            .then(settleBilling)
+            .catch(() => {});
     }
     return { pairs: state.pairs.length, durationMs: state.durationMs, takeSizeBytes: state.take ? state.take.blob.size : 0 };
 }
@@ -120,7 +127,10 @@ async function addRecording(p = {}) {
 async function importVideo(p = {}) {
     const out = await Video.importVideo(p, emit, marker);
     if (Pipe.getApiKey()) {
-        Pipe.transcribeAll().then(() => (config.cleanup !== 'off' ? Pipe.cleanAll() : null)).catch(() => {});
+        Pipe.transcribeAll()
+            .then(() => (config.cleanup !== 'off' ? Pipe.cleanAll() : null))
+            .then(settleBilling)
+            .catch(() => {});
     }
     return out;
 }
@@ -203,11 +213,25 @@ async function downloadPdf(p = {}) {
 }
 
 /** Write the whole session into an SG/Send vault (audio optional). */
-function saveToVault(p = {}) {
+async function saveToVault(p = {}) {
+    if (p.billing !== false) await settleBilling();
     return vaultSave(p, emit, Pipe.pairWav);
 }
 
+/**
+ * Sweep for any receipts we do not have yet, without ever blocking the caller.
+ *
+ * Exports run through this so the spend record travels with the artefact, but an
+ * export must not fail — or hang — because a billing lookup did. A missing
+ * receipt is not a missing record: the generation ids are already in the ledger.
+ */
+async function settleBilling() {
+    if (!state.billing.some(e => !e.data) || !Pipe.getApiKey()) return;
+    await Billing.fetchBilling({ delayMs: 1200, retries: 1 }).catch(() => {});
+}
+
 async function downloadZip(p = {}) {
+    if (p.billing !== false) await settleBilling();
     const { blob, name, count } = await buildSessionZip({ include: p.include });
     downloadBlob(blob, name);
     emit(NR_EVENTS.BUNDLE_CREATED, { zipSize: blob.size, name });
@@ -329,6 +353,9 @@ api
     .register('listSessions',     listSessions,     { async: true })
     .register('loadSession',      loadSession,      { async: true,  events: [NR_EVENTS.STORE_LOADED] })
     .register('deleteSession',    deleteSession,    { async: true })
+
+    .register('fetchBilling',     Billing.fetchBilling, { async: true, events: [NR_EVENTS.BILLING_COMPLETE] })
+    .register('getBilling',       Billing.getBilling,   { async: false })
 
     .register('setCleanupMode',   setCleanupMode,   { async: false })
     .register('setSnapConfig',    setSnapConfig,    { async: false })

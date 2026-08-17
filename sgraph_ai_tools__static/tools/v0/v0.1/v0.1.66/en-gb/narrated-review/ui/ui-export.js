@@ -17,6 +17,12 @@ export function initExport(el, state, api) {
           <button id="nr-ex-pdf" class="nr-btn">📕 Download PDF</button>
           <button id="nr-ex-send" class="nr-btn">🔐 Share via SG/Send</button>
         </div>
+        <h4>Billing <span class="nr-muted">— the provider's own receipts</span></h4>
+        <div class="nr-export__row">
+          <button id="nr-bill-fetch" class="nr-btn">🧾 Fetch receipts</button>
+          <span id="nr-bill-sum" class="nr-muted">no generations yet</span>
+        </div>
+        <div id="nr-bill-table" class="nr-bill"></div>
         <h4>Save to a vault</h4>
         <div class="nr-export__row nr-vault">
           <input id="nr-vault-id" placeholder="vault id" autocomplete="off">
@@ -90,6 +96,43 @@ export function initExport(el, state, api) {
         } catch (err) { q('#nr-ex-status').textContent = `${err.code || 'error'}: ${err.message}`; }
     });
     refreshSessions();
+
+    // ── Billing ───────────────────────────────────────────────────────────────
+    // Two numbers per generation, deliberately: what the completion response
+    // claimed, and what the provider actually charged. The gap is worth seeing.
+    // Every registered action returns a Promise, sync ones included.
+    async function refreshBilling() {
+        const b = await api.getBilling();
+        const t = b.totals;
+        if (!t.generations) { q('#nr-bill-sum').textContent = 'no generations yet'; q('#nr-bill-table').innerHTML = ''; return; }
+        q('#nr-bill-sum').textContent =
+            `${t.receipts}/${t.generations} receipts · charged $${t.chargedUsd.toFixed(4)}` +
+            ` · claimed $${t.localClaimUsd.toFixed(4)}` +
+            (t.missing ? ` · ${t.missing} not fetched` : '');
+        q('#nr-bill-table').innerHTML = b.generations.map(g => {
+            const d = g.data || {};
+            const tok = d.native_tokens_prompt != null ? `${d.native_tokens_prompt}→${d.native_tokens_completion ?? '?'}` : '—';
+            return `<div class="nr-bill__row">
+                <code>${g.id}</code>
+                <span>${g.scope}${g.pairId ? ' · ' + g.pairId : ''}</span>
+                <span class="nr-muted">${d.provider_name || g.model || ''}</span>
+                <span class="nr-muted">${tok}</span>
+                <span>${g.chargedUsd != null ? '$' + g.chargedUsd.toFixed(5) : `<i class="nr-muted">${g.lastError ? g.lastError.code : 'pending'}</i>`}</span>
+              </div>`;
+        }).join('');
+    }
+    q('#nr-bill-fetch').addEventListener('click', async () => {
+        q('#nr-ex-status').textContent = 'fetching receipts…';
+        try {
+            const r = await api.fetchBilling({});
+            q('#nr-ex-status').textContent = `✓ ${r.resolved} receipts` + (r.unresolved ? `, ${r.unresolved} still pending` : '');
+        } catch (err) { q('#nr-ex-status').textContent = `billing failed: ${err.code || ''} ${err.message}`; }
+        refreshBilling();
+    });
+    for (const ev of ['nr:billing:recorded', 'nr:billing:resolved', 'nr:billing:complete', 'nr:reset', 'nr:store:loaded']) {
+        window.addEventListener(ev, refreshBilling);
+    }
+    refreshBilling();
 
     q('#nr-ex-pdf').addEventListener('click', async () => {
         q('#nr-ex-status').textContent = 'building PDF…';

@@ -97,7 +97,7 @@ export function buildChatMethods({ transport, getModel, edit, setText, emit }) {
         const res = await transport({
             messages: [{ role: 'system', content: PAIR_SYSTEM }, { role: 'user', content }],
             model,
-        });
+        }, { scope: 'chat-pair', pairId: pair.id });
         const out = {
             text: String(res.content || '').trim(), model,
             costUsd: typeof res.responseCost === 'number' ? res.responseCost : null,
@@ -179,7 +179,8 @@ export function buildChatMethods({ transport, getModel, edit, setText, emit }) {
         emit('nr:chat:started', { scope: 'session', model });
 
         for (; steps < maxSteps; steps++) {
-            const res = await transport({ messages, model, tools: TOOLS });
+            // Each step of the tool loop is its own billed generation.
+            const res = await transport({ messages, model, tools: TOOLS }, { scope: 'chat-session', step: steps });
             if (typeof res.responseCost === 'number') usd += res.responseCost;
             const calls = res.toolCalls || [];
             if (!calls.length) {

@@ -20,7 +20,8 @@ export const NR_EVENTS = Object.freeze({
 
     VIDEO_STARTED:       'nr:video:started',       // { name, durationMs, width, height }
     VIDEO_PROGRESS:      'nr:video:progress',      // { step:'audio'|'segments'|'frames'|'captures', done?, total?, message? }
-    VIDEO_COMPLETE:      'nr:video:complete',      // { pairs, segments, durationMs, via }
+    VIDEO_WARNING:       'nr:video:warning',       // { code, message, capped, segments, calibration }
+    VIDEO_COMPLETE:      'nr:video:complete',      // { pairs, segments, durationMs, via, capped, calibration }
 
     PAIR_ADDED:          'nr:pair:added',          // { id, seq, tPress }
     PAIR_UPDATED:        'nr:pair:updated',        // { id, field }
@@ -43,6 +44,11 @@ export const NR_EVENTS = Object.freeze({
     STORE_SAVED:         'nr:store:saved',         // { sessionId, name, savedAt, pairs }
     STORE_LOADED:        'nr:store:loaded',        // { sessionId, pairs, hasAudio }
     STORE_DELETED:       'nr:store:deleted',       // { sessionId }
+
+    BILLING_RECORDED:    'nr:billing:recorded',    // { id, scope, pairId } — a generation id captured
+    BILLING_FETCHING:    'nr:billing:fetching',    // { pending }
+    BILLING_RESOLVED:    'nr:billing:resolved',    // { id, usd } — one receipt in
+    BILLING_COMPLETE:    'nr:billing:complete',    // { resolved, unresolved, failed, totals }
 
     DOCUMENT_BUILT:      'nr:document:built',      // { pairs, bytes }
     PDF_CREATED:         'nr:pdf:created',         // { name, pages, bytes }

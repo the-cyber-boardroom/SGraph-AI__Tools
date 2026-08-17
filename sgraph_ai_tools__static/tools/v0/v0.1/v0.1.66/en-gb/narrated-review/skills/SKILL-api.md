@@ -2,6 +2,37 @@
 
 `window.__tool` after `tool:ready`. All actions return Promises. The manifest `api` section is authoritative; this file adds semantics.
 
+## What changed in v0.1.5
+
+Three things, two of them found by running a real screencast through v0.1.4.
+
+1. **A billing ledger.** Every paid call is recorded at the transport with its
+   OpenRouter generation id, and `fetchBilling()` retrieves the provider's own
+   receipt. Ships as `billing.json` in the zip and the vault.
+2. **Segmentation thresholds are now calibrated per recording.** The fixed
+   `silenceThreshold: 0.01` failed completely on a real video — see below.
+3. **`moments[]` in `session.json`** plus a bundle `README.md`, so a consumer
+   never has to parse `review.md` to join an image to its words.
+
+### The real-screencast failure (fixed here)
+
+A 4m21s recording produced nine captures of *exactly* 30000 ms. The VAD never
+saw a silent frame, never endpointed, and force-cut at `maxUtteranceMs` every
+time; sentences were chopped mid-clause and the frame search was matching
+pictures to boundaries that meant nothing. Cause: **0.01 RMS is an absolute
+level**, and a real recording's noise floor (room tone, mic gain, AAC
+compression) sits above it. Synthetic test audio has true digital silence, which
+is exactly why 54 passing assertions never caught it.
+
+`calibrateVad` now takes the 20th and 90th percentiles of the recording's own RMS
+log as the floor and speech level and places both thresholds inside that range.
+On the regression clip the calibrated silence threshold is **0.056 — 5.6× the old
+fixed value**. An explicitly passed threshold still wins. And `capped` (segments
+cut at the length limit rather than at a pause) is now reported in the
+`importVideo` result, with `nr:video:warning` when it is most of them: a
+force-cut boundary is arbitrary, and saying so beats shipping a plausible-looking
+document built on nothing.
+
 ## What changed in v0.1.4
 
 A third way to fill the capture list: **`importVideo({file})`**. Video review is
@@ -123,6 +154,70 @@ exists so a wrong pick costs one click.
   `insert_capture`. Returns `{ text, steps, changes }` where `changes` lists what
   it actually did. Raw transcripts are not exposed as writable.
 
+## Billing — the provider's own receipts
+
+Two numbers exist per generation and both are kept. A completion response carries
+a cost immediately, but it is provisional; the charged amount lands a couple of
+seconds later at `GET /api/v1/generation?id=…` together with the token counts, the
+provider that actually served the request, cache discounts and latency.
+
+**The id is the receipt.** It is recorded the instant a request returns — before
+any cost lookup, and whether or not the lookup ever succeeds. A lookup fails for
+a dozen ordinary reasons; if the id were only kept on success the spend would be
+unauditable afterwards. With the id, a receipt missed today can be fetched
+tomorrow, from a script, or from the vault copy months on.
+
+Recording happens in a wrapper around **both** transports (`billed()`), not at
+call sites — the one place that cannot be forgotten in a later release.
+
+- `fetchBilling({ delayMs = 2500, retries = 2, force, ids })` →
+  `{ resolved, unresolved, failed, totals }`. Idempotent; resolved entries are
+  skipped. Runs automatically once the two lanes settle, and best-effort before
+  an export — but it can never block or fail one.
+- `getBilling()` → the ledger, identical to `billing.json`:
+
+```js
+{ totals: { generations, receipts, missing, chargedUsd, localClaimUsd, deltaUsd, byScope, byModel },
+  generations: [{ id, at, scope, pairId, step, model,
+                  localCostUsd,      // what the completion claimed
+                  chargedUsd,        // what was charged
+                  fetchedAt, attempts, lastError,
+                  data }] }           // the provider record, VERBATIM
+```
+
+`scope` is `transcribe` · `clean` · `chat-pair` · `chat-session` (one entry per
+step of the agentic tool loop). `data` is stored unreshaped: it is the provider's
+document, and reshaping it would silently drop whatever OpenRouter adds next.
+`deltaUsd` is only reported once every receipt is in — otherwise the gap is just
+"not fetched yet" and would read as drift.
+
+## Machine-readable exports
+
+`session.json` carries **`moments[]`**, the consumer-facing view. It exists
+because the first agent handed one of these bundles had to parse `review.md`
+headings to work out which image went with which words: `pairs[]` held the text
+but no image filename, and images are named `pair-01.png` by document *position*
+while pairs are keyed `p01` by *identity*. Everything needed was in the bundle and
+none of it was addressable — an export defect, not a consumer problem.
+
+```js
+moments[i] = { index,        // 1-based; matches the "## N." headings and "Moment N" in the PDF
+               id,           // stable across reordering
+               tMs, at, tStart, tEnd, durationMs,
+               image,        // "images/pair-NN.png"
+               audio,        // "audio/pXX.wav"   (a location, not a guarantee — exports may omit audio/)
+               rawFile,      // "raw/pXX.txt"
+               text,         // best available words
+               textSource,   // 'clean' | 'raw' | 'none'  — which claim these words are
+               rawText, notes, marks, source, videoAt, models, costUsd }
+```
+
+`marks` are spans the cleanup model flagged rather than resolved; they are
+structured here, not only rendered as `[unsure]` inside prose, so a consumer can
+treat them as uncertain without parsing. `session.json` also declares `schema`
+(name + version) and `files` (the bundle layout), and every bundle now opens with
+a `README.md` naming `moments[]` as the surface to read.
+
 ## Saving and exporting
 
 - `downloadZip({ include })` · `downloadPdf({ includeRaw })` · `sendViaSgSend()`
@@ -178,10 +273,17 @@ await t.downloadZip();                            // review.md + images/ + audio
   because ordinary word gaps are ~120 ms. Default 700 ms. Too low and a segment
   starts mid-sentence; too high and it falls back to a fixed 2 s lead.
 - `saveToVault` is implemented but has NOT been run against a live vault.
-- Video import: the frame heuristic's thresholds have only been exercised against
-  synthetic slides (`narrated-review-video-smoke.js`), not a real screencast. The
-  source video is held in memory only, so `setFrame` stops working after a reload,
-  and `frameCandidates` are not persisted by `saveSession`.
+- Video import: segmentation is now calibrated per recording and covered by a
+  regression test that reproduces the real-screencast failure over a room-tone
+  floor. The FRAME-choice thresholds (`changeThreshold`, `mergeThreshold`, the
+  lead/lag window) are still only exercised against synthetic slides that change
+  instantly — a fade, a scroll or a build-in can still fool them, which is what
+  the candidate strip is for.
+- The source video is held in memory only, so `setFrame` stops working after a
+  reload, and `frameCandidates` are not persisted by `saveSession`.
+- The LIVE path's boundary snap still uses an absolute `config.silenceThreshold`
+  (0.01) and so carries the same risk the video path just hit; it has worked
+  against real mic input, but `setSnapConfig` is the only mitigation today.
 - The FFmpeg audio-extraction fallback needs the unpkg CDN, so it cannot run on an
   offline runner; the free Web Audio path covers ordinary `.mp4`/`.webm`.
 - `loadSession` restores the document (captures, images, text, notes, order) but

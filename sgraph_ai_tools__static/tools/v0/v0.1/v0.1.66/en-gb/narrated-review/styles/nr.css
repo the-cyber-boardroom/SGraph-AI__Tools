@@ -36,9 +36,20 @@
 }
 .nr-vdrop:hover, .nr-vdrop.is-over { border-color: #14b8a6; background: rgba(20, 184, 166, 0.06); }
 .nr-vdrop.is-busy { cursor: progress; border-color: #14b8a6; }
+.nr-vdrop.is-warn { border-color: #f59e0b; background: rgba(245, 158, 11, 0.08); }
+.nr-vdrop.is-warn .nr-muted { color: #f59e0b; }
 .nr-vdrop__label { color: #9fb0c8; }
 .nr-vdrop__bar { height: 3px; background: #131b2e; border-radius: 2px; overflow: hidden; }
 .nr-vdrop__fill { height: 100%; width: 0; background: #14b8a6; transition: width 0.2s ease; }
+/* ── Billing ledger ── */
+.nr-bill { max-height: 200px; overflow: auto; font-size: 0.78em; }
+.nr-bill__row {
+    display: grid; grid-template-columns: 1.6fr 1fr 1fr 0.7fr 0.7fr; gap: 8px;
+    padding: 4px 6px; border-bottom: 1px solid #1c2740; align-items: baseline;
+}
+.nr-bill__row code { color: #9fb0c8; overflow: hidden; text-overflow: ellipsis; }
+.nr-bill__row > span:last-child { text-align: right; font-variant-numeric: tabular-nums; }
+
 .nr-frames { display: flex; gap: 6px; overflow-x: auto; padding-bottom: 6px; margin-bottom: 8px; }
 .nr-frames__c { border: 2px solid transparent; border-radius: 4px; cursor: pointer; padding: 0; background: none; }
 .nr-frames__c.is-chosen { border-color: #14b8a6; }
