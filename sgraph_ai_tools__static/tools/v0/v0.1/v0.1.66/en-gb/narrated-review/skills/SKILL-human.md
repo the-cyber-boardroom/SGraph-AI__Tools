@@ -23,19 +23,34 @@ Audio is captured **continuously** — the keypress is a marker, not a start/sto
 ## A session
 
 1. **Share screen & start** — pick the window/screen to review; mic goes live.
-2. **Narrate.** Each time the thing on screen matters, **press any key** (in this window) or click the MARK area. Keep talking — segments transcribe in the background while you go.
+2. **Narrate.** Capture 1 already holds the screen as you shared it. Talk about
+   what is on screen, and **press any key** (or click NEXT) when you move to the
+   next thing — the press closes the current capture and opens one for the new
+   screen. Keep talking; segments transcribe in the background while you go.
 3. **Finish.** The continuous take is saved; remaining transcription runs, then cleanup (screenshot + rolling summary → corrected text; uncertain spans are flagged `[unsure]`, never silently resolved).
 4. **Review (optional).** Pairs tab → click a pair → fix a boundary (ms nudge), edit clean text, re-transcribe or re-clean. Raw text is never overwritten.
 5. **Document** → Build → preview `review.md`. **Export** → download the session zip (review.md + images/ + audio/ + raw/ + session.json) or share via SG/Send encrypted link, or copy the markdown.
 
 **The bar this tool is measured against:** press send with no cleanup afterwards. If a session needs editing before it can be shared, that's a bug worth reporting.
 
+## Saving and coming back later
+
+Export → **Saved sessions** → *Save session*. Sessions live in this browser
+(IndexedDB) and survive a reload or closing the tab, so you can stop, come back
+and carry on — which matters because reordering, notes and edits are not in the
+transcript and cannot be re-derived. *open* restores one. **Keep audio** is
+optional: without it a restored session is fully editable as a document, but
+re-transcribing a capture needs the original take.
+
 ## Editing the review
 
 - **Extra comments.** Each capture has a **notes** box, separate from the transcript.
   The transcript is what you said; notes are what you want to add now. They appear
   as quoted notes in the document, so nobody mistakes one for the other.
-- **Reorder.** ↑ ↓ on any row in Pairs, or in the Review pane. Numbering follows.
+- **Reorder.** ↑ ↓ on any row in Captures, or in a capture's own panel. Numbering follows.
+- **Open a capture in its own panel.** ⧉ on a row (or double-click it). Panels can be
+  dragged and docked side by side, so several captures can be open at once, each with
+  its own chat — while the Captures list stays where it is.
 - **Add a capture anywhere.** "+ Add capture", or "+" on a row to insert straight
   after it. A capture is only ever an image, some words, or both — so an added one
   needs no audio.

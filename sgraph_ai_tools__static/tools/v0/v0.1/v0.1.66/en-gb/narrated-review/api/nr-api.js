@@ -19,6 +19,7 @@ import { buildChatMethods } from './nr-chat.js';
 import { makeChatTransport } from './nr-llm.js';
 import { saveToVault as vaultSave, buildVaultFiles } from './nr-vault.js';
 import { buildPdf } from './nr-pdf.js';
+import * as Store from './nr-store.js';
 import { init as initShell } from '../ui/ui-shell.js';
 
 const api = new SgToolApi({
@@ -72,7 +73,9 @@ async function startSession(p = {}) {
     state.screen = started.screen;
     state.takeSource = 'live';
     emit(NR_EVENTS.SESSION_STARTED, { screen: started.screen, sampleRate: started.sampleRate, mimeType: started.mimeType });
-    return { sessionId: state.sessionId, screen: started.screen, mimeType: started.mimeType };
+    // Capture 1 opens with the screen as shared — see startFirstCapture.
+    const first = await marker.startFirstCapture();
+    return { sessionId: state.sessionId, screen: started.screen, mimeType: started.mimeType, firstCapture: first.id };
 }
 
 async function endSession() {
@@ -194,6 +197,13 @@ async function downloadZip(p = {}) {
     return { name, zipSize: blob.size, count };
 }
 
+// ── Saved sessions (survive a reload — editing work is not re-derivable) ─────
+
+const saveSession   = (p = {}) => Store.saveSession(p, emit);
+const listSessions  = ()       => Store.listSessions();
+const loadSession   = (p = {}) => Store.loadSession(p, emit);
+const deleteSession = (p = {}) => Store.deleteSession(p, emit);
+
 // ── Config & cost ────────────────────────────────────────────────────────────
 
 function setCleanupMode(p = {}) {
@@ -292,6 +302,11 @@ api
     .register('saveToVault',      saveToVault,      { async: true,  events: [NR_EVENTS.VAULT_COMPLETE],
         sanitiseParams: p => ({ ...p, passphrase: p?.passphrase ? '••••' : undefined, token: p?.token ? '••••' : undefined }) })
     .register('previewVaultFiles', (p = {}) => ({ files: buildVaultFiles(p).files.map(f => f.path) }), { async: false })
+
+    .register('saveSession',      saveSession,      { async: true,  events: [NR_EVENTS.STORE_SAVED] })
+    .register('listSessions',     listSessions,     { async: true })
+    .register('loadSession',      loadSession,      { async: true,  events: [NR_EVENTS.STORE_LOADED] })
+    .register('deleteSession',    deleteSession,    { async: true })
 
     .register('setCleanupMode',   setCleanupMode,   { async: false })
     .register('setSnapConfig',    setSnapConfig,    { async: false })

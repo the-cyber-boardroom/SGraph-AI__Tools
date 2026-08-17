@@ -35,6 +35,7 @@ const EXPECTED_ACTIONS = [
     'setNotes', 'movePair', 'reorderPairs', 'insertPair',
     'askPair', 'askSession',
     'downloadPdf', 'saveToVault', 'previewVaultFiles',
+    'saveSession', 'listSessions', 'loadSession', 'deleteSession',
 ];
 
 let passed = 0, failed = 0;
@@ -81,7 +82,8 @@ async function run() {
         for (const sel of ['#nr-share', '#nr-finish', '#nr-mark', '#nr-key', '#nr-key-save',
                            '#nr-cleanup-mode', '#nr-doc-build', '#nr-ex-zip', '#nr-ex-send',
                            '#nr-ex-pdf', '#nr-vault-id', '#nr-vault-audio', '#nr-vault-save',
-                           '#nr-chat-input', '#nr-chat-send', '#nr-insert-end']) {
+                           '#nr-chat-input', '#nr-chat-send', '#nr-insert-end',
+                           '#nr-sess-save', '#nr-sess-list', '#nr-sess-name']) {
             assert(await page.$(sel) !== null, `panel element present: ${sel}`);
         }
 
@@ -138,6 +140,29 @@ async function run() {
         assert(!edited.files.files.some(f => f.includes('/audio/')), 'vault save excludes audio by default');
         const withAudio = await page.evaluate(() => window.__tool.previewVaultFiles({ includeAudio: true }));
         assert(Array.isArray(withAudio.files), 'previewVaultFiles honours includeAudio');
+        // Sessions persist across a full reload — the point of the store.
+        const persisted = await page.evaluate(async () => {
+            const t = window.__tool;
+            const a = await t.insertPair({ text: 'persisted capture', notes: 'persisted note' });
+            const meta = await t.saveSession({ name: 'smoke session' });
+            return { id: a.id, meta };
+        });
+        assert(persisted.meta.pairs > 0, 'saveSession writes the session');
+        await page.reload({ waitUntil: 'domcontentloaded' });
+        await page.waitForFunction(() => !!window.__tool, null, { timeout: 15000 });
+        const restored = await page.evaluate(async (sessionId) => {
+            const t = window.__tool;
+            const before = (await t.getPairs()).length;
+            const rows = await t.listSessions();
+            const r = await t.loadSession({ sessionId });
+            const ps = await t.getPairs();
+            await t.deleteSession({ sessionId });
+            return { before, rows: rows.length, r, texts: ps.map(x => x.clean && x.clean.text), notes: ps.map(x => x.notes) };
+        }, persisted.meta.sessionId);
+        assert(restored.before === 0, 'a reload really does clear in-memory state');
+        assert(restored.rows > 0, 'listSessions finds the saved session after a reload');
+        assert(restored.texts.includes('persisted capture'), 'loadSession restores capture text');
+        assert(restored.notes.includes('persisted note'), 'loadSession restores notes');
         await page.evaluate(() => window.__tool.reset());
 
         assert(errors.length === 0, 'zero uncaught errors after exercise', errors.join(' | '));

@@ -56,6 +56,7 @@ export function initPairs(el, state, api) {
                     <span class="nr-pair-row__ord">
                       <button data-move="-1" title="move earlier">↑</button>
                       <button data-move="1" title="move later">↓</button>
+                      <button data-open="1" title="open this capture in its own panel">⧉</button>
                       <button data-insert="1" title="insert a capture after this one">+</button>
                     </span>
                   </div>
@@ -65,6 +66,13 @@ export function initPairs(el, state, api) {
                 ev.stopPropagation();
                 api.movePair({ id: p.id, by: Number(b.dataset.move) });
             }));
+            row.querySelector('[data-open]').addEventListener('click', ev => {
+                ev.stopPropagation();
+                window.dispatchEvent(new CustomEvent('nr:ui:open-capture', { detail: { id: p.id } }));
+            });
+            row.addEventListener('dblclick', () => {
+                window.dispatchEvent(new CustomEvent('nr:ui:open-capture', { detail: { id: p.id } }));
+            });
             row.querySelector('[data-insert]').addEventListener('click', ev => {
                 ev.stopPropagation();
                 api.insertPair({ afterId: p.id, text: '', notes: '' })
@@ -85,7 +93,7 @@ export function initPairs(el, state, api) {
 
     for (const ev of ['nr:pair:added', 'nr:pair:updated', 'nr:pair:removed', 'nr:pairs:reordered',
                       'nr:transcribe:complete', 'nr:transcribe:error',
-                      'nr:clean:complete', 'nr:clean:error', 'nr:reset', 'nr:session:ended']) {
+                      'nr:clean:complete', 'nr:clean:error', 'nr:reset', 'nr:session:ended', 'nr:store:loaded']) {
         window.addEventListener(ev, render);
     }
     render();

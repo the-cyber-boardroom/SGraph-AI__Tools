@@ -35,6 +35,11 @@ export const NR_EVENTS = Object.freeze({
     CHAT_STARTED:        'nr:chat:started',        // { scope:'pair'|'session', id?, model }
     CHAT_COMPLETE:       'nr:chat:complete',       // { scope, id?, chars?, steps?, changes?, costUsd }
 
+    STORE_SAVING:        'nr:store:saving',        // { sessionId }
+    STORE_SAVED:         'nr:store:saved',         // { sessionId, name, savedAt, pairs }
+    STORE_LOADED:        'nr:store:loaded',        // { sessionId, pairs, hasAudio }
+    STORE_DELETED:       'nr:store:deleted',       // { sessionId }
+
     DOCUMENT_BUILT:      'nr:document:built',      // { pairs, bytes }
     PDF_CREATED:         'nr:pdf:created',         // { name, pages, bytes }
     VAULT_STARTED:       'nr:vault:started',       // { vaultId, files, includeAudio }

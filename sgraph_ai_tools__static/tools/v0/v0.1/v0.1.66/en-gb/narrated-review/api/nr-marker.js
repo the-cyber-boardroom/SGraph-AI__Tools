@@ -11,6 +11,9 @@
 import { state, addPair } from './nr-state.js';
 import { nowMs, grabFrame, snapBoundary } from './nr-capture.js';
 
+/** A capture always owns at least this much of the timeline. */
+const MIN_CAPTURE_MS = 500;
+
 /**
  * @param {object} deps
  * @param {(name:string, detail?:object)=>void} deps.emit
@@ -18,6 +21,42 @@ import { nowMs, grabFrame, snapBoundary } from './nr-capture.js';
  * @returns {{ markMoment: Function, markAt: Function, closeLastPair: Function }}
  */
 export function buildMarker({ emit, onPairBounded }) {
+
+    /**
+     * Open the FIRST capture at session start, with the screen as it is right
+     * now — "the first screenshot should be whatever is there".
+     *
+     * This is what makes the whole chain line up. Without it, the first press
+     * created capture 1 holding a frame from the moment you had ALREADY moved
+     * on, so every capture carried the next screen's picture — the "you are one
+     * behind of the image" in the review. With it, a capture's screenshot is
+     * the screen it is ABOUT: taken when the capture opens, and the words that
+     * follow until the next press belong to it.
+     *
+     * @returns {Promise<{ id, seq }>}
+     */
+    async function startFirstCapture() {
+        const screenshot = await grabFrame();
+        const pair = addPair({ tPress: 0, tStart: 0, screenshot });
+        emit('nr:pair:added', { id: pair.id, seq: pair.seq, tPress: 0, first: true });
+        return { id: pair.id, seq: pair.seq };
+    }
+
+    /**
+     * Keep a snapped boundary inside the capture it is closing.
+     *
+     * When the narrator never pauses long enough to qualify, snapBoundary falls
+     * back to a fixed lead — which can land BEFORE the open capture even began,
+     * collapsing it to nothing. The boundary can never be earlier than a moment
+     * after the open capture started, nor later than the press itself.
+     *
+     * @param {number} bound @param {number} tPress @returns {number}
+     */
+    function _clampToOpenPair(bound, tPress) {
+        const open = state.pairs.find(p => p.tEnd === null);
+        const floor = open ? open.tStart + MIN_CAPTURE_MS : 0;
+        return Math.min(Math.max(bound, floor), Math.max(tPress, floor));
+    }
 
     function _closeOpenPair(bound) {
         const open = state.pairs.find(p => p.tEnd === null);
@@ -28,8 +67,11 @@ export function buildMarker({ emit, onPairBounded }) {
     }
 
     /**
-     * Live mark — the keypress. Grabs the frame at THIS instant (the state
-     * being pointed at); the boundary snap looks back for the sentence start.
+     * Live mark — the keypress, which means "NEXT": close the capture I have
+     * been talking about, and open one for what I am moving to. The frame is
+     * grabbed at THIS instant because that is the screen the words that follow
+     * are about; the boundary snap moves the audio cut back to the pause
+     * between the two topics.
      * @returns {Promise<{ id, seq, tPress }>}
      */
     async function markMoment() {
@@ -38,7 +80,7 @@ export function buildMarker({ emit, onPairBounded }) {
         }
         const tPress = nowMs();
         const shotPromise = grabFrame();          // synchronous with the press, async encode
-        const bound = snapBoundary(tPress);
+        const bound = _clampToOpenPair(snapBoundary(tPress), tPress);
 
         const closed = _closeOpenPair(bound);
         const pair = addPair({ tPress, tStart: bound, screenshot: null });
@@ -63,7 +105,7 @@ export function buildMarker({ emit, onPairBounded }) {
         if (!state.take && state.takeSource !== 'import') {
             throw Object.assign(new Error('markAt needs an imported recording — call addRecording() first'), { code: 'no-session' });
         }
-        const bound = snapBoundary(t);
+        const bound = _clampToOpenPair(snapBoundary(t), t);
         const closed = _closeOpenPair(bound);
         const pair = addPair({ tPress: t, tStart: bound, screenshot: image || null });
         emit('nr:mark', { id: pair.id, seq: pair.seq, tPress: t });
@@ -83,5 +125,5 @@ export function buildMarker({ emit, onPairBounded }) {
         return closed;
     }
 
-    return { markMoment, markAt, closeLastPair };
+    return { startFirstCapture, markMoment, markAt, closeLastPair };
 }

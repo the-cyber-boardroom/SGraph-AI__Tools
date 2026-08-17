@@ -66,6 +66,14 @@ const r = await t.askSession({ text: 'Add a note to capture 2 and summarise at t
 r.changes;   // [{ tool: 'set_notes', args }, { tool: 'insert_capture', args }]
 ```
 
+## Sessions (no key needed)
+
+```js
+const meta = await t.saveSession({ name: 'my session' });   // → IndexedDB via core/sg-vfs
+await t.listSessions();                                     // newest first
+await t.loadSession({ sessionId: meta.sessionId });          // survives a full page reload
+```
+
 ## Stable DOM ids
 
 | Id | What |
@@ -80,6 +88,8 @@ r.changes;   // [{ tool: 'set_notes', args }, { tool: 'insert_capture', args }]
 | `#nr-vault-id` / `#nr-vault-secret` / `#nr-vault-audio` / `#nr-vault-save` | Vault save |
 | `#nr-chat-input` / `#nr-chat-send` | Chat tab (scope radio: `input[name=nr-scope]`) |
 | `#nr-insert-end` | Add a capture at the end |
+| `#nr-sess-save` / `#nr-sess-list` / `#nr-sess-name` | Saved sessions |
+| `nr:ui:open-capture` (window event) | Opens a capture as its own dockable panel |
 
 ## Console quickies
 
