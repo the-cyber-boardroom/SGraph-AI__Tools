@@ -3,7 +3,7 @@
   "slug": "narrated-review",
   "description": "Narrate a walk through your screen and press a key at each moment that matters: the keypress marks a screenshot, bounds an audio segment over a continuous recording, and binds the two into an ordered pair. Out comes a markdown document of image + words pairs any AI assistant can read directly — no video recorded, transcription + screenshot-grounded cleanup via OpenRouter (BYOK), everything in-browser.",
   "icon": "🎬",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "status": "alpha",
   "category": "media",
   "keywords": ["narrate", "review", "screenshot", "screen", "transcribe", "markdown", "pairs", "openrouter", "feedback"],

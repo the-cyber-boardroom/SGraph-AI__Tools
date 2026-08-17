@@ -106,3 +106,15 @@
 .nr-chat__row { display: flex; gap: 8px; }
 .nr-chat__row textarea { flex: 1; background: #0e1526; color: #e2e8f0; border: 1px solid #2c3a52;
     border-radius: 6px; padding: 8px; font-family: inherit; font-size: 0.9em; resize: vertical; }
+
+/* ── Title bar + collapsed key (v0.1.2) ── */
+.nr-titlebar { display: flex; align-items: baseline; gap: 10px; flex-shrink: 0;
+    padding: 8px 14px; background: #0e1526; border-bottom: 1px solid #1c2740; }
+.nr-titlebar__icon { font-size: 1.1em; }
+.nr-titlebar__name { margin: 0; font-size: 1.05em; font-weight: 700; color: #e2e8f0; letter-spacing: 0.01em; }
+.nr-titlebar__tag { color: #7a8699; font-size: 0.8em; }
+.nr-titlebar__ver { margin-left: auto; color: #14b8a6; font-size: 0.75em; }
+@media (max-width: 700px) { .nr-titlebar__tag { display: none; } }
+.nr-key__set { display: flex; gap: 8px; align-items: center; }
+.nr-key__ok { color: #14b8a6; font-size: 0.85em; }
+.nr-key__entry { display: flex; gap: 8px; align-items: center; flex: 1; }
