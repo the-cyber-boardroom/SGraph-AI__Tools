@@ -18,6 +18,7 @@ import { encodeWav } from '/core/sg-audio-decode/v0/v0.1/v0.1.0/sg-wav-encoder.j
 import { state, config, getPairById, checkSpendCap } from './nr-state.js';
 import { slicePcm } from './nr-capture.js';
 import { runCleanup } from './nr-cleanup.js';
+import { billed } from './nr-billing.js';
 
 const KEY_STORAGE = 'sg-openrouter-mgmt-key';
 const TRANSCRIBE_PROMPT =
@@ -35,7 +36,9 @@ export function initPipeline({ emit }) {
     const host = document.createElement('div');
     host.style.display = 'none';
     document.body.appendChild(host);
-    transport = makeIsolatedTransport(host, getApiKey);
+    // Wrapped, so every paid call lands in the billing ledger with no per-call
+    // bookkeeping to forget.
+    transport = billed(makeIsolatedTransport(host, getApiKey), { scope: 'transcribe' });
 }
 
 /** The shared BYOK key (same slot as the other media tools). */
@@ -105,7 +108,7 @@ async function _transcribePair({ id, model } = {}) {
                 { type: 'binary_file', name: `${pair.id}.wav`, mime_type: audio.mime, data_url: audio.dataUrl },
             ],
         }];
-        const res = await transport({ messages, model: useModel });
+        const res = await transport({ messages, model: useModel }, { scope: 'transcribe', pairId: pair.id });
         const text = (res.content != null ? String(res.content) : '').trim();
         pair.raw = {
             text, model: useModel, generationId: res.generationId || null,
@@ -167,7 +170,10 @@ export async function cleanPair({ id, model } = {}) {
     pair.status = 'cleaning';
     emitFn('nr:clean:started', { id: pair.id, model: useModel, mode: config.cleanup });
     try {
-        const result = await runCleanup({ pair, summary: state.rollingSummary, mode: config.cleanup, model: useModel, transport });
+        // nr-cleanup stays unaware of billing: it gets a transport already bound
+        // to this pair's ledger context.
+        const cleanTransport = req => transport(req, { scope: 'clean', pairId: pair.id });
+        const result = await runCleanup({ pair, summary: state.rollingSummary, mode: config.cleanup, model: useModel, transport: cleanTransport });
         pair.clean = {
             text: result.cleanText, marks: result.marks, model: useModel,
             generationId: result.generationId, costUsd: result.costUsd,

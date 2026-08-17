@@ -65,10 +65,38 @@ Capture panel (or click to browse). No screen share, no key presses:
 
 Then it is an ordinary review: edit, reorder, add notes, chat, export.
 
+**If the panel turns amber after an import, read it.** It means the recording had
+no pauses the segmenter could find, so the captures were cut at a fixed length
+instead — arbitrary boundaries that will chop sentences in half. That happened on
+the first real screencast (nine captures of exactly 30 seconds each). The
+thresholds are now derived from each recording's own loudness, but a video with
+constant background music or a very quiet speaker can still defeat it.
+
 **The frame pick is a first draft, not a verdict.** Open a capture and the strip
 under the screenshot shows every frame that was considered — click any of them to
 swap. A fade, a scrolling page or a build-in animation can all fool the heuristic,
 and the thresholds have not yet been tuned against a real screencast.
+
+## What every call cost
+
+Export → **Billing** → *Fetch receipts*. Every request this session made is
+listed with its OpenRouter generation id, and the receipts are fetched from
+OpenRouter itself: what was actually charged, by which provider, for how many
+tokens, attributed to the capture that caused it. Two numbers are shown per call
+— what the response claimed and what was charged — because they differ.
+
+The ids are captured whether or not the lookup works, and they ship in
+`billing.json` with the zip and the vault, so the spend stays auditable from the
+export alone months later.
+
+## Handing the output to an AI assistant
+
+Both the zip and the vault folder open with a `README.md` that tells an assistant
+where to look, and `session.json` carries a `moments[]` array joining each
+capture's picture, words, audio and raw transcript. An assistant reading the
+bundle should use that rather than parsing `review.md` — an agent given an earlier
+export had to reconstruct the image↔words pairing from the document headings,
+which was our fault, not its.
 
 ## Saving and coming back later
 

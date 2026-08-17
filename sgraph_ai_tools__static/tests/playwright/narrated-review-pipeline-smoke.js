@@ -89,7 +89,16 @@ async function run() {
                 }), { status: 200, headers: { 'content-type': 'application/json' } });
             }
             if (u.includes('/api/v1/generation')) {
-                return new Response(JSON.stringify({ data: { total_cost: 0.0005 } }), { status: 200, headers: { 'content-type': 'application/json' } });
+                // The charged amount deliberately DIFFERS from the cost the
+                // completion claimed — that gap is the reason receipts exist.
+                const id = (u.split('id=')[1] || '').split('&')[0];
+                window.__calls.generationLookups = (window.__calls.generationLookups || 0) + 1;
+                (window.__calls.lookedUp = window.__calls.lookedUp || []).push(decodeURIComponent(id));
+                return new Response(JSON.stringify({ data: {
+                    id: decodeURIComponent(id), total_cost: 0.0005, provider_name: 'MockProvider',
+                    model: 'mock/model', native_tokens_prompt: 111, native_tokens_completion: 22,
+                    generation_time: 640, latency: 210, finish_reason: 'stop',
+                } }), { status: 200, headers: { 'content-type': 'application/json' } });
             }
             if (u.includes('/api/v1/key')) {
                 return new Response(JSON.stringify({ data: { label: 'test', usage: 1, limit: 10 } }), { status: 200, headers: { 'content-type': 'application/json' } });
@@ -217,6 +226,73 @@ async function run() {
         assert(edited.clean === 'human edited text' && edited.raw.includes('Eskit'),
             'setText edits clean text and leaves raw untouched');
 
+        // ── Machine-readable export: moments[] joins image ↔ words ───────────
+        // The join must be addressable WITHOUT parsing review.md — that round
+        // trip is what an agent consuming a real bundle had to do.
+        const shape = await page.evaluate(async () => {
+            const s = await window.__tool.getSession();
+            const nrZip = await import('./api/nr-zip.js');
+            return { schema: s.schema, files: s.files, moments: s.moments, readme: nrZip.buildReadme({}) };
+        });
+        assert(shape.moments.length === 3, 'session.json carries a moments[] entry per capture');
+        assert(shape.moments.every((m, i) => m.index === i + 1), 'moment index is 1-based and matches the review.md headings');
+        assert(shape.moments.every(m => m.image === `images/pair-0${m.index}.png`),
+            'each moment names its own image path — no filename guessing', JSON.stringify(shape.moments.map(m => m.image)));
+        assert(shape.moments.every(m => m.audio === `audio/${m.id}.wav` && m.rawFile === `raw/${m.id}.txt`),
+            'each moment names its audio and raw-transcript paths');
+        assert(shape.moments.every(m => m.text && m.textSource === 'clean'),
+            'moment text is inline, with textSource saying which words they are');
+        // One pair was hand-edited above; the projection must show the edit, not
+        // the model's version.
+        assert(shape.moments.filter(m => m.text.includes('SGraph')).length === 2
+            && shape.moments.some(m => m.text === 'human edited text'),
+            'moment text reflects human edits to clean text');
+        assert(shape.moments.every(m => m.rawText.includes('Eskit')),
+            'the unedited recogniser output travels alongside, never replaced');
+        assert(shape.moments.every(m => m.marks.length === 1 && m.marks[0].span),
+            'uncertain spans are structured, not only inline [unsure] prose');
+        assert(shape.moments.every(m => typeof m.tMs === 'number' && m.durationMs > 0), 'moments carry their timing');
+        assert(shape.schema.name === 'narrated-review/session' && shape.schema.version === 2
+            && typeof shape.schema.moments === 'string', 'the schema declares itself');
+        assert(shape.files.review === 'review.md' && shape.files.images === 'images/', 'the bundle layout is declared');
+        assert(/moments\[\]/.test(shape.readme) && /session\.json/.test(shape.readme),
+            'the bundle README points a reader at the machine-readable surface first');
+
+        // ── Billing: every generation id captured, receipts fetched ──────────
+        // The ledger must hold an entry for every paid call BEFORE any lookup
+        // succeeds — the id is the receipt, and a lookup can always fail.
+        const ledger = await page.evaluate(async () => {
+            const b = await window.__tool.getBilling();
+            return { n: b.totals.generations, scopes: b.generations.map(g => g.scope), ids: b.generations.map(g => g.id) };
+        });
+        assert(ledger.n === 6, 'a ledger entry per paid call (3 transcribe + 3 clean)', `got ${ledger.n}`);
+        assert(ledger.scopes.filter(s => s === 'transcribe').length === 3, 'transcribe generations tagged by scope');
+        assert(ledger.scopes.filter(s => s === 'clean').length === 3, 'cleanup generations tagged by scope');
+        assert(ledger.ids.every(Boolean) && new Set(ledger.ids).size === 6, 'every generation id captured, no duplicates');
+
+        const receipts = await page.evaluate(async () => {
+            const r = await window.__tool.fetchBilling({ delayMs: 0 });
+            const b = await window.__tool.getBilling();
+            const one = b.generations.find(g => g.scope === 'clean');
+            return {
+                r, totals: b.totals, lookedUp: window.__calls.lookedUp,
+                one: { charged: one.chargedUsd, local: one.localCostUsd, pairId: one.pairId,
+                       provider: one.data && one.data.provider_name, tokens: one.data && one.data.native_tokens_prompt },
+            };
+        });
+        assert(receipts.r.resolved === 6 && receipts.r.unresolved === 0, 'fetchBilling resolves every receipt', JSON.stringify(receipts.r));
+        assert(receipts.lookedUp.length >= 6, 'the generation endpoint was actually called per id');
+        assert(receipts.one.provider === 'MockProvider' && receipts.one.tokens === 111,
+            'the provider record is kept VERBATIM (provider, native token counts)');
+        assert(receipts.one.pairId && receipts.one.charged === 0.0005 && receipts.one.local === 0.0003,
+            'charged and claimed costs are kept separately, attributed to a capture');
+        assert(Math.abs(receipts.totals.chargedUsd - 0.003) < 1e-9, 'charged total is the sum of the receipts');
+        assert(receipts.totals.deltaUsd > 0, 'the claimed-vs-charged gap is reported once every receipt is in');
+
+        const again = await page.evaluate(() => window.__tool.fetchBilling({ delayMs: 0 })
+            .then(r => ({ r, calls: window.__calls.lookedUp.length })));
+        assert(again.calls === receipts.lookedUp.length, 'fetchBilling is idempotent — resolved entries are not re-fetched');
+
         // ── Zip bundle assembles (JSZip from CDN is blocked, so inject) ──────
         const bundle = await page.evaluate(async () => {
             const mod = await import('/tools/../core/sg-zip/v0/v0.1/v0.1.0/sg-zip.js').catch(() => null);
@@ -230,7 +306,7 @@ async function run() {
             const r = await nrZip.buildSessionZip({ JSZip: FakeZip });
             return { paths: entries.map(e => e.path), size: r.blob.size, name: r.name };
         });
-        for (const want of ['review.md', 'images/pair-01.png', 'audio/p01.wav', 'raw/p01.txt', 'session.json']) {
+        for (const want of ['README.md', 'review.md', 'images/pair-01.png', 'audio/p01.wav', 'raw/p01.txt', 'session.json', 'billing.json']) {
             assert(bundle.paths.includes(want), `bundle contains ${want}`);
         }
         assert(bundle.paths.some(p => p.startsWith('audio/take.')), 'bundle contains the continuous take');

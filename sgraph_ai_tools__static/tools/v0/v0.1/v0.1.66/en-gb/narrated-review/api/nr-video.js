@@ -85,6 +85,52 @@ async function extractAudioToStore(file, emit) {
 }
 
 /**
+ * Derive the speech/silence thresholds from the recording's OWN energy.
+ *
+ * WHY THIS EXISTS — a real screencast broke the fixed thresholds completely.
+ * A 4m21s recording produced nine segments of exactly 30000 ms: the VAD never
+ * saw a "silent" frame, never endpointed, and force-cut at `maxUtteranceMs`
+ * every single time. Every capture was an arbitrary half-minute slice with its
+ * sentences chopped mid-clause ("…So this dig here captures the facts in"), and
+ * the frame search was then matching pictures to boundaries that meant nothing.
+ *
+ * The cause is that 0.01 RMS is an ABSOLUTE level. Room tone, mic gain and AAC
+ * compression put a real recording's noise floor above it, so nothing is ever
+ * silent. Synthetic test audio has true digital silence, which is exactly why
+ * 54 passing assertions never caught this.
+ *
+ * So: estimate the floor and the speech level as percentiles of this
+ * recording's own RMS log, and place the two thresholds inside that range. A
+ * caller who passes a threshold explicitly still wins, and a recording with no
+ * usable dynamic range falls back to the fixed defaults.
+ *
+ * @param {number[]} rms
+ * @returns {{ silenceThreshold: number, speechThreshold: number, floor: number, speech: number, method: string }}
+ */
+export function calibrateVad(rms, fallback = VIDEO_DEFAULTS) {
+    const usable = rms.filter(v => Number.isFinite(v));
+    if (usable.length < 50) {
+        return { ...pick(fallback), floor: 0, speech: 0, method: 'defaults (too little audio)' };
+    }
+    const sorted = usable.slice().sort((a, b) => a - b);
+    const at = q => sorted[Math.min(sorted.length - 1, Math.max(0, Math.floor(q * (sorted.length - 1))))];
+    const floor = at(0.20);          // quiet fifth of the recording ≈ the noise floor
+    const speech = at(0.90);         // loud tenth ≈ speaking level
+    const range = speech - floor;
+    // Degenerate range: constant-energy audio, or music under the whole thing.
+    if (!(range > 0.005)) {
+        return { ...pick(fallback), floor, speech, method: 'defaults (no usable dynamic range)' };
+    }
+    return {
+        silenceThreshold: floor + 0.15 * range,
+        speechThreshold: floor + 0.40 * range,
+        floor, speech, method: 'calibrated from this recording',
+    };
+}
+
+function pick(o) { return { silenceThreshold: o.silenceThreshold, speechThreshold: o.speechThreshold }; }
+
+/**
  * Cut the loaded audio at its silences.
  *
  * We push the RMS log through the promoted VAD with EMPTY sample frames on
@@ -95,20 +141,33 @@ async function extractAudioToStore(file, emit) {
  *
  * @returns {Array<{ tStart: number, tEnd: number }>}
  */
-function segmentSpeech(opts) {
+function segmentSpeech(opts, explicit = {}) {
     const frameMs = Cap.getFrameMs();
+    const rms = Cap.rmsLog();
+    const cal = calibrateVad(rms, opts);
+    // An explicitly passed threshold always wins over the calibration.
+    const silenceThreshold = explicit.silenceThreshold ?? cal.silenceThreshold;
+    const speechThreshold = explicit.speechThreshold ?? cal.speechThreshold;
+
     const empty = new Float32Array(0);
     const segments = [];
+    let capped = 0;
     const vad = createVad({
-        frameMs,
-        speechThreshold: opts.speechThreshold, silenceThreshold: opts.silenceThreshold,
+        frameMs, speechThreshold, silenceThreshold,
         endpointMs: opts.endpointMs, preRollMs: opts.preRollMs,
         minSpeechMs: opts.minSpeechMs, maxUtteranceMs: opts.maxUtteranceMs,
-        onUtterance: (_pcm, meta) => segments.push({ tStart: meta.startMs, tEnd: meta.startMs + meta.durationMs }),
+        onUtterance: (_pcm, meta) => {
+            if (meta.capped) capped += 1;
+            segments.push({ tStart: meta.startMs, tEnd: meta.startMs + meta.durationMs });
+        },
     });
-    for (const rms of Cap.rmsLog()) vad.pushFrame(rms, empty);
+    for (const v of rms) vad.pushFrame(v, empty);
     vad.flush();
-    return segments;
+    // `capped` is the honest tell that segmentation failed: a force-cut at the
+    // max length means no pause was found, so the boundary is arbitrary. It is
+    // reported rather than swallowed — that is what made the real-screencast
+    // failure invisible the first time.
+    return { segments, capped, calibration: { ...cal, silenceThreshold, speechThreshold } };
 }
 
 /**
@@ -166,10 +225,23 @@ export async function importVideo(p = {}, emit = () => {}, marker) {
     state.take = audio ? { blob: audio, mimeType: audio.type || 'audio/mp4' } : null;
     state.video = { name: file.name || 'video', size: file.size || 0, ...meta };
 
-    const segments = segmentSpeech(opts);
-    emit('nr:video:progress', { step: 'segments', done: segments.length, total: segments.length, message: `${segments.length} spoken segments` });
+    const { segments, capped, calibration } = segmentSpeech(opts, p);
+    emit('nr:video:progress', {
+        step: 'segments', done: segments.length, total: segments.length,
+        message: `${segments.length} spoken segments`, capped, calibration,
+    });
     if (!segments.length) {
         throw Object.assign(new Error('No speech found in this video — nothing to build captures from'), { code: 'no-speech' });
+    }
+    // Mostly force-cut means the pauses were never found, so the boundaries are
+    // arbitrary clock ticks. Say so loudly instead of shipping a plausible-
+    // looking document built on nothing.
+    if (capped > segments.length / 2) {
+        emit('nr:video:warning', {
+            code: 'no-pauses-found', capped, segments: segments.length, calibration,
+            message: `${capped} of ${segments.length} segments were cut at the ${opts.maxUtteranceMs / 1000}s limit rather than at a pause — `
+                + 'the boundaries are arbitrary. Try a lower silenceThreshold, or a shorter maxUtteranceMs.',
+        });
     }
 
     // One frame search per segment. This is the slow part (a seek + two draws
@@ -195,7 +267,11 @@ export async function importVideo(p = {}, emit = () => {}, marker) {
     }
 
     state.status = 'reviewing';
-    const out = { pairs: state.pairs.length, segments: segments.length, durationMs: state.durationMs, via };
+    const out = {
+        pairs: state.pairs.length, segments: segments.length, durationMs: state.durationMs, via,
+        capped, calibration,
+    };
+    state.videoImport = out;
     emit('nr:video:complete', out);
     return out;
 }

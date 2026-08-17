@@ -54,6 +54,16 @@ async function recordClip(page, slides) {
         osc.connect(gain); gain.connect(dest);
         osc.start();
 
+        // Optional room tone: a constant hum UNDER everything, above the old
+        // fixed 0.01 silence threshold. This is what a real recording has and
+        // synthetic silence does not — and it is what broke segmentation on the
+        // first real screencast (nine segments of exactly 30000 ms).
+        if (window.__floor) {
+            const noise = actx.createOscillator();
+            noise.type = 'sine'; noise.frequency.value = 60;
+            const ng = actx.createGain(); ng.gain.value = window.__floor;
+            noise.connect(ng); ng.connect(dest); noise.start();
+        }
         const stream = new MediaStream([
             ...canvas.captureStream(30).getVideoTracks(),
             ...dest.stream.getAudioTracks(),
@@ -197,6 +207,55 @@ async function run() {
         // And from here it is an ordinary review: the document builds.
         const doc = await page.evaluate(() => window.__tool.buildDocument());
         assert(doc.images.length === 3, 'the document carries all three images');
+
+        // ── The real-screencast failure, reproduced ──────────────────────────
+        // Same clip, but with a room-tone floor above the old fixed 0.01
+        // threshold. Under the old code the VAD never endpointed and force-cut
+        // at maxUtteranceMs; the per-recording calibration must recover it.
+        await page.evaluate(() => { window.__floor = 0.05; });
+        const noisy = await recordClip(page, slides);
+        assert(noisy.bytes > 5000, 'recorded the same clip over a room-tone floor');
+
+        const withFloor = await page.evaluate(async () => {
+            const warnings = [];
+            const on = e => warnings.push(e.detail.code);
+            window.addEventListener('nr:video:warning', on);
+            const r = await window.__tool.importVideo({
+                file: new File([window.__clip], 'noisy.webm', { type: 'video/webm' }),
+                maxUtteranceMs: 8000,      // a short cap so a failure is unmistakable
+            });
+            window.removeEventListener('nr:video:warning', on);
+            const ps = await window.__tool.getPairs();
+            return { r, warnings, spans: ps.map(p => p.tEnd - p.tStart) };
+        });
+        assert(withFloor.r.calibration.method === 'calibrated from this recording',
+            'thresholds are derived from the recording, not hardcoded', withFloor.r.calibration.method);
+        assert(withFloor.r.calibration.silenceThreshold > 0.01,
+            'the calibrated silence threshold sits ABOVE the old fixed 0.01 (the whole bug)',
+            `got ${withFloor.r.calibration.silenceThreshold}`);
+        assert(withFloor.r.capped === 0, 'no segment was force-cut at the length limit', `capped=${withFloor.r.capped}`);
+        assert(!withFloor.warnings.length, 'no unreliable-segmentation warning was raised');
+        assert(!withFloor.spans.some(s => s === 8000), 'no capture is exactly the max length (the tell-tale of a force-cut)',
+            JSON.stringify(withFloor.spans));
+        assert(withFloor.r.segments === 4 && withFloor.r.pairs === 3,
+            'segmentation over a noise floor matches the clean run', `${withFloor.r.segments}/${withFloor.r.pairs}`);
+
+        // And the warning fires when segmentation genuinely cannot find pauses.
+        const forced = await page.evaluate(async () => {
+            const warnings = [];
+            const on = e => warnings.push(e.detail);
+            window.addEventListener('nr:video:warning', on);
+            const r = await window.__tool.importVideo({
+                file: new File([window.__clip], 'noisy.webm', { type: 'video/webm' }),
+                silenceThreshold: 0.000001,   // nothing will ever count as silence
+                maxUtteranceMs: 3000,
+            });
+            window.removeEventListener('nr:video:warning', on);
+            return { r, warnings };
+        });
+        assert(forced.r.capped > 0, 'a force-cut run is reported as capped', `capped=${forced.r.capped}`);
+        assert(forced.warnings.some(w => w.code === 'no-pauses-found'),
+            'segmentation that found no pauses warns instead of shipping arbitrary boundaries');
 
         assert(errors.length === 0, 'zero uncaught errors', errors.join(' | '));
     } catch (err) {

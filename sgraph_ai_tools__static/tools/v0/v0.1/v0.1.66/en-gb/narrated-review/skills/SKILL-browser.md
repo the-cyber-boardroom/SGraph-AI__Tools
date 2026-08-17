@@ -71,6 +71,36 @@ const { candidates, chosenAt } = await page.evaluate(id => window.__tool.getFram
 await page.evaluate(([id, at]) => window.__tool.setFrame({ id, at }), [id, candidates[0].at]);
 ```
 
+## Billing (mock the generation endpoint too)
+
+Every paid call is recorded at the transport, so a mocked run still builds a full
+ledger. To exercise the receipts, mock `GET /api/v1/generation` alongside
+`/chat/completions` and echo the id back:
+
+```js
+if (u.includes('/api/v1/generation')) {
+  const id = (u.split('id=')[1] || '').split('&')[0];
+  return new Response(JSON.stringify({ data: {
+    id, total_cost: 0.0005, provider_name: 'MockProvider',
+    native_tokens_prompt: 111, native_tokens_completion: 22,
+  }}), { status: 200, headers: { 'content-type': 'application/json' } });
+}
+```
+
+```js
+const b = await page.evaluate(() => window.__tool.getBilling());   // ledger, ids present
+await page.evaluate(() => window.__tool.fetchBilling({ delayMs: 0 }));  // delayMs 0 in tests
+```
+
+`fetchBilling` with nothing to fetch is a no-op, not a `no-key` refusal — so a
+keyless boot smoke can call it safely.
+
+## Reading a bundle programmatically
+
+`getSession().moments` (and `session.json` in an export) is the machine-readable
+view: `index`, `id`, `image`, `audio`, `rawFile`, `text` + `textSource`, `rawText`,
+`notes`, `marks`. Do not parse `review.md` to rebuild the image↔words join.
+
 ## Events to wait on
 
 `nr:mark`, `nr:pair:added`, `nr:transcribe:complete`, `nr:session:ended`, `nr:clean:complete`, `nr:document:built`, `nr:bundle:created`, and for imports `nr:video:started` / `nr:video:progress` / `nr:video:complete`. All fire on `window`; detail carries `instanceId`.
