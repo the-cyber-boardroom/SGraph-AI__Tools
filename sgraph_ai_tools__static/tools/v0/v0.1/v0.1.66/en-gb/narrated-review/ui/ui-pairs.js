@@ -17,10 +17,10 @@ export function initPairs(el, state, api) {
     el.innerHTML = `<div class="nr-pairs">
         <div class="nr-pairs__bar">
           <button id="nr-insert-end" class="nr-btn nr-btn--sm">+ Add capture</button>
-          <span class="nr-muted">drag order with ↑ ↓ · a capture is just an image, some words, or both</span>
+          <span class="nr-muted">reorder with ↑ ↓ · a capture is an image, some words, or both</span>
         </div>
         <div class="nr-pairs__empty nr-muted">
-        No pairs yet — share a screen, narrate, and press a key at each moment that matters.
+        No captures yet — share a screen, narrate, and press a key at each moment that matters.
       </div><div id="nr-pair-list"></div></div>`;
     const list = el.querySelector('#nr-pair-list');
     const empty = el.querySelector('.nr-pairs__empty');

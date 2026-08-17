@@ -12,7 +12,7 @@ import { getPairById } from '../api/nr-state.js';
 export function initReview(el, state, config, api) {
     if (!el) return;
     el.innerHTML = `<div class="nr-review">
-        <div id="nr-review-empty" class="nr-muted">Select a pair in the Pairs tab.</div>
+        <div id="nr-review-empty" class="nr-muted">Select a capture in the Captures tab.</div>
         <div id="nr-review-body" style="display:none">
           <img id="nr-rv-img" class="nr-review__img" alt="screenshot">
           <div class="nr-review__bounds">

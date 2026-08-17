@@ -36,7 +36,7 @@ export function initExport(el, state, api) {
     q('#nr-ex-zip').addEventListener('click', async () => {
         try {
             const r = await api.downloadZip({ include: include() });
-            q('#nr-ex-status').textContent = `✓ ${r.name} (${(r.zipSize / 1024).toFixed(0)} KB, ${r.count} pairs)`;
+            q('#nr-ex-status').textContent = `✓ ${r.name} (${(r.zipSize / 1024).toFixed(0)} KB, ${r.count} captures)`;
         } catch (err) { q('#nr-ex-status').textContent = `zip failed: ${err.message}`; }
     });
 

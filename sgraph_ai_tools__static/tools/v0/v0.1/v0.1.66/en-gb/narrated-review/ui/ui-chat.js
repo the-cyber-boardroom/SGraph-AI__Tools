@@ -35,7 +35,7 @@ export function initChat(el, state, api) {
     function refreshTarget() {
         const s = scope();
         q('#nr-chat-target').textContent = s === 'pair'
-            ? (currentId ? `→ ${currentId}` : '→ select a capture in Pairs')
+            ? (currentId ? `→ ${currentId}` : '→ select a capture in Captures')
             : `→ ${state.pairs.length} captures, tools enabled`;
         q('#nr-chat-input').placeholder = s === 'pair'
             ? 'Ask about this capture…'
@@ -62,7 +62,7 @@ export function initChat(el, state, api) {
         const text = q('#nr-chat-input').value.trim();
         if (!text) return;
         const s = scope();
-        if (s === 'pair' && !currentId) { q('#nr-chat-status').textContent = 'Select a capture in the Pairs tab first.'; return; }
+        if (s === 'pair' && !currentId) { q('#nr-chat-status').textContent = 'Select a capture in the Captures tab first.'; return; }
         q('#nr-chat-input').value = '';
         bubble('you', text);
         q('#nr-chat-send').disabled = true;
@@ -87,7 +87,8 @@ export function initChat(el, state, api) {
     }
 
     q('#nr-chat-send').addEventListener('click', send);
+    // Enter sends, Shift+Enter is the newline — the convention every chat uses.
     q('#nr-chat-input').addEventListener('keydown', e => {
-        if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) { e.preventDefault(); send(); }
+        if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); send(); }
     });
 }

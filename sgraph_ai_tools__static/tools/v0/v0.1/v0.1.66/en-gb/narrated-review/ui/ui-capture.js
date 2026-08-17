@@ -19,9 +19,15 @@ export function initCapture(el, state, config, api, emit, marker) {
           <button id="nr-finish" class="nr-btn" disabled>⏹ Finish</button>
         </div>
         <div class="nr-cap__row nr-key">
-          <input id="nr-key" type="password" placeholder="OpenRouter key (BYOK, shared slot)" autocomplete="off">
-          <button id="nr-key-save" class="nr-btn nr-btn--sm">Save</button>
-          <span id="nr-key-state" class="nr-muted"></span>
+          <span id="nr-key-set" class="nr-key__set" style="display:none">
+            <span class="nr-key__ok">✓ OpenRouter key set</span>
+            <button id="nr-key-change" class="nr-btn nr-btn--sm">change</button>
+          </span>
+          <span id="nr-key-entry" class="nr-key__entry">
+            <input id="nr-key" type="password" placeholder="OpenRouter key (BYOK, shared slot)" autocomplete="off">
+            <button id="nr-key-save" class="nr-btn nr-btn--sm">Save</button>
+            <span id="nr-key-state" class="nr-muted"></span>
+          </span>
         </div>
         <div id="nr-mark" class="nr-mark" tabindex="0">
           <div class="nr-mark__dot">⬤</div>
@@ -31,11 +37,11 @@ export function initCapture(el, state, config, api, emit, marker) {
         <div class="nr-cap__meter"><div id="nr-meter" class="nr-cap__meter-fill"></div></div>
         <div class="nr-cap__status">
           <span id="nr-clock">00:00</span>
-          <span id="nr-count">0 pairs</span>
+          <span id="nr-count">0 captures</span>
           <span id="nr-cost">$0.000</span>
         </div>
         <div class="nr-cap__row nr-muted nr-privacy">
-          Cleanup sends each pair's screenshot to your model (BYOK).
+          Cleanup sends each capture's screenshot to your model (BYOK).
           <select id="nr-cleanup-mode">
             <option value="grounded">grounded (screenshot)</option>
             <option value="text-only">text-only</option>
@@ -50,16 +56,23 @@ export function initCapture(el, state, config, api, emit, marker) {
     const clockEl = q('#nr-clock'), countEl = q('#nr-count'), costEl = q('#nr-cost');
 
     // Key chip — shared BYOK slot.
+    let keyEditing = false;
     function refreshKey() {
         let has = false;
         try { has = !!localStorage.getItem('sg-openrouter-mgmt-key'); } catch (_) { /* */ }
-        q('#nr-key-state').textContent = has ? '✓ key set' : 'no key — capture works, transcription won\'t';
+        // Once a key is set, collapse the input: leaving an empty password box on
+        // screen reads as "no key", which caused a real misdiagnosis in review.
+        const showEntry = !has || keyEditing;
+        q('#nr-key-entry').style.display = showEntry ? '' : 'none';
+        q('#nr-key-set').style.display = showEntry ? 'none' : '';
+        q('#nr-key-state').textContent = has ? '' : 'no key — capture works, transcription won\'t';
     }
     q('#nr-key-save').addEventListener('click', () => {
         const v = q('#nr-key').value.trim();
-        if (v) { api.setApiKey({ apiKey: v }); q('#nr-key').value = ''; }
+        if (v) { api.setApiKey({ apiKey: v }); q('#nr-key').value = ''; keyEditing = false; }
         refreshKey();
     });
+    q('#nr-key-change').addEventListener('click', () => { keyEditing = true; refreshKey(); q('#nr-key').focus(); });
     refreshKey();
     // The key can also arrive via the JS API (agents, embedders) — keep the chip honest.
     window.addEventListener('nr:key:set', refreshKey);
@@ -107,7 +120,7 @@ export function initCapture(el, state, config, api, emit, marker) {
         } else if (clockTimer) { clearInterval(clockTimer); clockTimer = null; }
     }
     function refreshCounts() {
-        countEl.textContent = `${state.pairs.length} pair${state.pairs.length === 1 ? '' : 's'}`;
+        countEl.textContent = `${state.pairs.length} capture${state.pairs.length === 1 ? '' : 's'}`;
         const c = costSummary();
         costEl.textContent = `$${c.sessionUsd.toFixed(3)}${c.pending ? '…' : ''}`;
     }

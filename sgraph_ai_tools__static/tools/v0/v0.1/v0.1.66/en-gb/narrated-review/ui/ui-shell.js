@@ -2,7 +2,7 @@
  * ui-shell.js
  * Layout. Narrow (<900px — including the designed-for narrow side window,
  * Decision 3): single stack with Capture first. Wide: left column (Capture,
- * Steps) — right stack (Pairs | Review | Document | Export).
+ * Steps) — right stack (Captures | Review | Chat | Document | Export).
  * @module ui-shell
  */
 
@@ -27,6 +27,21 @@ export async function init(state, config, api, emit, marker) {
     if (!wrap) return;
     wrap.style.cssText = 'display:flex;flex-direction:column;height:100%;overflow:hidden;';
 
+    // Title bar. The site header says SG/Send, not what THIS page is — opening
+    // the tool cold gave no clue what it was called or what it does.
+    const titleBar = document.createElement('div');
+    titleBar.className = 'nr-titlebar';
+    titleBar.innerHTML = `
+        <span class="nr-titlebar__icon" aria-hidden="true">🎬</span>
+        <h1 class="nr-titlebar__name">Narrated Review</h1>
+        <span class="nr-titlebar__tag">narrate a screen &rarr; an ordered document of screenshots and words</span>
+        <span class="nr-titlebar__ver" id="nr-title-ver"></span>`;
+    wrap.appendChild(titleBar);
+    fetch('./manifest.json').then(r => r.json()).then(m => {
+        const v = titleBar.querySelector('#nr-title-ver');
+        if (v) v.textContent = `v${m.version || ''} ${m.status || ''}`.trim();
+    }).catch(() => {});
+
     const toolArea = document.createElement('div');
     toolArea.style.cssText = 'flex:1;min-height:0;overflow:hidden;';
     wrap.appendChild(toolArea);
@@ -41,7 +56,7 @@ export async function init(state, config, api, emit, marker) {
     const captureTab = { type: 'tab', id: 't-capture', title: '🎬 Capture', tag: 'div', locked: true, closable: false };
     const stepsTab   = { type: 'tab', id: 't-steps',   title: '📋 Steps',   tag: 'div', locked: true, closable: false };
     const workTabs = [
-        { type: 'tab', id: 't-pairs',    title: '🧩 Pairs',    tag: 'div', locked: true, closable: false },
+        { type: 'tab', id: 't-pairs',    title: '🧩 Captures',    tag: 'div', locked: true, closable: false },
         { type: 'tab', id: 't-review',   title: '🔍 Review',   tag: 'div', locked: true, closable: false },
         { type: 'tab', id: 't-chat',     title: '💬 Chat',     tag: 'div', locked: true, closable: false },
         { type: 'tab', id: 't-document', title: '📄 Document', tag: 'div', locked: true, closable: false },
@@ -101,7 +116,7 @@ function initSteps(el, state) {
         const clean = pairs.filter(p => p.clean).length;
         steps.setStatus('capture', {
             status: state.status === 'capturing' ? 'running' : (pairs.length ? 'done' : 'idle'),
-            info: pairs.length ? `${pairs.length} pairs` : '',
+            info: pairs.length ? `${pairs.length} captures` : '',
         });
         steps.setStatus('transcribe', {
             status: raw === 0 ? 'idle' : (raw === pairs.length ? 'done' : 'running'),
