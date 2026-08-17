@@ -14,6 +14,18 @@ The keypress does three jobs at once:
 
 Audio is captured **continuously** — the keypress is a marker, not a start/stop switch, so the sentence you began *before* pressing is never lost (the boundary snaps back to the nearest pause).
 
+## Three ways in, one review
+
+A capture is a screenshot, the words about it, and the alignment between them.
+There are three ways to make one, and **only the first step differs** — after
+that it is the same list, the same editing, the same document:
+
+| | How the captures appear |
+|---|---|
+| **Live** | Share a screen, talk, press a key at each moment |
+| **Video** | Drop a recording — its pauses do the pressing (see below) |
+| **Authored** | Add one by hand: a picture, some words, a note |
+
 ## Setup
 
 1. Open `/en-gb/narrated-review/`. Best used as a **narrow window parked beside the thing you're reviewing** — the whole Capture panel is the MARK button, so any key or click in this window marks a moment.
@@ -32,6 +44,31 @@ Audio is captured **continuously** — the keypress is a marker, not a start/sto
 5. **Document** → Build → preview `review.md`. **Export** → download the session zip (review.md + images/ + audio/ + raw/ + session.json) or share via SG/Send encrypted link, or copy the markdown.
 
 **The bar this tool is measured against:** press send with no cleanup afterwards. If a session needs editing before it can be shared, that's a bug worth reporting.
+
+## Importing a video instead
+
+Already have the recording? Drop it on **…or drop a video recording here** in the
+Capture panel (or click to browse). No screen share, no key presses:
+
+1. The audio comes out of the video (free in the browser for ordinary `.mp4` /
+   `.webm`; other containers fall back to FFmpeg, which is a slow multi-megabyte
+   load the first time).
+2. The audio is **cut at its own silences** — the pauses become the boundaries,
+   the same job your keypresses do live.
+3. For each spoken stretch the tool looks for the frame it is *about*. In a
+   screencast **the picture leads the words**: you switch, pause half a beat,
+   then start talking. So it searches a window that starts 2.5 s before the words
+   and ends 1.2 s after them, finds the last time the screen changed, and takes
+   the first frame that has settled.
+4. Two stretches that landed on the same picture become **one capture** — a
+   breath mid-explanation is not a new topic.
+
+Then it is an ordinary review: edit, reorder, add notes, chat, export.
+
+**The frame pick is a first draft, not a verdict.** Open a capture and the strip
+under the screenshot shows every frame that was considered — click any of them to
+swap. A fade, a scrolling page or a build-in animation can all fool the heuristic,
+and the thresholds have not yet been tuned against a real screencast.
 
 ## Saving and coming back later
 

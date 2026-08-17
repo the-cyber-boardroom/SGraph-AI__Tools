@@ -29,6 +29,12 @@ export function initCapture(el, state, config, api, emit, marker) {
             <span id="nr-key-state" class="nr-muted"></span>
           </span>
         </div>
+        <div id="nr-video-drop" class="nr-vdrop" tabindex="0">
+          <span class="nr-vdrop__label">🎬 …or drop a video recording here</span>
+          <span id="nr-video-state" class="nr-muted"></span>
+          <input id="nr-video-file" type="file" accept="video/*" hidden>
+          <div class="nr-vdrop__bar"><div id="nr-video-bar" class="nr-vdrop__fill"></div></div>
+        </div>
         <div id="nr-mark" class="nr-mark" tabindex="0">
           <div class="nr-mark__dot">⬤</div>
           <div class="nr-mark__label">NEXT</div>
@@ -91,6 +97,45 @@ export function initCapture(el, state, config, api, emit, marker) {
     });
     finishBtn.addEventListener('click', () => api.endSession().catch(() => {}));
 
+    // ── Video import (the third ingest path) ──────────────────────────────────
+    // Same destination as a live share: the capture list. The difference is only
+    // who does the pressing — here the pauses in the recording do it.
+    const drop = q('#nr-video-drop'), vState = q('#nr-video-state'), vBar = q('#nr-video-bar');
+    const vFile = q('#nr-video-file');
+
+    async function runImport(file) {
+        if (!file) return;
+        drop.classList.add('is-busy');
+        vState.textContent = `${file.name} — extracting audio…`;
+        try {
+            const r = await api.importVideo({ file });
+            vState.textContent = `${r.pairs} captures from ${r.segments} segments`;
+        } catch (err) {
+            vState.textContent = err.message || 'Import failed';
+            emit('nr:error', { code: err.code || 'not-video', step: 'import-video', message: err.message });
+        } finally {
+            drop.classList.remove('is-busy');
+            vBar.style.width = '0%';
+        }
+    }
+
+    drop.addEventListener('click', () => { if (state.status !== 'capturing') vFile.click(); });
+    vFile.addEventListener('change', () => { runImport(vFile.files && vFile.files[0]); vFile.value = ''; });
+    for (const ev of ['dragenter', 'dragover']) {
+        drop.addEventListener(ev, e => { e.preventDefault(); drop.classList.add('is-over'); });
+    }
+    for (const ev of ['dragleave', 'drop']) {
+        drop.addEventListener(ev, e => { e.preventDefault(); drop.classList.remove('is-over'); });
+    }
+    drop.addEventListener('drop', e => runImport(e.dataTransfer && e.dataTransfer.files && e.dataTransfer.files[0]));
+
+    window.addEventListener('nr:video:progress', e => {
+        const d = e.detail || {};
+        if (d.message) vState.textContent = d.message;
+        else if (d.total) vState.textContent = `${d.step}: ${d.done}/${d.total}`;
+        vBar.style.width = d.total ? `${Math.round(100 * (d.done || 0) / d.total)}%` : '10%';
+    });
+
     // ── The mark surface ──────────────────────────────────────────────────────
     function mark() {
         if (state.status !== 'capturing') return;
@@ -127,7 +172,8 @@ export function initCapture(el, state, config, api, emit, marker) {
     window.addEventListener('nr:session:started', () => { setCapturing(true); refreshCounts(); });
     window.addEventListener('nr:session:ended', () => setCapturing(false));
     window.addEventListener('nr:reset', () => { setCapturing(false); refreshCounts(); clockEl.textContent = '00:00'; });
-    for (const ev of ['nr:pair:added', 'nr:pair:removed', 'nr:transcribe:complete', 'nr:clean:complete', 'nr:store:loaded']) {
+    for (const ev of ['nr:pair:added', 'nr:pair:removed', 'nr:transcribe:complete', 'nr:clean:complete',
+                      'nr:store:loaded', 'nr:video:complete']) {
         window.addEventListener(ev, refreshCounts);
     }
 

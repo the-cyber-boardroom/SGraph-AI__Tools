@@ -74,6 +74,11 @@
        cleanup with a rolling summary → one markdown document + zip/SG-Send.
        No video is recorded. Adds two new core modules: core/sg-live-capture
        (promoted from audio-transcribe's live engine) and core/sg-zip.
+     - narrated-review v0.1.4 adds VIDEO IMPORT as a third ingest path into the
+       same capture list (live / authored / video), so there is deliberately NO
+       separate 'video-review' slug: importVideo() extracts the audio, cuts it at
+       its own silences, and picks the frame each spoken segment is about. A
+       video-first landing page is a later, cosmetic addition.
    ================================================================================= */
 
 /**

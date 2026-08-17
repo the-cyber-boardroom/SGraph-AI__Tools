@@ -20,6 +20,7 @@ import { makeChatTransport } from './nr-llm.js';
 import { saveToVault as vaultSave, buildVaultFiles } from './nr-vault.js';
 import { buildPdf } from './nr-pdf.js';
 import * as Store from './nr-store.js';
+import * as Video from './nr-video.js';
 import { init as initShell } from '../ui/ui-shell.js';
 
 const api = new SgToolApi({
@@ -109,8 +110,24 @@ async function addRecording(p = {}) {
     return { durationMs: info.durationMs, sampleRate: info.sampleRate };
 }
 
+/**
+ * Third ingest path: a recording instead of a live share.
+ *
+ * Once this returns, the captures are ordinary captures — the same lanes,
+ * editing, chat, document and exports apply, and the two lanes auto-run exactly
+ * as they do after endSession().
+ */
+async function importVideo(p = {}) {
+    const out = await Video.importVideo(p, emit, marker);
+    if (Pipe.getApiKey()) {
+        Pipe.transcribeAll().then(() => (config.cleanup !== 'off' ? Pipe.cleanAll() : null)).catch(() => {});
+    }
+    return out;
+}
+
 function resetAll() {
     Cap.clearCapture();
+    Video.clearVideo();
     state.reset();
     lastDocument = null;
     emit(NR_EVENTS.RESET, {});
@@ -242,6 +259,7 @@ function getStatus() {
         status: state.status, sessionId: state.sessionId,
         pairs: state.pairs.length, durationMs: state.status === 'capturing' ? Cap.nowMs() : state.durationMs,
         hasScreen: Cap.hasScreen(), hasKey: !!Pipe.getApiKey(),
+        takeSource: state.takeSource, video: state.video,
         cleanup: config.cleanup, spendCapUsd: config.spendCapUsd,
         rollingSummaryChars: state.rollingSummary.length,
         costs: costSummary(),
@@ -268,6 +286,10 @@ api
     .register('reset',            resetAll,         { async: false, events: [NR_EVENTS.RESET] })
 
     .register('addRecording',     addRecording,     { async: true })
+    .register('importVideo',      importVideo,      { async: true,  events: [NR_EVENTS.VIDEO_STARTED, NR_EVENTS.VIDEO_PROGRESS, NR_EVENTS.VIDEO_COMPLETE],
+        sanitiseParams: p => ({ ...p, file: p?.file ? `<${p.file.type || 'video'} ${p.file.size || 0}b>` : undefined }) })
+    .register('getFrameCandidates', Video.getFrameCandidates, { async: false })
+    .register('setFrame',         (p = {}) => Video.setFrame(p, emit), { async: true, events: [NR_EVENTS.PAIR_UPDATED] })
     .register('markAt',           marker.markAt,    { async: true,  events: [NR_EVENTS.MARK, NR_EVENTS.PAIR_ADDED] })
     .register('transcribeAll',    (p = {}) => {
         // Import mode has no endSession — the sweep closes the final open pair.

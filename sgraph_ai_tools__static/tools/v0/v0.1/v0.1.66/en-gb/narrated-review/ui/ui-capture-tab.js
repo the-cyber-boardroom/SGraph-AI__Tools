@@ -30,6 +30,7 @@ export function initCaptureTab(el, id, api) {
     if (!el) return;
     el.innerHTML = `<div class="nr-ct">
         <img class="nr-ct__img" alt="capture screenshot">
+        <div class="nr-frames"></div>
         <div class="nr-ct__bar">
           <span class="nr-ct__when nr-muted"></span>
           <button data-act="up"   class="nr-btn nr-btn--sm">↑ earlier</button>
@@ -78,7 +79,36 @@ export function initCaptureTab(el, id, api) {
         const marks = (p.clean && p.clean.marks) || [];
         q('.nr-ct__marks').textContent = marks.length
             ? `Unsure: ${marks.map(m => `"${m.span}" (${m.note})`).join(' · ')}` : '';
+        renderFrames(p);
     }
+
+    /**
+     * The frames that were considered for a video-imported capture.
+     *
+     * The picture-picking heuristic is a first draft, not a verdict — a fade, a
+     * cursor, or a build mid-sentence can all fool it — so every frame it looked
+     * at stays one click away.
+     */
+    function renderFrames(p) {
+        const strip = q('.nr-frames');
+        const cands = p.frameCandidates || [];
+        if (!cands.length) { strip.style.display = 'none'; return; }
+        strip.style.display = '';
+        strip.innerHTML = cands.map(c => `<button class="nr-frames__c${c.at === p.videoAt ? ' is-chosen' : ''}" data-at="${c.at}">
+            <img src="${c.thumb}" alt="frame at ${c.at}ms"><span>${fmtTime(c.at)}</span></button>`).join('');
+        // The window reaches 2.5 s BEFORE the words, so most candidates show the
+        // previous screen. Without this, the strip opens on frames that look
+        // plainly wrong and the chosen one is off past the right edge.
+        const chosen = strip.querySelector('.is-chosen');
+        if (chosen) chosen.scrollIntoView({ block: 'nearest', inline: 'center' });
+    }
+
+    q('.nr-frames').addEventListener('click', async (e) => {
+        const btn = e.target && e.target.closest('.nr-frames__c');
+        if (!btn) return;
+        try { await api.setFrame({ id, at: Number(btn.dataset.at) }); }
+        catch (err) { q('.nr-ct__status').textContent = `${err.code || 'error'}: ${err.message}`; }
+    });
 
     el.addEventListener('click', async (e) => {
         const act = e.target && e.target.dataset && e.target.dataset.act;
