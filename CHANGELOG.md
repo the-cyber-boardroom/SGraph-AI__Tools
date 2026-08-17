@@ -2,6 +2,28 @@
 
 All notable changes to `sgraph_ai_tools__static` are documented here.
 
+## [0.1.66] — 2026-08-16
+
+### Added (narrated-review — author a document, don't record a video)
+- **`narrated-review` tool** (`tools/v0/v0.1/v0.1.66/en-gb/narrated-review/`, v0.1.0 alpha) — narrate a walk through a screen and press a key at each moment that matters. The keypress does three jobs: marks a **screenshot** (canvas grab at the press instant, full resolution), bounds an **audio segment** over a continuous recording, and creates the **alignment** between them. The unit is the *pair*, and everything downstream operates on the ordered list: parallel per-segment transcription (`core/sg-transcribe`), sequential **screenshot-grounded cleanup** (raw text + the pair's screenshot + a rolling summary → strict JSON, uncertain spans **marked** rather than silently resolved), then a single `review.md` of heading + image + words, with the raw transcripts preserved in an appendix. Exports as a zip (`review.md` + `images/` + `audio/` + `raw/` + `session.json`) or an SG/Send encrypted link. **No video is ever recorded.** 27 SgToolApi actions, `nr:*` events, 3 SKILL files. Spec: `team/humans/dinis_cruz/claude-code-web/08/16/v0.2.86__brief__tools-team__narrated-review__1-5`.
+  - **Audio is continuous; the keypress is a marker, not a switch** — so a sentence begun *before* the press is not lost. Segment bounds snap back to the nearest sustained silence before the press (the thresholds shipped in v0.1.0 were corrected against live narration — see the v0.1.1 entry below). Bounds are data, not file edges, so they stay adjustable in review.
+  - **Privacy** — nothing leaves the browser except audio segments and, in `grounded` cleanup mode only, the pair's screenshot, both direct to OpenRouter under the user's BYOK key. `setCleanupMode({mode:'text-only'|'off'})` stops screenshots leaving; session content is in-memory only.
+  - **Headless path** — `addRecording → markAt → transcribeAll → cleanAll → buildDocument` needs no gestures, so agents and Playwright drive the same pipeline.
+- **`core/sg-live-capture` v0.1.0** — continuous mic capture + energy VAD, promoted VERBATIM from audio-transcribe v0.1.60 (`live-capture.js` + `live-vad.js`). Closes the capture half of the "no standalone STT module" gap noted in the v0.1.93 integration guide. audio-transcribe/live-transcribe are NOT yet re-pinned onto it (additive extraction — nothing existing changed).
+- **`core/sg-zip` v0.1.0** — `loadJSZip()` + `zipEntries([{path, blob?|text?}])`, filling the "no ZIP core module" gap the reality document flagged. JSZip injectable for headless tests.
+- **Registry v0.1.66** adds `narrated-review` under Media (42 slugs).
+- **Tests** — `tests/playwright/narrated-review-boot-smoke.js` (21/21) and `tests/playwright/narrated-review-pipeline-smoke.js` (33/33: the full headless run with OpenRouter mocked, asserting speak-before-press recovery, ordered image+words pairs, grounded correction + unsure marks, raw survival, rolling-summary accumulation, cost roll-up, bundle shape, spend cap).
+- **Not yet verified in a browser:** the live gesture leg (real screen picker + mic + physical keypresses), live OpenRouter calls, and the SG/Send share leg.
+
+### Changed (narrated-review v0.1.1 — live-verified, editing, chat, vault, PDF)
+- **Boundary snap fixed against live narration.** The snap took the latest silence over a 4 s lookback with a 120 ms threshold; real speech has ~120 ms word gaps, so segments started mid-sentence and bled into the next utterance. The gap must now be SUSTAINED (`minSilenceMs` 700) with a generous `lookbackMs` (30 s) — taking the latest qualifying gap is self-correcting. Tunable via the new `setSnapConfig`. Found only because the pipeline was run against real models.
+- **Extra comments per capture** — a `notes` field kept deliberately separate from the transcript (raw is the recogniser's words, clean is the speaker's corrected, notes are added afterwards) and rendered as a quoted note in the document.
+- **Reordering and insert-in-the-middle** — `movePair`/`reorderPairs`, and `insertPair` which authors a capture anywhere from a screenshot and/or text with no audio at all. `seq` is re-derived from position; `id` is stable across moves.
+- **Two chat surfaces** — `askPair` scoped to one capture (its screenshot, raw, analysis, notes + the rolling summary), and `askSession`, an agentic chat over the whole review **with tools** (`list_captures`, `get_capture`, `set_notes`, `set_analysis`, `move_capture`, `insert_capture`) that reports what it changed. Raw transcripts are never writable from chat. New `api/nr-llm.js` isolated transport carries `tools`/`toolCalls`.
+- **Vault save** — `saveToVault` writes `reviews/<sessionId>/{review.md,images/,raw/,notes/,session.json}` via `core/vault-write` v1.1.1, with **raw audio an explicit opt-in**: it is the bulk of the size and only needed to re-transcribe later, re-cut a boundary, or build something else (a video) from the same materials. `previewVaultFiles` shows the layout without writing.
+- **PDF export** — `downloadPdf` renders the artefact (images + words + notes + raw appendix) with captures kept whole across page breaks; jsPDF lazy-loaded from a pinned CDN.
+- 37 actions, 27 events. Boot smoke 37/37, pipeline smoke 33/33. `saveToVault` has NOT been run against a live vault.
+
 ## [0.1.65] — 2026-08-13
 
 ### Added (whatsapp-desk — Bridge mode, same day)
