@@ -20,6 +20,9 @@ export const config = {
     sceneMetric: 'blockMax',   // the localised-change detector — see frame-metrics
     sceneFactor: 1.5,          // × that metric's own p95. Never an absolute value.
     minSceneMs: 1200,
+    filmstripCount: 48,        // thumbnails across the whole recording — a fixed
+                               // count, because the strip only has room for a few
+                               // dozen however long the recording is
     // The threshold the user is currently looking at. Starts null and is filled
     // from the recording's own calibration, never from a constant.
     threshold: null,
@@ -54,6 +57,7 @@ export const state = {
     thresholds: null,          // the candidate table — the one-glance diagnosis
     frames: null,              // { trace, p95, passes } (signatures stripped for export)
     scenes: null,              // { scenes, threshold, metric } + compareMetrics
+    filmstrip: null,           // [{ at, thumb, mark }] — the timeline's screenshot track
     align: null,               // leadLag()
     plan: null,
     today: null,               // what narrated-review would do, from a real replay
@@ -66,7 +70,7 @@ export const state = {
         if (this.handle) { try { this.handle.release(); } catch (_) { /* */ } }
         this.status = 'idle'; this.source = null; this.handle = null;
         this.audio = null; this.gaps = null; this.thresholds = null;
-        this.frames = null; this.scenes = null; this.align = null;
+        this.frames = null; this.scenes = null; this.align = null; this.filmstrip = null;
         this.plan = null; this.today = null; this.ffmpeg = null;
         this.lanes = { audio: false, frames: false, scenes: false, align: false };
         this.notMeasured = []; this.lastError = null;
@@ -130,6 +134,9 @@ export function probeToJson() {
             correlated: state.align.correlated,
             suggestedLeadMs: state.align.suggestedLeadMs, suggestedLagMs: state.align.suggestedLagMs },
         today: state.today,
+        // Thumbnails are deliberately NOT exported: they are a view, and dozens of
+        // base64 JPEGs would dwarf the measurements this file exists to carry.
+        filmstrip: state.filmstrip && { frames: state.filmstrip.length, note: 'thumbnails are not exported — call getFilmstrip() in-page' },
         plan: state.plan,
         ffmpeg: state.ffmpeg,
         gaps_in_analysis: notMeasured(),

@@ -51,7 +51,20 @@ h4 { margin: 14px 0 4px; font-size: 0.9em; color: #e2e8f0; }
 
 /* ── Timeline ── */
 .mp-tl__ctrl input[type=range] { width: 240px; }
-.mp-canvas { display: block; margin: 6px 0; background: #0a0a18; border-radius: 6px; max-width: 100%; }
+.mp-tl__wrap { position: relative; }
+.mp-canvas { display: block; margin: 6px 0; background: #0a0a18; border-radius: 6px; max-width: 100%; cursor: crosshair; }
+
+/* Hover preview — "what was on screen HERE?" */
+/* Anchored to the BOTTOM: a preview that covered the filmstrip would hide the
+   very track it is previewing. */
+.mp-scrub {
+    position: absolute; bottom: 10px; pointer-events: none; z-index: 5;
+    background: #131b2e; border: 1px solid #2c3a52; border-radius: 6px; padding: 4px;
+    box-shadow: 0 6px 18px rgba(0, 0, 0, 0.55);
+}
+.mp-scrub img { display: block; width: 180px; border-radius: 3px; background: #0e1526; }
+.mp-scrub__meta { font-size: 0.7em; color: #9fb0c8; text-align: center; padding-top: 3px;
+    font-variant-numeric: tabular-nums; }
 .mp-legend { display: flex; gap: 12px; flex-wrap: wrap; font-size: 0.75em; color: #9fb0c8; margin-bottom: 6px; }
 .mp-legend__i { display: flex; gap: 4px; align-items: center; }
 .mp-legend__i i { width: 10px; height: 3px; display: inline-block; border-radius: 2px; }

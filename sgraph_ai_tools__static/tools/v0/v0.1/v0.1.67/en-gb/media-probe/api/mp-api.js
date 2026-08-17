@@ -106,6 +106,8 @@ api
     .register('analyseAudio',       Pipe.analyseAudio,        { async: true, events: [MP_EVENTS.ANALYSE_COMPLETE] })
     .register('analyseFrames',      Pipe.analyseFrames,       { async: true, events: [MP_EVENTS.ANALYSE_PROGRESS, MP_EVENTS.ANALYSE_COMPLETE] })
     .register('cancelSweep',        Pipe.cancelSweep,         { async: false })
+    .register('captureFilmstrip',   Pipe.captureFilmstrip,    { async: true, events: [MP_EVENTS.ANALYSE_COMPLETE] })
+    .register('getFilmstrip',       () => ({ frames: (state.filmstrip || []).map(f => ({ at: f.at, mark: f.mark, thumb: f.thumb })) }), { async: false })
     .register('analyseAll',         Pipe.analyseAll,          { async: true })
 
     .register('setThreshold',       Pipe.setThreshold,        { async: false, events: [MP_EVENTS.THRESHOLD_CHANGED] })

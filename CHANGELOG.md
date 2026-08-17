@@ -26,6 +26,13 @@ Each was a statistic chosen without looking at the shape of the data:
 - **NOT verified:** the FFmpeg lane has never been run in a browser (its WASM build needs the unpkg CDN, unreachable from the build container) — only its log parsers are covered. `plan()` has not been validated against a corpus of real recordings. No real screencast has been through the tool here: the one that prompted it was never available in this container, only its `session.json`.
 - **Registry v0.1.67** adds `media-probe` under Media (43 slugs).
 
+### Changed (media-probe v0.1.1 — a screenshot track on the timeline)
+- **Filmstrip lane**, the way a browser profiler shows a page load: thumbnails of what was on screen, placed at their **real position in time** rather than in even slots, so the spacing itself shows where things happened. Any thumbnail that would collide with the one before it is skipped. A teal bar marks a **detected change**, so you can see at a glance whether the detections line up with the moments the picture actually changed.
+- **Hover playhead + frame preview** — a line runs down every lane and a larger frame appears below, answering "what was on screen *here*?" without leaving the plot. It reads from the already-decoded strip rather than seeking, so it is instant and cannot fight the sampler for the one `<video>` element. Anchored to the bottom, because a preview that covered the filmstrip would hide the very track it previews.
+- `captureFilmstrip({count=48})` + `getFilmstrip()`. **A fixed count, not a fixed interval:** one thumbnail per second is 3600 images and tens of megabytes on an hour-long recording, and the strip only ever has room for a few dozen. It always includes a frame at every detected scene change — a strip that missed the tool's own detections would be worse than no strip.
+- Thumbnails are deliberately **not** in `getProbe()`; the probe carries the count and points at `getFilmstrip()`. Dozens of base64 JPEGs would dwarf the measurements that file exists to carry.
+- 24 actions. Smoke **85/85**, including that every detected scene has its own marked thumbnail and that the export carries the count rather than the images.
+
 ## [0.1.66] — 2026-08-16
 
 ### Added (narrated-review — author a document, don't record a video)

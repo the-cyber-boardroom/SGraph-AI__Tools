@@ -180,10 +180,33 @@ export async function analyseFrames(p = {}) {
     });
     state.lanes.frames = true;
     findScenesNow({});
+    // The filmstrip comes last so it can include a thumbnail at every detected
+    // change — a strip that missed the moments the tool detected would be worse
+    // than no strip.
+    await captureFilmstrip({});
     const summary = { samples: state.frames.trace.length, passes: state.frames.passes, p95: state.frames.p95,
-        scenes: state.scenes.scenes.length };
+        scenes: state.scenes.scenes.length, filmstrip: state.filmstrip ? state.filmstrip.length : 0 };
     emit('mp:analyse:complete', { lane: 'frames', summary });
     return summary;
+}
+
+/**
+ * Thumbnails across the recording for the timeline's filmstrip lane, marking the
+ * detected scene changes. Independent of the sweep so it can be re-run at a
+ * different density without paying for the whole sweep again.
+ */
+export async function captureFilmstrip(p = {}) {
+    if (!state.handle) throw Object.assign(new Error('This file has no decodable picture'), { code: 'not-video' });
+    emit('mp:analyse:started', { lane: 'filmstrip' });
+    state.filmstrip = await Sampler.filmstrip(state.handle, {
+        count: p.count || config.filmstripCount,
+        width: p.width || 128,
+        extraAt: (state.scenes ? state.scenes.scenes : []).map(s => s.at),
+        signal: sweepAbort ? sweepAbort.signal : undefined,
+        onProgress: d => emit('mp:analyse:progress', { lane: 'filmstrip', ...d }),
+    });
+    emit('mp:analyse:complete', { lane: 'filmstrip', summary: { frames: state.filmstrip.length } });
+    return { frames: state.filmstrip.length };
 }
 
 export function cancelSweep() {

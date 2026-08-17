@@ -1,9 +1,9 @@
 {
   "name": "Media Probe",
   "slug": "media-probe",
-  "description": "Drop in a recording and see its structure before you pay a model to guess at it: framewise audio energy with the noise floor and speaking level located, a gap-length histogram that says whether topic-length pauses exist at all, four independent frame-difference metrics, detected scene changes with their evidence, the measured picture-leads-words offset, and a plan() that proposes where to cut and where to shoot — or refuses. No model calls, no uploads, no cost.",
+  "description": "Drop in a recording and see its structure before you pay a model to guess at it: framewise audio energy with the noise floor and speaking level located, a gap-length histogram that says whether topic-length pauses exist at all, four independent frame-difference metrics, detected scene changes with their evidence, the measured picture-leads-words offset, a filmstrip of what was on screen at each moment (Chrome-profiler style, with a hover playhead and frame preview), and a plan() that proposes where to cut and where to shoot — or refuses. No model calls, no uploads, no cost.",
   "icon": "📊",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "status": "alpha",
   "category": "media",
   "keywords": [
@@ -18,7 +18,9 @@
     "segmentation",
     "diagnostics",
     "pacing",
-    "screencast"
+    "screencast",
+    "filmstrip",
+    "timeline"
   ],
   "why": "narrated-review v0.1.4 cut a real 4m21s screencast into nine slices of exactly 30000 ms, because a fixed absolute RMS silence threshold (0.01) sat BELOW that recording's noise floor so no frame ever counted as silence. The defect was not the constant — it was that nothing plotted the distribution the constant was being compared against. This tool is that missing instrument.",
   "dependencies": {
@@ -156,6 +158,11 @@
         "name": "mp:reset",
         "when": "cleared",
         "detail": "{}"
+      },
+      {
+        "name": "mp:analyse:progress",
+        "when": "during the filmstrip capture",
+        "detail": "{ lane:'filmstrip', done, total }"
       }
     ],
     "actions": {
@@ -400,6 +407,26 @@
       "reset": {
         "returns": "{ ok: true }",
         "async": false
+      },
+      "captureFilmstrip": {
+        "params": {
+          "count": {
+            "type": "number",
+            "optional": true
+          },
+          "width": {
+            "type": "number",
+            "optional": true
+          }
+        },
+        "returns": "Promise<{ frames }>",
+        "async": true,
+        "note": "thumbnails across the recording for the timeline screenshot track. A FIXED COUNT (default 48), not a fixed interval — one per second would be thousands of images on a long recording and the strip only has room for a few dozen. Always includes a frame at every detected scene change, marked, since a strip that missed the tool’s own detections would be worse than none. Runs automatically at the end of analyseFrames."
+      },
+      "getFilmstrip": {
+        "returns": "{ frames: [{ at, mark, thumb }] }",
+        "async": false,
+        "note": "`thumb` is a JPEG data URL. These are NOT in getProbe() — dozens of base64 images would dwarf the measurements that file exists to carry; the probe carries the count only."
       }
     },
     "errors": [

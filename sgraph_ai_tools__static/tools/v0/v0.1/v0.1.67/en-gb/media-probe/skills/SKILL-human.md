@@ -31,10 +31,22 @@ Load a recording, press **Analyse audio** (seconds), and open **Histograms**.
 
 ## The timeline
 
-The **Timeline** tab puts everything on one time axis: energy with the threshold
-lines drawn *on* it, the gaps that threshold produces, the four frame-difference
-metrics, and two boundary lanes — what `narrated-review` does today, and what the
-plan proposes.
+The **Timeline** tab puts everything on one time axis: a **filmstrip of what was
+on screen**, energy with the threshold lines drawn *on* it, the gaps that
+threshold produces, the four frame-difference metrics, and two boundary lanes —
+what `narrated-review` does today, and what the plan proposes.
+
+**The screen track** works like the screenshot strip in a browser profiler.
+Thumbnails sit at their real position in time rather than in even slots, so the
+spacing itself tells you where things happened; any that would collide with the
+one before it is skipped. A **teal bar along the top of a thumbnail marks a
+detected change**, so you can see at a glance whether the detections line up with
+the moments the picture actually changed.
+
+**Hover anywhere on the timeline** and a playhead runs down every lane with a
+larger frame preview below — the "what was on screen *here*?" question, answered
+without leaving the plot. The preview comes from the strip already in memory, so
+it is instant.
 
 **Drag the threshold slider.** The gap lane and both boundary lanes re-run the real
 VAD live. This is the point of the whole tool: it turns an invisible constant into

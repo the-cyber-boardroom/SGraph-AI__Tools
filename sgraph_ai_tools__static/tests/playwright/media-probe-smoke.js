@@ -28,6 +28,7 @@ const HEADLESS = process.env.HEADLESS !== 'false';
 const EXPECTED_ACTIONS = [
     'getStatus', 'loadVideo', 'estimateSweep',
     'analyseAudio', 'analyseFrames', 'cancelSweep', 'analyseAll',
+    'captureFilmstrip', 'getFilmstrip',
     'setThreshold', 'replaySegmentation', 'findScenes', 'alignSignals',
     'plan', 'compare', 'estimateCost',
     'getProbe', 'getFindings', 'getSceneThumb', 'downloadProbe',
@@ -211,6 +212,34 @@ async function run() {
             'every scene carries the metric and value that produced it');
         assert(Object.keys(probe2.scenes.perMetric).length === 4,
             'all four metrics are compared against the reference');
+
+        // ── The filmstrip: what was on screen, at the time it was on screen ───
+        const film = await page.evaluate(async () => {
+            const f = await window.__tool.getFilmstrip();
+            const probe = await window.__tool.getProbe();
+            return {
+                n: f.frames.length,
+                marked: f.frames.filter(x => x.mark).length,
+                ordered: f.frames.every((x, i) => i === 0 || x.at >= f.frames[i - 1].at),
+                allThumbs: f.frames.every(x => typeof x.thumb === 'string' && x.thumb.startsWith('data:image/')),
+                sceneTimes: probe.scenes.scenes.map(s => s.at),
+                filmTimes: f.frames.map(x => x.at),
+                exported: probe.filmstrip,
+            };
+        });
+        assert(film.n > 10, 'the filmstrip captured thumbnails across the recording', `${film.n}`);
+        assert(film.allThumbs, 'every filmstrip entry carries an image');
+        assert(film.ordered, 'the filmstrip is in time order');
+        // A strip that missed the very moments the tool detected would be worse
+        // than no strip at all.
+        assert(film.sceneTimes.every(t => film.filmTimes.includes(t)),
+            'every detected scene change has its own thumbnail in the strip',
+            `scenes ${JSON.stringify(film.sceneTimes)} vs strip ${JSON.stringify(film.filmTimes.slice(0, 12))}…`);
+        assert(film.marked === film.sceneTimes.length, 'those thumbnails are marked as detections',
+            `${film.marked} marked vs ${film.sceneTimes.length} scenes`);
+        assert(film.exported && film.exported.thumb === undefined && typeof film.exported.frames === 'number',
+            'the exported probe carries the COUNT, not dozens of base64 images',
+            JSON.stringify(film.exported));
 
         // Frame difference must see COLOUR, not only brightness. A greyscale-only
         // signature missed a #123a63 → #7a1e2e slide change: a violent colour

@@ -17,7 +17,7 @@
 
 import { replaySegmentation } from '../api/mp-pipeline.js';
 
-const LANE = { audio: 90, gaps: 14, metric: 34, bounds: 22 };
+const LANE = { film: 46, audio: 90, gaps: 14, metric: 34, bounds: 22 };
 const METRIC_COLOURS = { meanAbs: '#64748b', blockMax: '#14b8a6', edgeDiff: '#f59e0b', histDist: '#a855f7' };
 const PAD_L = 54, PAD_R = 10, PAD_T = 8;
 
@@ -31,7 +31,13 @@ export function initTimeline(el, state, config, api) {
           <span id="mp-thr-val" class="mp-mono">—</span>
           <span id="mp-thr-out" class="mp-muted"></span>
         </div>
-        <canvas id="mp-canvas" class="mp-canvas"></canvas>
+        <div class="mp-tl__wrap">
+          <canvas id="mp-canvas" class="mp-canvas"></canvas>
+          <div id="mp-scrub" class="mp-scrub" hidden>
+            <img id="mp-scrub-img" alt="frame at the cursor">
+            <div id="mp-scrub-meta" class="mp-scrub__meta"></div>
+          </div>
+        </div>
         <div class="mp-legend" id="mp-legend"></div>
         <div class="mp-muted">Drag the slider: the gap lane and both boundary lanes re-run the real VAD live.
           If the dashed <i>0.01</i> line sits inside the energy band rather than under it, an absolute threshold
@@ -79,9 +85,11 @@ export function initTimeline(el, state, config, api) {
         draw();
     }
     for (const ev of ['mp:analyse:complete', 'mp:plan:ready', 'mp:threshold:changed']) {
-        window.addEventListener(ev, () => ready());
+        window.addEventListener(ev, () => { loadFilms(); ready(); });
     }
-    window.addEventListener('mp:reset', () => { slider.disabled = true; thrVal.textContent = '—'; clear(); });
+    window.addEventListener('mp:reset', () => {
+        slider.disabled = true; thrVal.textContent = '—'; films = []; hideScrub(); clear();
+    });
     // A tab that was hidden when the data arrived still has to draw when shown.
     new ResizeObserver(() => draw()).observe(el);
 
@@ -90,11 +98,73 @@ export function initTimeline(el, state, config, api) {
         ctx.clearRect(0, 0, canvas.width, canvas.height);
     }
 
+    // ── Filmstrip images ─────────────────────────────────────────────────────
+    // Canvas cannot draw a data URL directly, so each thumbnail is decoded once
+    // into an Image and cached. Redraw when they are all in, otherwise the first
+    // paint shows an empty strip.
+    let films = [];
+    function loadFilms() {
+        const src = state.filmstrip || [];
+        if (films.length === src.length && films.every((f, i) => f.at === src[i].at)) return;
+        films = src.map(f => ({ at: f.at, mark: f.mark, img: null }));
+        let pending = src.length;
+        if (!pending) return;
+        src.forEach((f, i) => {
+            const img = new Image();
+            img.onload = () => { films[i].img = img; if (--pending === 0) draw(); };
+            img.onerror = () => { if (--pending === 0) draw(); };
+            img.src = f.thumb;
+        });
+    }
+
+    // ── Hover: a playhead across every lane + a frame preview ────────────────
+    // The point of a screenshot track is answering "what was on screen HERE?", so
+    // the preview comes from the already-decoded strip rather than a fresh seek —
+    // instant, and it cannot fight the sampler for the one <video> element.
+    let hoverMs = null;
+    canvas.addEventListener('mousemove', e => {
+        if (!state.audio && !state.frames) return;
+        const rect = canvas.getBoundingClientRect();
+        const plotW = rect.width - PAD_L - PAD_R;
+        const rel = (e.clientX - rect.left - PAD_L) / plotW;
+        if (rel < 0 || rel > 1) { hideScrub(); return; }
+        const durationMs = Math.max(1, (state.source && state.source.durationMs) || 0);
+        hoverMs = Math.round(rel * durationMs);
+        showScrub(e.clientX - rect.left, rect);
+        draw();
+    });
+    canvas.addEventListener('mouseleave', () => { hideScrub(); draw(); });
+
+    function nearestFilm(ms) {
+        let best = null;
+        for (const f of films) {
+            if (!f.img) continue;
+            if (!best || Math.abs(f.at - ms) < Math.abs(best.at - ms)) best = f;
+        }
+        return best;
+    }
+    function showScrub(x, rect) {
+        const scrub = el.querySelector('#mp-scrub');
+        const f = nearestFilm(hoverMs);
+        if (!f) { scrub.hidden = true; return; }
+        el.querySelector('#mp-scrub-img').src = f.img.src;
+        const scene = (state.scenes ? state.scenes.scenes : []).find(s => Math.abs(s.at - hoverMs) < 400);
+        el.querySelector('#mp-scrub-meta').textContent =
+            `${fmt(hoverMs)}${f.at !== hoverMs ? ` · frame ${fmt(f.at)}` : ''}${scene ? ' · scene change' : ''}`;
+        scrub.hidden = false;
+        scrub.style.left = `${Math.min(Math.max(0, x - 94), rect.width - 196)}px`;
+    }
+    function hideScrub() {
+        hoverMs = null;
+        el.querySelector('#mp-scrub').hidden = true;
+    }
+
     function draw() {
         const a = state.audio;
         const w = Math.max(320, el.clientWidth - 28);
         const metricLanes = state.frames ? 4 : 0;
-        const h = PAD_T + LANE.audio + LANE.gaps + metricLanes * LANE.metric + LANE.bounds * 2 + 34;
+        const filmLane = (state.filmstrip && state.filmstrip.length) ? LANE.film : 0;
+        const h = PAD_T + filmLane + LANE.audio + LANE.gaps + metricLanes * LANE.metric + LANE.bounds * 2 + 34;
         const dpr = window.devicePixelRatio || 1;
         canvas.width = w * dpr; canvas.height = h * dpr;
         canvas.style.width = `${w}px`; canvas.style.height = `${h}px`;
@@ -107,6 +177,34 @@ export function initTimeline(el, state, config, api) {
         const plotW = w - PAD_L - PAD_R;
         const x = ms => PAD_L + plotW * Math.min(1, ms / durationMs);
         let y = PAD_T;
+
+        // ── Filmstrip ─────────────────────────────────────────────────────────
+        // What was on screen, at the time it was on screen. Thumbnails sit at
+        // their real x position rather than in even slots, and any that would
+        // collide with the previous one is skipped — so the spacing itself tells
+        // you where the tool looked most closely.
+        if (filmLane) {
+            label(ctx, 'screen', y + LANE.film / 2);
+            ctx.fillStyle = '#0e1526';
+            ctx.fillRect(PAD_L, y, plotW, LANE.film);
+            const th = LANE.film - 6;
+            const tw = Math.round(th * (state.source.width || 16) / (state.source.height || 9));
+            let right = PAD_L - 2;
+            for (const f of films) {
+                if (!f.img) continue;
+                const px = x(f.at);
+                if (px < right + 2) continue;                  // would overlap — skip
+                if (px + tw > PAD_L + plotW) break;
+                ctx.drawImage(f.img, px, y + 3, tw, th);
+                if (f.mark) {
+                    // A detected change: mark it so the strip shows WHY it is here.
+                    ctx.fillStyle = '#14b8a6';
+                    ctx.fillRect(px, y + 1, tw, 2);
+                }
+                right = px + tw;
+            }
+            y += LANE.film + 4;
+        }
 
         // ── Audio energy ──────────────────────────────────────────────────────
         const eMax = Math.max(a.levels.speech * 1.6, 0.02);
@@ -181,6 +279,17 @@ export function initTimeline(el, state, config, api) {
         for (let t = 0; t <= durationMs; t += stepMs) {
             ctx.fillRect(x(t), y, 1, 4);
             ctx.fillText(fmt(t), x(t) - 12, y + 15);
+        }
+
+        // Playhead last, so it sits over every lane — the "where am I" line that
+        // makes a stack of traces readable as one moment in time.
+        if (hoverMs != null) {
+            ctx.strokeStyle = '#f8fafc'; ctx.globalAlpha = 0.55; ctx.lineWidth = 1;
+            ctx.beginPath();
+            ctx.moveTo(x(hoverMs) + 0.5, PAD_T);
+            ctx.lineTo(x(hoverMs) + 0.5, y);
+            ctx.stroke();
+            ctx.globalAlpha = 1;
         }
     }
 

@@ -21,8 +21,10 @@ force-cut at `maxUtteranceMs`. Sentences were split mid-clause.
 
 Two design consequences run through this whole module:
 
-1. **Never compare an absolute number to an unknown distribution.** Thresholds are
-   percentiles of the recording's own energy or a multiple of a metric's own p95.
+1. **Never compare an absolute number to an unknown distribution.** Audio
+   thresholds are percentiles of the recording's own energy; scene thresholds are
+   the natural break in that metric's own distribution (Otsu). A percentile is not
+   automatically safe either — see `findScenes`.
 2. **An unmeasured thing must never look like a measured thing.** Hence
    `gaps_in_analysis`, `mp:warning`, the `capped` count, and `strategy:'none'`.
 
@@ -99,15 +101,44 @@ recording to throw away would be pure waste.
 | `edgeDiff` | layout/structure via gradient magnitude | recolouring, theme switch |
 | `histDist` | palette/brightness | content moving without changing colour |
 
-Defaults to `blockMax` at `1.5 ×` that metric's own p95, with a 0.004 floor so
-encoder noise in a static recording does not become a scene list. Bursts within
-`minSceneMs` collapse to their **last** sample — that is where the screen settled,
-which is the frame worth keeping.
+Per-pixel difference is the **max across R, G and B**, not greyscale: `#123a63` →
+`#7a1e2e` is a violent colour change whose luma differs by nine levels out of 255,
+and a greyscale signature missed it entirely. In a screencast that blind spot means
+a theme switch or a highlighted row passes unnoticed. `edgeDiff` alone stays on
+luma, where brightness edges are the signal.
+
+**The threshold is the natural break in this recording's own distribution**
+(Otsu's method), not a percentile. `p95 × 1.5` was the first implementation and it
+is wrong for the reason it looks right: in a screencast the real changes ARE the
+top few percent of samples, so p95 lands on a change value and 1.5× it excludes
+every change but the largest — three slide switches measured as one. Pass `factor`
+explicitly to get that behaviour back for comparison.
+
+Otsu will happily split pure noise, so a `separation` guard (upper class mean ≥ 3×
+the lower, default) plus a 0.004 floor means a static recording reports **no
+scenes with a reason** rather than an invented list. `basis` says which rule
+produced the threshold. Bursts within `minSceneMs` collapse to their **last**
+sample — that is where the screen settled, which is the frame worth keeping.
 
 `perMetric` reports how many scenes each metric finds and how many it shares with
 the reference. That is the empirical answer to "which metric should we use?" — a
 question the single hardcoded metric never asked. Each scene also carries `agreed`:
 which other metrics fired at the same moment. Disagreement is informative.
+
+## The filmstrip
+
+`captureFilmstrip({ count = 48, width = 128 })` → `{ frames }`, run automatically at
+the end of `analyseFrames`. `getFilmstrip()` → `{ frames: [{ at, mark, thumb }] }`.
+
+**A fixed count, not a fixed interval.** One thumbnail per second is 3600 images
+and tens of megabytes on an hour-long recording, and the strip only ever has room
+for a few dozen side by side — capturing more is pure waste. It always includes a
+frame at every detected scene change, flagged `mark`, because a strip that missed
+the very moments the tool detected would be worse than no strip.
+
+Thumbnails are **not** in `getProbe()`: the probe is a measurement document, and
+dozens of base64 JPEGs would dwarf what it exists to carry. It reports the count
+and points at `getFilmstrip()`.
 
 ## `alignSignals()`
 

@@ -80,12 +80,30 @@ await page.evaluate(() => window.__tool.analyseFrames({ coarseFps: 2, fineFps: 4
 `estimateSweep()` returns `{ samples, estimatedMs }` before committing, and
 `cancelSweep()` aborts a running sweep (the promise rejects with `{code:'cancelled'}`).
 
+## The filmstrip
+
+`analyseFrames` ends by capturing a screenshot track for the timeline. It is a
+FIXED COUNT (default 48), not a fixed interval — one per second would be thousands
+of images on a long recording — and it always includes a frame at every detected
+scene change, flagged `mark: true`.
+
+```js
+const { frames } = await page.evaluate(() => window.__tool.getFilmstrip());
+// frames[i] = { at, mark, thumb }   thumb is a JPEG data URL
+await page.evaluate(() => window.__tool.captureFilmstrip({ count: 120 }));  // denser
+```
+
+`getProbe()` carries only the COUNT — dozens of base64 images would dwarf the
+measurements the probe exists to carry. Use `getFilmstrip()` in-page for the
+images themselves.
+
 ## DOM contract (stable ids)
 
 `#mp-drop` · `#mp-file` · `#mp-run-audio` · `#mp-run-frames` · `#mp-cancel` ·
 `#mp-run-all` · `#mp-plan` · `#mp-thr` (the threshold slider) · `#mp-canvas` ·
 `#mp-hist-energy` · `#mp-hist-gaps` · `#mp-thr-table` · `#mp-shots` ·
 `#mp-metric` · `#mp-align-plot` · `#mp-compare-table` · `#mp-findings-body` ·
+`#mp-scrub` (the hover frame preview, `hidden` until the pointer is over the canvas) ·
 `#mp-dl-json` · `#mp-dl-csv` · `#mp-dl-zip` · `#mp-warnings`
 
 Dragging `#mp-thr` re-runs the real VAD; `#mp-thr-table` rows carry `data-thr` and

@@ -101,6 +101,40 @@ export async function thumbAt(src, ms, width = 200) {
 }
 
 /**
+ * A filmstrip for the timeline: thumbnails spread across the recording, plus one
+ * at each moment of interest.
+ *
+ * A FIXED COUNT, not a fixed interval. One thumbnail per second would be 3600
+ * images and tens of megabytes on an hour-long recording; the strip only ever has
+ * room for a few dozen side by side, so capturing more is pure waste. `extraAt`
+ * guarantees the detected changes are among them — a strip that missed the very
+ * moments the tool detected would be worse than no strip.
+ *
+ * @param {object} src from openSource()
+ * @param {{ count?: number, extraAt?: number[], width?: number, onProgress?: Function, signal?: object }} opts
+ * @returns {Promise<Array<{ at: number, thumb: string, mark: boolean }>>}
+ */
+export async function filmstrip(src, opts = {}) {
+    const count = Math.max(2, opts.count || 48);
+    const width = opts.width || 128;
+    const extra = (opts.extraAt || []).filter(t => t >= 0 && t <= src.durationMs);
+    const step = src.durationMs / count;
+    const marks = new Set(extra.map(t => Math.round(t)));
+    const times = new Set(extra.map(t => Math.round(t)));
+    for (let i = 0; i < count; i++) times.add(Math.round(i * step));
+
+    const ordered = [...times].sort((a, b) => a - b);
+    const out = [];
+    for (let i = 0; i < ordered.length; i++) {
+        if (opts.signal && opts.signal.aborted) throw Object.assign(new Error('cancelled'), { code: 'cancelled' });
+        const at = ordered[i];
+        out.push({ at, thumb: await thumbAt(src, at, width), mark: marks.has(at) });
+        if (opts.onProgress && i % 5 === 0) opts.onProgress({ pass: 'filmstrip', done: i + 1, total: ordered.length });
+    }
+    return out;
+}
+
+/**
  * How long a sweep will take, before committing to it. The estimate exists so
  * the UI can warn instead of appearing to hang — a probe nobody dares start is
  * worth nothing.
