@@ -1,0 +1,134 @@
+{
+  "name": "Markdown Viewer",
+  "slug": "markdown-viewer",
+  "description": "Open a markdown file and actually read it — headings, tables, code, images and front matter, rendered properly — then print it or save it as a PDF. Drop a file, paste text, or point at a URL. A heading outline for long documents, a raw-source toggle, and page breaks the document itself can ask for. Nothing is uploaded; the file never leaves the tab.",
+  "icon": "📄",
+  "version": "0.1.0",
+  "status": "beta",
+  "category": "misc",
+  "keywords": [
+    "markdown", "md", "viewer", "reader", "render", "print", "pdf",
+    "preview", "readme", "docs", "front-matter", "page-break", "outline"
+  ],
+  "dependencies": {
+    "core": [
+      {
+        "module": "sg-tool-api",
+        "path": "/core/sg-tool-api/v0/v0.1/v0.1.0/sg-tool-api.js"
+      },
+      {
+        "module": "markdown",
+        "path": "/core/markdown/v1/v1.1/v1.1.0/sg-markdown.js",
+        "note": "the parser: front matter, page breaks, tables, images, heading ids"
+      },
+      {
+        "module": "manifest-loader",
+        "path": "/core/manifest-loader/v0/v0.1/v0.1.0/manifest-loader.js"
+      }
+    ],
+    "shared": [
+      {
+        "module": "sg-tool-api-explorer",
+        "path": "/components/tool-api/sg-tool-api-explorer/v0/v0.1/v0.1.0/sg-tool-api-explorer.js"
+      },
+      {
+        "module": "sg-tool-api-console",
+        "path": "/components/tool-api/sg-tool-api-console/v0/v0.1/v0.1.0/sg-tool-api-console.js"
+      },
+      {
+        "module": "sg-tool-api-manifest",
+        "path": "/components/tool-api/sg-tool-api-manifest/v0/v0.1/v0.1.0/sg-tool-api-manifest.js"
+      }
+    ],
+    "loader": [
+      {
+        "phase": 1,
+        "type": "css",
+        "path": "/core/markdown/v1/v1.1/v1.1.0/sg-markdown.css"
+      },
+      {
+        "phase": 1,
+        "type": "css",
+        "path": "./styles/mv.css"
+      },
+      {
+        "phase": 2,
+        "type": "js",
+        "entry": true,
+        "path": "./api/mv-api.js"
+      }
+    ]
+  },
+  "api": {
+    "version": "0.1.0",
+    "global": "window.__tool",
+    "note": "window.__tool is live after tool:ready. Everything is synchronous and local except loadUrl (a network fetch) and loadFile (reads a Blob) — but SgToolApi wraps every action in a Promise, so always await. No API key, no account, no network unless you call loadUrl. print() opens the browser's print dialog, which a headless driver cannot dismiss — assert on the mv:print:opened event instead of calling it. renderToHtml() is the parser as a pure function: it returns HTML without touching the loaded document.",
+    "events": [
+      { "name": "tool:ready",           "when": "activate() called",                    "detail": "{ instanceId, tool, version }" },
+      { "name": "mv:document:loaded",   "when": "a document was loaded and parsed",     "detail": "{ name, bytes, headings, config, from }" },
+      { "name": "mv:document:rendered", "when": "the rendered HTML changed",            "detail": "{ headings, bytes }" },
+      { "name": "mv:view:changed",      "when": "rendered ↔ source toggled",            "detail": "{ source }" },
+      { "name": "mv:options:changed",   "when": "a render or layout option changed",    "detail": "{ wide, pageBreakBefore }" },
+      { "name": "mv:print:opened",      "when": "the print dialog was opened",          "detail": "{ name }" },
+      { "name": "mv:document:cleared",  "when": "clear()",                              "detail": "{}" },
+      { "name": "mv:error",             "when": "a typed failure",                      "detail": "{ code, message }" }
+    ],
+    "actions": {
+      "loadText": {
+        "params": { "text": { "type": "string" }, "name": { "type": "string", "optional": true } },
+        "returns": "{ name, bytes, headings, config }",
+        "async": false,
+        "note": "a `title` in the front matter becomes the document name"
+      },
+      "loadFile": {
+        "params": { "file": { "type": "File" } },
+        "returns": "Promise<{ name, bytes, headings, config }>",
+        "async": true,
+        "note": "no user gesture needed — pass a File or Blob directly"
+      },
+      "loadUrl": {
+        "params": { "url": { "type": "string" } },
+        "returns": "Promise<{ name, bytes, headings, config }>",
+        "async": true,
+        "note": "http(s) only; cross-origin needs the far host to send CORS headers. Fails with code 'fetch-failed' or 'bad-url'"
+      },
+      "getStatus":      { "returns": "{ loaded, name, bytes, loadedFrom, headings, config, showSource, wide, pageBreakBefore }", "async": false },
+      "getSource":      { "returns": "string — the raw markdown, front matter included", "async": false },
+      "getHtml":        { "returns": "string — the rendered HTML", "async": false },
+      "getHeadings":    { "returns": "[{ level, text, id }] — the outline", "async": false },
+      "getFrontMatter": { "returns": "object — parsed front matter, {} when absent", "async": false },
+      "renderToHtml": {
+        "params": { "text": { "type": "string" }, "options": { "type": "object", "optional": true } },
+        "returns": "{ html, headings, config }",
+        "async": false,
+        "note": "pure: renders a string without changing what is on screen"
+      },
+      "setSourceView": {
+        "params": { "source": { "type": "boolean", "optional": true } },
+        "returns": "{ source }",
+        "async": false,
+        "note": "omit the param to toggle. Persisted across reloads"
+      },
+      "setOptions": {
+        "params": {
+          "wide": { "type": "boolean", "optional": true },
+          "pageBreakBefore": { "type": "any", "optional": true }
+        },
+        "returns": "{ wide, pageBreakBefore }",
+        "async": false,
+        "note": "pageBreakBefore accepts 'h1' | 1 | true | ['h1','h2'], and overrides the document's front matter; null hands control back to it"
+      },
+      "print": {
+        "returns": "{ name }",
+        "async": false,
+        "note": "opens the browser print dialog — same as ⌘/Ctrl-P. Throws 'no-document' when nothing is loaded"
+      },
+      "clear": { "returns": "{ ok }", "async": false }
+    },
+    "skills": {
+      "human":   "./skills/SKILL-human.md",
+      "browser": "./skills/SKILL-browser.md",
+      "api":     "./skills/SKILL-api.md"
+    }
+  }
+}

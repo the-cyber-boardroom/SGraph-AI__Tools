@@ -2,6 +2,24 @@
 
 All notable changes to `sgraph_ai_tools__static` are documented here.
 
+## [0.1.67] — 2026-08-18
+
+### Added (markdown-viewer — read a markdown file, then print it)
+- **`markdown-viewer` tool** (`tools/v0/v0.1/v0.1.67/en-gb/markdown-viewer/`, v0.1.0 beta) — open a `.md` file and read it properly, then print it or save it as a PDF. Four ways in: drop (anywhere on the page, including over an already-open document), file picker, paste box, or a URL (also reachable as `?url=…`, so a document can be linked directly). A heading outline that scroll-links into the document, a byte-exact raw-source toggle, and a wide-measure toggle. `Source` and `Wide` persist; the document never does. 13 SgToolApi actions, `mv:*` events, 3 SKILL files.
+  - **Printing is the page's own `@media print`, not a print window** — so `print()` from a script and ⌘/Ctrl-P from a human produce identical output: the document alone, black on white, chrome dropped, code wrapped instead of scrolling, tables and images kept off page boundaries. Printing while the source view is open still prints the *rendered* document.
+  - **Page breaks belong to the document** — `page_break_before: h1 | [h1,h2] | true` in front matter, or an inline `<!-- page-break -->`. On screen they render as a labelled dashed rule so the author can see where paper will end; the label does not print. `print_css:` in front matter injects author CSS into the print stylesheet.
+  - **Nothing is uploaded.** `loadUrl` is the only network call, and it is a plain `fetch` from the page — so a cross-origin document needs CORS from the far host. There is no proxy, by design, and a blocked fetch says so rather than showing an empty page.
+  - Registry v0.1.67 adds `markdown-viewer` under Misc (43 slugs).
+
+### Added (core/markdown v1.1.0 — the vault parser, ported and split)
+- **`core/markdown` v1.1.0** (`core/markdown/v1/v1.1/v1.1.0/`) — the SG/Send vault parser (`vault/lib/markdown` v0.2.0) ported to ES modules and split into `md-escape.js`, `md-frontmatter.js`, `md-blocks.js`, `md-inline.js`, `md-render.js` behind `sg-markdown.js`, plus a companion `sg-markdown.css` carrying both the screen and `@media print` rules. `renderMarkdown(text)` keeps v1.0.0's signature, so a consumer upgrades by changing the import path alone.
+- **Over v1.0.0:** h4–h6, images with `![alt|400]` / `|50%` / `|640x480` sizing, YAML front matter, page breaks, table column alignment, strikethrough, nested emphasis, list continuation lines, heading slug ids, and `parseMarkdown()` returning `{ html, config, body, headings }` so a caller can build an outline or set a title. New `imageSrc: 'deferred'` mode emits `data-md-src` without `src`, for hosts that resolve paths to blob URLs.
+- **SECURITY — v1.0.0 has an attribute-injection hole, and still ships.** Its `escapeHtml` escaped `& < >` but not quotes, while `inlineMarkdown` interpolated the link URL straight into `href="$2"`. So `[hover me](https://x/" onmouseover="fetch(1)` rendered as `<a href="https://x/" onmouseover="fetch(1" …>` — attacker-controlled event handler on any rendered markdown. Confirmed by running it, not by reading it. v1.1.0 escapes both quote characters, vets every URL through `sanitizeUrl()` (refusing `javascript:`, `data:`, `vbscript:`), and scans inline syntax left-to-right rather than via regex passes, so a code span shields the syntax inside it.
+- **v1.0.0 is still pinned by five consumers** — `sg-content-markdown`, `sg-vault-file-preview`, `vault-peek`, `sg-video-editor`, `narrated-review` — and they carry the bug until re-pinned. Versions are immutable here, so the fix is a re-pin, not a patch. **Not done in this change** (it touches four other tools' overlays); flagged in the reality document.
+- **Tests** — `tests/node/sg-markdown.test.mjs` **35/35** (no browser, no dependencies), including the v1.0.0 XSS as a named regression; `tests/playwright/markdown-viewer-boot-smoke.js` **25/25** against real Chromium, whose load-bearing case feeds a document of five injection payloads and then asserts nothing executed, no `on*` attribute exists, no `<script>` survived and no `javascript:` href survived.
+- **Two bugs the tests caught mid-build**, both fixed: `.mv-main { display: grid }` silently outranked the `[hidden]` attribute, leaving an empty reading pane visible at boot; and the block parser **dropped** a `|`-led line with no table delimiter row under it — it looked like a table to the block-start check, matched no branch, and vanished from the document.
+- **Not verified:** print pagination outside Chromium; `loadUrl` against a host that actually refuses CORS (the failure path is unit-tested, the real refusal is not); rendering across a wide document corpus. No syntax highlighting, Mermaid, math, or task-list checkboxes.
+
 ## [0.1.66] — 2026-08-16
 
 ### Added (narrated-review — author a document, don't record a video)
