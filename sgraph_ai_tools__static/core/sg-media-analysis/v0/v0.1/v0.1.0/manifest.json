@@ -1,0 +1,34 @@
+{
+  "module": "sg-media-analysis",
+  "version": "0.1.0",
+  "status": "alpha",
+  "description": "Measure a recording's structure so segmentation stops being guesswork: framewise audio energy with percentile floor/speech estimates and gap populations, four independent frame-difference metrics, scene detection with per-scene evidence, a measured picture-leads-words distribution, and a plan() that chooses audio-led / video-led / hybrid — or refuses.",
+  "why": "narrated-review v0.1.4 segmented a real 4m21s screencast into nine slices of exactly 30000 ms, because a fixed absolute RMS silence threshold (0.01) sat BELOW that recording's noise floor, so no frame ever counted as silence. The defect was not the constant — it was that nothing plotted the distribution it was being compared against. This module exists to make that visible, and to make every threshold per-recording.",
+  "files": [
+    { "path": "audio-metrics.js", "exports": ["decodeMono", "toDbfs", "spectralFlatness", "framewise", "analyseAudio"], "note": "framewise rms/dBFS/spectral-flatness. Flatness distinguishes 'quiet but noisy' (room tone, mains hum) from 'quiet and empty' — the case that defeats an absolute RMS threshold." },
+    { "path": "distributions.js", "exports": ["POPULATIONS", "energyLevels", "calibrate", "energyHistogram", "findGaps", "gapPopulations", "gapHistogram", "thresholdTable", "candidateThresholds"], "note": "THE core of the tool. thresholdTable() evaluates every candidate threshold at once, replaying the REAL createVad, so 'topicGaps: 0, capped: 8' is a one-glance diagnosis." },
+    { "path": "frame-metrics.js", "exports": ["SIG_W", "SIG_H", "METRICS", "METRIC_NOTES", "signatureFrom", "diff", "metricPercentile"], "note": "meanAbs · blockMax · edgeDiff · histDist on a 32x18 raster matching nr-frames.js. Four rather than one because the single hardcoded metric was never examined." },
+    { "path": "sampler.js", "exports": ["openSource", "signatureAt", "thumbAt", "estimateSweep", "sweep"], "note": "two-pass video sweep (coarse everywhere, fine only where something moved), cancellable, with a wall-clock estimate before committing. Recovers duration from a header-less MediaRecorder WebM." },
+    { "path": "scenes.js", "exports": ["findScenes", "compareMetrics"], "note": "per-recording thresholds (a multiple of that metric's own p95), bursts collapsed to the settled frame, and every scene carries its evidence. compareMetrics answers 'which metric should we use?' empirically." },
+    { "path": "align.js", "exports": ["speechOnsets", "leadLag"], "note": "measures how far the picture leads the words instead of assuming 2500/1200, and reports whether the two signals are correlated at all." },
+    { "path": "plan.js", "exports": ["COST_BASIS", "estimateCost", "PLAN_DEFAULTS", "plan", "todayFromReplay"], "note": "audio-led | video-led | hybrid | none. Every cut carries evidence; 'none' is a legitimate answer. Cost constants are measured from a real session, named in COST_BASIS." },
+    { "path": "ffmpeg-lane.js", "exports": ["parseSilence", "parseSceneScores", "parseLoudness", "runFfmpegLane"], "note": "OPTIONAL cross-check via silencedetect / select=gt(scene,N) / ebur128 at native frame rate, plus HEVC coverage. Retains the raw log; a parse yielding nothing reports 'ffmpeg-parse', never 'found nothing'. NOT verified in a browser — needs the unpkg CDN." }
+  ],
+  "dependencies": {
+    "core": [
+      { "module": "sg-audio-decode", "path": "/core/sg-audio-decode/v0/v0.1/v0.1.0/sg-audio-decode.js" },
+      { "module": "video", "path": "/core/video/v1/v1.0/v1.0.2/sg-video.js", "note": "ffmpeg-lane only, loaded on demand" }
+    ],
+    "note": "core/sg-live-capture createVad is NOT imported — the caller injects a replay function, so the module never depends on the pipeline it measures."
+  },
+  "browser": {
+    "requires": ["Web Audio (decodeAudioData)", "canvas 2D", "HTMLVideoElement seeking"],
+    "network": "none — no model calls, no uploads. The FFmpeg lane is the only thing that fetches, and only when explicitly run."
+  },
+  "consumers": ["tools/media-probe", "tools/narrated-review (planned — gated on validation against three real recordings)"],
+  "limitations": [
+    "Percentile choices (p20 floor, p90 speech, 15%/40% thresholds) and the scene factor (1.5x p95) are starting points validated on synthetic clips and one real session, not tuned across a corpus.",
+    "spectralFlatness uses a decimated DFT on 1-in-5 frames — enough for a ratio, not a spectrum.",
+    "The FFmpeg lane has never been run in a browser here (CDN unreachable in the build container); its log parsers are covered by unit tests against captured text."
+  ]
+}
