@@ -1,0 +1,223 @@
+/* ─────────────────────────────────────────────────────────────────────────────
+   markdown-viewer — the tool's own chrome.
+
+   The document itself is styled by core/markdown/sg-markdown.css; everything
+   here is the furniture around it. The @media print block at the end removes
+   all of that furniture, so what prints is the document and nothing else.
+   ──────────────────────────────────────────────────────────────────────────── */
+
+:root {
+    --mv-bg:        #0a0a18;
+    --mv-surface:   #12121f;
+    --mv-border:    #2d3748;
+    --mv-text:      #e2e8f0;
+    --mv-dim:       #a0aec0;
+    --mv-accent:    #4299e1;
+    --mv-danger:    #fc8181;
+}
+
+/* A class that sets `display` outranks the UA's `[hidden] { display: none }`,
+   so `el.hidden = true` silently stops working on .mv-main and .mv-empty.
+   This restores it for the whole tool. */
+[hidden] { display: none !important; }
+
+html, body {
+    background: var(--mv-bg);
+    color: var(--mv-text);
+    font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
+    margin: 0;
+    min-height: 100%;
+    padding: 0;
+}
+
+/* ── Toolbar ───────────────────────────────────────────────────────────── */
+
+.mv-toolbar {
+    align-items: center;
+    background: var(--mv-surface);
+    border-bottom: 1px solid var(--mv-border);
+    display: flex;
+    flex-wrap: wrap;
+    gap: 12px;
+    justify-content: space-between;
+    padding: 10px 20px;
+    position: sticky;
+    top: 0;
+    z-index: 10;
+}
+.mv-toolbar__title   { align-items: center; display: flex; gap: 10px; min-width: 0; }
+.mv-toolbar__icon    { font-size: 20px; }
+.mv-toolbar__name    { font-size: 14px; font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.mv-toolbar__meta    { color: var(--mv-dim); font-size: 11px; margin-top: 2px; }
+.mv-toolbar__actions { display: flex; flex-wrap: wrap; gap: 8px; }
+
+/* ── Buttons and inputs ────────────────────────────────────────────────── */
+
+.mv-btn {
+    background: rgba(255, 255, 255, 0.06);
+    border: 1px solid var(--mv-border);
+    border-radius: 6px;
+    color: var(--mv-text);
+    cursor: pointer;
+    font-family: inherit;
+    font-size: 13px;
+    padding: 7px 14px;
+    transition: background 0.15s, border-color 0.15s, opacity 0.15s;
+}
+.mv-btn:hover:not(:disabled)     { background: rgba(255, 255, 255, 0.11); border-color: var(--mv-accent); }
+.mv-btn:disabled                 { cursor: default; opacity: 0.35; }
+.mv-btn[aria-pressed="true"]     { background: rgba(66, 153, 225, 0.22); border-color: var(--mv-accent); }
+.mv-btn--primary                 { background: var(--mv-accent); border-color: var(--mv-accent); color: #fff; font-weight: 600; }
+.mv-btn--primary:hover:not(:disabled) { background: #3182ce; }
+.mv-btn--ghost                   { background: none; }
+
+.mv-input, .mv-textarea {
+    background: rgba(0, 0, 0, 0.3);
+    border: 1px solid var(--mv-border);
+    border-radius: 6px;
+    color: var(--mv-text);
+    font-family: inherit;
+    font-size: 13px;
+    padding: 8px 11px;
+    width: 100%;
+}
+.mv-textarea {
+    font-family: ui-monospace, "SF Mono", Menlo, monospace;
+    font-size: 12px;
+    margin-bottom: 8px;
+    resize: vertical;
+}
+.mv-input:focus, .mv-textarea:focus { border-color: var(--mv-accent); outline: none; }
+
+/* ── Empty state ───────────────────────────────────────────────────────── */
+
+.mv-empty  { margin: 0 auto; max-width: 780px; padding: 36px 20px 60px; }
+.mv-label  { color: var(--mv-dim); display: block; font-size: 12px; font-weight: 600;
+             letter-spacing: 0.04em; margin-bottom: 7px; text-transform: uppercase; }
+.mv-row    { display: flex; gap: 8px; }
+.mv-row .mv-btn { flex-shrink: 0; }
+.mv-note   { color: var(--mv-dim); font-size: 11.5px; line-height: 1.6; margin: 8px 0 0; }
+.mv-note code, .mv-drop__hint code {
+    background: rgba(255, 255, 255, 0.08); border-radius: 3px;
+    font-size: 0.92em; padding: 1px 5px;
+}
+
+.mv-drop {
+    background: rgba(255, 255, 255, 0.02);
+    border: 2px dashed var(--mv-border);
+    border-radius: 12px;
+    cursor: pointer;
+    padding: 46px 24px;
+    text-align: center;
+    transition: background 0.15s, border-color 0.15s;
+}
+.mv-drop:hover, .mv-drop:focus-visible { background: rgba(66, 153, 225, 0.06); border-color: var(--mv-accent); outline: none; }
+.mv-drop--over        { background: rgba(66, 153, 225, 0.14); border-color: var(--mv-accent); }
+.mv-drop__icon        { display: block; font-size: 40px; margin-bottom: 12px; opacity: 0.8; }
+.mv-drop__title       { font-size: 16px; font-weight: 600; margin: 0 0 6px; }
+.mv-drop__hint        { color: var(--mv-dim); font-size: 12.5px; margin: 0; }
+
+.mv-error {
+    background: rgba(252, 129, 129, 0.1);
+    border: 1px solid rgba(252, 129, 129, 0.4);
+    border-radius: 6px;
+    color: var(--mv-danger);
+    font-size: 13px;
+    line-height: 1.55;
+    margin: 16px 0 0;
+    padding: 10px 14px;
+}
+
+.mv-alt         { display: grid; gap: 26px; grid-template-columns: 1fr 1fr; margin-top: 30px; }
+.mv-alt__col    { display: flex; flex-direction: column; }
+.mv-alt__col .mv-btn { align-self: flex-start; }
+.mv-privacy     { color: var(--mv-dim); font-size: 12px; margin-top: 30px; opacity: 0.75; text-align: center; }
+
+@media (max-width: 700px) {
+    .mv-alt { grid-template-columns: 1fr; }
+}
+
+/* ── Reading pane ──────────────────────────────────────────────────────── */
+
+.mv-main {
+    display: grid;
+    gap: 32px;
+    grid-template-columns: 220px minmax(0, 1fr);
+    margin: 0 auto;
+    max-width: 1180px;
+    padding: 32px 24px 90px;
+}
+.mv-main--wide       { max-width: none; }
+.mv-main .mv-page    { max-width: 860px; min-width: 0; }
+.mv-main--wide .mv-page { max-width: none; }
+
+.mv-outline {
+    align-self: start;
+    border-left: 1px solid var(--mv-border);
+    max-height: calc(100vh - 140px);
+    overflow-y: auto;
+    padding-left: 14px;
+    position: sticky;
+    top: 90px;
+}
+.mv-outline__item {
+    color: var(--mv-dim);
+    display: block;
+    font-size: 12.5px;
+    line-height: 1.45;
+    padding: 3px 0;
+    text-decoration: none;
+}
+.mv-outline__item:hover      { color: var(--mv-accent); }
+.mv-outline__item--h1        { color: var(--mv-text); font-weight: 600; margin-top: 8px; }
+.mv-outline__item--h2        { padding-left: 10px; }
+.mv-outline__item--h3        { padding-left: 22px; }
+.mv-outline__item--h4,
+.mv-outline__item--h5,
+.mv-outline__item--h6        { font-size: 11.5px; padding-left: 34px; }
+
+.mv-source {
+    background: rgba(0, 0, 0, 0.35);
+    border: 1px solid var(--mv-border);
+    border-radius: 8px;
+    color: var(--mv-text);
+    font-family: ui-monospace, "SF Mono", Menlo, monospace;
+    font-size: 12.5px;
+    line-height: 1.65;
+    margin: 0;
+    overflow-x: auto;
+    padding: 18px 20px;
+    white-space: pre-wrap;
+    word-break: break-word;
+}
+
+@media (max-width: 900px) {
+    .mv-main    { grid-template-columns: 1fr; }
+    .mv-outline { display: none; }
+}
+
+/* ── Print ─────────────────────────────────────────────────────────────── */
+/* Only the rendered document survives. The source view is explicitly dropped:
+   printing while it is open should still produce the document, not a wall of
+   monospace. */
+
+@media print {
+    html, body            { background: #fff; color: #000; }
+    sg-site-header,
+    .mv-toolbar,
+    .mv-empty,
+    .mv-outline,
+    .mv-source            { display: none !important; }
+
+    .mv-main {
+        display: block;
+        margin: 0;
+        max-width: none;
+        padding: 0;
+    }
+    .mv-main .mv-page     { max-width: none; }
+    /* Hidden on screen behind the source toggle, but always printed. */
+    #mv-rendered          { display: block !important; }
+
+    @page { margin: 18mm 16mm; }
+}

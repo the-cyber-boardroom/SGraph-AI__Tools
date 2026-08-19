@@ -1,0 +1,206 @@
+/* ─────────────────────────────────────────────────────────────────────────────
+   sg-markdown v1.1.0 — styling for the HTML that sg-markdown.js emits.
+
+   Scoped to .md-body, so a consumer opts in by putting that class on the
+   container. Colours come from CSS variables with dark-ish fallbacks, so it
+   drops into the tools site as-is and can be re-themed without editing this
+   file.
+
+   The @media print block is the reason this is a stylesheet rather than inline
+   styles: page breaks, and dropping the chrome that should not be on paper.
+   ──────────────────────────────────────────────────────────────────────────── */
+
+.md-body {
+    color: var(--sg-text, #e2e8f0);
+    font-family: var(--sg-font, system-ui, -apple-system, "Segoe UI", sans-serif);
+    font-size: 15px;
+    line-height: 1.7;
+    word-wrap: break-word;
+}
+
+/* ── Headings ──────────────────────────────────────────────────────────── */
+
+.md-body h1, .md-body h2, .md-body h3,
+.md-body h4, .md-body h5, .md-body h6 {
+    color: var(--sg-heading, #f7fafc);
+    font-weight: 600;
+    line-height: 1.3;
+    margin: 1.8em 0 0.6em;
+    scroll-margin-top: 1rem;
+}
+.md-body > :first-child { margin-top: 0; }
+
+.md-body h1 { font-size: 1.9em; }
+.md-body h2 { font-size: 1.5em; border-bottom: 1px solid var(--sg-border, #2d3748); padding-bottom: 0.3em; }
+.md-body h3 { font-size: 1.25em; }
+.md-body h4 { font-size: 1.05em; }
+.md-body h5 { font-size: 0.95em; }
+.md-body h6 { font-size: 0.9em; color: var(--sg-text-dim, #a0aec0); }
+
+/* ── Text ──────────────────────────────────────────────────────────────── */
+
+.md-body p  { margin: 0 0 1em; }
+.md-body hr { border: none; border-top: 1px solid var(--sg-border, #2d3748); margin: 2em 0; }
+
+.md-body a         { color: var(--sg-link, #63b3ed); text-decoration: none; }
+.md-body a:hover   { text-decoration: underline; }
+.md-body strong    { color: var(--sg-heading, #f7fafc); font-weight: 600; }
+.md-body del       { opacity: 0.6; }
+
+.md-body ul, .md-body ol { margin: 0 0 1em; padding-left: 1.6em; }
+.md-body li              { margin: 0.3em 0; }
+
+.md-body blockquote {
+    margin: 0 0 1em;
+    padding: 0.1em 1em;
+    border-left: 3px solid var(--sg-accent, #4299e1);
+    background: var(--sg-surface, rgba(255, 255, 255, 0.03));
+    color: var(--sg-text-dim, #a0aec0);
+}
+.md-body blockquote > :last-child { margin-bottom: 0; }
+
+/* ── Code ──────────────────────────────────────────────────────────────── */
+
+.md-body code {
+    background: var(--sg-code-bg, rgba(255, 255, 255, 0.08));
+    border-radius: 3px;
+    font-family: var(--sg-font-mono, ui-monospace, "SF Mono", Menlo, monospace);
+    font-size: 0.88em;
+    padding: 0.15em 0.4em;
+}
+.md-body pre.md-code {
+    background: var(--sg-code-block-bg, rgba(0, 0, 0, 0.35));
+    border: 1px solid var(--sg-border, #2d3748);
+    border-radius: 6px;
+    margin: 0 0 1em;
+    overflow-x: auto;
+    padding: 0.9em 1.1em;
+}
+.md-body pre.md-code code {
+    background: none;
+    font-size: 0.85em;
+    line-height: 1.55;
+    padding: 0;
+}
+
+/* ── Tables ────────────────────────────────────────────────────────────── */
+
+.md-body .md-table {
+    border-collapse: collapse;
+    display: block;
+    margin: 0 0 1.2em;
+    max-width: 100%;
+    overflow-x: auto;      /* wide tables scroll rather than stretching the page */
+}
+.md-body .md-table th,
+.md-body .md-table td {
+    border: 1px solid var(--sg-border, #2d3748);
+    padding: 0.5em 0.8em;
+}
+.md-body .md-table th      { background: var(--sg-surface, rgba(255, 255, 255, 0.04)); font-weight: 600; }
+.md-body .md-table tbody tr:nth-child(even) { background: rgba(255, 255, 255, 0.02); }
+
+.md-body .md-ta-left   { text-align: left; }
+.md-body .md-ta-center { text-align: center; }
+.md-body .md-ta-right  { text-align: right; }
+
+/* ── Images ────────────────────────────────────────────────────────────── */
+
+.md-body .md-img {
+    border-radius: 6px;
+    height: auto;
+    margin: 0.5em 0;
+    max-width: 100%;
+}
+
+/* ── Front-matter strip ────────────────────────────────────────────────── */
+
+.md-body .md-frontmatter {
+    align-items: center;
+    border-bottom: 1px dashed var(--sg-border, #2d3748);
+    display: flex;
+    flex-wrap: wrap;
+    font-size: 11px;
+    gap: 6px;
+    margin-bottom: 1.2em;
+    opacity: 0.72;
+    padding: 7px 2px 9px;
+    user-select: none;
+}
+.md-body .md-frontmatter__label {
+    font-size: 10px;
+    letter-spacing: 0.06em;
+    opacity: 0.6;
+    text-transform: uppercase;
+}
+.md-body .md-frontmatter__tag {
+    background: var(--sg-surface, rgba(128, 128, 128, 0.09));
+    border: 1px solid var(--sg-border, rgba(128, 128, 128, 0.22));
+    border-radius: 3px;
+    font-size: 10.5px;
+    padding: 1px 7px;
+}
+
+/* ── Page breaks ───────────────────────────────────────────────────────── */
+/* On screen: a labelled dashed rule, so the author sees where paper will end. */
+
+.md-body .md-page-break {
+    align-items: center;
+    color: var(--sg-text-dim, #a0aec0);
+    display: flex;
+    font-size: 10px;
+    gap: 0.75rem;
+    letter-spacing: 0.12em;
+    margin: 2rem 0 0.5rem;
+    opacity: 0.55;
+    text-transform: uppercase;
+    user-select: none;
+}
+.md-body .md-page-break__rule  { border-top: 1px dashed currentColor; flex: 1; height: 0; }
+.md-body .md-page-break__label { border: 1px dashed currentColor; border-radius: 3px; flex-shrink: 0; padding: 1px 6px; }
+
+/* ── Print ─────────────────────────────────────────────────────────────── */
+
+@media print {
+    .md-body {
+        color: #000;
+        font-size: 11pt;
+        line-height: 1.55;
+    }
+    .md-body h1, .md-body h2, .md-body h3,
+    .md-body h4, .md-body h5, .md-body h6 { color: #000; page-break-after: avoid; }
+    .md-body h2                           { border-bottom-color: #ccc; }
+    .md-body a                            { color: #000; text-decoration: underline; }
+    .md-body strong                       { color: #000; }
+
+    .md-body pre.md-code {
+        background: #f6f6f6;
+        border-color: #ddd;
+        page-break-inside: avoid;
+        white-space: pre-wrap;      /* paper cannot scroll sideways */
+        word-break: break-word;
+    }
+    .md-body code                  { background: #f0f0f0; }
+    .md-body blockquote            { background: none; border-left-color: #999; color: #333; }
+    .md-body .md-table             { display: table; page-break-inside: avoid; width: 100%; }
+    .md-body .md-table th          { background: #f0f0f0; }
+    .md-body .md-table th,
+    .md-body .md-table td          { border-color: #bbb; }
+    .md-body .md-table tbody tr:nth-child(even) { background: none; }
+    .md-body img, .md-body figure  { page-break-inside: avoid; }
+
+    /* Screen-only chrome. */
+    .md-body .md-frontmatter { display: none; }
+
+    /* The marker itself is invisible; its job on paper is the break. */
+    .md-body .md-page-break {
+        border: none;
+        display: block;
+        height: 0;
+        margin: 0;
+        page-break-after: always;
+        visibility: hidden;
+    }
+    .md-body .md-page-break__rule,
+    .md-body .md-page-break__label { display: none; }
+}

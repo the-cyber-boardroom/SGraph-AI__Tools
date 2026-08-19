@@ -1,0 +1,95 @@
+<!DOCTYPE html>
+<html lang="en-GB">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Markdown Viewer — tools.sgraph.ai</title>
+    <meta name="description" content="Open a markdown file and read it properly — or print it. Drop a file, paste text, or point at a URL. Front matter, page breaks, tables and images, all rendered in your browser. Nothing is uploaded.">
+
+    <script type="module" src="https://dev.sgraph.ai/_common/js/components/sg-site-header/v1/v1.0/v1.0.6/sg-site-header.js"></script>
+    <script type="module">
+        import { loadManifest } from '/core/manifest-loader/v0/v0.1/v0.1.0/manifest-loader.js';
+        await loadManifest('./manifest.json');
+    </script>
+
+    <link rel="stylesheet" href="/core/markdown/v1/v1.1/v1.1.0/sg-markdown.css">
+    <link rel="stylesheet" href="./styles/mv.css">
+</head>
+<body>
+
+<sg-site-header site="Tools">
+    <div slot="locale" id="locale-picker"></div>
+</sg-site-header>
+
+<!-- ── Toolbar ─────────────────────────────────────────────────────────── -->
+<header class="mv-toolbar" id="mv-toolbar">
+    <div class="mv-toolbar__title">
+        <span class="mv-toolbar__icon" aria-hidden="true">📄</span>
+        <div>
+            <div class="mv-toolbar__name" id="mv-name">No document</div>
+            <div class="mv-toolbar__meta" id="mv-meta"></div>
+        </div>
+    </div>
+    <div class="mv-toolbar__actions">
+        <button type="button" id="mv-toggle-source" class="mv-btn" aria-pressed="false"
+                title="Switch between the rendered document and its raw source">Source</button>
+        <button type="button" id="mv-toggle-wide" class="mv-btn" aria-pressed="false"
+                title="Use the full window width instead of a reading measure">Wide</button>
+        <button type="button" id="mv-print" class="mv-btn mv-btn--primary"
+                title="Print or save as PDF (⌘/Ctrl-P)">Print</button>
+        <button type="button" id="mv-close" class="mv-btn mv-btn--ghost"
+                title="Close this document">Close</button>
+    </div>
+</header>
+
+<!-- ── Empty state: the four ways in ───────────────────────────────────── -->
+<section class="mv-empty" id="mv-empty">
+    <div class="mv-drop" id="mv-drop" role="button" tabindex="0"
+         aria-label="Choose a markdown file, or drop one anywhere on this page">
+        <span class="mv-drop__icon" aria-hidden="true">📄</span>
+        <p class="mv-drop__title">Drop a markdown file here</p>
+        <p class="mv-drop__hint">or click to choose one — <code>.md</code>, <code>.markdown</code>, <code>.txt</code></p>
+        <input type="file" id="mv-file" accept=".md,.markdown,.mdown,.mkd,.txt,text/markdown,text/plain" hidden>
+    </div>
+
+    <p class="mv-error" id="mv-error" role="alert" hidden></p>
+
+    <div class="mv-alt">
+        <div class="mv-alt__col">
+            <label class="mv-label" for="mv-url">Open from a URL</label>
+            <div class="mv-row">
+                <input type="url" id="mv-url" class="mv-input" placeholder="https://example.com/README.md"
+                       autocomplete="off" spellcheck="false">
+                <button type="button" id="mv-url-go" class="mv-btn">Open</button>
+            </div>
+            <p class="mv-note">
+                Fetched by your browser, so the host must allow cross-origin reads.
+                You can also link straight to a document with <code>?url=</code>.
+            </p>
+        </div>
+
+        <div class="mv-alt__col">
+            <label class="mv-label" for="mv-paste">Or paste markdown</label>
+            <textarea id="mv-paste" class="mv-textarea" rows="5"
+                      placeholder="# Heading&#10;&#10;Some **markdown**…" spellcheck="false"></textarea>
+            <button type="button" id="mv-paste-go" class="mv-btn">Render</button>
+        </div>
+    </div>
+
+    <p class="mv-privacy">
+        Everything happens in this tab. No file you open is ever uploaded.
+    </p>
+</section>
+
+<!-- ── Reading pane ────────────────────────────────────────────────────── -->
+<main class="mv-main" id="mv-main" hidden>
+    <nav class="mv-outline" id="mv-outline" aria-label="Document outline"></nav>
+    <div class="mv-page">
+        <article class="md-body" id="mv-rendered"></article>
+        <pre class="mv-source" id="mv-source" hidden></pre>
+    </div>
+</main>
+
+<script type="module" src="./api/mv-api.js"></script>
+</body>
+</html>

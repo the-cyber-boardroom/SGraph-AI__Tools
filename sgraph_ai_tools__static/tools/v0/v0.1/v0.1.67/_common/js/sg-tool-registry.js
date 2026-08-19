@@ -91,6 +91,10 @@
        of exactly 30 s: a fixed absolute silence threshold sat below that
        recording's noise floor, and nothing plotted the distribution it was being
        compared against.
+     - Added 'markdown-viewer' under Misc. Open a .md file and read or print it,
+       on the new core/markdown v1.1.0 (blocks, inline, front matter, escaping,
+       stylesheet). Landed on a sibling branch and merged here; the two tools are
+       independent and share only this registry.
    ================================================================================= */
 
 /**
@@ -118,7 +122,7 @@ const TOOL_SLUGS = [
     // Developer Sandbox
     'vfs-dev', 'vfs-tree-demo', 'sg-tree-demo', 'send-sim', 'vault-pyodide',
     // Misc
-    'speed-test', 'linkedin-publisher',
+    'speed-test', 'linkedin-publisher', 'markdown-viewer',
 ];
 
 /**
