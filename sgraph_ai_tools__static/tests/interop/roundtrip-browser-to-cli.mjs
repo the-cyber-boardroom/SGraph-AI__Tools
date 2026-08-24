@@ -16,8 +16,8 @@ const HERE        = dirname(fileURLToPath(import.meta.url));
 const STATIC_ROOT = resolvePath(HERE, '../..');
 register('./site-root-loader.mjs', import.meta.url, { data: { staticRoot: STATIC_ROOT } });
 
-const { createVault }   = await import('/core/vault-init/v1/v1.0/v1.0.0/sg-vault-init.js');
-const { createSession } = await import('/core/vault-session/v1/v1.0/v1.0.0/sg-vault-session.js');
+const { createVault }   = await import('/core/vault-init/v1/v1.0/v1.0.1/sg-vault-init.js');
+const { createSession } = await import('/core/vault-session/v1/v1.0/v1.0.1/sg-vault-session.js');
 const { addFile }       = await import('/core/vault-mutations/v1/v1.0/v1.0.0/sg-vault-mutations.js');
 
 const API   = process.env.API_BASE || 'http://127.0.0.1:8899';

@@ -1,0 +1,20 @@
+<!DOCTYPE html>
+<html lang="en-GB">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Vault Manager — SGraph Tools</title>
+    <link rel="stylesheet" href="/components/tokens/v1/v1.0/v1.0.0/sg-tokens.css">
+    <!-- GIS must load unconditionally — sg-auth-google only renders when signed out,
+         so without this tag, google.accounts.oauth2 is never available on refresh. -->
+    <script src="https://accounts.google.com/gsi/client" async></script>
+    <script type="module" src="./vault-mgr.js"></script>
+    <style>html,body{height:100%;margin:0;overflow:hidden;background:#080812;}</style>
+</head>
+<body>
+    <sg-site-header site="Send">
+        <div slot="locale" id="locale-picker"></div>
+    </sg-site-header>
+    <div id="layout-wrap" style="height:calc(100vh - 52px);background:#080812;"></div>
+</body>
+</html>

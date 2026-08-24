@@ -25,9 +25,19 @@ sgit's own crypto: read key, write key, named HEAD ref ID, branch index ID and
 branch ref IDs must match byte for byte, and `fileIdToPath()` must resolve each
 object type to the directory sgit actually writes to.
 
-**It currently fails 5 of 23 cases. Those failures are the point** — they pin
-the two shipped defects the review documents. The suite goes green when those
-are fixed, and stays green as a regression guard.
+It passes 24/24 against `vault-client` v1.2.3, `vault-cache` v1.0.1,
+`vault-write` v1.1.2 and `vault-session` v1.0.1. It failed 5 of those cases
+against the versions that shipped before them — the two defects the review
+documents — so it is a live regression guard, not a rubber stamp.
+
+## The compatibility guard
+
+Proves the interop fix was additive: every pre-existing key form derives exactly
+as it did through the previous module versions.
+
+```bash
+node sgraph_ai_tools__static/tests/interop/key-compat.test.mjs
+```
 
 ## The thorough one — full round trip
 
@@ -43,7 +53,7 @@ does the reverse. Needs Python and network access to install sgit once.
 | `SGIT` | — | Path to an existing sgit; skips the temp-venv install |
 | `SGIT_VERSION` | `0.16.0` | Version to install when `SGIT` is unset |
 | `KV_PORT` | `8899` | Port for the local KV store |
-| `STRIP_PREFIX` | `1` | `0` reproduces the shipped bug — the run then fails as it should |
+| `STRIP_PREFIX` | `1` | `0` opts out of prefix stripping, reproducing the pre-v1.2.3 failure |
 
 Direction 1 runs `sgit init && sgit commit && sgit push`, then opens the result
 with `vault-write` + `vault-session` and decrypts every file. Direction 2 mints a
@@ -55,6 +65,7 @@ then `sgit clone`s it and compares the checked-out files.
 | File | Role |
 |---|---|
 | `sgit-derivation-parity.test.mjs` | The fast test |
+| `key-compat.test.mjs` | Old vs new derivation for pre-existing keys |
 | `sgit-golden-vectors.json` | CLI-produced expectations — never hand-edit |
 | `regenerate-vectors.py` | Rebuilds the vectors from sgit's own crypto |
 | `run-roundtrip.sh` | Drives the full two-direction round trip |

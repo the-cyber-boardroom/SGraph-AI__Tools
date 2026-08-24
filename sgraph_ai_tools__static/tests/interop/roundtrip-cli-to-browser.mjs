@@ -6,7 +6,8 @@
  *   API_BASE   — KV store base URL
  *   VAULT_KEY  — the vault key exactly as sgit printed it (prefix included)
  *   EXPECTED   — JSON object of { "/path": "contents" } the CLI committed
- *   STRIP_PREFIX — "1" to strip the sgit key prefix before deriving
+ *   STRIP_PREFIX — "0" to keep the sgit key prefix in the passphrase, which
+ *                  reproduces the pre-v1.2.3 failure. Defaults to stripping.
  */
 import { register } from 'node:module';
 import { fileURLToPath } from 'node:url';
@@ -16,28 +17,18 @@ const HERE        = dirname(fileURLToPath(import.meta.url));
 const STATIC_ROOT = resolvePath(HERE, '../..');
 register('./site-root-loader.mjs', import.meta.url, { data: { staticRoot: STATIC_ROOT } });
 
-const { deriveWriteKeys } = await import('/core/vault-write/v1/v1.1/v1.1.1/sg-vault-write.js');
-const { createSession }   = await import('/core/vault-session/v1/v1.0/v1.0.0/sg-vault-session.js');
+const { deriveWriteKeys } = await import('/core/vault-write/v1/v1.1/v1.1.2/sg-vault-write.js');
+const { parseVaultKey }   = await import('/core/vault-client/v1/v1.2/v1.2.3/sg-vault-client.js');
+const { createSession }   = await import('/core/vault-session/v1/v1.0/v1.0.1/sg-vault-session.js');
 
 const API       = process.env.API_BASE || 'http://127.0.0.1:8899';
 const VAULT_KEY = process.env.VAULT_KEY;
 const EXPECTED  = JSON.parse(process.env.EXPECTED || '{}');
-const STRIP     = process.env.STRIP_PREFIX === '1';
+const STRIP     = process.env.STRIP_PREFIX !== '0';
 
-const SGIT_KEY_PREFIXES = ['sgit_private_vault_', 'sgit_private_read_', 'sgit_public_read_',
-                           'sgit_vk1_', 'sgit_rk1_'];
-
-function stripSgitKeyPrefix(key) {
-    key = (key || '').trim();
-    for (const p of SGIT_KEY_PREFIXES) if (key.startsWith(p)) return key.slice(p.length);
-    return key;
-}
-
-// How sg-vault-connect v0.1.3 splits a pasted key (lines 248-251).
-const raw        = STRIP ? stripSgitKeyPrefix(VAULT_KEY) : VAULT_KEY;
-const lastColon  = raw.lastIndexOf(':');
-const passphrase = raw.slice(0, lastColon);
-const vaultId    = raw.slice(lastColon + 1);
+// STRIP_PREFIX=0 opts out of prefix stripping, reproducing the pre-v1.2.3
+// behaviour that made CLI-made vaults unreachable. Anything else is the default.
+const { passphrase, vaultId } = parseVaultKey(VAULT_KEY, { stripSgitPrefix: STRIP });
 
 const keys = await deriveWriteKeys(passphrase, vaultId);
 console.log(`  key prefix stripped : ${STRIP}`);
