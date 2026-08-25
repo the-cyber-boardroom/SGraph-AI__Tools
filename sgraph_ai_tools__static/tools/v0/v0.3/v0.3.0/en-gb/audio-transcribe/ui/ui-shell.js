@@ -16,7 +16,7 @@
  * @module audio-transcribe/ui-shell
  */
 
-import { SGL_EVENTS } from '../../../../../../../core/sg-layout/v0.1.0/sg-layout-events.js';
+import { SGL_EVENTS } from '/core/sg-layout/v0.1.0/sg-layout-events.js';
 import { mountSource } from './ui-source.js';
 import { mountQueue } from './ui-queue.js';
 import { mountModel } from './ui-model.js';

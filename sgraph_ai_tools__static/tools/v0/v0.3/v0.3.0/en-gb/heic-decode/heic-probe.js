@@ -17,7 +17,7 @@
  * @module heic-probe
  */
 
-import * as sgImage from '../../../../../core/image/v1/v1.0/v1.0.0/sg-image.js';
+import * as sgImage from '/core/image/v1/v1.0/v1.0.0/sg-image.js';
 
 // heic-to: ESM with named exports { heicTo, isHeic }. ~2.7 MB single bundle.
 const HEIC_TO_CDN_URL = 'https://cdn.jsdelivr.net/npm/heic-to@1.4.2/dist/heic-to.min.js';

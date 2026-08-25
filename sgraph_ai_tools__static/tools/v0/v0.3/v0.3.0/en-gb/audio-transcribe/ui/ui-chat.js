@@ -16,7 +16,7 @@
  * @module audio-transcribe/ui-chat
  */
 
-import { SGL_LLM } from '../../../../../../../components/llm/sg-llm-events/v0/v0.1/v0.1.0/sg-llm-events.js';
+import { SGL_LLM } from '/components/llm/sg-llm-events/v0/v0.1/v0.1.0/sg-llm-events.js';
 import { fetchGenerationCostDeferred } from '../api/openrouter-cost.js';
 
 const KEY_STORAGE = 'sg-openrouter-mgmt-key';

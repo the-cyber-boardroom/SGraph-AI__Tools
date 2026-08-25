@@ -1,8 +1,18 @@
 {
-    "id": "vault-mgr",
-    "name": "Vault Manager",
-    "version": "0.1.51",
-    "description": "Manage vaults backed by Google Drive App Data. Vault registry is stored per-user in Drive App Data (hidden, per-app, cross-device). Connect to vault servers and browse files.",
-    "icon": "🏛",
-    "locale": "en-gb"
+  "name": "Vault Manager",
+  "slug": "vault-mgr",
+  "description": "Manage vaults backed by Google Drive App Data. Vault registry is stored per-user in Drive App Data (hidden, per-app, cross-device). Connect to vault servers and browse files.",
+  "icon": "\ud83c\udfdb",
+  "version": "0.1.51",
+  "status": "dev",
+  "category": "vault",
+  "keywords": [
+    "vault",
+    "drive",
+    "appdata",
+    "registry",
+    "manager"
+  ],
+  "locale": "en-gb",
+  "id": "vault-mgr"
 }

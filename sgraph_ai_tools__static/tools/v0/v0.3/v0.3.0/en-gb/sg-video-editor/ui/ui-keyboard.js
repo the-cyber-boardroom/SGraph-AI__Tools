@@ -22,7 +22,7 @@
  * piercing logic is defined exactly once.
  */
 
-import { isTextEntryFocus } from '../../../../../../../components/sg-timeline/v0/v0.1/v0.1.1/timeline-focus.js';
+import { isTextEntryFocus } from '/components/sg-timeline/v0/v0.1/v0.1.1/timeline-focus.js';
 
 function emitErr(step, err) {
     document.dispatchEvent(new CustomEvent('tool:error', {

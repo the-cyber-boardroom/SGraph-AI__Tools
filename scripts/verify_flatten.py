@@ -19,6 +19,11 @@ Two modes:
                      while the v0.1.x folders still exist: it keeps catching the
                      failure that matters — a tool added the old way, to a
                      v0.1.x folder, that never reaches the release being shipped.
+  --allow-modifications
+                     the flat release may also have edited content. Add this once
+                     the flat release is being developed on its own; together with
+                     --allow-additions it reduces the check to pure path coverage,
+                     which is exactly the frozen-tree guard that remains useful.
 
 Usage:
   python scripts/verify_flatten.py \\
@@ -87,6 +92,10 @@ def main():
     ap.add_argument("--source-dir", required=True)
     ap.add_argument("--ifd-base",   required=True, help="e.g. tools/v0/v0.1")
     ap.add_argument("--flat",       required=True, help="e.g. tools/v0/v0.3/v0.3.0")
+    ap.add_argument("--allow-modifications", action="store_true",
+                    help="Do not fail on content differences between the two trees. Use once the "
+                         "flat release is being edited on its own (Phase 4 onwards): what still "
+                         "matters is that no PATH the old tree served has gone missing.")
     ap.add_argument("--allow-additions", action="store_true",
                     help="Do not fail on files present in the flat release but absent from the "
                          "layered result. Use once development has moved to the flat release: "
@@ -113,8 +122,9 @@ def main():
 
     missing   = sorted(set(winners) - set(flat))
     extra     = sorted(set(flat) - set(winners))
-    differing = sorted(rel for rel in set(winners) & set(flat)
-                       if sha256(winners[rel]) != sha256(flat[rel]))
+    differing = ([] if args.allow_modifications
+                 else sorted(rel for rel in set(winners) & set(flat)
+                             if sha256(winners[rel]) != sha256(flat[rel])))
 
     unexpected_missing = [r for r in missing if not covered(r, ALLOWED_REMOVALS)]
     unexpected_extra   = ([] if args.allow_additions
@@ -164,7 +174,13 @@ def main():
         print(f"  ({allowed} deviation(s) matched an explicit allow-list entry)")
 
     if ok:
-        if args.allow_additions and extra:
+        if args.allow_modifications:
+            print(f"PASS: every path the layered result serves still exists in the flat "
+                  f"release ({len(winners)} paths checked).")
+            if extra:
+                print(f"      {len(extra)} file(s) exist only in the flat release.")
+            print(f"      Content differences were not checked (--allow-modifications).")
+        elif args.allow_additions and extra:
             print(f"PASS: every file the layered result serves is present and identical in the "
                   f"flat release ({len(winners)} files verified).")
             print(f"      {len(extra)} file(s) exist only in the flat release — expected, since "

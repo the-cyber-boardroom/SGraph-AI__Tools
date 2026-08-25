@@ -1,9 +1,19 @@
 {
-  "id": "auth-mvp",
   "name": "Auth MVP",
-  "version": "0.1.50",
+  "slug": "auth-mvp",
   "description": "MVP testing ground for auth building blocks: Google OAuth, token storage, credential manager, and vault picker.",
-  "icon": "🔐",
+  "icon": "\ud83d\udd10",
+  "version": "0.1.50",
+  "status": "dev",
+  "category": "dev",
+  "keywords": [
+    "auth",
+    "oauth",
+    "google",
+    "tokens",
+    "credentials",
+    "vault"
+  ],
   "locale": "en-gb",
   "dependencies": {
     "components": [
@@ -24,13 +34,42 @@
     ]
   },
   "checks": [
-    { "id": "status",   "label": "Auth Status",       "description": "Detect current auth state across providers" },
-    { "id": "google",   "label": "Google OAuth",       "description": "Google Identity Services sign-in flow" },
-    { "id": "tokens",   "label": "Token Storage",      "description": "Save/get/list/expire tokens in localStorage" },
-    { "id": "user",     "label": "User Profile",       "description": "Display client-side user info from tokens" },
-    { "id": "logout",   "label": "Logout Workflow",    "description": "Sign out and clear token state" },
-    { "id": "credstore","label": "Credential Store",   "description": "Store/retrieve secrets via browser password manager" },
-    { "id": "credlist", "label": "Credential List",    "description": "List credentials stored by this app" }
+    {
+      "id": "status",
+      "label": "Auth Status",
+      "description": "Detect current auth state across providers"
+    },
+    {
+      "id": "google",
+      "label": "Google OAuth",
+      "description": "Google Identity Services sign-in flow"
+    },
+    {
+      "id": "tokens",
+      "label": "Token Storage",
+      "description": "Save/get/list/expire tokens in localStorage"
+    },
+    {
+      "id": "user",
+      "label": "User Profile",
+      "description": "Display client-side user info from tokens"
+    },
+    {
+      "id": "logout",
+      "label": "Logout Workflow",
+      "description": "Sign out and clear token state"
+    },
+    {
+      "id": "credstore",
+      "label": "Credential Store",
+      "description": "Store/retrieve secrets via browser password manager"
+    },
+    {
+      "id": "credlist",
+      "label": "Credential List",
+      "description": "List credentials stored by this app"
+    }
   ],
-  "phase2": "team/explorer/dev/plans/v0.1.50__auth-mvp__phase2-vault-pki-integration.md"
+  "phase2": "team/explorer/dev/plans/v0.1.50__auth-mvp__phase2-vault-pki-integration.md",
+  "id": "auth-mvp"
 }

@@ -121,14 +121,16 @@ jobs:
         # Self-disabling: drops out once the v0.1.x delta folders are removed.
         run: |
           if [ -d "${{ env.SOURCE_DIR }}/tools/v0/v0.1" ]; then
-            # --allow-additions: content added to v0.3.0 after the flatten is
-            # expected. What must never happen is a tool added the old way, to
-            # a v0.1.x folder, silently not reaching the release that ships.
+            # v0.1.x is frozen and v0.3.0 is now developed on its own, so both
+            # additions and edits are expected. What must never happen is a tool
+            # added the old way, to a v0.1.x folder, silently not reaching the
+            # release that ships — that is the path coverage this still checks.
             python scripts/verify_flatten.py \
               --source-dir ${{ env.SOURCE_DIR }} \
               --ifd-base   tools/v0/v0.1 \
               --flat       ${{ env.RELEASE_DIR }} \
-              --allow-additions
+              --allow-additions \
+              --allow-modifications
           else
             echo "Legacy tools/v0/v0.1 is gone — nothing to compare against. Skipping."
           fi
