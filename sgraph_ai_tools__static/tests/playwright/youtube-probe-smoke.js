@@ -115,6 +115,76 @@ async function run() {
         assert(/M4/.test(report.markdown), 'the report names M4, the question the pack hinges on');
         assert(/blocked|not run/i.test(report.markdown), 'and states the manual tests were not run');
 
+        // ------------------------------------------------------------------
+        // Regressions from the first LIVE run (25 Aug 2026). Each of these was a
+        // real defect that the offline battery could not have caught, because
+        // each needed either a Google token or a browser that misbehaved.
+        // ------------------------------------------------------------------
+
+        // 1. trackKind is returned lowercase 'asr'. A `=== 'ASR'` test reported a
+        //    video's only (auto-generated) track as "0 auto-generated", while M4
+        //    downloaded that same track and called it asr. They must agree.
+        const asrCases = await page.evaluate(async () => {
+            const m = await import('./api/yp-youtube.js');
+            return {
+                lower: m.isAsr({ trackKind: 'asr' }),
+                upper: m.isAsr({ trackKind: 'ASR' }),
+                standard: m.isAsr({ trackKind: 'standard' }),
+                missing: m.isAsr({}),
+            };
+        });
+        assert(asrCases.lower && asrCases.upper, 'an ASR track is recognised in either case');
+        assert(!asrCases.standard && !asrCases.missing, 'and a standard or absent trackKind is not');
+
+        // 2. An empty 200 from the undocumented timedtext endpoint is a refusal
+        //    wearing a success code. It read as "Reachable: HTTP 200" — which is
+        //    true and useless. It must not be a pass.
+        const m7 = await page.evaluate(async () => {
+            const real = window.fetch;
+            window.fetch = async (u, ...rest) => (String(u).includes('/api/timedtext')
+                ? new Response('', { status: 200 })
+                : real(u, ...rest));
+            try {
+                await window.__tool.setContext({ otherVideoId: 'dQw4w9WgXcQ' });
+                return await window.__tool.runTest({ id: 'M7' });
+            } finally { window.fetch = real; }
+        });
+        assert(m7.status === 'info', 'M7 — an empty 200 is recorded, not passed', `got ${m7.status}`);
+        assert(/ZERO bytes/.test(m7.detail), 'and the detail says the body was empty');
+
+        // 3. THE one that matters. A fixture that will not record must report
+        //    `error` — the harness broke — and never `fail`, which would print
+        //    the hypothesis-failed narrative about a measurement never taken.
+        const broken = await page.evaluate(async () => {
+            await window.__tool.reset();
+            const real = HTMLCanvasElement.prototype.captureStream;
+            HTMLCanvasElement.prototype.captureStream = function () { throw new Error('no capture in this browser'); };
+            try {
+                const r = await window.__tool.runTest({ id: 'A6' });
+                const rep = await window.__tool.getReport();
+                return { r, markdown: rep.markdown };
+            } finally { HTMLCanvasElement.prototype.captureStream = real; }
+        });
+        assert(broken.r.status === 'error', 'a fixture that cannot record reports ERROR, not fail', `got ${broken.r.status}`);
+        assert(broken.r.evidence?.attempts?.length === 2, 'and it retried once before giving up');
+        assert(!/confident, wrong document/.test(broken.markdown),
+            'the report does NOT print the hypothesis-failed narrative for a broken instrument');
+        assert(/measured nothing/i.test(broken.markdown), 'it says the test measured nothing');
+        assert(!/Every test in the suite ran/.test(broken.markdown),
+            'and an errored test is never counted as having run');
+
+        // 4. The third-party DOWNLOAD question M5 raised but never asked.
+        const ids = await page.evaluate(async () => (await window.__tool.listTests()).tests.map(t => t.id));
+        assert(ids.includes('M9'), 'M9 asks whether a third-party caption BODY can be downloaded');
+        assert(ids.length === 16, 'sixteen tests registered', `got ${ids.length}`);
+
+        // 5. Signing in must be acknowledged where it happened, with the account.
+        const status = await page.evaluate(() => window.__tool.getStatus());
+        assert('channel' in status && 'token' in status,
+            'getStatus reports the signed-in channel and scopes, not just presence');
+        assert(status.channel === null && status.token === null,
+            'and both are null with no token, rather than absent');
+
         await page.evaluate(() => window.__tool.reset());
         const after = await page.evaluate(() => window.__tool.getResults());
         assert(after.total === 0, 'reset clears the results');
