@@ -1,0 +1,118 @@
+{
+  "name": "Send / Receive",
+  "slug": "send-receive",
+  "description": "Send a file, folder, or text via SG/Send and receive it with a token. The JS API primitive for the send/receive workflow — any tool can call sendFile() or drop in <sg-send-drop>.",
+  "icon": "📤",
+  "version": "0.1.49",
+  "status": "live",
+  "category": "vault",
+  "keywords": ["send", "receive", "share", "encrypt", "token", "file", "transfer"],
+  "dependencies": {
+    "core": [
+      { "module": "sg-layout",      "path": "/core/sg-layout/v0.1.0/sg-layout.js" },
+      { "module": "sg-tool-api",    "path": "/core/sg-tool-api/v0/v0.1/v0.1.0/sg-tool-api.js" },
+      { "module": "sg-send-crypto", "path": "/core/send-crypto/v1/v1.0/v1.0.0/sg-send-crypto.js" },
+      { "module": "sg-send-upload", "path": "/core/send-crypto/v1/v1.0/v1.0.0/sg-send-upload.js" }
+    ],
+    "components": [
+      { "module": "sg-send-drop",        "path": "/components/send-drop/v1/v1.0/v1.0.0/sg-send-drop.js" },
+      { "module": "sg-send-receive",     "path": "/components/send-receive/v0/v0.1/v0.1.0/sg-send-receive.js" },
+      { "module": "sg-tool-api-explorer","path": "/components/tool-api/sg-tool-api-explorer/v0/v0.1/v0.1.0/sg-tool-api-explorer.js" },
+      { "module": "sg-tool-api-console", "path": "/components/tool-api/sg-tool-api-console/v0/v0.1/v0.1.0/sg-tool-api-console.js" },
+      { "module": "sg-tool-api-manifest","path": "/components/tool-api/sg-tool-api-manifest/v0/v0.1/v0.1.0/sg-tool-api-manifest.js" }
+    ],
+    "shared": [
+      { "module": "sg-site-header", "path": "/components/site-header/v1/v1.0/v1.0.1/sg-site-header.js" }
+    ]
+  },
+  "api": {
+    "version": "0.1.0",
+    "note": "window.__tool is live after page load. Access token required for send operations.",
+    "events": [
+      { "name": "tool:ready",              "when": "activate() called",        "detail": "{ instanceId, tool, version }" },
+      { "name": "tool:generation:complete","when": "sendFile/sendText succeeds","detail": "{ instanceId, token, transferId, url }" },
+      { "name": "tool:generation:error",   "when": "send or receive fails",    "detail": "{ instanceId, error }" }
+    ],
+    "actions": {
+      "sendFile": {
+        "params": {
+          "fileOrBlob": { "type": "File|Blob", "required": true },
+          "opts": {
+            "type": "object", "optional": true,
+            "properties": {
+              "accessToken": { "type": "string", "secret": true, "note": "Falls back to stored token if omitted" },
+              "filename":    { "type": "string", "note": "Inferred from File.name if omitted" },
+              "sendUrl":     { "type": "string", "note": "Defaults to auto-detected env URL" },
+              "onProgress":  { "type": "function", "note": "({ percent, stage }) => void" }
+            }
+          }
+        },
+        "returns": "Promise<{ token: string, transferId: string, url: string }>",
+        "async": true,
+        "note": "Encrypts (AES-256-GCM) + uploads to SG/Send. Token is the share credential."
+      },
+      "sendText": {
+        "params": {
+          "text": { "type": "string", "required": true },
+          "opts": { "type": "object", "optional": true, "note": "Same as sendFile opts. filename defaults to 'message.txt'" }
+        },
+        "returns": "Promise<{ token: string, transferId: string, url: string }>",
+        "async": true
+      },
+      "sendFolder": {
+        "params": {
+          "files": { "type": "Array<File|{blob,filename}>", "required": true, "note": "Files zipped via JSZip before upload" },
+          "opts":  { "type": "object", "optional": true, "note": "Same as sendFile opts. filename defaults to 'folder-{ts}.zip'" }
+        },
+        "returns": "Promise<{ token: string, transferId: string, url: string }>",
+        "async": true
+      },
+      "receiveFile": {
+        "params": {
+          "token": { "type": "string", "required": true, "note": "Friendly token: word-word-NNNN" }
+        },
+        "returns": "Promise<{ filename: string, blob: Blob, objectUrl: string, token: string, transferId: string }>",
+        "async": true,
+        "note": "Downloads + decrypts the file. Revoke objectUrl when done to avoid memory leaks."
+      },
+      "receiveText": {
+        "params": { "token": { "type": "string", "required": true } },
+        "returns": "Promise<string>",
+        "async": true,
+        "note": "Calls receiveFile then reads blob as text. For text files only."
+      },
+      "receiveFolder": {
+        "params": { "token": { "type": "string", "required": true } },
+        "returns": "Promise<{ files: Array<{ filename: string, blob: Blob }>, token: string, transferId: string }>",
+        "async": true,
+        "note": "Downloads the zip, then unzips via JSZip. Returns individual file blobs."
+      },
+      "getHistory": {
+        "params": {},
+        "returns": "Array<{ type: 'sent'|'received', token, transferId, url?, filename?, timestamp }>",
+        "async": false
+      },
+      "clearHistory": { "params": {}, "returns": "void", "async": false },
+      "getState": {
+        "params": {},
+        "returns": "{ hasAccessToken: boolean, sendUrl: string, history: Array }",
+        "async": false
+      },
+      "setToken": {
+        "params": { "0": { "type": "string", "note": "Pre-fills the Receive panel token input" } },
+        "returns": "void",
+        "async": false
+      },
+      "setAccessToken": {
+        "params": { "0": { "type": "string", "secret": true, "note": "Saved to localStorage as sgraph-send-token" } },
+        "returns": "void",
+        "async": false
+      }
+    },
+    "skills": {
+      "human":   "./SKILL-human.md",
+      "browser": "./SKILL-browser.md",
+      "api":     "./SKILL-api.md"
+    }
+  }
+}

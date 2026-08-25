@@ -1,0 +1,96 @@
+/* export.css — export controls, config rows, action buttons, log */
+
+/* ── Narration textarea ───────────────────────────────────────────── */
+
+.vc-narration-textarea {
+    width: 100%;
+    background: var(--vc-surface);
+    border: 1px solid var(--vc-border);
+    border-top: none;
+    border-radius: 0 0 var(--vc-radius) var(--vc-radius);
+    color: var(--vc-text);
+    font-size: 0.9rem;
+    font-family: inherit;
+    line-height: 1.55;
+    padding: 10px 12px;
+    resize: vertical;
+    min-height: 100px;
+}
+.vc-narration-textarea:focus {
+    outline: none;
+    border-color: var(--vc-accent);
+}
+.vc-narration-textarea:disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
+}
+
+.vc-char-count { font-size: 0.75rem; color: var(--vc-text-muted); }
+.vc-narration-hint { font-size: 0.75rem; color: var(--vc-text-muted); padding: 4px 12px 0; }
+
+/* ── Config rows ──────────────────────────────────────────────────── */
+
+.vc-export-controls {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    padding: 10px 12px;
+    background: var(--vc-surface);
+    border: 1px solid var(--vc-border);
+    border-top: none;
+}
+
+.vc-config-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    font-size: 0.85rem;
+}
+.vc-config-row label {
+    width: 60px;
+    flex-shrink: 0;
+    color: var(--vc-text-muted);
+    font-size: 0.8rem;
+}
+.vc-config-row select,
+.vc-config-row input[type="range"] {
+    flex: 1;
+    background: var(--vc-surface-2);
+    border: 1px solid var(--vc-border);
+    border-radius: var(--vc-radius);
+    color: var(--vc-text);
+    padding: 4px 8px;
+    font-size: 0.85rem;
+}
+.vc-config-row select:focus { outline: none; border-color: var(--vc-accent); }
+
+/* ── Action buttons ───────────────────────────────────────────────── */
+
+.vc-action-buttons {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    padding: 10px 12px;
+    background: var(--vc-surface);
+    border: 1px solid var(--vc-border);
+    border-top: none;
+}
+
+/* ── Log ──────────────────────────────────────────────────────────── */
+
+.vc-export-log {
+    flex: 1;
+    overflow-y: auto;
+    background: var(--vc-surface);
+    border: 1px solid var(--vc-border);
+    border-top: none;
+    border-radius: 0 0 var(--vc-radius) var(--vc-radius);
+    padding: 8px 12px;
+    font-size: 0.78rem;
+    font-family: monospace;
+    color: var(--vc-text-muted);
+    min-height: 80px;
+    max-height: 200px;
+}
+.vc-log-err  { color: var(--vc-danger); }
+.vc-log-line { color: var(--vc-text-muted); }

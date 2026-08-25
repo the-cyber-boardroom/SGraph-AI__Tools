@@ -1,0 +1,36 @@
+{
+  "id": "auth-mvp",
+  "name": "Auth MVP",
+  "version": "0.1.50",
+  "description": "MVP testing ground for auth building blocks: Google OAuth, token storage, credential manager, and vault picker.",
+  "icon": "🔐",
+  "locale": "en-gb",
+  "dependencies": {
+    "components": [
+      "components/auth/sg-auth-tokens/v0/v0.1/v0.1.0/sg-auth-tokens.js",
+      "components/auth/sg-auth-google/v0/v0.1/v0.1.0/sg-auth-google.js",
+      "components/auth/sg-auth-status/v0/v0.1/v0.1.0/sg-auth-status.js",
+      "components/auth/sg-auth-user/v0/v0.1/v0.1.0/sg-auth-user.js",
+      "components/auth/sg-credential-store/v0/v0.1/v0.1.0/sg-credential-store.js",
+      "components/auth/sg-credential-list/v0/v0.1/v0.1.0/sg-credential-list.js",
+      "components/vault/sg-vault-picker/v0/v0.1/v0.1.0/sg-vault-picker.js"
+    ],
+    "core": [],
+    "layout": [
+      "components/layout/sg-layout/v0/v0.1/v0.1.0/sg-layout.js"
+    ],
+    "toolApi": [
+      "components/tool-api/sg-tool-api/v0/v0.1/v0.1.0/sg-tool-api.js"
+    ]
+  },
+  "checks": [
+    { "id": "status",   "label": "Auth Status",       "description": "Detect current auth state across providers" },
+    { "id": "google",   "label": "Google OAuth",       "description": "Google Identity Services sign-in flow" },
+    { "id": "tokens",   "label": "Token Storage",      "description": "Save/get/list/expire tokens in localStorage" },
+    { "id": "user",     "label": "User Profile",       "description": "Display client-side user info from tokens" },
+    { "id": "logout",   "label": "Logout Workflow",    "description": "Sign out and clear token state" },
+    { "id": "credstore","label": "Credential Store",   "description": "Store/retrieve secrets via browser password manager" },
+    { "id": "credlist", "label": "Credential List",    "description": "List credentials stored by this app" }
+  ],
+  "phase2": "team/explorer/dev/plans/v0.1.50__auth-mvp__phase2-vault-pki-integration.md"
+}

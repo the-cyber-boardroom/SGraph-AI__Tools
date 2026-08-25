@@ -1,0 +1,27 @@
+{
+    "id": "linkedin-publisher",
+    "name": "LinkedIn Publisher",
+    "slug": "linkedin-publisher",
+    "description": "Publish to LinkedIn from your browser. Phase 0: connection probe. Phase 1+: OAuth + member-mode posting.",
+    "icon": "in",
+    "version": "0.1.0",
+    "status": "dev",
+    "category": "misc",
+    "keywords": ["linkedin", "social", "publishing", "oauth", "pkce", "probe"],
+    "phase": "0 — verification",
+    "client": {
+        "id": "78tdt0b9upct3u",
+        "redirectUrl": "https://dev.tools.sgraph.ai/en-gb/linkedin-publisher/oauth-callback.html",
+        "scopes": ["openid", "profile", "email", "w_member_social"]
+    },
+    "dependencies": {
+        "shared": [
+            { "module": "sg-site-header", "path": "https://dev.sgraph.ai/_common/js/components/sg-site-header/v1/v1.0/v1.0.6/sg-site-header.js" }
+        ]
+    },
+    "skills": {
+        "human": "(coming in Phase 5)",
+        "browser": "(coming in Phase 5)",
+        "api": "(coming in Phase 5)"
+    }
+}

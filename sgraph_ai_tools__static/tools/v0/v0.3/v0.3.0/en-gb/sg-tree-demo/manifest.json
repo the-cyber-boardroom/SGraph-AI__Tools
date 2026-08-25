@@ -1,0 +1,55 @@
+{
+  "name": "SG Tree Demo",
+  "slug": "sg-tree-demo",
+  "description": "Component demo for sg-tree — a reusable tree-view Web Component. Explore props, events, and styling options.",
+  "icon": "🌳",
+  "version": "0.1.18",
+  "status": "dev",
+  "category": "dev",
+  "keywords": [
+    "sg",
+    "tree",
+    "demo",
+    "component",
+    "visual",
+    "directory"
+  ],
+  "dependencies": {
+    "core": [
+      {
+        "module": "sg-layout-events",
+        "path": "/core/sg-layout/v0.1.0/sg-layout-events.js"
+      },
+      {
+        "module": "sg-layout",
+        "path": "/core/sg-layout/v0.1.0/sg-layout.css"
+      },
+      {
+        "module": "sg-layout",
+        "path": "/core/sg-layout/v0.1.0/sg-layout.js"
+      },
+      {
+        "module": "sg-tree-events",
+        "path": "/core/sg-tree/v0/v0.1/v0.1.0/sg-tree-events.js"
+      },
+      {
+        "module": "sg-tree",
+        "path": "/core/sg-tree/v0/v0.1/v0.1.0/sg-tree.js"
+      },
+      {
+        "module": "sg-tree",
+        "path": "/core/sg-tree/v0/v0.1/v0.1.4/sg-tree--v0.1.4.js"
+      }
+    ],
+    "shared": [
+      {
+        "module": "sg-site-header",
+        "path": "/components/site-header/v1/v1.0/v1.0.2/sg-site-header.js"
+      },
+      {
+        "module": "tools.css",
+        "path": "/_common/css/tools.css"
+      }
+    ]
+  }
+}
