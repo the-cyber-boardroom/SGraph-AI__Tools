@@ -1,0 +1,12 @@
+services:
+  bridge:
+    build: .
+    ports:
+      - "8000:8000"
+    volumes:
+      # ./_sgraph-workspace on the host → /workspace in the container.
+      # The directory is created automatically by Docker if absent.
+      - ./_sgraph-workspace:/workspace
+    environment:
+      - SGRAPH_WORKSPACE=/workspace
+    restart: unless-stopped

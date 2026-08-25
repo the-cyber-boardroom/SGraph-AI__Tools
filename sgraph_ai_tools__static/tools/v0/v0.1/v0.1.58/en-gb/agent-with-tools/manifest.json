@@ -1,0 +1,104 @@
+{
+    "id": "agent-with-tools",
+    "name": "Agent with Tools",
+    "slug": "agent-with-tools",
+    "description": "Browser-based chat agent that reads/writes files, runs bash commands, and fetches URLs on your local machine via a lightweight Docker bridge. Works with Ollama (offline) or OpenRouter (cloud).",
+    "icon": "🛠️",
+    "version": "0.1.58",
+    "status": "live",
+    "category": "developer",
+    "keywords": ["agent", "llm", "ollama", "tools", "files", "bash", "local", "agentic", "openrouter"],
+    "locale": "en-gb",
+    "loader": [
+        { "phase": 1, "type": "css", "path": "/components/tokens/v1/v1.0/v1.0.0/sg-tokens.css" },
+        { "phase": 1, "type": "css", "path": "./styles/agent-with-tools.css" },
+        { "phase": 2, "type": "js",  "path": "/core/sg-layout/v0.1.0/sg-layout.js" },
+        { "phase": 2, "type": "js",  "path": "/components/llm/sg-llm-connection/v0/v0.1/v0.1.4/sg-llm-connection.js" },
+        { "phase": 2, "type": "js",  "path": "/components/llm/sg-llm-request/v0/v0.1/v0.1.6/sg-llm-request.js" },
+        { "phase": 2, "type": "js",  "path": "/components/llm/sg-llm-chat-input/v0/v0.1/v0.1.5/sg-llm-chat-input.js" },
+        { "phase": 2, "type": "js",  "path": "/components/llm/sg-llm-chat-history/v0/v0.1/v0.1.10/sg-llm-chat-history.js" },
+        { "phase": 2, "type": "js",  "path": "/components/llm/sg-llm-stats/v0/v0.1/v0.1.1/sg-llm-stats.js" },
+        { "phase": 2, "type": "js",  "path": "/components/agentic/sg-tool-runner/v0/v0.1/v0.1.1/sg-tool-runner.js" },
+        { "phase": 2, "type": "js",  "path": "/components/agentic/sg-tool-definition/v0/v0.1/v0.1.1/sg-tool-definition.js" },
+        { "phase": 2, "type": "js",  "path": "/components/agentic/sg-agentic-loop/v0/v0.1/v0.1.0/sg-agentic-loop.js" },
+        { "phase": 2, "type": "js",  "path": "/components/agentic/sg-local-bridge/v0/v0.1/v0.1.0/sg-local-bridge.js" },
+        { "phase": 2, "type": "js",  "path": "/components/tool-api/sg-tool-api-explorer/v0/v0.1/v0.1.0/sg-tool-api-explorer.js" },
+        { "phase": 2, "type": "js",  "path": "/components/tool-api/sg-tool-api-console/v0/v0.1/v0.1.0/sg-tool-api-console.js" },
+        { "phase": 2, "type": "js",  "path": "/components/tool-api/sg-tool-api-manifest/v0/v0.1/v0.1.0/sg-tool-api-manifest.js" },
+        { "phase": 2, "type": "js",  "path": "./ui/aw-chat-pane.js" },
+        { "phase": 2, "type": "js",  "path": "./ui/aw-system-prompt.js" },
+        { "phase": 2, "type": "js",  "path": "./ui/aw-bridge-panel.js" },
+        { "phase": 2, "type": "js",  "path": "./ui/aw-model-panel.js" },
+        { "phase": 2, "type": "js",  "path": "./ui/aw-tool-extractor.js" },
+        { "phase": 2, "type": "js",  "path": "./ui/aw-execution-inspector.js" },
+        { "phase": 2, "type": "js",  "path": "./ui/aw-step-tracer.js" },
+        { "phase": 2, "type": "js",  "path": "./ui/aw-pipeline-view.js" },
+        { "phase": 2, "type": "js",  "path": "./ui/aw-loop-coordinator.js" },
+        { "phase": 2, "type": "js",  "path": "./ui/aw-demo-panel.js" },
+        { "phase": 2, "type": "js",  "path": "./ui/aw-execution-log.js" },
+        { "phase": 2, "type": "js",  "path": "./ui/aw-llm-log.js" },
+        { "phase": 2, "type": "js",  "path": "./ui/aw-turn-inspector.js" },
+        { "phase": 2, "type": "js",  "path": "./ui/aw-tool-tester.js" },
+        { "phase": 3, "type": "js",  "path": "./api/agent-with-tools-api.js", "entry": true }
+    ],
+    "dependencies": {
+        "core": [
+            { "module": "sg-tool-api",     "path": "/core/sg-tool-api/v0/v0.1/v0.1.0/sg-tool-api.js" },
+            { "module": "manifest-loader", "path": "/core/manifest-loader/v0/v0.1/v0.1.0/manifest-loader.js" }
+        ],
+        "components": [
+            { "module": "sg-llm-connection",   "path": "/components/llm/sg-llm-connection/v0/v0.1/v0.1.4/sg-llm-connection.js" },
+            { "module": "sg-llm-request",      "path": "/components/llm/sg-llm-request/v0/v0.1/v0.1.6/sg-llm-request.js" },
+            { "module": "sg-llm-chat-input",   "path": "/components/llm/sg-llm-chat-input/v0/v0.1/v0.1.5/sg-llm-chat-input.js" },
+            { "module": "sg-llm-chat-history", "path": "/components/llm/sg-llm-chat-history/v0/v0.1/v0.1.10/sg-llm-chat-history.js" },
+            { "module": "sg-llm-stats",        "path": "/components/llm/sg-llm-stats/v0/v0.1/v0.1.1/sg-llm-stats.js" },
+            { "module": "sg-tool-runner",      "path": "/components/agentic/sg-tool-runner/v0/v0.1/v0.1.1/sg-tool-runner.js" },
+            { "module": "sg-tool-definition",  "path": "/components/agentic/sg-tool-definition/v0/v0.1/v0.1.1/sg-tool-definition.js" },
+            { "module": "sg-agentic-loop",     "path": "/components/agentic/sg-agentic-loop/v0/v0.1/v0.1.0/sg-agentic-loop.js" },
+            { "module": "sg-local-bridge",     "path": "/components/agentic/sg-local-bridge/v0/v0.1/v0.1.0/sg-local-bridge.js" }
+        ]
+    },
+    "api": {
+        "version": "0.1.0",
+        "global": "window.__tool",
+        "events": ["tool:ready"],
+        "actions": {
+            "connect": {
+                "description": "Ping the bridge; resolves with { ok, version, workspace }",
+                "returns": "Promise<{ ok: boolean, version: string, workspace: string }>",
+                "async": true
+            },
+            "chat": {
+                "description": "Send a user message and await the final assistant text",
+                "params": [{ "name": "msg", "type": "string" }],
+                "returns": "Promise<string>",
+                "async": true
+            },
+            "getTranscript": {
+                "description": "Return the full turn array (user/assistant/tool turns)",
+                "returns": "Array<object>"
+            },
+            "getBridgeStatus": {
+                "description": "Return the last known bridge ping result",
+                "returns": "{ ok: boolean, latency_ms: number, workspace: string } | null"
+            },
+            "setProvider": {
+                "description": "Switch the LLM provider (ollama | openrouter)",
+                "params": [{ "name": "name", "type": "string" }]
+            },
+            "setModel": {
+                "description": "Set the model name on sg-llm-request",
+                "params": [{ "name": "name", "type": "string" }]
+            },
+            "clearChat": {
+                "description": "Reset conversation turns",
+                "returns": "void"
+            }
+        }
+    },
+    "skills": {
+        "human":   "./SKILL-human.md",
+        "browser": "./SKILL-browser.md",
+        "api":     "./SKILL-api.md"
+    }
+}

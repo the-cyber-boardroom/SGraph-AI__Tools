@@ -31,7 +31,8 @@ export async function loadManifest(manifestUrl) {
   if (!res.ok) throw new Error(`manifest-loader: failed to fetch ${absoluteManifestUrl} (${res.status})`);
   const manifest = await res.json();
 
-  const loaderEntries = manifest.dependencies?.loader ?? [];
+  // manifest.loader is the canonical location; manifest.dependencies.loader is a legacy fallback.
+  const loaderEntries = manifest.loader ?? manifest.dependencies?.loader ?? [];
 
   // Group by phase
   const phases = {};

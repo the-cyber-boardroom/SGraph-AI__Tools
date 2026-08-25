@@ -1,0 +1,1 @@
+- the reload button doesn't see to trigger any network or console.log activity (or main app 'tracer') 

@@ -1,0 +1,4 @@
+/* sg-vault-key — credential holder, renders nothing */
+:host {
+    display: none;
+}

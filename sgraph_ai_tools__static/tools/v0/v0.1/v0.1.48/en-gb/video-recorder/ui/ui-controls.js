@@ -5,7 +5,7 @@
  *
  * Mode is derived from three independent toggles:
  *   useScreen  — bool
- *   useAudio   — bool
+ *   audioSource — 'none'|'mic'|'screen'
  *   camViz     — 'none' | 'camera' | 'viz'
  *
  * Post-recording downloads/share live in ui-recording-tab.js.
@@ -17,7 +17,8 @@ import { SGA_RECORDER } from '../api/recorder-events.js';
 
 // ── Mode derivation ───────────────────────────────────────────────────────────
 
-function _deriveMode(useScreen, useAudio, camViz) {
+function _deriveMode(useScreen, audioSource, camViz) {
+    const useAudio = audioSource !== 'none';
     if (camViz === 'viz')    return useScreen ? 'screen+viz+audio' : 'viz+audio';
     if (useScreen && camViz === 'camera' && useAudio) return 'camera+screen+audio';
     if (useScreen && camViz === 'camera')             return 'camera+screen';
@@ -29,11 +30,10 @@ function _deriveMode(useScreen, useAudio, camViz) {
     return 'audio'; // fallback — must record something
 }
 
-/** Parse config.mode back into the three toggle state values. */
+/** Parse config.mode into screen + camera/viz toggle state. audioSource is read directly from config. */
 function _parseModeState(mode) {
     return {
         useScreen: mode.includes('screen') && !mode.startsWith('viz'),
-        useAudio:  mode.includes('audio') || mode.startsWith('viz'),
         camViz:    mode.includes('camera') ? 'camera' : (mode.includes('viz') ? 'viz' : 'none'),
     };
 }
@@ -78,7 +78,12 @@ export function initControls(container, state, config, api, emit) {
                             <span class="mode-col__icon">🎙</span>
                             <span class="mode-col__name">Audio</span>
                         </div>
-                        <button class="mode-col__toggle" id="toggle-audio">Off</button>
+                        <div class="mode-col__opts" id="audio-opts">
+                            <button class="mode-col__opt" data-audio="none">Off</button>
+                            <button class="mode-col__opt" data-audio="mic">Mic</button>
+                            <button class="mode-col__opt" data-audio="screen" id="audio-opt-screen"
+                                    title="Captures audio from the tab or screen you share. Works best when sharing a browser tab — tick 'Share tab audio' in the picker.">Tab</button>
+                        </div>
                     </div>
 
                     <div class="mode-col mode-col--cam" id="col-cam">
@@ -118,6 +123,9 @@ export function initControls(container, state, config, api, emit) {
                 <button id="btn-record" class="ctrl-btn ctrl-btn--record">
                     ● Start Recording
                 </button>
+                <button id="btn-pause" class="ctrl-btn ctrl-btn--pause" style="display:none" disabled>
+                    ⏸ Pause
+                </button>
                 <button id="btn-stop" class="ctrl-btn ctrl-btn--stop" disabled>
                     ■ Stop
                 </button>
@@ -151,6 +159,13 @@ export function initControls(container, state, config, api, emit) {
                             <button class="ctrl-toggle" data-value="5000000">5 Mbps</button>
                         </div>
                     </div>
+                    <div class="ctrl-row" id="row-layout" style="display:none">
+                        <label class="ctrl-label">Layout <span style="font-size:0.8em;color:#64748b">(screen+camera only)</span></label>
+                        <div class="ctrl-toggle-group" id="layout-group">
+                            <button class="ctrl-toggle" data-value="landscape">Landscape</button>
+                            <button class="ctrl-toggle" data-value="shorts">Vertical (Shorts 9:16)</button>
+                        </div>
+                    </div>
                 </div>
             </details>
         </section>
@@ -160,33 +175,49 @@ export function initControls(container, state, config, api, emit) {
 
     const nameInput      = container.querySelector('#rec-name');
     const toggleScreen   = container.querySelector('#toggle-screen');
-    const toggleAudio    = container.querySelector('#toggle-audio');
+    const audioOpts      = container.querySelector('#audio-opts');
+    const audioOptScreen = container.querySelector('#audio-opt-screen');
     const camOpts        = container.querySelector('#cam-opts');
     const vizStyleRow    = container.querySelector('#row-viz-style');
     const vizStyleSelect = container.querySelector('#viz-style-select');
     const recModeGroup   = container.querySelector('#rec-mode-group');
     const qualityGroup   = container.querySelector('#quality-group');
+    const layoutRow      = container.querySelector('#row-layout');
+    const layoutGroup    = container.querySelector('#layout-group');
     const btnPreview     = container.querySelector('#btn-preview');
     const btnRecord      = container.querySelector('#btn-record');
+    const btnPause       = container.querySelector('#btn-pause');
     const btnStop        = container.querySelector('#btn-stop');
     const timerEl        = container.querySelector('#rec-timer');
     const statusEl       = container.querySelector('#ctrl-status');
     const recSize        = container.querySelector('#rec-size');
 
     let timerInterval = null;
+    let elapsed = 0;
 
     // ── Mode builder state ────────────────────────────────────────────────────
 
-    let { useScreen, useAudio, camViz } = _parseModeState(config.mode);
+    let { useScreen, camViz } = _parseModeState(config.mode);
+    let audioSource = config.audioSource ?? 'mic';
 
     function _applyModeState() {
-        config.mode = _deriveMode(useScreen, useAudio, camViz);
+        // Auto-revert Tab audio to Mic when Screen is turned off
+        if (!useScreen && audioSource === 'screen') {
+            audioSource        = 'mic';
+            config.audioSource = 'mic';
+        }
+
+        config.mode        = _deriveMode(useScreen, audioSource, camViz);
+        config.audioSource = audioSource;
 
         toggleScreen.textContent = useScreen ? 'On' : 'Off';
         toggleScreen.classList.toggle('mode-col__toggle--on', useScreen);
 
-        toggleAudio.textContent = useAudio ? 'On' : 'Off';
-        toggleAudio.classList.toggle('mode-col__toggle--on', useAudio);
+        // Audio 3-state: highlight active option; disable Tab when Screen is off
+        audioOpts.querySelectorAll('.mode-col__opt').forEach(btn => {
+            btn.classList.toggle('mode-col__opt--active', btn.dataset.audio === audioSource);
+        });
+        audioOptScreen.disabled = !useScreen;
 
         camOpts.querySelectorAll('.mode-col__opt').forEach(btn => {
             btn.classList.toggle('mode-col__opt--active', btn.dataset.cam === camViz);
@@ -194,6 +225,20 @@ export function initControls(container, state, config, api, emit) {
 
         vizStyleRow.style.display  = camViz === 'viz' ? '' : 'none';
         btnPreview.style.display   = camViz === 'camera' ? '' : 'none';
+
+        // Layout toggle: only meaningful when both screen and camera are active
+        const isScreenAndCamera = useScreen && camViz === 'camera';
+        layoutRow.style.display = isScreenAndCamera ? '' : 'none';
+        if (!isScreenAndCamera && config.layout !== 'landscape') {
+            _setLayout('landscape');
+        }
+    }
+
+    function _setLayout(value) {
+        config.layout = value;
+        layoutGroup.querySelectorAll('.ctrl-toggle').forEach(btn => {
+            btn.classList.toggle('ctrl-toggle--active', btn.dataset.value === value);
+        });
     }
 
     vizStyleSelect.value = config.vizMode;
@@ -205,9 +250,10 @@ export function initControls(container, state, config, api, emit) {
         _applyModeState();
     });
 
-    toggleAudio.addEventListener('click', () => {
-        if (toggleAudio.disabled) return;
-        useAudio = !useAudio;
+    audioOpts.addEventListener('click', (e) => {
+        const btn = e.target.closest('.mode-col__opt');
+        if (!btn || btn.disabled) return;
+        audioSource = btn.dataset.audio;
         _applyModeState();
     });
 
@@ -221,6 +267,15 @@ export function initControls(container, state, config, api, emit) {
     vizStyleSelect.addEventListener('change', () => {
         config.vizMode = vizStyleSelect.value;
     });
+
+    // ── Layout toggle (screen+camera only) ────────────────────────────────────
+
+    layoutGroup.addEventListener('click', (e) => {
+        const btn = e.target.closest('.ctrl-toggle');
+        if (!btn) return;
+        _setLayout(btn.dataset.value);
+    });
+    _setLayout(config.layout);
 
     // ── Recording name ────────────────────────────────────────────────────────
 
@@ -271,7 +326,10 @@ export function initControls(container, state, config, api, emit) {
 
     function _lockModeBuilder(locked) {
         toggleScreen.disabled = locked || !screenOk;
-        toggleAudio.disabled  = locked;
+        audioOpts.querySelectorAll('.mode-col__opt').forEach(b => {
+            // Tab button has an extra disabled condition (Screen must be on) — preserve that when unlocking
+            b.disabled = locked || (b.dataset.audio === 'screen' && !useScreen);
+        });
         camOpts.querySelectorAll('.mode-col__opt').forEach(b => {
             b.disabled = locked || (b.dataset.cam === 'camera' && !cameraOk);
         });
@@ -340,12 +398,17 @@ export function initControls(container, state, config, api, emit) {
         try {
             await api.startRecording({ format: config.format });
 
-            let elapsed = 0;
+            elapsed = 0;
             timerEl.textContent = '0s';
             timerInterval = setInterval(() => {
                 elapsed++;
                 timerEl.textContent = `${elapsed}s`;
             }, 1000);
+
+            btnPause.style.display = '';
+            btnPause.disabled      = false;
+            btnPause.textContent   = '⏸ Pause';
+            btnPause.classList.remove('is-paused');
 
             if (recSize?.reset) recSize.reset();
             statusEl.textContent = 'Recording…';
@@ -363,8 +426,9 @@ export function initControls(container, state, config, api, emit) {
     // ── Stop ──────────────────────────────────────────────────────────────────
 
     btnStop.addEventListener('click', async () => {
-        if (state.status !== 'recording') return;
+        if (state.status !== 'recording' && state.status !== 'paused') return;
         btnStop.disabled     = true;
+        btnPause.disabled    = true;
         statusEl.textContent = 'Stopping…';
         try {
             await api.stopRecording();
@@ -373,6 +437,36 @@ export function initControls(container, state, config, api, emit) {
             btnRecord.disabled   = false;
             nameInput.disabled   = false;
         }
+    });
+
+    // ── Pause / Resume ────────────────────────────────────────────────────────
+
+    btnPause.addEventListener('click', () => {
+        if (state.status === 'recording') {
+            api.pauseRecording();
+        } else if (state.status === 'paused') {
+            api.resumeRecording();
+        }
+    });
+
+    window.addEventListener(SGA_RECORDER.RECORD_PAUSE, () => {
+        clearInterval(timerInterval);
+        timerInterval        = null;
+        btnPause.textContent = '▶ Resume';
+        btnPause.classList.add('is-paused');
+        statusEl.style.color = '#d97706';
+        statusEl.textContent = 'Paused';
+    });
+
+    window.addEventListener(SGA_RECORDER.RECORD_RESUME, () => {
+        timerInterval = setInterval(() => {
+            elapsed++;
+            timerEl.textContent = `${elapsed}s`;
+        }, 1000);
+        btnPause.textContent = '⏸ Pause';
+        btnPause.classList.remove('is-paused');
+        statusEl.style.color = '';
+        statusEl.textContent = 'Recording…';
     });
 
     // ── TRACK_LOST — show immediate warning banner ────────────────────────────
@@ -393,12 +487,25 @@ export function initControls(container, state, config, api, emit) {
         }
     });
 
+    // ── ERROR — show immediate banner; pipeline will auto-stop ────────────────
+
+    window.addEventListener(SGA_RECORDER.ERROR, (e) => {
+        if (state.status !== 'recording') return;
+        const { step, message } = e.detail;
+        statusEl.style.color = '#f87171';
+        statusEl.textContent = `⚠ Recorder error (${step}): ${message} — saving what was captured.`;
+    });
+
     // ── RECORD_STOP ───────────────────────────────────────────────────────────
 
     window.addEventListener(SGA_RECORDER.RECORD_STOP, (e) => {
         clearInterval(timerInterval);
-        timerInterval      = null;
-        btnStop.disabled   = true;
+        timerInterval          = null;
+        btnStop.disabled       = true;
+        btnPause.style.display = 'none';
+        btnPause.disabled      = true;
+        btnPause.textContent   = '⏸ Pause';
+        btnPause.classList.remove('is-paused');
         btnRecord.disabled = false;
         _lockModeBuilder(false);
         nameInput.disabled = false;
@@ -413,10 +520,14 @@ export function initControls(container, state, config, api, emit) {
 
     window.addEventListener(SGA_RECORDER.RESET, () => {
         clearInterval(timerInterval);
-        timerInterval = null;
-        btnRecord.disabled   = false;
-        btnStop.disabled     = true;
-        nameInput.disabled   = false;
+        timerInterval          = null;
+        btnRecord.disabled     = false;
+        btnStop.disabled       = true;
+        btnPause.style.display = 'none';
+        btnPause.disabled      = true;
+        btnPause.textContent   = '⏸ Pause';
+        btnPause.classList.remove('is-paused');
+        nameInput.disabled     = false;
         _lockModeBuilder(false);
         _enableOptions(true);
         timerEl.textContent  = '0s';

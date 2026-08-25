@@ -1,0 +1,67 @@
+{
+  "name": "Video Recorder",
+  "slug": "video-recorder",
+  "description": "Browser-based video/audio/screen recorder with 9 capture modes (incl. 2 audio-visualisation modes), camera+screen compositing in three layouts (Landscape PiP, vertical Shorts, and Infographic for tall tabs), and save to SG/Send. Each recording opens in its own tab — drag to compare or reorder.",
+  "icon": "🎙",
+  "version": "0.1.64",
+  "status": "live",
+  "category": "media",
+  "keywords": ["video", "recorder", "screen-capture", "camera", "audio", "webm", "mp4", "sg-send", "viz", "pip"],
+  "dependencies": {
+    "core": [
+      { "module": "sg-tool-api",       "path": "/core/sg-tool-api/v0/v0.1/v0.1.0/sg-tool-api.js" },
+      { "module": "sg-recorder",       "path": "/core/sg-recorder/v0/v0.1/v0.1.0/recorder-pipeline.js" },
+      { "module": "sg-capture",        "path": "/core/sg-capture/v0/v0.1/v0.1.1/sg-capture.js" },
+      { "module": "sg-video-recorder", "path": "/core/sg-video-recorder/v0/v0.1/v0.1.2/sg-video-recorder.js" },
+      { "module": "sg-video",          "path": "/core/video/v1/v1.0/v1.0.1/sg-video.js" },
+      { "module": "sg-send-crypto",    "path": "/core/send-crypto/v1/v1.0/v1.0.1/sg-send-crypto.js" },
+      { "module": "sg-send-upload",    "path": "/core/send-crypto/v1/v1.0/v1.0.1/sg-send-upload.js" },
+      { "module": "manifest-loader",   "path": "/core/manifest-loader/v0/v0.1/v0.1.0/manifest-loader.js" }
+    ],
+    "shared": [
+      { "module": "sg-site-header",          "path": "/components/site-header/v1/v1.0/v1.0.2/sg-site-header.js" },
+      { "module": "sg-recording-size",       "path": "/components/sg-recording-size/v0/v0.1/v0.1.0/sg-recording-size.js" },
+      { "module": "sg-video-player",         "path": "/components/sg-video-player/v0/v0.1/v0.1.0/sg-video-player.js" },
+      { "module": "sg-layout",               "path": "/core/sg-layout/v0.1.0/sg-layout.js" },
+      { "module": "sg-tool-api-explorer",    "path": "/components/tool-api/sg-tool-api-explorer/v0/v0.1/v0.1.0/sg-tool-api-explorer.js" },
+      { "module": "sg-tool-api-console",     "path": "/components/tool-api/sg-tool-api-console/v0/v0.1/v0.1.0/sg-tool-api-console.js" },
+      { "module": "sg-tool-api-manifest",    "path": "/components/tool-api/sg-tool-api-manifest/v0/v0.1/v0.1.0/sg-tool-api-manifest.js" },
+      { "module": "sg-audio-viz",           "path": "/components/sg-audio-viz/v0/v0.1/v0.1.0/sg-audio-viz.js" }
+    ],
+    "loader": [
+      { "phase": 1, "type": "css", "path": "/core/sg-layout/v0.1.0/sg-layout.css" },
+      { "phase": 1, "type": "css", "path": "./styles/recorder.css" },
+      { "phase": 1, "type": "css", "path": "./styles/controls.css" },
+      { "phase": 1, "type": "css", "path": "./styles/preview.css" },
+      { "phase": 2, "type": "js",  "path": "/components/sg-recording-size/v0/v0.1/v0.1.0/sg-recording-size.js" },
+      { "phase": 2, "type": "js",  "path": "/components/sg-video-player/v0/v0.1/v0.1.0/sg-video-player.js" },
+      { "phase": 3, "type": "js",  "entry": true, "path": "./api/recorder-api.js" }
+    ]
+  },
+  "api": {
+    "version": "0.1.0",
+    "note": "window.__tool live after tool:ready. Screen capture requires a user gesture. All processing is local — no server calls except SG/Send upload. v0.1.64: recording engine extracted to core/sg-recorder v0.1.0 — tool api/ engine files are now re-export shims; behaviour and event contract unchanged. New: Publish button + sendToPublisher/sendToYouTubeEditor API actions hand the recording (incl. the separate audio stream) to Video Publisher / YouTube Editor via the shared consume-once handoff helpers.",
+    "events": [
+      { "name": "tool:ready",           "when": "activate() called",         "detail": "{ instanceId, tool, version }" },
+      { "name": "tool:mode:set",        "when": "setMode() called",          "detail": "{ mode }" },
+      { "name": "tool:preview:start",   "when": "preview stream acquired",   "detail": "{ hasVideo, mode, stream }" },
+      { "name": "tool:preview:stop",    "when": "preview stopped",           "detail": "{}" },
+      { "name": "tool:record:armed",    "when": "startRecording begins — acquiring media / warming up camera, NOT live yet", "detail": "{ mode }" },
+      { "name": "tool:record:start",    "when": "MediaRecorders started",    "detail": "{ fps, width, height, format, tracks, audioSource }" },
+      { "name": "tool:record:progress", "when": "chunk written",             "detail": "{ totalBytes }" },
+      { "name": "tool:record:pause",    "when": "pauseRecording() called",   "detail": "{}" },
+      { "name": "tool:record:resume",   "when": "resumeRecording() called",  "detail": "{}" },
+      { "name": "tool:record:stop",     "when": "MediaRecorders stopped",    "detail": "{ durationMs, sizeBytes, tracks }" },
+      { "name": "tool:track:lost",      "when": "a track ended mid-record",  "detail": "{ source, kind }" },
+      { "name": "tool:reset",           "when": "newRecording() called",     "detail": "{}" },
+      { "name": "tool:save:progress",   "when": "upload in progress",        "detail": "{ target, percent, message }" },
+      { "name": "tool:save:complete",   "when": "save done",                 "detail": "{ target, token?, folderId?, url? }" },
+      { "name": "tool:error",           "when": "any pipeline error",        "detail": "{ step, message }" }
+    ],
+    "skills": {
+      "human":   "./skills/SKILL-human.md",
+      "browser": "./skills/SKILL-browser.md",
+      "api":     "./skills/SKILL-api.md"
+    }
+  }
+}

@@ -1,0 +1,101 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>vault-client v1.2.2 — importReadKey test</title>
+    <style>
+        body { font-family: monospace; background: #1a1a2e; color: #eee; padding: 2rem; }
+        .pass { color: #4ade80; }
+        .fail { color: #f87171; }
+        .info { color: #93c5fd; }
+        pre { background: #0f3460; padding: 1rem; border-radius: 6px; }
+    </style>
+</head>
+<body>
+<h2>vault-client v1.2.2 — importReadKey() test</h2>
+<pre id="log">Running...</pre>
+
+<script type="module">
+import { importReadKey } from '/core/vault-client/v1/v1.2/v1.2.2/sg-vault-client.js';
+
+const log = document.getElementById('log');
+const results = [];
+
+function pass(msg) { results.push(`✓ PASS  ${msg}`); }
+function fail(msg) { results.push(`✗ FAIL  ${msg}`); }
+
+// ─── helpers ──────────────────────────────────────────────────────────────────
+
+function bytesToBase64Url(bytes) {
+    const b64 = btoa(String.fromCharCode(...bytes));
+    return b64.replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+}
+
+// ─── tests ───────────────────────────────────────────────────────────────────
+
+try {
+    // Test 1: importReadKey returns a CryptoKey
+    const rawBytes = crypto.getRandomValues(new Uint8Array(32));
+    const b64url   = bytesToBase64Url(rawBytes);
+    const key      = await importReadKey(b64url);
+
+    if (key && key.type === 'secret' && key.algorithm.name === 'AES-GCM') {
+        pass('importReadKey returns a valid AES-GCM CryptoKey');
+    } else {
+        fail(`importReadKey returned unexpected key type: ${JSON.stringify(key)}`);
+    }
+
+    // Test 2: round-trip — encrypt with the key, decrypt, verify
+    const keyForTest = await importReadKey(b64url);
+    const plaintext  = new TextEncoder().encode('Hello vault embed!');
+    const iv         = crypto.getRandomValues(new Uint8Array(12));
+    const ciphertext = await crypto.subtle.encrypt({ name: 'AES-GCM', iv }, keyForTest, plaintext);
+
+    // Create the standard format: IV + ciphertext
+    const combined = new Uint8Array(12 + ciphertext.byteLength);
+    combined.set(iv, 0);
+    combined.set(new Uint8Array(ciphertext), 12);
+
+    // Decrypt via a freshly imported key from the same base64url
+    const decryptKey  = await importReadKey(b64url);
+    const ivOut       = combined.slice(0, 12);
+    const ctOut       = combined.slice(12);
+    const plainBuffer = await crypto.subtle.decrypt({ name: 'AES-GCM', iv: ivOut }, decryptKey, ctOut);
+    const recovered   = new TextDecoder().decode(plainBuffer);
+
+    if (recovered === 'Hello vault embed!') {
+        pass('Round-trip encrypt/decrypt with importReadKey key succeeds');
+    } else {
+        fail(`Round-trip failed: got "${recovered}"`);
+    }
+
+    // Test 3: wrong length rejected
+    try {
+        const shortKey = bytesToBase64Url(new Uint8Array(16)); // 16 bytes, not 32
+        await importReadKey(shortKey);
+        fail('importReadKey should have rejected a 16-byte key');
+    } catch (e) {
+        pass(`importReadKey rejects 16-byte key: "${e.message}"`);
+    }
+
+    // Test 4: invalid base64url rejected
+    try {
+        await importReadKey('not-valid-base64url!!!');
+        fail('importReadKey should have rejected invalid base64url');
+    } catch (e) {
+        pass(`importReadKey rejects invalid base64url: "${e.message}"`);
+    }
+
+} catch (err) {
+    fail(`Unexpected error: ${err.message}`);
+    console.error(err);
+}
+
+// ─── render results ──────────────────────────────────────────────────────────
+
+const allPass = results.every(r => r.startsWith('✓'));
+log.className   = allPass ? 'pass' : 'fail';
+log.textContent = results.join('\n') + '\n\n' + (allPass ? '✓ ALL TESTS PASSED' : '✗ SOME TESTS FAILED');
+</script>
+</body>
+</html>

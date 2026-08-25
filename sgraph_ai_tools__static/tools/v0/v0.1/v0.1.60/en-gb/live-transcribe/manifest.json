@@ -1,0 +1,62 @@
+{
+    "id": "live-transcribe",
+    "name": "Live Transcribe",
+    "slug": "live-transcribe",
+    "description": "A focused, minimal front-end for the audio-transcribe Live mode: one big button to start talking and watch the transcript appear and refine, with the live cost shown. Or drop an audio file to transcribe it. A 'max-simplicity' experience variation that reuses the audio-transcribe JS API and components.",
+    "icon": "🔴",
+    "version": "0.1.0",
+    "status": "alpha",
+    "category": "media",
+    "keywords": [
+        "audio",
+        "transcribe",
+        "live",
+        "realtime",
+        "speech-to-text",
+        "stt",
+        "voice",
+        "openrouter",
+        "browser",
+        "minimal"
+    ],
+    "locale": "en-gb",
+    "dependencies": {
+        "core": [
+            { "module": "sg-tool-api", "path": "/core/sg-tool-api/v0/v0.1/v0.1.0/sg-tool-api.js" },
+            { "module": "manifest-loader", "path": "/core/manifest-loader/v0/v0.1/v0.1.0/manifest-loader.js" },
+            { "module": "sg-audio-decode", "path": "/core/sg-audio-decode/v0/v0.1/v0.1.0/sg-audio-decode.js" },
+            { "module": "sg-wasm-cache", "path": "/core/sg-wasm-cache/v0/v0.1/v0.1.0/sg-wasm-cache.js" }
+        ],
+        "components": [
+            { "module": "sg-llm-request", "path": "/components/llm/sg-llm-request/v0/v0.1/v0.1.6/sg-llm-request.js" },
+            { "module": "sg-site-header", "path": "/components/site-header/v1/v1.0/v1.0.3/sg-site-header.js" },
+            { "module": "sg-audio-viz", "path": "/components/sg-audio-viz/v0/v0.1/v0.1.0/sg-audio-viz.js" }
+        ]
+    },
+    "loader": [
+        { "phase": 1, "type": "css", "path": "/components/tokens/v1/v1.0/v1.0.0/sg-tokens.css" },
+        { "phase": 1, "type": "css", "path": "../audio-transcribe/styles/audio-transcribe.css" },
+        { "phase": 1, "type": "css", "path": "./styles/live-transcribe.css" },
+        { "phase": 2, "type": "js", "path": "/components/site-header/v1/v1.0/v1.0.3/sg-site-header.js" },
+        { "phase": 2, "type": "js", "path": "/components/llm/sg-llm-request/v0/v0.1/v0.1.6/sg-llm-request.js" },
+        { "phase": 2, "type": "js", "path": "/components/sg-audio-viz/v0/v0.1/v0.1.0/sg-audio-viz.js" },
+        { "phase": 3, "type": "js", "entry": true, "path": "./api/live-transcribe-api.js" }
+    ],
+    "api": {
+        "version": "0.1.0",
+        "global": "window.__tool",
+        "note": "A minimal variation of audio-transcribe focused on Live mode. Reuses audio-transcribe's api/ modules (state, transport, transcribe pipeline, live session) and the ui-live panel; no Queue/Bundle/Send/Voice/Chat. The OpenRouter key is shared with audio-transcribe (localStorage 'sg-openrouter-mgmt-key', BYOK). Live re-sends the growing take per segment (each a real billed request) — cost shown per segment + a running total.",
+        "actions": {
+            "connect": { "description": "Announce the OpenRouter key for the isolated transport. Params {apiKey, model?}." },
+            "setApiKey": { "description": "Persist + connect the OpenRouter key (localStorage 'sg-openrouter-mgmt-key'). Params {apiKey, model?}. Returns {ok, present}." },
+            "startLive": { "description": "Open the mic and transcribe the growing take every ~2.5s. Emits at:live:started then at:live:update / at:live:segment. In a sandboxed frame without mic access, rejects { code: 'mic-unavailable' } + emits at:live:error." },
+            "stopLive": { "description": "Final pass, then save the take (with transcript). Emits at:item:added + at:live:stopped. Returns {id, text, durationMs}." },
+            "addFiles": { "description": "Drop/ingest audio files as items. Params {files}. Emits at:item:added per file." },
+            "transcribeAll": { "description": "Transcribe every queued/error item in parallel. Emits at:batch:started/progress/complete." },
+            "getItems": { "description": "ARRAY of serialisable items (live state)." },
+            "getItem": { "description": "One serialisable item by {id}, or null." },
+            "getTranscript": { "description": "One transcript (with {id}) or all transcripts." },
+            "getCostSummary": { "description": "Session cost roll-up {sessionUsd, sessionPending, perItem, auxUsd, auxPending}." }
+        }
+    }
+}

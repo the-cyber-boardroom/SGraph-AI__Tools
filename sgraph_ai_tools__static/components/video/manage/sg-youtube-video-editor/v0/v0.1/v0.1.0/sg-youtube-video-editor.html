@@ -1,0 +1,122 @@
+<div class="yte">
+
+    <header class="yte__header">
+        <img id="thumb" class="yte__thumb" alt="" loading="lazy">
+        <div class="yte__head-meta">
+            <div id="head-title"  class="yte__head-title">—</div>
+            <div id="head-id"     class="yte__head-id mono">—</div>
+            <div class="yte__head-links">
+                <a id="watch-link"    class="yte__head-link" target="_blank" rel="noopener" hidden>Open on YouTube ↗</a>
+                <a id="studio-link"   class="yte__head-link" target="_blank" rel="noopener" hidden>Open in Studio ↗</a>
+                <a id="download-link" class="yte__head-link" target="_blank" rel="noopener" hidden
+                   title="YouTube only lets the channel owner download originals via Studio. Click to open the Studio edit page, then use ⋮ → Download.">⬇ Download (Studio)</a>
+            </div>
+            <button type="button" id="preview-toggle" class="yte__head-btn" hidden>▶ Preview</button>
+        </div>
+        <span id="privacy-badge" class="yte__badge">—</span>
+    </header>
+
+    <div id="preview-wrap" class="yte__preview" hidden>
+        <iframe id="preview-iframe"
+                class="yte__preview-iframe"
+                title="YouTube preview"
+                allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+                allowfullscreen
+                loading="lazy"></iframe>
+    </div>
+
+    <div id="status" class="yte__status">No video selected.</div>
+
+    <form id="form" class="yte__form" hidden>
+
+        <label class="yte__label" for="title-input">Title <span class="yte__req">*</span></label>
+        <input type="text" id="title-input" class="yte__input" maxlength="100" required>
+
+        <label class="yte__label" for="desc-input">Description</label>
+        <textarea id="desc-input" class="yte__input yte__input--area" rows="6" maxlength="5000"></textarea>
+
+        <label class="yte__label" for="tags-input">Tags (comma-separated)</label>
+        <input type="text" id="tags-input" class="yte__input">
+
+        <label class="yte__label" for="privacy-select">Privacy</label>
+        <select id="privacy-select" class="yte__input">
+            <option value="private">Private</option>
+            <option value="unlisted">Unlisted (link only)</option>
+            <option value="public">Public</option>
+        </select>
+
+        <div class="yte__row">
+            <button type="submit" id="save-btn" class="yte__btn yte__btn--primary">Save changes</button>
+            <button type="button" id="reset-btn" class="yte__btn yte__btn--ghost">Reset</button>
+        </div>
+
+        <hr class="yte__sep">
+
+        <label class="yte__label">Replace thumbnail</label>
+        <div class="yte__row">
+            <input type="file" id="thumb-input" accept="image/jpeg,image/png" hidden>
+            <button type="button" id="thumb-btn" class="yte__btn yte__btn--ghost">Choose image…</button>
+            <span id="thumb-name" class="yte__thumb-name"></span>
+            <button type="button" id="thumb-upload-btn" class="yte__btn yte__btn--primary" disabled>Upload thumbnail</button>
+        </div>
+
+        <hr class="yte__sep">
+
+        <div class="yte__playlists">
+            <div class="yte__playlists-head">
+                <label class="yte__label" style="margin:0;">Playlists</label>
+                <button type="button" id="pl-refresh" class="yte__btn yte__btn--ghost yte__btn--mini">Refresh</button>
+            </div>
+            <div id="pl-status" class="yte__playlists-status">Loading…</div>
+            <div id="pl-list"   class="yte__playlists-list"></div>
+        </div>
+
+        <hr class="yte__sep">
+
+        <div class="yte__analytics">
+            <div class="yte__analytics-head">
+                <label class="yte__label" style="margin:0;">📈 Analytics</label>
+                <select id="an-window" class="yte__input yte__input--mini" aria-label="Analytics window">
+                    <option value="7">Last 7 days</option>
+                    <option value="28" selected>Last 28 days</option>
+                    <option value="90">Last 90 days</option>
+                    <option value="365">Last 365 days</option>
+                </select>
+                <button type="button" id="an-refresh" class="yte__btn yte__btn--ghost yte__btn--mini">Refresh</button>
+            </div>
+
+            <div id="an-status" class="yte__analytics-status">Loading…</div>
+
+            <div id="an-tiles" class="yte__analytics-tiles" hidden>
+                <div class="yte__tile"><div id="an-views"  class="yte__tile-val">—</div><div class="yte__tile-label">Views</div></div>
+                <div class="yte__tile"><div id="an-watch"  class="yte__tile-val">—</div><div class="yte__tile-label">Watch hrs</div></div>
+                <div class="yte__tile"><div id="an-avgdur" class="yte__tile-val">—</div><div class="yte__tile-label">Avg view</div></div>
+                <div class="yte__tile"><div id="an-avgpct" class="yte__tile-val">—</div><div class="yte__tile-label">Avg %</div></div>
+                <div class="yte__tile"><div id="an-subs"   class="yte__tile-val">—</div><div class="yte__tile-label">Subs gained</div></div>
+                <div class="yte__tile"><div id="an-likes"  class="yte__tile-val">—</div><div class="yte__tile-label">Likes</div></div>
+            </div>
+
+            <div id="an-retention" class="yte__retention" hidden>
+                <div class="yte__retention-head">
+                    <span class="yte__retention-title">Audience retention</span>
+                    <span id="an-retention-status" class="yte__retention-status"></span>
+                </div>
+                <svg id="an-retention-svg" class="yte__retention-svg" viewBox="0 0 400 80" preserveAspectRatio="none"></svg>
+                <div class="yte__retention-axis"><span>0% elapsed</span><span>100% elapsed</span></div>
+            </div>
+        </div>
+
+        <hr class="yte__sep" id="danger-sep" hidden>
+
+        <div id="danger-zone" class="yte__danger" hidden>
+            <div class="yte__danger-title">Danger zone</div>
+            <p class="yte__danger-body">Delete is irreversible. Type the video title to confirm.</p>
+            <input type="text" id="confirm-input" class="yte__input" placeholder="Type the title to confirm">
+            <button type="button" id="delete-btn" class="yte__btn yte__btn--danger" disabled>Delete video</button>
+        </div>
+
+    </form>
+
+    <div id="error" class="yte__error" hidden></div>
+
+</div>

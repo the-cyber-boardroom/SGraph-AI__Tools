@@ -41,7 +41,7 @@ const REGEN_SPEEDS = [
  * @param {{ vizWasHidden?: boolean, vizMode?: string, onRegenerate?: (mode: string) => Promise<Blob> }} [opts]
  */
 export function initRecordingTab(container, primaryBlob, blobs, durationMs, sizeBytes, name, opts = {}) {
-    const { vizWasHidden = false, vizMode = 'smooth-eq', onRegenerate = null } = opts;
+    const { vizWasHidden = false, vizMode = 'smooth-eq', onRegenerate = null, audioSource = 'mic' } = opts;
     const safeName = _sanitize(name);
     const savedToken = localStorage.getItem('sgraph-send-token') ?? '';
 
@@ -105,6 +105,17 @@ export function initRecordingTab(container, primaryBlob, blobs, durationMs, size
                         <button class="rec-btn rec-btn--copy" id="share-copy">Copy</button>
                     </div>
                 </div>
+
+                <div class="rec-tab__section">
+                    <div class="rec-tab__section-title">Send to YouTube</div>
+                    <p style="font-size:11px;color:var(--rec-muted);margin:0 0 8px;line-height:1.5;">
+                        Open the recording in YouTube Editor (new tab) with this blob pre-loaded —
+                        set title, privacy, and upload to your channel.
+                    </p>
+                    <button id="send-youtube" class="rec-btn rec-btn--upload" ${!primaryBlob ? 'disabled' : ''}>
+                        ▶ Send to YouTube Editor
+                    </button>
+                </div>
             </div>
         </div>
     `;
@@ -125,11 +136,12 @@ export function initRecordingTab(container, primaryBlob, blobs, durationMs, size
     // ── Download buttons ──────────────────────────────────────────────────────
 
     const dlBtns = container.querySelector('#dl-btns');
+    const audioLabel = audioSource === 'screen' ? '⬇ Audio (tab)' : '⬇ Audio (mic)';
     const TRACKS = [
-        { key: 'combined', label: '⬇ Combined', primary: true },
-        { key: 'screen',   label: '⬇ Screen',   primary: false },
-        { key: 'camera',   label: '⬇ Camera',   primary: false },
-        { key: 'audio',    label: '⬇ Audio',    primary: false },
+        { key: 'combined', label: '⬇ Combined',  primary: true },
+        { key: 'screen',   label: '⬇ Screen',    primary: false },
+        { key: 'camera',   label: '⬇ Camera',    primary: false },
+        { key: 'audio',    label: audioLabel,     primary: false },
     ];
 
     for (const track of TRACKS) {
@@ -208,6 +220,22 @@ export function initRecordingTab(container, primaryBlob, blobs, durationMs, size
             }
         });
     }
+
+    // ── Send to YouTube Editor ────────────────────────────────────────────────
+
+    const sendYtBtn = container.querySelector('#send-youtube');
+    sendYtBtn?.addEventListener('click', () => {
+        if (!primaryBlob) return;
+        window.__sgYtHandoff = {
+            blob:           primaryBlob,
+            suggestedTitle: name || `Recording ${new Date().toLocaleDateString('en-GB')}`,
+            filename:       `${(name || 'recording').replace(/[^\w-]+/g, '_')}.webm`,
+            sourceUrl:      location.href,
+            sourceTool:     'video-recorder',
+            timestamp:      Date.now(),
+        };
+        window.open('/en-gb/youtube-editor/', '_blank');
+    });
 
     // ── SG/Send share ─────────────────────────────────────────────────────────
 

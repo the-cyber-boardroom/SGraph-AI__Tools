@@ -14,7 +14,10 @@
 
 **Before describing, assessing, or assuming what tools.sgraph.ai can do, READ:**
 
-`team/explorer/librarian/reality/v0.1.0__what-exists-today.md`
+`team/explorer/librarian/reality/v0.1.0__what-exists-today.md` — cover sheet that links to the three parts:
+- `…__1__libraries.md` — core modules + components
+- `…__2__tools.md` — tools, manifests, tests
+- `…__3__operations.md` — CI/CD, SEO, team, config, reuse plan
 
 This is the **code-verified** record of every module, component, tool, and feature that actually exists.
 
@@ -109,6 +112,23 @@ sgraph_ai_tools__static/
 7. **No localStorage** in core modules. Browser storage APIs are not supported in some contexts. Use in-memory state. Exception: tools that explicitly need persistence.
 8. **Web components optional.** Components MAY use Custom Elements but this is not required.
 
+### File Size & Incremental Building
+
+**Keep files small — target under ~300 lines, hard ceiling ~500.** This rule exists for three reasons, in order of importance:
+
+1. **Maintainability + refactoring.** Small, single-responsibility files are easier to read, move, version independently, and replace. A 200-line file with one job can be refactored in an afternoon; an 800-line file with five jobs becomes load-bearing and rots.
+2. **Reviewability.** Small files produce small diffs that humans actually read. Large rewrites get rubber-stamped.
+3. **Stream stability.** Long single-`Write` calls from agents can hit "Stream idle timeout" mid-file and have to be retried, wasting the whole emission. Small files avoid this entirely.
+
+**How to keep files small:**
+
+- **Split by concern, not by size.** Mirror the youtube-editor pattern: `api/{tool}-state.js` (mutable state), `api/{tool}-events.js` (frozen event-name constants), `api/{tool}-pipeline.js` (state ↔ core glue), `api/{tool}-api.js` (SgToolApi registration), and one `ui/ui-*.js` per panel/tab.
+- **Build incrementally.** Land a minimal working version first (e.g. just the constructor + one method), then add features via small `Edit` patches. Don't try to ship a final 800-line file in one `Write` call.
+- **Prefer `Edit` over `Write`.** Once a file exists, every change should be a targeted `Edit`. `Write` is for new files only.
+- **Extract on the third repetition.** If the same shape appears in three files, lift it into a sibling helper. Two repetitions is fine — three earns a refactor.
+
+If a file crosses ~500 lines, stop and split it before continuing. It is always cheaper to split early than to refactor a monolith later.
+
 ### Versioning
 
 9. **Folder-based versioning.** Each module independently versioned: `core/crypto/v1.0.0/`, `core/crypto/v1.1.0/`.
@@ -155,14 +175,40 @@ This project starts with a single **Explorer team** of 6 roles:
 
 ---
 
+## JS Tool API Primitive — MANDATORY PATTERN
+
+**Every tool must expose a JS API. The UI is one consumer, not the only one.**
+
+When building or updating any tool:
+
+1. Import `SgToolApi` from `core/sg-tool-api/v0/v0.1/v0.1.0/sg-tool-api.js`
+2. Register all user-callable actions via `api.register()`
+3. Call `api.activate()` — publishes to `window.__tool`, fires `tool:ready`
+4. Write three SKILL files: `SKILL-human.md`, `SKILL-browser.md`, `SKILL-api.md`
+
+This enables headless Playwright testing, agentic driving, and console scripting with no special tooling. The three `components/tool-api/` components (console, explorer, manifest) auto-bind to any tool that calls `activate()`.
+
+**Implemented today:** `infographic-gen`, `voice-memo`, `video-creator`, `video-recorder`
+**Reference implementation:** `tools/v0/v0.1/v0.1.37/en-gb/infographic-gen/` (most complete SKILL files)
+**Full docs:** `library/api/v0.1.91__tool-api__index.md`
+
+---
+
 ## Key Documents
 
 | Document | Location |
 |---|---|
-| **Reality document** | `team/explorer/librarian/reality/v0.1.0__what-exists-today.md` |
-| **Master index** | `team/explorer/librarian/reviews/v0.1.68__master-index__spring-clean-v2.md` |
+| **Reality document (index)** | `team/explorer/librarian/reality/v0.1.0__what-exists-today.md` (links to `…__1__libraries.md`, `…__2__tools.md`, `…__3__operations.md`) |
+| **Master index** | `team/explorer/librarian/reviews/04/15/v0.1.91__master-index__briefs-09-15-apr.md` |
 | **Briefing pack** | `team/humans/dinis_cruz/briefs/03/05/v0.1.0__initial_tools_repo__BRIEF_PACK.md` |
 | **Architecture guide** | `library/architecture/v0.1.68__guide__three-tier-architecture.md` |
-| **Component API** | `library/api/v0.1.68__reference__components.md` |
-| **Core module API** | `library/api/v0.1.68__reference__core-modules.md` |
+| **JS Tool API** | `library/api/v0.1.91__tool-api__index.md` |
+| **Static asset catalogue** | `library/catalogue/v0.1.91__catalogue__index.md` |
+| **Component API** | `library/api/v0.1.68__reference__components.md` (vault sections stale — see vault guides below) |
+| **Core module API** | `library/api/v0.1.68__reference__core-modules.md` (vault sections stale — see vault guides below) |
+| **Vault — Quick Start (consumer agents)** | `library/api/v0.1.92__vault__quick-start.md` — common subset (vault-peek pattern) for embedding vault content over CORS |
+| **Vault — Full Inventory (consumer agents)** | `library/api/v0.1.92__vault__full-inventory.md` — every vault module, component, and tool with pinned CDN URLs |
+| **sg-layout — Quick Start (consumer agents)** | `library/api/v0.1.92__sg-layout__quick-start.md` — fractal panel element: JSON tree, common methods, events bus, theming |
+| **sg-layout — Full Inventory (consumer agents)** | `library/api/v0.1.92__sg-layout__full-inventory.md` — every method, `SGL_EVENTS` constant with detail shapes, drag-to-dock zones, lock model, CSS surface |
+| **Audio/Live Transcribe — Integration Guide (consumer agents)** | `library/api/v0.1.93__audio-transcribe__integration-and-capabilities.md` — wiring audio-transcribe + live-transcribe into a vault / the main website: full JS API, events, the embedding/key-injection/cost/spend-cap/CORS contract, component capabilities, what's owned elsewhere |
 | **Role definitions** | `team/explorer/{role}/ROLE__{role}.md` |

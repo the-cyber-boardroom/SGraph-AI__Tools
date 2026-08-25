@@ -142,7 +142,7 @@ Before starting any session, verify:
 
 | Document | Path |
 |----------|------|
-| Reality document | `team/explorer/librarian/reality/v0.1.0__what-exists-today.md` |
+| Reality document (index) | `team/explorer/librarian/reality/v0.1.0__what-exists-today.md` (links to `…__1__libraries.md`, `…__2__tools.md`, `…__3__operations.md`) |
 | Master index | `team/explorer/librarian/reviews/v0.1.68__master-index__spring-clean-v2.md` |
 | Activity log | `team/explorer/librarian/activity-log.md` |
 | Architecture guide | `library/architecture/v0.1.68__guide__three-tier-architecture.md` |

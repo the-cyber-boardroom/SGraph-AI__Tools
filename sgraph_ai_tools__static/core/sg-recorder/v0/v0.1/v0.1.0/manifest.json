@@ -1,0 +1,25 @@
+{
+  "name": "sg-recorder",
+  "version": "0.1.0",
+  "description": "Recording engine extracted unchanged from the video-recorder tool (v0.1.48–v0.1.63 overlays): 9 capture modes, per-track MediaRecorders, canvas compositors (PiP / Shorts / Infographic), camera warm-up, WebM duration fix. Event contract (SGA_RECORDER, tool:* window events) is frozen — consumers include the video-recorder and video-publisher tools.",
+  "note": "Pure engine, no DOM ownership beyond canvases/streams it creates. Depends on core/sg-capture v0.1.1 and core/sg-video-recorder v0.1.2. recorder-pipeline.js exposes module-level singletons (config, state) — one recorder per page.",
+  "exports": {
+    "recorder-pipeline.js": [
+      "config",
+      "state",
+      "pickVideoMimeType",
+      "startPreview",
+      "stopPreview",
+      "startPipeline",
+      "stopPipeline",
+      "pausePipeline",
+      "resumePipeline",
+      "resetPipeline"
+    ],
+    "recorder-state.js": ["RecordingConfig", "RecordingState"],
+    "recorder-events.js": ["SGA_RECORDER"],
+    "camera-warmup.js": ["WARMUP_DEFAULTS", "warmUpCameraStream"],
+    "merge-vertical.js": ["mergeAsShorts"],
+    "merge-infographic.js": ["mergeAsInfographic"]
+  }
+}

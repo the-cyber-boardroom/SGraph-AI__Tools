@@ -1,0 +1,28 @@
+{
+    "name": "sg-vault-key",
+    "version": "0.1.0",
+    "type": "component",
+    "namespace": "vault-embed",
+    "tag": "sg-vault-key",
+    "description": "Credential holder for the vault embed stack. Imports a base64url read key once and makes the CryptoKey available via getKey(). Renders nothing.",
+    "attributes": {
+        "vault-id":  { "required": true,  "type": "string", "description": "4–24 char vault ID" },
+        "read-key":  { "required": true,  "type": "string", "description": "base64url-encoded 32-byte AES-GCM read key" },
+        "endpoint":  { "required": false, "type": "string", "default": "https://send.sgraph.ai" }
+    },
+    "events": {
+        "sg-vault-key:key-ready": { "detail": "{ vaultId, cryptoKey, endpoint, derivationMs }" },
+        "sg-vault-key:key-error": { "detail": "{ vaultId, error }" }
+    },
+    "methods": {
+        "getKey":      { "async": true,  "returns": "Promise<CryptoKey>" },
+        "getEndpoint": { "async": false, "returns": "string" },
+        "getVaultId":  { "async": false, "returns": "string" }
+    },
+    "dependencies": {
+        "core": [
+            { "module": "sg-component",   "path": "/components/base/v1/v1.0/v1.0.0/sg-component.js" },
+            { "module": "sg-vault-client","path": "/core/vault-client/v1/v1.2/v1.2.2/sg-vault-client.js" }
+        ]
+    }
+}

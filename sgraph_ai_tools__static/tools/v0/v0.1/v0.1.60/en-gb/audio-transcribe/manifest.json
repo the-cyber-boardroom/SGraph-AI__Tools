@@ -1,0 +1,406 @@
+{
+    "id": "audio-transcribe",
+    "name": "Audio Transcribe",
+    "slug": "audio-transcribe",
+    "description": "Record from the mic OR drag/drop many local audio files (including WhatsApp .opus voice notes), then transcribe each to text using curated OpenRouter audio models — entirely in your browser. Batch queue with per-row status and retry, bundle the session's audio and/or transcripts into a .zip, and optionally send an encrypted share via SG/Send.",
+    "icon": "🎙",
+    "version": "0.1.26",
+    "status": "alpha",
+    "category": "media",
+    "keywords": [
+        "audio",
+        "transcribe",
+        "transcription",
+        "speech-to-text",
+        "stt",
+        "opus",
+        "whatsapp",
+        "voice",
+        "openrouter",
+        "llm",
+        "batch",
+        "zip",
+        "send",
+        "browser",
+        "wav"
+    ],
+    "locale": "en-gb",
+    "dependencies": {
+        "core": [
+            {
+                "module": "sg-tool-api",
+                "path": "/core/sg-tool-api/v0/v0.1/v0.1.0/sg-tool-api.js"
+            },
+            {
+                "module": "manifest-loader",
+                "path": "/core/manifest-loader/v0/v0.1/v0.1.0/manifest-loader.js"
+            },
+            {
+                "module": "sg-layout",
+                "path": "/core/sg-layout/v0.1.0/sg-layout.js"
+            },
+            {
+                "module": "sg-audio",
+                "path": "/core/sg-audio/v0/v0.1/v0.1.0/sg-audio.js"
+            },
+            {
+                "module": "sg-audio-decode",
+                "path": "/core/sg-audio-decode/v0/v0.1/v0.1.0/sg-audio-decode.js"
+            },
+            {
+                "module": "sg-wasm-cache",
+                "path": "/core/sg-wasm-cache/v0/v0.1/v0.1.0/sg-wasm-cache.js"
+            },
+            {
+                "module": "sg-tts-openrouter",
+                "path": "/core/sg-tts-openrouter/v0/v0.1/v0.1.0/sg-tts-openrouter.js"
+            }
+        ],
+        "components": [
+            {
+                "module": "sg-llm-request",
+                "path": "/components/llm/sg-llm-request/v0/v0.1/v0.1.6/sg-llm-request.js"
+            },
+            {
+                "module": "sg-send-drop",
+                "path": "/components/send-drop/v1/v1.0/v1.0.0/sg-send-drop.js"
+            },
+            {
+                "module": "sg-site-header",
+                "path": "/components/site-header/v1/v1.0/v1.0.3/sg-site-header.js"
+            },
+            {
+                "module": "sg-openrouter-key-stats",
+                "path": "/components/openrouter/sg-openrouter-key-stats/v0/v0.1/v0.1.0/sg-openrouter-key-stats.js"
+            },
+            {
+                "module": "sg-tool-api-explorer",
+                "path": "/components/tool-api/sg-tool-api-explorer/v0/v0.1/v0.1.0/sg-tool-api-explorer.js"
+            },
+            {
+                "module": "sg-tool-api-console",
+                "path": "/components/tool-api/sg-tool-api-console/v0/v0.1/v0.1.0/sg-tool-api-console.js"
+            },
+            {
+                "module": "sg-tool-api-manifest",
+                "path": "/components/tool-api/sg-tool-api-manifest/v0/v0.1/v0.1.0/sg-tool-api-manifest.js"
+            },
+            {
+                "module": "sg-audio-viz",
+                "path": "/components/sg-audio-viz/v0/v0.1/v0.1.0/sg-audio-viz.js"
+            },
+            {
+                "module": "sg-llm-chat-history",
+                "path": "/components/llm/sg-llm-chat-history/v0/v0.1/v0.1.10/sg-llm-chat-history.js"
+            },
+            {
+                "module": "sg-llm-chat-input",
+                "path": "/components/llm/sg-llm-chat-input/v0/v0.1/v0.1.5/sg-llm-chat-input.js"
+            }
+        ]
+    },
+    "loader": [
+        {
+            "phase": 1,
+            "type": "css",
+            "path": "/components/tokens/v1/v1.0/v1.0.0/sg-tokens.css"
+        },
+        {
+            "phase": 1,
+            "type": "css",
+            "path": "/core/sg-layout/v0.1.0/sg-layout.css"
+        },
+        {
+            "phase": 1,
+            "type": "css",
+            "path": "./styles/audio-transcribe.css"
+        },
+        {
+            "phase": 2,
+            "type": "js",
+            "path": "/core/sg-layout/v0.1.0/sg-layout.js"
+        },
+        {
+            "phase": 2,
+            "type": "js",
+            "path": "/components/site-header/v1/v1.0/v1.0.3/sg-site-header.js"
+        },
+        {
+            "phase": 2,
+            "type": "js",
+            "path": "/components/llm/sg-llm-request/v0/v0.1/v0.1.6/sg-llm-request.js"
+        },
+        {
+            "phase": 2,
+            "type": "js",
+            "path": "/components/send-drop/v1/v1.0/v1.0.0/sg-send-drop.js"
+        },
+        {
+            "phase": 2,
+            "type": "js",
+            "path": "/components/openrouter/sg-openrouter-key-stats/v0/v0.1/v0.1.0/sg-openrouter-key-stats.js"
+        },
+        {
+            "phase": 2,
+            "type": "js",
+            "path": "/components/tool-api/sg-tool-api-explorer/v0/v0.1/v0.1.0/sg-tool-api-explorer.js"
+        },
+        {
+            "phase": 2,
+            "type": "js",
+            "path": "/components/tool-api/sg-tool-api-console/v0/v0.1/v0.1.0/sg-tool-api-console.js"
+        },
+        {
+            "phase": 2,
+            "type": "js",
+            "path": "/components/tool-api/sg-tool-api-manifest/v0/v0.1/v0.1.0/sg-tool-api-manifest.js"
+        },
+        {
+            "phase": 2,
+            "type": "js",
+            "path": "/components/sg-audio-viz/v0/v0.1/v0.1.0/sg-audio-viz.js"
+        },
+        {
+            "phase": 2,
+            "type": "js",
+            "path": "/components/llm/sg-llm-chat-history/v0/v0.1/v0.1.10/sg-llm-chat-history.js"
+        },
+        {
+            "phase": 2,
+            "type": "js",
+            "path": "/components/llm/sg-llm-chat-input/v0/v0.1/v0.1.5/sg-llm-chat-input.js"
+        },
+        {
+            "phase": 3,
+            "type": "js",
+            "entry": true,
+            "path": "./api/audio-transcribe-api.js"
+        }
+    ],
+    "api": {
+        "version": "0.1.0",
+        "global": "window.__tool",
+        "note": "Live after tool:ready. In-memory queue of audio items; the OpenRouter key is persisted (localStorage 'sg-openrouter-mgmt-key'), but no audio/transcripts are persisted. Transcription uses the chat input_audio path via sg-llm-request (no dedicated STT endpoint in v1). WhatsApp .opus voice notes are the #1 use case: a three-tier never-fail format strategy (pass-through → native decodeAudioData → WASM Opus decode via core/sg-audio-decode) converts undecodable audio to WAV on every browser including Safari; the decoder WASM is persisted in the Cache API (core/sg-wasm-cache, version-keyed) so it downloads once. JSZip is lazy-loaded from CDN only when downloadZip/sendViaSgSend is invoked. Send uses the embedded <sg-send-drop> component and requires a live send.sgraph.ai API + access token.",
+        "actions": {
+            "startRecording": {
+                "description": "Begin a single-take mic recording via core/sg-audio. Emits at:recording:started."
+            },
+            "stopRecording": {
+                "description": "Stop the recording, assemble one blob, add it as a queue item. Emits at:recording:stopped + at:item:added."
+            },
+            "addFiles": {
+                "description": "Batch ingest. Add every audio file (incl. .opus) as a queue item; rejects non-audio ({code:'not-audio'}) and oversize ({code:'too-large'}) per file. Accepts {files} (File[]/FileList). Emits at:item:added per accepted file."
+            },
+            "loadSample": {
+                "description": "Load a built-in sample audio as a queue item (simulates a drop). Params {id} from getSamples/SAMPLES; tone samples are synthesised in-browser."
+            },
+            "synthesize": {
+                "description": "Text-to-speech. Params {text, mode:'local'|'openrouter', voice?, model?, apiKey?, returnAudio?}. 'local' = Kokoro (sg-tts, free, in-browser); 'openrouter' = an audio-output model. {apiKey} overrides the connected key. Returns {mode,durationMs,sizeBytes,mimeType,generationId?}; pass {returnAudio:true} to also get the WAV as {audioDataUrl} (base64 data URL) — the supported way for an embedder to obtain the audio. (Alternatively use addSynthesized to put it in the queue.)"
+            },
+            "addSynthesized": {
+                "description": "Synthesise speech and drop it into the queue (round-trip: synth -> transcribe). Same params as synthesize plus {name?}. The queued item is the retrieval path when you don't pass returnAudio."
+            },
+            "ask": {
+                "description": "Headless chat about the transcripts (scriptable/embeddable, no UI). Params {text, model?, context?}; default system prompt is built from the done transcripts (override with {context}), default model google/gemini-3.5-flash. Returns {text, model, generationId, usage:{promptTokens,completionTokens,costUsd}}. Needs a connected key (connect/setApiKey)."
+            },
+            "startLive": {
+                "description": "Live (near-realtime) transcribe via Voice Activity Detection: open the mic, run energy VAD, and send each COMPLETE utterance (a phrase cut at a pause) as a clean WAV. Params {vad:{speechThreshold,silenceThreshold,endpointMs,preRollMs,minSpeechMs,maxUtteranceMs,frameMs}} — all optional (defaults: 0.02/0.01/600/300/250/15000/20). Live text is reassembled by sequence number (out-of-order safe). Emits at:live:started {mimeType,sampleRate,vad} then at:live:update + at:live:segment per utterance (detail carries the sent WAV blob). In a sandboxed frame without mic access, rejects { code:'mic-unavailable' } + emits at:live:error. Returns {live:true, mimeType, sampleRate, vad}."
+            },
+            "stopLive": {
+                "description": "Stop live transcribe: one final pass, then save the take (with transcript) as a queue item. Emits at:live:update {final:true}, at:item:added, at:live:stopped {id,text}. Returns {id, text, durationMs}."
+            },
+            "getItems": {
+                "description": "An ARRAY (the authoritative shape — embedders/automation rely on this) of serialisable queue items (no Blob): [{ id, name, sizeBytes, mimeType, durationMs, origin, model, status, transcript? }]. Reflects live state."
+            },
+            "getItem": {
+                "description": "One serialisable item (same shape as a getItems element) by {id}, or null. Reflects live state."
+            },
+            "removeItem": {
+                "description": "Drop one item by id. Emits at:item:removed."
+            },
+            "clearAll": {
+                "description": "Clear the whole queue + session. Emits at:reset."
+            },
+            "listModels": {
+                "description": "The curated OpenRouter audio-model list: [{id,label,cost,speed,default}]."
+            },
+            "getReleases": {
+                "description": "The tool's changelog, newest first: [{version,date,summary,changes[]}]. Same data shown in the dev panel's Releases tab."
+            },
+            "getExchanges": {
+                "description": "Provenance log (newest first, up to 50): every LLM request/response this session — {ts, itemId, itemName, vid, model, status, request:{prompt,audio}, response:{content,promptTokens,completionTokens,latencyMs,generationId,costUsd}, raw}. Audio bytes are never included."
+            },
+            "setModel": {
+                "description": "Set the active model for new items (or, with id, one item's model). Emits at:model:changed."
+            },
+            "connect": {
+                "description": "Fire llm:connected {provider:'openrouter', model, apiKey} so sg-llm-request can send. apiKey is masked in the dev console."
+            },
+            "setApiKey": {
+                "description": "Configure the OpenRouter key programmatically (for agentic/headless callers): persists it (localStorage 'sg-openrouter-mgmt-key') then connects. Params {apiKey, model?}. apiKey masked in the dev console. Returns {ok, present, model}."
+            },
+            "transcribeItem": {
+                "description": "Transcribe one queue item: blob → supported format/data URL → binary_file message → llm:send → resolve. Sets status/transcript. Used for retry too. Returns {id, text, model, latencyMs, vid, generationId, usage:{promptTokens,completionTokens,costUsd}} so embedders can show real per-transcript cost (GET /api/v1/generation). On a provider error REJECTS with a typed { code, status }: key-invalid (401) / budget-exceeded (402) / key-exhausted (403) / rate-limited (429) / llm-error (other) — so a spent SG-API secret surfaces clearly. Emits at:transcribe:started/complete/error (each carries {id}; error carries {code})."
+            },
+            "cancelItem": {
+                "description": "Cancel any in-flight transcription(s) for one item (aborts the fetch). Params {id}. Returns {cancelled:N}. The cancelled run becomes a 'cancelled' version."
+            },
+            "transcribeModels": {
+                "description": "Advanced: transcribe one item against MULTIPLE models in parallel; each result is a separate version (history is kept). Params {id, models:[]}. Safe to parallelise — each request runs on its own isolated LLM bus."
+            },
+            "transcribeAll": {
+                "description": "Transcribe every queued/error item in PARALLEL (a small worker pool, default 4; override with {concurrency}). Safe since the transport is isolated per request. Emits at:batch:started, at:batch:progress {done,total}, at:batch:complete."
+            },
+            "transcribe": {
+                "description": "Alias/convenience for transcribeAll; if exactly one item exists it behaves like transcribeItem on that row."
+            },
+            "getTranscript": {
+                "description": "One item's transcript (with id) or all transcripts (without id)."
+            },
+            "getCostSummary": {
+                "description": "Cost roll-up: {sessionUsd, sessionPending, perItem:[{id,name,usd,pending,versions}], auxUsd, auxPending} — per audio file, plus Create Voice (TTS), across the whole browser session."
+            },
+            "setSpendCap": {
+                "description": "Set (or clear) a session spend cap in USD for a sponsored/shared key. Params {usd} (number to set, null to clear). Once known spend reaches the cap, transcribe/Live halt with a typed { code:'budget-cap' } error (a soft cap — deferred costs lag a couple of seconds). Returns {cap}. Meant to be driven by the vault/key-budget layer."
+            },
+            "downloadZip": {
+                "description": "Build a .zip from the session (or an items subset) per include:{audio?,transcripts?} flags, plus manifest.json + index.txt, and trigger a browser download. Default include: {audio:false, transcripts:true}. Emits at:bundle:created."
+            },
+            "sendViaSgSend": {
+                "description": "Build the same bundle and hand it to the embedded <sg-send-drop> via offerFile; resolve on sg-send-complete with {shareUrl, token}. Surfaces {code:'send-auth-required'} when no token. Requires a live send.sgraph.ai. Emits at:send:started/complete/error."
+            }
+        },
+        "events": [
+            {
+                "name": "tool:ready",
+                "when": "activate() called",
+                "detail": "{ instanceId, tool, version }"
+            },
+            {
+                "name": "at:recording:started",
+                "when": "startRecording resolves",
+                "detail": "{ mimeType }"
+            },
+            {
+                "name": "at:recording:stopped",
+                "when": "stopRecording resolves",
+                "detail": "{ id }"
+            },
+            {
+                "name": "at:item:added",
+                "when": "an item enters the queue",
+                "detail": "{ id }"
+            },
+            {
+                "name": "at:item:removed",
+                "when": "removeItem",
+                "detail": "{ id }"
+            },
+            {
+                "name": "at:model:changed",
+                "when": "setModel",
+                "detail": "{ model, id? }"
+            },
+            {
+                "name": "at:transcribe:started",
+                "when": "transcribeItem begins",
+                "detail": "{ id }"
+            },
+            {
+                "name": "at:transcribe:progress",
+                "when": "transcription progress",
+                "detail": "{ id, stage }"
+            },
+            {
+                "name": "at:transcribe:complete",
+                "when": "transcribeItem resolves",
+                "detail": "{ id, model }"
+            },
+            {
+                "name": "at:transcribe:error",
+                "when": "transcribeItem rejects",
+                "detail": "{ id, error }"
+            },
+            {
+                "name": "at:live:started",
+                "when": "startLive resolves",
+                "detail": "{ mimeType }"
+            },
+            {
+                "name": "at:live:update",
+                "when": "live poll / final pass",
+                "detail": "{ text, elapsedMs, final }"
+            },
+            {
+                "name": "at:live:segment",
+                "when": "each live poll is sent + answered (again when its exact cost resolves)",
+                "detail": "{ seq, sizeBytes, elapsedMs, latencyMs, text, final, ok, error?, generationId?, costUsd?, costPending? }"
+            },
+            {
+                "name": "at:live:stopped",
+                "when": "stopLive resolves",
+                "detail": "{ id, text }"
+            },
+            {
+                "name": "at:live:error",
+                "when": "a live poll transcription fails",
+                "detail": "{ error }"
+            },
+            {
+                "name": "at:batch:started",
+                "when": "transcribeAll begins",
+                "detail": "{ total }"
+            },
+            {
+                "name": "at:batch:progress",
+                "when": "each item finishes",
+                "detail": "{ done, total }"
+            },
+            {
+                "name": "at:batch:complete",
+                "when": "transcribeAll resolves",
+                "detail": "{ done, total, errors }"
+            },
+            {
+                "name": "at:bundle:created",
+                "when": "downloadZip resolves",
+                "detail": "{ count, zipSize, name }"
+            },
+            {
+                "name": "at:send:started",
+                "when": "sendViaSgSend begins",
+                "detail": "{}"
+            },
+            {
+                "name": "at:send:complete",
+                "when": "sg-send-complete",
+                "detail": "{ shareUrl, token }"
+            },
+            {
+                "name": "at:send:error",
+                "when": "sg-send-error",
+                "detail": "{ error }"
+            },
+            {
+                "name": "at:reset",
+                "when": "clearAll",
+                "detail": "{}"
+            },
+            {
+                "name": "at:llm:exchange",
+                "when": "each transcription request/response",
+                "detail": "the provenance record (see getExchanges)"
+            }
+        ],
+        "skills": {
+            "human": "./skills/SKILL__human.md",
+            "browser": "./skills/SKILL__browser.md",
+            "api": "./skills/SKILL__api.md"
+        }
+    },
+    "skills": {
+        "human": "./skills/SKILL__human.md",
+        "browser": "./skills/SKILL__browser.md",
+        "api": "./skills/SKILL__api.md"
+    }
+}

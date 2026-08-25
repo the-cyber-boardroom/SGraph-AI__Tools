@@ -1,0 +1,37 @@
+/* sg-chat-composer — text/template composer (dark tools family) */
+
+:host { display: block; color: #e2e8f0; font-size: 0.92rem; }
+
+.sgcc { display: flex; flex-direction: column; gap: 6px; padding: 8px; box-sizing: border-box; }
+.sgcc-row { display: flex; gap: 8px; align-items: flex-end; }
+
+.sgcc-text {
+    flex: 1; resize: none; min-height: 2.4em;
+    background: #131327; color: #e2e8f0;
+    border: 1px solid #2d2d4a; border-radius: 8px;
+    padding: 8px 10px; font: inherit;
+}
+.sgcc-text:focus { outline: none; border-color: #14b8a6; }
+.sgcc-text:disabled { opacity: 0.5; }
+
+.sgcc-send, .sgcc-attach {
+    background: #0d9488; color: #e2e8f0; font-weight: 600;
+    border: 1px solid #0d9488; border-radius: 8px;
+    padding: 8px 14px; font-size: inherit; cursor: pointer; white-space: nowrap;
+}
+.sgcc-send:hover { background: #14b8a6; }
+.sgcc-attach { background: #1e1e38; border-color: #2d2d4a; font-weight: 400; }
+.sgcc-attach:hover:not(:disabled) { border-color: #14b8a6; }
+.sgcc-attach:disabled { opacity: 0.45; cursor: default; }
+
+.sgcc-template {
+    background: #131327; color: #e2e8f0;
+    border: 1px solid #2d2d4a; border-radius: 8px;
+    padding: 7px 10px; font: inherit;
+}
+
+.sgcc-reason {
+    color: #fbbf24; font-size: 0.8rem;
+    padding: 4px 10px; border: 1px solid #4d3d1a; border-radius: 999px;
+    background: #2a2214; align-self: flex-start;
+}

@@ -1,0 +1,15 @@
+{
+  "name": "sg-pipeline-steps",
+  "version": "0.1.0",
+  "description": "Pipeline-spine Web Component: ordered step rows with live status icons (idle/running/done/error), an info slot, and a re-run affordance. Generic — the host tool defines the steps and reacts to intents. Shadow DOM; js/html/css as sibling files via SgComponent.",
+  "exports": {
+    "sg-pipeline-steps.js": ["SgPipelineSteps"]
+  },
+  "element": "sg-pipeline-steps",
+  "methods": ["setSteps", "setStatus", "resetStatuses", "setNote"],
+  "events": [
+    { "name": "sg-pipeline-steps:step-selected", "detail": "{ key, tab }" },
+    { "name": "sg-pipeline-steps:step-rerun",    "detail": "{ key }" }
+  ],
+  "consumers": ["video-publisher"]
+}

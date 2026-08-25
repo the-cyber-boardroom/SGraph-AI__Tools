@@ -1,0 +1,175 @@
+/*
+ * agent-with-tools.css — layout and panel styles
+ * version 0.1.58
+ * Uses SGraph design tokens from sg-tokens.css
+ */
+
+/* ── Header ───────────────────────────────────────────────────────────────── */
+
+.aw-header {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 8px 16px;
+    background: var(--color-background-secondary, #0d0d1a);
+    border-bottom: 1px solid var(--color-border-subtle, #1a1a3a);
+    flex-shrink: 0;
+    height: 48px;
+    box-sizing: border-box;
+}
+
+.aw-title {
+    font-size: 15px;
+    font-weight: 700;
+    color: var(--color-text-primary, #e2e8f0);
+    white-space: nowrap;
+    margin-right: auto;
+}
+
+/* Bridge status dot */
+.aw-bridge-dot {
+    font-size: 18px;
+    line-height: 1;
+    color: var(--color-text-muted, #4a5568);   /* grey = not connected */
+    cursor: pointer;
+    transition: color 200ms;
+    position: relative;
+}
+.aw-bridge-dot[data-state="connecting"] { color: #f6ad55; }  /* amber */
+.aw-bridge-dot[data-state="ok"]         { color: #48bb78; }  /* green */
+.aw-bridge-dot[data-state="error"]      { color: #fc8181; }  /* red   */
+
+/* Tooltip on hover — set via JS via title attribute */
+
+/* ── Main area (wraps sg-layout + headless engines) ───────────────────────── */
+
+.aw-main {
+    flex: 1;
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
+    position: relative;
+}
+
+/* sg-layout root: fills the main area */
+.aw-layout-root {
+    display: block;
+    width: 100%;
+    flex: 1;
+    min-height: 0;
+}
+
+/* headless engine elements: keep them out of the flow */
+sg-llm-request,
+sg-tool-runner,
+sg-local-bridge,
+sg-agentic-loop {
+    display: none;
+}
+
+/* ── Chat pane (inside sg-layout tab) ────────────────────────────────────── */
+
+sg-llm-chat-history {
+    flex: 1;
+    min-height: 0;
+    display: block;
+    overflow: hidden;
+}
+
+sg-llm-chat-input {
+    flex-shrink: 0;
+    display: block;
+}
+
+/* ── Loop status strip ────────────────────────────────────────────────────── */
+
+.aw-loop-strip {
+    flex-shrink: 0;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 6px 10px;
+    background: var(--color-background-secondary, #0d0d1a);
+    border: 1px solid var(--color-border-subtle, #1a1a3a);
+    border-radius: 6px;
+    font-size: 12px;
+    color: var(--color-text-muted, #4a5568);
+    font-family: 'SF Mono', Monaco, monospace;
+    min-height: 34px;
+}
+
+.aw-loop-strip .ls-status { margin-right: auto; }
+.aw-loop-strip .ls-dot    { font-size: 10px; }
+.aw-loop-strip button {
+    font-size: 11px;
+    padding: 3px 10px;
+    border-radius: 4px;
+    border: 1px solid var(--color-border-subtle, #1a1a3a);
+    background: var(--color-background-primary, #0a0a18);
+    color: var(--color-text-secondary, #a0aec0);
+    cursor: pointer;
+    font-family: system-ui, sans-serif;
+}
+.aw-loop-strip button.ls-stop    { border-color: #fc8181; color: #fc8181; }
+.aw-loop-strip button.ls-approve { border-color: #48bb78; color: #48bb78; }
+
+/* ── Sidebar panels (inside sg-layout tabs) ──────────────────────────────── */
+
+sg-llm-connection  { display: block; width: 100%; height: 100%; overflow: auto; }
+sg-tool-definition { display: block; width: 100%; height: 100%; }
+
+.aw-panel {
+    flex-shrink: 0;
+    background: var(--color-background-secondary, #0d0d1a);
+    border: 1px solid var(--color-border-subtle, #1a1a3a);
+    border-radius: 6px;
+    padding: 10px 12px;
+    font-size: 12px;
+    color: var(--color-text-secondary, #a0aec0);
+    font-family: 'SF Mono', Monaco, monospace;
+    line-height: 1.7;
+}
+
+.aw-panel .panel-label {
+    font-size: 10px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: .06em;
+    color: var(--color-text-muted, #4a5568);
+    margin-bottom: 6px;
+    font-family: system-ui, sans-serif;
+}
+
+.aw-panel .panel-row {
+    display: flex;
+    gap: 8px;
+}
+
+.aw-panel .panel-key {
+    color: var(--color-text-muted, #4a5568);
+    min-width: 80px;
+}
+
+.aw-panel .panel-val {
+    color: var(--color-text-primary, #e2e8f0);
+    word-break: break-all;
+}
+
+/* ── Dev panel strip ─────────────────────────────────────────────────────── */
+
+.aw-dev-panel {
+    flex-shrink: 0;
+    display: none;          /* shown by JS when user opens the footer */
+    border-top: 1px solid var(--color-border-subtle, #1a1a3a);
+    background: var(--color-background-secondary, #0d0d1a);
+    height: 300px;
+    overflow: hidden;
+}
+
+.aw-dev-panel sg-tool-api-explorer,
+.aw-dev-panel sg-tool-api-console,
+.aw-dev-panel sg-tool-api-manifest {
+    display: block;
+    width: 100%;
+    height: 100%;
+}

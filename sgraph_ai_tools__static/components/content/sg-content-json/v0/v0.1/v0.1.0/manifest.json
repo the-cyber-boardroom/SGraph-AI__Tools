@@ -1,0 +1,20 @@
+{
+    "name": "sg-content-json",
+    "version": "0.1.0",
+    "type": "component",
+    "namespace": "content",
+    "tag": "sg-content-json",
+    "description": "Vault-agnostic JSON renderer. In mode=render, displays pretty-printed JSON. In mode=emit, parses and emits json-parsed for chaining.",
+    "attributes": {
+        "content-source": { "required": true,  "type": "string" },
+        "mode":           { "required": false, "type": "enum", "values": ["render", "emit"], "default": "render" }
+    },
+    "events": {
+        "sg-content-json:json-parsed": { "detail": "{ objectId, data }" }
+    },
+    "dependencies": {
+        "core": [
+            { "module": "sg-component", "path": "/components/base/v1/v1.0/v1.0.0/sg-component.js" }
+        ]
+    }
+}

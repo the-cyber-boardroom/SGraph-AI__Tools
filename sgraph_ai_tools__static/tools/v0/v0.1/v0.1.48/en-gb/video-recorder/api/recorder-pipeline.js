@@ -18,6 +18,7 @@
  */
 
 import { getCameraStream, getAudioStream, getScreenStream, mergeAsPiP } from '/core/sg-capture/v0/v0.1/v0.1.0/sg-capture.js';
+import { mergeAsShorts }                                                 from './merge-vertical.js';
 import { getBestMimeType }                                   from '/core/sg-video-recorder/v0/v0.1/v0.1.2/sg-video-recorder.js';
 import { RecordingConfig, RecordingState }                   from './recorder-state.js';
 import { SGA_RECORDER }                                      from './recorder-events.js';
@@ -61,6 +62,23 @@ function _withTimeout(promise, ms, label) {
     ]);
 }
 
+/**
+ * Choose the best video mime type, preferring avc3 over avc1.
+ * avc1 stores codec params in the container header and cannot handle mid-stream
+ * resolution changes (e.g. captured window resize); the browser logs an error and
+ * may terminate the recorder. avc3 (in-band SPS/PPS) tolerates this transparently.
+ * @returns {string}
+ */
+function _getVideoMimeType() {
+    const best = getBestMimeType();
+    if (best.includes('avc1')) {
+        // Replace avc1[.profile] with avc3[.profile] — same codec, different parameter delivery
+        const avc3 = best.replace(/avc1(\.[a-fA-F0-9]+)?/, 'avc3$1');
+        if (MediaRecorder.isTypeSupported(avc3)) return avc3;
+    }
+    return best;
+}
+
 // ─── RecordingSession ─────────────────────────────────────────────────────────
 //
 // Encapsulates all mutable state for a single recording run so nothing leaks
@@ -87,7 +105,7 @@ class RecordingSession {
         const isAudioOnly = stream.getVideoTracks().length === 0;
         const mimeType    = isAudioOnly
             ? (MediaRecorder.isTypeSupported('audio/webm;codecs=opus') ? 'audio/webm;codecs=opus' : 'audio/webm')
-            : getBestMimeType();
+            : _getVideoMimeType();
         const opts = isAudioOnly
             ? { mimeType, audioBitsPerSecond: config.audioBitsPerSecond }
             : { mimeType, videoBitsPerSecond: config.videoBitsPerSecond, audioBitsPerSecond: config.audioBitsPerSecond };
@@ -106,11 +124,22 @@ class RecordingSession {
             }
         };
 
-        // Wire onerror so silent encoder failures surface as tool:error events
+        // Wire onerror: MediaRecorder errors are always fatal (encoder won't recover).
+        // Dispatch tool:error for UI, then auto-stop so the recording doesn't ghost
+        // with 0 KB data while the timer keeps running.
         rec.onerror = (e) => {
             const msg = e.error?.message ?? 'Unknown MediaRecorder error';
             console.error(`[recorder:${name}]`, msg, e.error);
             _dispatchOnWindow(SGA_RECORDER.ERROR, { step: `recorder:${name}`, message: msg });
+            // Guard: _session is nulled at the top of stopPipeline before it awaits,
+            // so a second concurrent call here would crash on null.stopAll(). Skip if
+            // stopPipeline is already in flight.
+            if (state.status === 'recording' && _session) {
+                console.warn(`[pipeline] recorder:${name} fatal error — auto-stopping pipeline`);
+                stopPipeline().catch(err =>
+                    console.error('[pipeline] auto-stop after recorder error failed:', err)
+                );
+            }
         };
 
         this._recorders.set(name, rec);
@@ -225,7 +254,7 @@ export async function startPreview() {
     if (!flags.camera) throw new Error('Preview not available for screen-only modes');
 
     try {
-        const stream = await getCameraStream({ audio: flags.audio });
+        const stream = await getCameraStream({ audio: flags.audio && config.audioSource === 'mic' });
         state.previewStream = stream;
         state.previewStop   = () => stream.getTracks().forEach(t => t.stop());
 
@@ -278,7 +307,7 @@ export async function startPipeline() {
         // path of the user gesture (getDisplayMedia restriction).
         let rawScreen = null;
         if (flags.screen) {
-            rawScreen = await getScreenStream({ audio: false });
+            rawScreen = await getScreenStream({ audio: config.audioSource === 'screen' });
             _watchTracks('screen', rawScreen);
         }
 
@@ -291,15 +320,16 @@ export async function startPipeline() {
                 state.previewStream = null;
                 state.previewStop   = null;
             } else {
-                rawCamera   = await getCameraStream({ audio: flags.audio });
+                rawCamera   = await getCameraStream({ audio: flags.audio && config.audioSource === 'mic' });
                 needsWarmUp = true; // fresh sensor — allow auto-exposure to settle
             }
             _watchTracks('camera', rawCamera);
         }
 
         // Standalone audio (screen+audio, audio-only, and viz+audio modes)
+        // Only when mic is the selected source — screen audio is carried by rawScreen instead.
         let rawAudio = null;
-        if (flags.audio && !flags.camera) {
+        if (flags.audio && !flags.camera && config.audioSource === 'mic') {
             rawAudio = await getAudioStream();
         }
 
@@ -314,8 +344,16 @@ export async function startPipeline() {
         // used exclusively by MediaRecorder.
         let rawViz = null;
         if (flags.viz && config.vizProvider) {
-            if (!rawAudio) throw new Error('Viz modes require an audio source — mode configuration error');
-            session._vizAudioClone = rawAudio.clone();
+            // When audioSource='screen', mic rawAudio is null — use the screen stream's
+            // audio tracks instead. A new MediaStream wrapper is needed because clone()
+            // on a non-cloneable screen track throws in some browsers.
+            const vizAudioStream = config.audioSource === 'screen'
+                ? (rawScreen ? new MediaStream(rawScreen.getAudioTracks()) : null)
+                : rawAudio;
+            if (!vizAudioStream || vizAudioStream.getAudioTracks().length === 0) {
+                throw new Error('Viz modes require an audio source — mode configuration error');
+            }
+            session._vizAudioClone = vizAudioStream.clone();
             rawViz = await config.vizProvider.start(session._vizAudioClone, config.fps);
         }
 
@@ -327,11 +365,14 @@ export async function startPipeline() {
 
         // ── Start independent MediaRecorders ───────────────────────────────
 
-        // Audio tracks shared across all recorder decisions below
-        const audioTracks = [
-            ...(rawCamera ? rawCamera.getAudioTracks() : []),
-            ...(rawAudio  ? rawAudio.getAudioTracks()  : []),
-        ];
+        // Audio tracks shared across all recorder decisions below.
+        // Screen-source audio comes from the screen stream; mic-source comes from camera/standalone.
+        const audioTracks = config.audioSource === 'screen'
+            ? (rawScreen ? rawScreen.getAudioTracks() : [])
+            : [
+                ...(rawCamera ? rawCamera.getAudioTracks() : []),
+                ...(rawAudio  ? rawAudio.getAudioTracks()  : []),
+              ];
 
         // Whether a combined (composite) output is viable for this mode
         const willHaveCombined =
@@ -388,13 +429,23 @@ export async function startPipeline() {
             }
         }
 
-        // ── PiP composite recorder (camera+screen modes only) ─────────────
+        // ── PiP / Shorts composite recorder (camera+screen modes only) ────────
         if (!rawViz && rawCamera && rawScreen && startCombined) {
-            const pip = await mergeAsPiP(rawScreen, rawCamera, config.pipOptions);
-            session._pipStop = pip.stop;
+            let composite;
+            if (config.layout === 'shorts') {
+                composite = await mergeAsShorts(rawScreen, rawCamera, {
+                    fps:       config.fps,
+                    title:     config.recordingName,
+                    startedAt: Date.now(),
+                });
+            } else {
+                composite = await mergeAsPiP(rawScreen, rawCamera, config.pipOptions);
+            }
+            session._pipStop = composite.stop;
+            // Use canvas video + raw audio tracks (raw quality > canvas-mixed audio)
             const combinedStream = audioTracks.length > 0
-                ? new MediaStream([...pip.stream.getVideoTracks(), ...audioTracks])
-                : pip.stream;
+                ? new MediaStream([...composite.stream.getVideoTracks(), ...audioTracks])
+                : composite.stream;
             session.startRecorder('combined', combinedStream);
         }
 
@@ -409,11 +460,12 @@ export async function startPipeline() {
         const trackSettings = videoTrack?.getSettings() ?? {};
 
         _dispatchOnWindow(SGA_RECORDER.RECORD_START, {
-            fps:    trackSettings.frameRate ?? config.fps,
-            width:  trackSettings.width     ?? 0,
-            height: trackSettings.height    ?? 0,
-            format: getBestMimeType(),
-            tracks: session.recorderNames,
+            fps:         trackSettings.frameRate ?? config.fps,
+            width:       trackSettings.width     ?? 0,
+            height:      trackSettings.height    ?? 0,
+            format:      getBestMimeType(),
+            tracks:      session.recorderNames,
+            audioSource: config.audioSource,
         });
 
     } catch (err) {
@@ -436,7 +488,7 @@ export async function startPipeline() {
  * @returns {Promise<{ durationMs: number, sizeBytes: number }>}
  */
 export async function stopPipeline() {
-    if (state.status !== 'recording') throw new Error('No active recording');
+    if (state.status !== 'recording' && state.status !== 'paused') throw new Error('No active recording');
 
     const session = _session;
     _session = null;
@@ -449,7 +501,12 @@ export async function stopPipeline() {
         // Tear down PiP canvas compositor after recorders have flushed their data
         if (session._pipStop) { session._pipStop(); session._pipStop = null; }
 
-        const durationMs = Date.now() - state.startedAt;
+        // Exclude time spent paused from the recorded duration
+        let totalPausedMs = state.pausedDurationMs;
+        if (state.status === 'paused' && state.lastPausedAt) {
+            totalPausedMs += Date.now() - state.lastPausedAt;
+        }
+        const durationMs = Date.now() - state.startedAt - totalPausedMs;
 
         // Patch WebM duration metadata — MediaRecorder writes Duration=0 in the EBML
         // header; fix it so players and upload platforms read the correct length.
@@ -506,6 +563,36 @@ export async function stopPipeline() {
 }
 
 /**
+ * Pause all active MediaRecorders without ending the recording.
+ * The elapsed timer in the UI should be paused separately via the RECORD_PAUSE event.
+ * Fires tool:record:pause.
+ */
+export function pausePipeline() {
+    if (state.status !== 'recording') throw new Error('Cannot pause — not recording');
+    for (const [, rec] of _session._recorders) {
+        if (rec.state === 'recording') rec.pause();
+    }
+    state.lastPausedAt = Date.now();
+    state.status = 'paused';
+    _dispatchOnWindow(SGA_RECORDER.RECORD_PAUSE, {});
+}
+
+/**
+ * Resume all paused MediaRecorders and accumulate the paused interval.
+ * Fires tool:record:resume.
+ */
+export function resumePipeline() {
+    if (state.status !== 'paused') throw new Error('Cannot resume — not paused');
+    for (const [, rec] of _session._recorders) {
+        if (rec.state === 'paused') rec.resume();
+    }
+    state.pausedDurationMs += Date.now() - state.lastPausedAt;
+    state.lastPausedAt = null;
+    state.status = 'recording';
+    _dispatchOnWindow(SGA_RECORDER.RECORD_RESUME, {});
+}
+
+/**
  * Reset state for a new recording. Stops any active preview or stale session.
  */
 export function resetPipeline() {
@@ -528,7 +615,7 @@ export function resetPipeline() {
 function _watchTracks(sourceName, stream) {
     stream.getTracks().forEach(track => {
         track.addEventListener('ended', () => {
-            if (state.status !== 'recording') return;
+            if (state.status !== 'recording' && state.status !== 'paused') return;
 
             _dispatchOnWindow(SGA_RECORDER.TRACK_LOST, {
                 source: sourceName,
@@ -536,11 +623,14 @@ function _watchTracks(sourceName, stream) {
             });
 
             if (track.kind === 'video') {
-                // Video loss makes the recording unusable — stop immediately.
                 console.warn(`[pipeline] ${sourceName} video track ended unexpectedly — stopping`);
-                stopPipeline().catch(err =>
-                    console.error('[pipeline] auto-stop after track loss failed:', err)
-                );
+                // Guard against re-entry: _session is nulled before stopPipeline awaits,
+                // so a concurrent call from onerror or another track would crash on null.stopAll().
+                if (_session) {
+                    stopPipeline().catch(err =>
+                        console.error('[pipeline] auto-stop after track loss failed:', err)
+                    );
+                }
             } else {
                 console.warn(`[pipeline] ${sourceName} audio track ended unexpectedly`);
             }

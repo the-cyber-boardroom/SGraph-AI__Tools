@@ -1,0 +1,230 @@
+/* audio-transcribe.css — sg-layout shell (full-width); per-panel styling below */
+
+/* #audio-transcribe-root is sized as a flex column by ui-shell (fills the area
+   below the site header). No max-width — the sg-layout fills the viewport. */
+
+.at-topbar { margin-bottom: 0; }
+.at-topbar h1 { margin: 0 0 6px; font-size: 1.6rem; color: #f1f5f9; }
+.at-version { font-size: 0.7rem; font-weight: 500; color: #64748b; vertical-align: middle; margin-left: 6px; letter-spacing: 0.02em; }
+.at-subtitle { margin: 0; color: #94a3b8; font-size: 0.95rem; max-width: 64ch; }
+
+.at-panel {
+    background: #111127;
+    border: 1px solid #1f2444;
+    border-radius: 10px;
+    padding: 18px 20px;
+    margin-bottom: 18px;
+}
+.at-panel__title {
+    margin: 0 0 14px;
+    font-size: 1rem;
+    color: #cbd5e1;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+}
+.at-panel--hidden { display: none; }
+
+/* Dropzone / source ------------------------------------------------------- */
+.at-dropzone {
+    border: 2px dashed #3b4783;
+    border-radius: 10px;
+    padding: 30px 20px;
+    text-align: center;
+    cursor: pointer;
+    transition: background 120ms ease, border-color 120ms ease;
+    color: #cbd5e1;
+}
+.at-dropzone:focus,
+.at-dropzone:hover,
+.at-dropzone--drag {
+    background: #181a36;
+    border-color: #7180e0;
+    outline: none;
+}
+.at-dropzone__icon { font-size: 2rem; margin-bottom: 8px; }
+.at-dropzone__primary { font-weight: 600; color: #e2e8f0; }
+.at-dropzone__secondary { margin-top: 4px; color: #94a3b8; font-size: 0.9rem; }
+
+.at-record-row { display: flex; align-items: center; gap: 12px; margin-top: 14px; }
+.at-rec-timer { font-variant-numeric: tabular-nums; color: #cbd5e1; min-width: 5ch; }
+.at-notice { min-height: 1.2em; margin-top: 10px; font-size: 0.85rem; color: #94a3b8; }
+.at-notice[data-kind="error"] { color: #fca5a5; }
+.at-notice[data-kind="warn"]  { color: #fcd34d; }
+
+.at-meta-note { margin-top: 10px; font-size: 0.82rem; color: #94a3b8; }
+
+/* Buttons ----------------------------------------------------------------- */
+.at-btn {
+    background: #232a52; color: #e2e8f0; border: 1px solid #38407a;
+    border-radius: 8px; padding: 8px 14px; font-size: 0.9rem; cursor: pointer;
+}
+.at-btn:hover { background: #2c3566; }
+.at-btn.primary { background: #4f46e5; border-color: #6366f1; }
+.at-btn.primary:hover { background: #4338ca; }
+.at-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+.at-btn.small { padding: 4px 9px; font-size: 0.8rem; }
+.at-link-btn { background: none; border: none; color: #93a4ff; cursor: pointer; padding: 0; font: inherit; }
+
+/* Queue ------------------------------------------------------------------- */
+.at-queue-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 12px; }
+.at-progress { height: 6px; background: #1c2244; border-radius: 4px; overflow: hidden; margin-bottom: 14px; }
+.at-progress__bar { height: 100%; width: 0; background: #4f46e5; transition: width 160ms ease; }
+
+.at-row {
+    border: 1px solid #1f2444; border-radius: 8px; padding: 12px 14px; margin-bottom: 10px;
+    background: #0e0e22;
+}
+.at-row__top { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.at-row__name { font-weight: 600; color: #e2e8f0; flex: 1 1 auto; min-width: 12ch; word-break: break-all; }
+.at-row__meta { color: #94a3b8; font-size: 0.82rem; }
+.at-chip {
+    border-radius: 999px; padding: 2px 10px; font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.04em;
+    border: 1px solid #38407a; color: #cbd5e1;
+}
+.at-chip--queued { color: #94a3b8; }
+.at-chip--transcribing { color: #fcd34d; border-color: #b8860b; }
+.at-chip--done { color: #86efac; border-color: #166534; }
+.at-chip--error { color: #fca5a5; border-color: #7f1d1d; }
+.at-row__transcript {
+    margin-top: 10px; white-space: pre-wrap; background: #07071a; border: 1px solid #1f2444;
+    border-radius: 6px; padding: 10px; color: #d1d5db; font-size: 0.9rem; max-height: 240px; overflow: auto;
+}
+.at-row__actions { display: flex; gap: 8px; margin-top: 8px; flex-wrap: wrap; }
+.at-empty { color: #94a3b8; font-size: 0.9rem; }
+
+/* Model panel ------------------------------------------------------------- */
+.at-model-row { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-bottom: 12px; }
+.at-select { background: #0e0e22; color: #e2e8f0; border: 1px solid #38407a; border-radius: 8px; padding: 8px 10px; }
+.at-key-input { flex: 1 1 200px; background: #0e0e22; color: #e2e8f0; border: 1px solid #38407a; border-radius: 8px; padding: 8px 10px; }
+.at-badge { font-size: 0.72rem; color: #94a3b8; border: 1px solid #2b3160; border-radius: 999px; padding: 1px 8px; }
+.at-status-line { font-size: 0.85rem; color: #94a3b8; }
+
+/* Bundle / send ----------------------------------------------------------- */
+.at-include-row { display: flex; gap: 18px; align-items: center; margin-bottom: 12px; color: #cbd5e1; }
+.at-bundle-actions { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; }
+.at-share-url { margin-top: 12px; font-size: 0.85rem; word-break: break-all; }
+.at-share-url a { color: #93a4ff; }
+
+/* Dev panel --------------------------------------------------------------- */
+.at-dev__summary { cursor: pointer; color: #94a3b8; font-size: 0.85rem; }
+.at-dev__grid { display: grid; gap: 14px; margin-top: 14px; }
+
+/* ── Per-recording detail panel (ui-item-panel) ─────────────────────────────── */
+.at-item { display: flex; flex-direction: column; gap: 12px; }
+.at-item__head { display: flex; align-items: center; gap: 10px; }
+.at-item__meta { color: #94a3b8; font-size: 0.8rem; margin-top: -6px; }
+.at-item__audio { width: 100%; height: 36px; }
+.at-item__controls { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.at-item__controls label { font-size: 0.8rem; color: #94a3b8; }
+.at-item__controls .at-select { flex: 1; min-width: 180px; }
+.at-item__txh { margin: 4px 0 0; font-size: 0.95rem; color: #cbd5e1; }
+.at-item__tx { background: #0d0d1a; border: 1px solid #1e293b; border-radius: 6px; padding: 12px 14px; color: #e2e8f0; line-height: 1.55; white-space: pre-wrap; word-break: break-word; min-height: 48px; }
+.at-item__actions { display: flex; gap: 8px; }
+.at-muted { color: #64748b; }
+.at-item__cost { font-size: 0.82rem; color: #86efac; font-variant-numeric: tabular-nums; margin-top: -4px; }
+
+/* ── Advanced mode (per-recording panel) ────────────────────────────────────── */
+.at-adv { margin-top: 8px; border-top: 1px solid #1f2444; padding-top: 10px; }
+.at-adv__summary { cursor: pointer; color: #93a4ff; font-size: 0.85rem; font-weight: 600; }
+.at-adv__body { display: flex; flex-direction: column; gap: 16px; margin-top: 12px; }
+.at-adv__block { display: flex; flex-direction: column; gap: 8px; }
+.at-adv__label { font-size: 0.8rem; color: #94a3b8; text-transform: uppercase; letter-spacing: 0.04em; }
+.at-adv__fcost { text-transform: none; letter-spacing: 0; color: #86efac; font-variant-numeric: tabular-nums; }
+.at-adv__models { display: flex; flex-wrap: wrap; gap: 6px 14px; }
+.at-adv__chk { display: inline-flex; align-items: center; gap: 6px; font-size: 0.85rem; color: #cbd5e1; cursor: pointer; }
+.at-adv__vlist { display: flex; flex-direction: column; gap: 8px; }
+.at-ver { border: 1px solid #1f2444; border-radius: 8px; padding: 10px 12px; background: #0e0e22; }
+.at-ver--sel { border-color: #4f46e5; background: #14142e; }
+.at-ver__head { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-bottom: 6px; }
+.at-ver__model { font-weight: 600; color: #e2e8f0; font-size: 0.85rem; }
+.at-ver__meta { color: #94a3b8; font-size: 0.78rem; font-variant-numeric: tabular-nums; }
+.at-ver__cur { margin-left: auto; font-size: 0.72rem; color: #86efac; text-transform: uppercase; letter-spacing: 0.04em; }
+.at-ver__head .at-link-btn { margin-left: auto; }
+.at-ver__tx { color: #d1d5db; font-size: 0.88rem; line-height: 1.5; white-space: pre-wrap; word-break: break-word; }
+.at-session-cost { margin-top: 12px; font-size: 0.85rem; color: #86efac; font-variant-numeric: tabular-nums; }
+
+/* ── Debug / provenance panel (ui-debug) ────────────────────────────────────── */
+.at-dbg__head { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.at-dbg__list { display: flex; flex-direction: column; gap: 10px; }
+.at-xch { border: 1px solid #1f2444; border-radius: 8px; padding: 10px 12px; background: #0e0e22; }
+.at-xch--error { border-color: #7f1d1d; }
+.at-xch__head { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-bottom: 6px; }
+.at-xch__time { color: #64748b; font-size: 0.75rem; font-variant-numeric: tabular-nums; }
+.at-xch__model { font-weight: 600; color: #e2e8f0; font-size: 0.82rem; }
+.at-xch__file { color: #94a3b8; font-size: 0.8rem; }
+.at-xch__meta { margin-left: auto; color: #86efac; font-size: 0.78rem; font-variant-numeric: tabular-nums; }
+.at-xch__kv { font-size: 0.82rem; color: #cbd5e1; margin: 3px 0; line-height: 1.45; }
+.at-xch__kv > span { display: inline-block; min-width: 76px; color: #64748b; text-transform: uppercase; font-size: 0.68rem; letter-spacing: 0.04em; }
+.at-xch__kv code { background: #07071a; border-radius: 3px; padding: 1px 5px; font-size: 0.78rem; color: #93a4ff; }
+.at-xch__raw { margin-top: 6px; }
+.at-xch__raw summary { cursor: pointer; color: #64748b; font-size: 0.78rem; }
+.at-xch__raw pre { background: #07071a; border: 1px solid #1f2444; border-radius: 6px; padding: 10px; overflow: auto; max-height: 280px; font-size: 0.74rem; color: #a8b3cf; }
+
+/* ── Live recording viz (sg-audio-viz) ──────────────────────────────────────── */
+.at-viz { margin-top: 12px; height: 120px; border: 1px solid #1f2444; border-radius: 8px; overflow: hidden; background: #07071a; }
+.at-viz sg-audio-viz { display: block; width: 100%; height: 100%; }
+
+/* ── Cancel / elapsed (v0.1.10) ─────────────────────────────────────────────── */
+.at-chip--pending   { color: #93a4ff; border-color: #3b4783; }
+.at-chip--cancelled { color: #fcd34d; border-color: #b8860b; }
+.at-btn.danger { background: #7f1d1d; border-color: #b91c1c; color: #fecaca; }
+.at-btn.danger:hover { background: #991b1b; }
+.at-row__elapsed { color: #fcd34d; font-size: 0.8rem; font-variant-numeric: tabular-nums; }
+
+/* ── Create voice / TTS (ui-tts) ────────────────────────────────────────────── */
+.at-tts { display: flex; flex-direction: column; gap: 12px; }
+.at-tts__row { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; }
+.at-tts__lbl { font-size: 0.8rem; color: #94a3b8; min-width: 54px; }
+.at-tts__text { width: 100%; background: #0e0e22; color: #e2e8f0; border: 1px solid #38407a; border-radius: 8px; padding: 10px; font: inherit; resize: vertical; box-sizing: border-box; }
+.at-tts__actions { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.at-tts__result { display: flex; flex-direction: column; gap: 10px; }
+
+/* ── Live transcribe (ui-live) ──────────────────────────────────────────────── */
+.at-live__controls { display: flex; align-items: center; gap: 14px; margin-top: 12px; }
+.at-live__btn { font-size: 1.05rem; padding: 12px 22px; }
+.at-live__clean { display: block; margin-top: 10px; font-size: 0.85rem; color: #cbd5e1; cursor: pointer; }
+.at-live__clean input { vertical-align: middle; margin-right: 6px; }
+.at-live__vadrow { display: flex; gap: 18px; flex-wrap: wrap; margin-top: 8px; }
+.at-live__vadcanvas { display: block; width: 100%; height: 100%; }
+.at-live__chunk { display: block; margin-top: 8px; font-size: 0.85rem; color: #cbd5e1; }
+.at-live__chunk select { margin: 0 8px; background: #0e0e22; color: #e2e8f0; border: 1px solid #38407a; border-radius: 6px; padding: 4px 8px; font: inherit; }
+.at-live__chunk select:disabled { opacity: 0.5; }
+.at-live__tx { margin-top: 8px; min-height: 80px; background: #0e0e22; border: 1px solid #1f2444; border-radius: 8px; padding: 12px 14px; color: #e2e8f0; line-height: 1.5; white-space: pre-wrap; }
+.at-live__tx--live { border-color: #4f46e5; box-shadow: 0 0 0 1px rgba(79,70,229,0.25); }
+.at-live__tx--live::after { content: '▋'; color: #818cf8; animation: at-live-blink 1s steps(1) infinite; }
+@keyframes at-live-blink { 50% { opacity: 0; } }
+.at-live__segwrap { margin-top: 16px; }
+.at-live__segtot { font-size: 0.8rem; font-weight: 400; font-variant-numeric: tabular-nums; }
+.at-live__segs { display: flex; flex-direction: column; gap: 6px; margin-top: 8px; max-height: 260px; overflow-y: auto; }
+.at-live__seg { background: #0e0e22; border: 1px solid #1f2444; border-radius: 8px; padding: 8px 10px; }
+.at-live__seg-meta { font-size: 0.72rem; color: #93a4ff; font-variant-numeric: tabular-nums; margin-bottom: 3px; }
+.at-live__play { padding: 1px 8px; font-size: 0.72rem; margin-left: 4px; vertical-align: middle; }
+.at-live__seg-tx { font-size: 0.85rem; color: #cbd5e1; line-height: 1.4; white-space: pre-wrap; }
+.at-chip--live { color: #fca5a5; border-color: #b91c1c; }
+.at-row__error { color: #fca5a5; }
+
+/* ── Chat with transcripts (ui-chat) ────────────────────────────────────────── */
+.at-chat { display: flex; flex-direction: column; gap: 10px; height: 100%; min-height: 0; }
+.at-chat__bar { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.at-chat__sys summary { cursor: pointer; color: #93a4ff; font-size: 0.82rem; }
+.at-chat__convo { display: flex; flex-direction: column; gap: 8px; flex: 1; min-height: 320px; }
+.at-chat__convo sg-llm-chat-history { flex: 1; min-height: 200px; display: block; overflow: auto; }
+.at-chat__cost { color: #86efac; font-size: 0.8rem; font-variant-numeric: tabular-nums; margin-left: auto; }
+
+/* ── Mobile / narrow screens ─────────────────────────────────────────────────
+   ui-shell collapses to a single sg-layout stack ≤760px; here we enlarge tap
+   targets, shrink the header, and let controls wrap so the tool is usable on a
+   phone. Tab chrome is sg-layout's shadow DOM — themeable only via its vars. */
+@media (max-width: 760px) {
+    sg-layout { --sgl-tab-height: 38px; --sgl-panel-header-height: 40px; }
+    .at-topbar { padding: 8px 12px 6px !important; }
+    .at-topbar h1, .at-topbar h1[style] { font-size: 1.05rem !important; }
+    .at-subtitle { font-size: 0.82rem; }
+    .at-panel { padding: 14px; }
+    .at-btn { padding: 10px 14px; min-height: 40px; }       /* ≥40px tap target */
+    .at-btn.small { min-height: 32px; }
+    .at-live__btn { width: 100%; padding: 16px; font-size: 1.1rem; }
+    .at-live__controls { flex-wrap: wrap; }
+    .at-record-row { flex-wrap: wrap; }
+    .at-tts__text, .at-live__tx { font-size: 16px; }         /* ≥16px = no iOS zoom */
+}

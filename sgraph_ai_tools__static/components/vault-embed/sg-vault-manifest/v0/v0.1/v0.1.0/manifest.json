@@ -1,0 +1,26 @@
+{
+    "name": "sg-vault-manifest",
+    "version": "0.1.0",
+    "type": "component",
+    "namespace": "vault-embed",
+    "tag": "sg-vault-manifest",
+    "description": "Loads a manifest JSON, validates schema v1.0, emits slot-ready per slot. Rejects any manifest containing write_key.",
+    "attributes": {
+        "src":      { "required": true,  "type": "string", "description": "URL of the manifest JSON" },
+        "vault-id": { "required": true,  "type": "string", "description": "Vault ID fallback" },
+        "read-key": { "required": true,  "type": "string", "description": "base64url read key fallback" }
+    },
+    "events": {
+        "sg-vault-manifest:manifest-loaded": { "detail": "{ src, slotCount }" },
+        "sg-vault-manifest:manifest-error":  { "detail": "{ src, error }" },
+        "sg-vault-manifest:slot-ready":      { "detail": "{ slotName, objectId, render, vaultId, readKey }" }
+    },
+    "security": {
+        "write_key_rejection": "Any manifest containing a 'write_key' field anywhere is rejected with: 'Manifest validation error: write_key is forbidden in manifests.'"
+    },
+    "dependencies": {
+        "core": [
+            { "module": "sg-component", "path": "/components/base/v1/v1.0/v1.0.0/sg-component.js" }
+        ]
+    }
+}

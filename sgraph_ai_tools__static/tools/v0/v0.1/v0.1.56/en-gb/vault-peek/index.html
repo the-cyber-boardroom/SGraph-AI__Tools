@@ -1,0 +1,48 @@
+<!DOCTYPE html>
+<html lang="en-GB">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Vault Peek — SGraph Tools</title>
+    <link rel="stylesheet" href="/components/tokens/v1/v1.0/v1.0.0/sg-tokens.css">
+    <link rel="stylesheet" href="./styles/vault-peek.css">
+</head>
+<body>
+
+<div id="app">
+
+    <!-- Slim header strip -->
+    <header class="ved-header">
+        <span class="ved-title">SG/Send — Vault Peek</span>
+        <span class="ved-subtitle">Encrypted → browser decrypted → rendered by Web Components</span>
+    </header>
+
+    <!-- Two-column body: left sg-layout (credentials + tree) + right sg-layout (trace + viewers) -->
+    <div class="ved-body">
+
+        <sg-layout id="ved-left-layout"></sg-layout>
+
+        <!-- Right: sg-layout manages tabbed panels (Trace + dynamic file viewers) -->
+        <sg-layout id="ved-layout"></sg-layout>
+
+    </div>
+
+</div>
+
+<!-- Vault embed components -->
+<script type="module" src="/components/vault-embed/sg-vault-trace/v0/v0.1/v0.1.0/sg-vault-trace.js"></script>
+<script type="module" src="/components/vault-embed/sg-vault-key/v0/v0.1/v0.1.0/sg-vault-key.js"></script>
+<script type="module" src="/components/vault-embed/sg-vault-fetch/v0/v0.1/v0.1.0/sg-vault-fetch.js"></script>
+<script type="module" src="/components/vault-embed/sg-vault-content/v0/v0.1/v0.1.0/sg-vault-content.js"></script>
+<script type="module" src="/components/vault-embed/sg-vault-manifest/v0/v0.1/v0.1.0/sg-vault-manifest.js"></script>
+
+<!-- Content renderer components -->
+<script type="module" src="/components/content/sg-content-markdown/v0/v0.1/v0.1.0/sg-content-markdown.js"></script>
+<script type="module" src="/components/content/sg-content-image/v0/v0.1/v0.1.0/sg-content-image.js"></script>
+<script type="module" src="/components/content/sg-content-json/v0/v0.1/v0.1.0/sg-content-json.js"></script>
+
+<!-- Tool entry point -->
+<script type="module" src="./ui/main.js"></script>
+
+</body>
+</html>

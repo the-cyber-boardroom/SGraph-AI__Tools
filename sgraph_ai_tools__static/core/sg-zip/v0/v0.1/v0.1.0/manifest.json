@@ -1,0 +1,9 @@
+{
+  "name": "sg-zip",
+  "version": "0.1.0",
+  "description": "Lazy JSZip loading (pinned jszip@3.10.1 CDN, classic script injection) + generic entry-list zipping: zipEntries([{path, blob?|text?}]) → Blob, with an injectable JSZip for headless tests. Fills the repo's flagged 'no zip core module' gap; extracted from the audio-transcribe audio-zip.js pattern (Phase R1 of the narrated-review pack). Tool-specific bundle shapes stay in the tools.",
+  "note": "Consumers: narrated-review. audio-transcribe keeps its tool-local audio-zip.js (superset with the bundle shape) until its next overlay re-pins loadJSZip from here.",
+  "exports": {
+    "sg-zip.js": ["loadJSZip", "zipEntries"]
+  }
+}

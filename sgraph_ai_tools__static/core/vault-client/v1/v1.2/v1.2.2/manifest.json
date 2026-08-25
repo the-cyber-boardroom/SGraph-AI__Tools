@@ -1,0 +1,39 @@
+{
+    "name": "sg-vault-client",
+    "version": "1.2.2",
+    "type": "core-module",
+    "description": "Browser-based vault access using Web Crypto API. v1.2.2 adds importReadKey() for the embed stack.",
+    "exports": [
+        "importReadKey",
+        "readObject",
+        "parseVaultKey",
+        "deriveVaultKeys",
+        "deriveFileIdHex",
+        "deriveBranchRefFileId",
+        "openVault",
+        "readFile",
+        "readFileAsJson",
+        "batchRead",
+        "fetchSubTree",
+        "fetchSettings",
+        "listFileIds",
+        "deriveFileIdForPath",
+        "encryptMetadata",
+        "decryptMetadata",
+        "computeObjectId",
+        "walkTree",
+        "openVaultTree",
+        "KDF_ITERATIONS",
+        "KEY_LENGTH",
+        "FILE_ID_HEX_LENGTH",
+        "IV_LENGTH",
+        "SALT_PREFIX"
+    ],
+    "changes": {
+        "from": "1.2.1",
+        "added": [
+            "importReadKey(readKeyBase64Url) — import a base64url-encoded 32-byte AES-256-GCM key directly",
+            "readObject(apiBaseUrl, vaultId, objectId, cryptoKey) — fetch+decrypt using direct parameters (embed stack API)"
+        ]
+    }
+}

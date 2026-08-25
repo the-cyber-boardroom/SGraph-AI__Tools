@@ -111,7 +111,8 @@ export async function init(state, config, api, emit) {
                     : null;
                 initRecordingTab(tabEl, capturedBlob, capturedBlobs, durationMs, sizeBytes, name, {
                     vizWasHidden,
-                    vizMode: config.vizMode || 'smooth-eq',
+                    vizMode:     config.vizMode     || 'smooth-eq',
+                    audioSource: config.audioSource || 'mic',
                     onRegenerate,
                 });
             }

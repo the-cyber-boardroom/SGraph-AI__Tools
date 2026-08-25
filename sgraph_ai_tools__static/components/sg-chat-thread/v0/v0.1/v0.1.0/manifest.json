@@ -1,0 +1,29 @@
+{
+  "name": "sg-chat-thread",
+  "version": "0.1.0",
+  "description": "Message-thread Web Component: in/out bubbles, timestamps, receipt ticks, media intent buttons, under-bubble transcript slot. Platform-neutral (normalized message array in, intent events out). Shadow DOM; js/html/css as sibling files via SgComponent.",
+  "exports": {
+    "sg-chat-thread.js": [
+      "SgChatThread"
+    ]
+  },
+  "element": "sg-chat-thread",
+  "methods": [
+    "setMessages",
+    "appendMessage",
+    "updateMessage"
+  ],
+  "events": [
+    {
+      "name": "sg-chat-thread:media-click",
+      "detail": "{ messageId, type }"
+    },
+    {
+      "name": "sg-chat-thread:transcribe-click",
+      "detail": "{ messageId }"
+    }
+  ],
+  "consumers": [
+    "whatsapp-desk (planned)"
+  ]
+}

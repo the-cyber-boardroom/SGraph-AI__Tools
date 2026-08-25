@@ -1,0 +1,13 @@
+{
+    "name": "sg-youtube-playlists",
+    "version": "0.1.0",
+    "layer": "component",
+    "description": "Web Component list of the signed-in user's YouTube playlists. Click a row to expand and load its videos in-place.",
+    "exports": ["SgYouTubePlaylists"],
+    "dependencies": ["sg-component", "sg-tokens", "core/youtube-api"],
+    "tagName": "sg-youtube-playlists",
+    "attributes": [],
+    "events": ["playlists-loaded", "playlists-error", "playlist-expanded", "playlist-item-selected"],
+    "author": "SGraph Tools Team",
+    "license": "CC-BY-4.0"
+}

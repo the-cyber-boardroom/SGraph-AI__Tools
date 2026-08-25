@@ -1,0 +1,387 @@
+<!DOCTYPE html>
+<html lang="en-GB">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>sg-tree Demo — tools.sgraph.ai</title>
+    <link rel="icon" type="image/svg+xml" href="../../_common/favicon.svg">
+    <link rel="stylesheet" href="/core/sg-layout/v0.1.0/sg-layout.css">
+    <style>
+        html, body { height: 100%; margin: 0; overflow: hidden; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; }
+        body { display: flex; flex-direction: column; background: #0a0a18; color: #e2e8f0; }
+        sg-site-header { flex-shrink: 0; }
+        #layout-wrap { flex: 1; min-height: 0; }
+        #layout-wrap sg-layout { display: block; width: 100%; height: 100%; }
+
+        /* Controls panel */
+        .ctrl-panel {
+            height: 100%; overflow: auto; background: #0d0d1a;
+            padding: 14px; box-sizing: border-box;
+            display: flex; flex-direction: column; gap: 10px;
+        }
+        .ctrl-panel h3 { margin: 0 0 4px; font-size: 12px; color: #4a5568; text-transform: uppercase; letter-spacing: 0.05em; font-weight: 600; }
+        .ctrl-panel button {
+            width: 100%; padding: 7px 10px; background: #1a1a3a; border: 1px solid #333d5a;
+            border-radius: 4px; color: #e2e8f0; font-size: 12px; cursor: pointer; text-align: left;
+        }
+        .ctrl-panel button:hover { background: #252550; border-color: #4ECDC4; }
+        .ctrl-panel textarea, .ctrl-panel input[type="text"] {
+            width: 100%; box-sizing: border-box; background: #111122; border: 1px solid #1a1a3a;
+            border-radius: 4px; color: #a0aec0; padding: 6px 8px; font-size: 11px;
+            font-family: monospace; outline: none; resize: vertical;
+        }
+        .ctrl-panel textarea:focus, .ctrl-panel input:focus { border-color: #4ECDC4; }
+        .ctrl-group { display: flex; flex-direction: column; gap: 4px; border-top: 1px solid #1a1a3a; padding-top: 10px; }
+        .ctrl-row { display: flex; gap: 4px; }
+        .ctrl-row button { flex: 1; }
+
+        /* Tree panel */
+        .tree-panel {
+            height: 100%; overflow: hidden; background: #0d0d1a;
+            display: flex; flex-direction: column;
+        }
+        .tree-panel-header {
+            flex-shrink: 0; padding: 8px 12px; border-bottom: 1px solid #1a1a3a;
+            font-size: 11px; color: #4a5568; font-weight: 600; text-transform: uppercase;
+            letter-spacing: 0.05em; display: flex; justify-content: space-between; align-items: center;
+        }
+        sg-tree {
+            flex: 1; min-height: 0; display: block;
+            --sgt-bg: transparent;
+            --sgt-text: #e2e8f0;
+            --sgt-text-muted: #5a6478;
+            --sgt-hover-bg: rgba(255,255,255,0.05);
+            --sgt-selected-bg: rgba(78,205,196,0.12);
+            --sgt-selected-border: #4ECDC4;
+            --sgt-toggle-color: #4a5568;
+            --sgt-badge-bg: rgba(255,255,255,0.08);
+            --sgt-badge-text: #a0aec0;
+        }
+
+        /* Events log panel */
+        .log-panel {
+            height: 100%; overflow: hidden; background: #0a0a18;
+            display: flex; flex-direction: column;
+        }
+        .log-header {
+            flex-shrink: 0; padding: 8px 12px; border-bottom: 1px solid #1a1a3a;
+            font-size: 11px; color: #4a5568; font-weight: 600; text-transform: uppercase;
+            letter-spacing: 0.05em; display: flex; justify-content: space-between; align-items: center;
+        }
+        .log-header button {
+            background: none; border: 1px solid #1a1a3a; border-radius: 3px; color: #4a5568;
+            font-size: 10px; padding: 2px 7px; cursor: pointer;
+        }
+        .log-header button:hover { border-color: #4ECDC4; color: #4ECDC4; }
+        .log-body { flex: 1; min-height: 0; overflow: auto; padding: 6px 0; font-family: monospace; font-size: 11px; }
+        .log-entry { padding: 3px 12px; border-bottom: 1px solid rgba(255,255,255,0.03); color: #718096; }
+        .log-entry .ev-name { color: #4ECDC4; font-weight: 600; }
+        .log-entry .ev-detail { color: #a0aec0; margin-left: 6px; }
+        .log-entry.highlight { background: rgba(78,205,196,0.05); }
+
+        /* State display */
+        .state-panel {
+            height: 100%; overflow: auto; background: #0a0a18;
+            padding: 12px; box-sizing: border-box; font-family: monospace; font-size: 11px;
+        }
+        .state-panel h3 { margin: 0 0 6px; font-size: 10px; color: #4a5568; text-transform: uppercase; letter-spacing: 0.05em; font-weight: 600; }
+        .state-panel pre { margin: 0 0 12px; color: #a0aec0; white-space: pre-wrap; word-break: break-all; }
+        #selected-display { color: #4ECDC4; }
+        #layout-state-display { color: #68d391; }
+    </style>
+</head>
+<body>
+
+<script type="module" src="https://dev.sgraph.ai/_common/js/components/sg-site-header/v1/v1.0/v1.0.6/sg-site-header.js"></script>
+<sg-site-header site="Send">
+        <div slot="locale" id="locale-picker"></div>
+    </sg-site-header>
+
+<div id="layout-wrap"></div>
+
+<script type="module">
+import { SgLayout }   from '/core/sg-layout/v0.1.0/sg-layout.js';
+import { SGL_EVENTS } from '/core/sg-layout/v0.1.0/sg-layout-events.js';
+// Load v0.1.4 (chains: v0.1.3 → v0.1.2 → v0.1.1 → v0.1.0)
+// Adds: editor mode, virtual scroll, multi-select, drag-and-drop
+import '/core/sg-tree/v0/v0.1/v0.1.4/sg-tree--v0.1.4.js';
+import { SgTree }     from '/core/sg-tree/v0/v0.1/v0.1.0/sg-tree.js';
+import { SGT_EVENTS } from '/core/sg-tree/v0/v0.1/v0.1.0/sg-tree-events.js';
+
+// ── Layout ────────────────────────────────────────────────────────────────────
+
+const wrap = document.getElementById('layout-wrap');
+wrap.style.cssText = 'flex:1;min-height:0;display:block;';
+
+const layout = new SgLayout();
+const layoutEl = document.createElement('sg-layout');
+layoutEl.style.cssText = 'display:block;width:100%;height:100%;';
+wrap.appendChild(layoutEl);
+
+const ready = new Promise(resolve => layoutEl.events.on(SGL_EVENTS.LAYOUT_READY, resolve));
+layoutEl.setLayout({
+    type: 'row', id: 'root', sizes: [0.22, 0.40, 0.22, 0.16],
+    children: [
+        { type: 'stack', id: 's-ctrl', activeTab: 0,
+          tabs: [{ type: 'tab', id: 'tab-ctrl', title: 'Controls', tag: 'div', closable: false }] },
+        { type: 'stack', id: 's-tree', activeTab: 0,
+          tabs: [{ type: 'tab', id: 'tab-tree', title: 'Tree', tag: 'div', closable: false }] },
+        { type: 'stack', id: 's-state', activeTab: 0,
+          tabs: [{ type: 'tab', id: 'tab-state', title: 'State', tag: 'div', closable: false }] },
+        { type: 'stack', id: 's-log', activeTab: 0,
+          tabs: [{ type: 'tab', id: 'tab-log', title: 'Events', tag: 'div', closable: false }] },
+    ],
+});
+await ready;
+
+const ctrlPanelEl  = layoutEl.getPanelElement('tab-ctrl');
+const treePanelEl  = layoutEl.getPanelElement('tab-tree');
+const statePanelEl = layoutEl.getPanelElement('tab-state');
+const logPanelEl   = layoutEl.getPanelElement('tab-log');
+
+// ── Sample data ───────────────────────────────────────────────────────────────
+
+const SAMPLE_DATA = {
+    id: 'root', label: 'SGraph Tools', type: 'folder', icon: '🗂', badge: '3',
+    children: [
+        { id: 'core', label: 'core', type: 'folder', badge: '3', children: [
+            { id: 'sg-layout', label: 'sg-layout', type: 'folder', children: [
+                { id: 'sg-layout-js', label: 'sg-layout.js', type: 'file', meta: { size: '42kb' } },
+                { id: 'sg-layout-events', label: 'sg-layout-events.js', type: 'file', meta: { size: '1kb' } },
+                { id: 'sg-layout-css', label: 'sg-layout.css', type: 'file', meta: { size: '8kb' } },
+            ]},
+            { id: 'sg-tree', label: 'sg-tree', type: 'folder', children: [
+                { id: 'sg-tree-js', label: 'sg-tree.js', type: 'file', icon: '⭐', meta: { size: '28kb' } },
+                { id: 'sg-tree-events', label: 'sg-tree-events.js', type: 'file', meta: { size: '1kb' } },
+            ]},
+            { id: 'sg-crypto', label: 'sg-crypto', type: 'folder', children: [
+                { id: 'sg-crypto-js', label: 'sg-crypto.js', type: 'file', meta: { size: '12kb' } },
+            ]},
+        ]},
+        { id: 'components', label: 'components', type: 'folder', badge: '2', children: [
+            { id: 'llm', label: 'llm', type: 'folder', children: [
+                { id: 'sg-llm-request', label: 'sg-llm-request', type: 'folder', children: [
+                    { id: 'sg-llm-request-js', label: 'sg-llm-request.js', type: 'file', meta: { size: '18kb' } },
+                ]},
+                { id: 'sg-llm-stats', label: 'sg-llm-stats', type: 'folder', children: [
+                    { id: 'sg-llm-stats-js', label: 'sg-llm-stats.js', type: 'file', meta: { size: '6kb' } },
+                ]},
+            ]},
+            { id: 'openrouter', label: 'openrouter', type: 'folder', children: [
+                { id: 'sg-or-gen', label: 'sg-openrouter-generation', type: 'folder', children: [
+                    { id: 'sg-or-gen-js', label: 'sg-openrouter-generation.js', type: 'file', meta: { size: '20kb' } },
+                ]},
+            ]},
+        ]},
+        { id: 'tools', label: 'tools', type: 'folder', badge: '4', children: [
+            { id: 'tool-infographic', label: 'infographic-gen v0.1.12', type: 'file', icon: '🎨' },
+            { id: 'tool-multi-agent', label: 'multi-agent-chat v0.1.13', type: 'file', icon: '🤖' },
+            { id: 'tool-openrouter', label: 'openrouter v0.1.14', type: 'file', icon: '🔌' },
+            { id: 'tool-sg-tree', label: 'sg-tree-demo v0.1.18', type: 'file', icon: '🌳', disabled: false },
+        ]},
+    ],
+};
+
+// ── Tree panel ────────────────────────────────────────────────────────────────
+
+treePanelEl.style.cssText = 'height:100%;display:flex;flex-direction:column;overflow:hidden;background:#0d0d1a;';
+
+const treeHeader = document.createElement('div');
+treeHeader.className = 'tree-panel-header';
+treeHeader.innerHTML = '<span>sg-tree v0.1.4 (editor + virtual scroll + multi-select + dnd)</span><span id="selected-node" style="color:#4ECDC4;font-size:11px;"></span>';
+treePanelEl.appendChild(treeHeader);
+
+const tree = document.createElement('sg-tree');
+tree.setAttribute('editable', 'true');
+tree.setAttribute('selectable', 'multi');
+tree.style.cssText = 'flex:1;min-height:0;display:block;--sgt-bg:transparent;--sgt-text:#e2e8f0;--sgt-text-muted:#5a6478;--sgt-hover-bg:rgba(255,255,255,0.05);--sgt-selected-bg:rgba(78,205,196,0.12);--sgt-selected-border:#4ECDC4;--sgt-toggle-color:#4a5568;--sgt-badge-bg:rgba(255,255,255,0.08);--sgt-badge-text:#a0aec0;';
+treePanelEl.appendChild(tree);
+tree.setData(SAMPLE_DATA);
+tree.expand('core');
+tree.expand('sg-tree');
+
+// ── Events log panel ──────────────────────────────────────────────────────────
+
+logPanelEl.style.cssText = 'height:100%;overflow:hidden;display:flex;flex-direction:column;background:#0a0a18;';
+
+const logHeader = document.createElement('div');
+logHeader.className = 'log-header';
+logHeader.innerHTML = '<span>Events</span><button id="clear-log">Clear</button>';
+logPanelEl.appendChild(logHeader);
+
+const logBody = document.createElement('div');
+logBody.className = 'log-body';
+logPanelEl.appendChild(logBody);
+
+document.getElementById('clear-log')?.addEventListener('click', () => { logBody.innerHTML = ''; });
+
+let logCount = 0;
+function logEvent(evName, detail) {
+    logCount++;
+    const entry = document.createElement('div');
+    entry.className = 'log-entry' + (logCount % 2 === 0 ? ' highlight' : '');
+    const detailStr = detail ? JSON.stringify(detail, (k, v) => k === 'node' ? `{${v?.label}}` : v) : '';
+    entry.innerHTML = `<span class="ev-name">${evName.replace('sg-tree:', '')}</span><span class="ev-detail">${detailStr}</span>`;
+    logBody.prepend(entry);
+    if (logBody.children.length > 100) logBody.lastElementChild?.remove();
+}
+
+Object.values(SGT_EVENTS).forEach(evName => {
+    tree.addEventListener(evName, e => logEvent(evName, e.detail));
+});
+
+// ── State panel ───────────────────────────────────────────────────────────────
+
+statePanelEl.style.cssText = 'height:100%;overflow:auto;background:#0a0a18;padding:12px;box-sizing:border-box;font-family:monospace;font-size:11px;';
+
+function updateStatePanel() {
+    const state = tree.getLayoutState?.() ?? {};
+    const selIds = tree.getSelectedIds ? tree.getSelectedIds() : (tree.getSelectedId() ? [tree.getSelectedId()] : []);
+    statePanelEl.innerHTML = `
+        <div style="font-size:10px;font-weight:600;color:#4a5568;text-transform:uppercase;letter-spacing:.05em;margin-bottom:4px;">Selected (${selIds.length})</div>
+        <pre style="color:#4ECDC4;margin:0 0 10px">${JSON.stringify(selIds, null, 2)}</pre>
+        <div style="font-size:10px;font-weight:600;color:#4a5568;text-transform:uppercase;letter-spacing:.05em;margin-bottom:4px;">Expanded IDs</div>
+        <pre style="color:#a0aec0;margin:0 0 10px">${JSON.stringify(tree.getExpandedIds(), null, 2)}</pre>
+        <div style="font-size:10px;font-weight:600;color:#4a5568;text-transform:uppercase;letter-spacing:.05em;margin-bottom:4px;">Layout State</div>
+        <pre style="color:#68d391;margin:0">${JSON.stringify(state, null, 2)}</pre>
+    `;
+}
+tree.addEventListener(SGT_EVENTS.NODE_SELECTED,    updateStatePanel);
+tree.addEventListener(SGT_EVENTS.NODE_EXPANDED,    updateStatePanel);
+tree.addEventListener(SGT_EVENTS.NODE_COLLAPSED,   updateStatePanel);
+tree.addEventListener(SGT_EVENTS.DATA_CHANGED,     updateStatePanel);
+tree.addEventListener(SGT_EVENTS.SELECTION_CHANGED, updateStatePanel);
+updateStatePanel();
+
+// ── Controls panel ────────────────────────────────────────────────────────────
+
+ctrlPanelEl.style.cssText = 'height:100%;overflow:auto;background:#0d0d1a;padding:14px;box-sizing:border-box;display:flex;flex-direction:column;gap:10px;font-family:system-ui,sans-serif;';
+
+function ctrlGroup(title) {
+    const g = document.createElement('div');
+    g.style.cssText = 'display:flex;flex-direction:column;gap:4px;border-top:1px solid #1a1a3a;padding-top:10px;';
+    const h = document.createElement('div');
+    h.style.cssText = 'font-size:10px;font-weight:600;color:#4a5568;text-transform:uppercase;letter-spacing:.05em;margin-bottom:2px;';
+    h.textContent = title;
+    g.appendChild(h);
+    ctrlPanelEl.appendChild(g);
+    return g;
+}
+function btn(label, fn, parent) {
+    const b = document.createElement('button');
+    b.textContent = label;
+    b.style.cssText = 'padding:6px 10px;background:#1a1a3a;border:1px solid #333d5a;border-radius:4px;color:#e2e8f0;font-size:12px;cursor:pointer;text-align:left;width:100%;';
+    b.onmouseover = () => { b.style.background = '#252550'; b.style.borderColor = '#4ECDC4'; };
+    b.onmouseout  = () => { b.style.background = '#1a1a3a'; b.style.borderColor = '#333d5a'; };
+    b.addEventListener('click', fn);
+    (parent || ctrlPanelEl).appendChild(b);
+    return b;
+}
+function row(parent) {
+    const r = document.createElement('div');
+    r.style.cssText = 'display:flex;gap:4px;';
+    parent.appendChild(r);
+    return r;
+}
+
+// Expand/collapse
+const gExp = ctrlGroup('Expand / Collapse');
+const rExp = row(gExp);
+btn('Expand All',    () => { tree.expandAll();   updateStatePanel(); }, rExp);
+btn('Collapse All',  () => { tree.collapseAll(); updateStatePanel(); }, rExp);
+btn('Expand path to sg-tree.js', () => { tree.expandPath('sg-tree-js'); updateStatePanel(); }, gExp);
+
+// Selection
+const gSel = ctrlGroup('Selection');
+btn('Select sg-tree.js',   () => tree.select('sg-tree-js'),   gSel);
+btn('Select sg-layout.js', () => tree.select('sg-layout-js'), gSel);
+btn('Select tools folder', () => tree.select('tools'),        gSel);
+
+// Filter
+const gFlt = ctrlGroup('Filter');
+const filterInput = document.createElement('input');
+filterInput.type = 'text';
+filterInput.placeholder = 'Filter label contains…';
+filterInput.style.cssText = 'width:100%;box-sizing:border-box;background:#111122;border:1px solid #1a1a3a;border-radius:4px;color:#e2e8f0;padding:6px 8px;font-size:12px;outline:none;';
+filterInput.addEventListener('focus', () => filterInput.style.borderColor = '#4ECDC4');
+filterInput.addEventListener('blur',  () => filterInput.style.borderColor = '#1a1a3a');
+filterInput.addEventListener('input', () => {
+    const q = filterInput.value.trim().toLowerCase();
+    tree.filter(q ? node => node.label.toLowerCase().includes(q) : null);
+});
+gFlt.appendChild(filterInput);
+btn('Clear Filter', () => { filterInput.value = ''; tree.filter(null); }, gFlt);
+
+// Serialisation
+const gSer = ctrlGroup('Serialisation');
+let savedState = null;
+btn('Save State', () => {
+    savedState = tree.getLayoutState();
+    logEvent('(demo) state saved', savedState);
+    updateStatePanel();
+}, gSer);
+btn('Restore State', () => {
+    if (savedState) { tree.setLayoutState(savedState); updateStatePanel(); }
+    else logEvent('(demo) no saved state', null);
+}, gSer);
+
+// Data
+const gData = ctrlGroup('Data');
+btn('Load file-only tree', () => {
+    tree.setData({
+        id: 'flat-root', label: 'Flat Files', type: 'folder',
+        children: [
+            { id: 'f1', label: 'index.html', type: 'file' },
+            { id: 'f2', label: 'style.css',  type: 'file', badge: 'new' },
+            { id: 'f3', label: 'app.js',     type: 'file', disabled: true },
+            { id: 'f4', label: 'README.md',  type: 'file', icon: '📖' },
+        ],
+    });
+    updateStatePanel();
+}, gData);
+btn('Reload SGraph data', () => { tree.setData(SAMPLE_DATA); tree.expand('core'); tree.expand('sg-tree'); updateStatePanel(); }, gData);
+
+// Scroll
+const gScroll = ctrlGroup('Scroll');
+btn('scrollTo sg-crypto.js', () => tree.scrollTo('sg-crypto-js'), gScroll);
+btn('getScrollTop()', () => logEvent('(demo) scrollTop', { px: tree.getScrollTop() }), gScroll);
+
+// Multi-select (v0.1.3)
+const gMulti = ctrlGroup('Multi-Select (v0.1.3)');
+const rMulti = row(gMulti);
+btn('Select All', () => { tree.selectAll?.(); updateStatePanel(); }, rMulti);
+btn('Deselect All', () => { tree.deselectAll?.(); updateStatePanel(); }, rMulti);
+const modeNote = document.createElement('div');
+modeNote.style.cssText = 'font-size:10px;color:#5a6478;';
+modeNote.textContent = 'Shift+click = range  Ctrl+click = toggle  Space = toggle focused';
+gMulti.appendChild(modeNote);
+
+// Editor mode (v0.1.1)
+const gEdit = ctrlGroup('Editor Mode (v0.1.1)');
+const editNote = document.createElement('div');
+editNote.style.cssText = 'font-size:10px;color:#5a6478;margin-bottom:2px;';
+editNote.textContent = 'Hover row = rename icon  F2 = rename  Del = delete';
+gEdit.appendChild(editNote);
+btn('Create folder in core', () => { tree.expand('core'); tree._createFolder?.('core'); updateStatePanel(); }, gEdit);
+btn('Add files to components', () => {
+    tree.expand('components');
+    tree._addFiles?.('components', [{ label: 'new-file.js' }, { label: 'new-style.css' }]);
+    updateStatePanel();
+}, gEdit);
+btn('Toggle editable attr', () => {
+    const cur = tree.getAttribute('editable');
+    tree.setAttribute('editable', cur === 'true' ? 'false' : 'true');
+    logEvent('(demo) editable', { editable: tree.getAttribute('editable') });
+}, gEdit);
+
+// Drag-and-drop (v0.1.4)
+const gDnd = ctrlGroup('Drag-and-Drop (v0.1.4)');
+const dndNote = document.createElement('div');
+dndNote.style.cssText = 'font-size:10px;color:#5a6478;';
+dndNote.textContent = 'Drag rows to reorder or reparent. Drop into folder = child. Top/bottom = sibling.';
+gDnd.appendChild(dndNote);
+
+updateStatePanel();
+</script>
+</body>
+</html>

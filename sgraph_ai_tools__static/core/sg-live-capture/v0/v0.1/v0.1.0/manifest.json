@@ -1,0 +1,10 @@
+{
+  "name": "sg-live-capture",
+  "version": "0.1.0",
+  "description": "Continuous microphone capture + energy-VAD, promoted verbatim from the audio-transcribe tool (v0.1.60): createCapture() delivers per-frame mono PCM + RMS from an AudioWorklet (ScriptProcessor fallback) alongside a compact continuous MediaRecorder take; createVad() is the pure utterance state machine (pre-roll, hangover, hysteresis, min/max guards). Consumers: narrated-review; audio-transcribe/live-transcribe re-pin in a future overlay.",
+  "note": "Dependency-free. Behaviour identical to the tool-local originals; the frame/utterance contracts are frozen — embedders depend on them.",
+  "exports": {
+    "live-capture.js": ["createCapture"],
+    "live-vad.js": ["createVad", "concatFrames"]
+  }
+}

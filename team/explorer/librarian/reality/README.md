@@ -38,9 +38,35 @@ At significant project milestones, create a new versioned snapshot rather than o
 
 | File | Status | Project version |
 |------|--------|-----------------|
-| `v0.1.0__what-exists-today.md` | **ACTIVE** — updated to v0.1.91 | v0.1.91 |
+| `v0.1.0__what-exists-today.md` | **ACTIVE — index** (cover sheet + cumulative change paragraph) | v0.1.55+ |
+| `v0.1.0__what-exists-today__1__libraries.md` | **ACTIVE — Part 1** (deployment, core, skills, components) | v0.1.55+ |
+| `v0.1.0__what-exists-today__2__tools.md` | **ACTIVE — Part 2** (tools, shared assets, i18n, manifests, scripts, tests) | v0.1.55+ |
+| `v0.1.0__what-exists-today__3__operations.md` | **ACTIVE — Part 3** (CI/CD, SEO, team structure, configuration, sgraph.ai reuse plan) | v0.1.55+ |
 
-> **Note:** The filename `v0.1.0__what-exists-today.md` reflects when this file was created. The content inside was last verified at v0.1.91 (14 Apr 2026). A future snapshot should be created at `v0.1.91__what-exists-today.md` to mark the current verified state.
+> **Note:** The filename `v0.1.0__what-exists-today.md` reflects when this document was first created. On 26 Apr 2026 it was split into three parts because the single file had grown to ~568 lines / ~220 KB; the index file retains the original name + the cumulative "Verified by" change paragraph, while the body now lives in the three sibling parts. A future snapshot at `v0.1.X__what-exists-today.md` (with matching parts) is the right shape for a major-milestone freeze.
+
+---
+
+## Per-tool history files
+
+When a tool's row in `__2__tools.md` grows beyond ~5 KB, spin it out into its own history file under `tools/{tool-slug}/`:
+
+```
+team/explorer/librarian/reality/
+  tools/
+    sg-video-editor/
+      v0.1.54__rounds.md    ← one ## heading per round, all text verbatim
+```
+
+**Naming convention:** `{latest-tool-version}__rounds.md`  
+**File lifecycle:** one file per tool (not per version) — append new rounds to the same file as the tool moves through patch versions.  
+**Spin-out threshold:** once a tool row in `__2__tools.md` exceeds ~5 KB; leave smaller rows inline.
+
+When a row is spun out the inline cell in `__2__tools.md` becomes a 2-3 sentence headline + a relative link:
+
+```markdown
+| Tool Name | path | version | **STATUS** — One-line summary. See [full round history](./tools/tool-slug/v{ver}__rounds.md). |
+```
 
 ---
 
