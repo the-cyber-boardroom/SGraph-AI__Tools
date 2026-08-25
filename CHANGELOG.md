@@ -2,6 +2,37 @@
 
 All notable changes to `sgraph_ai_tools__static` are documented here.
 
+## [0.1.68] — 2026-08-25
+
+### Added (youtube-probe — a test harness for the talk-miner questions, not a product)
+- **`youtube-probe` tool** (`tools/v0/v0.1/v0.1.68/en-gb/youtube-probe/`, v0.1.0 alpha) — the v0.2.92 talk-miner brief pack asked five questions it could only *reason* about. This answers them with evidence. **15 tests**, 14 SgToolApi actions, 6 `yp:*` events, 3 SKILL files. It is scaffolding: delete it once the answers are recorded. Spec: `team/humans/dinis_cruz/claude-code-web/08/25/v0.2.92__brief__tools-team__talk-miner__1-5`.
+  - **Seven A-tests run offline** — no token, no network, no clicks — so the whole battery is one `runAuto()` call from Playwright or the console.
+  - **Eight M-tests are manual by necessity**, and say so: an OAuth token cannot be minted headlessly, and `getDisplayMedia` needs a real user gesture on a real tab. Each M-test carries its own setup text rather than a README the runner has to be told to read.
+  - **`info` and `blocked` are first-class verdicts.** A cost projection has no pass/fail, and a test that could not run must never read as a pass. The report ends with what did **not** run.
+
+### Findings (the headline contradicts the brief that prompted the tool)
+- **A3 passed: whole-frame detection found every slide change on a talk fixture.** The v0.2.92 pack predicted that a moving speaker beside the slides would swamp a frame-difference metric and that region masking would be *necessary*. On this fixture it is not. Masking is still worth having — it lifts detection headroom from **5.07× to 60.9×** over the background (**A4**, ~12×) — but as margin, not as a prerequisite. That distinction changes the build order for talk-miner: ship unmasked, add masking when a real recording needs it.
+- **A5: the slide region can be found automatically** on this fixture — IoU **0.89** against ground truth at confidence 0.64 — without asking the user to draw a box.
+- **A6: intercut footage is refused rather than guessed at.** A layout that cuts between speaker-full-frame and slides-full-frame has no stable region, and the suggester says so instead of returning a plausible rectangle.
+- **A7 (info): 15 talks × 40 captures — transcribe+clean $28.38 vs captions+clean $20.58.** Using YouTube's own captions where they exist saves ~27%, and the saving is smaller than it looks because cleanup (which sends a screenshot per capture) dominates either way.
+
+### Added (the fixtures, which are the actual contribution)
+- **`yp-synth.js` records a synthetic TALK in-page** — slides *plus* a speaker ellipse that bobs and gestures on every frame, in `side` / `pip` / `cut` layouts, over broadband speech and a 60 Hz room-tone floor. A screencast fixture cannot test the mask hypothesis at all, because the property under test — continuous motion in one region while another holds still — is exactly what a screencast lacks. Everything is generated at run time; no binary fixtures enter the repo.
+- **`yp-mask.js`** — `maskedSignature` crops via the canvas source rect into `core/sg-media-analysis`'s existing `signatureFrom`, so masking needed **no core change**. `suggestMask` scores an 8×8 grid, then flood-fills the largest connected component rather than taking the bounding box of all hot cells.
+- **`yp-captions.js`** — VTT/SRT/SBV parsing by sniffing rather than by extension (the API serves a format regardless of the URL), and it reports `dropped` cue counts instead of quietly losing them. `groupCuesByBoundaries` groups by cue **midpoint**: a cue that straddles a slide change belongs to whichever slide it spent most of itself on.
+- **`yp-youtube.js`** — `captions.list` / `captions.download` (`youtube.force-ssl`), plus `probeTimedText` for the unofficial endpoint. It never returns the access token from any action — only `{ present }`.
+- **`yp-tabcapture.js`** — `probeTabCapture` verifies **energy and motion**, not just track counts: `getDisplayMedia` will happily hand back an audio track carrying digital silence, and a track-count assertion would call that a pass.
+
+### Fixed (found by the tests, in the tests' own subject matter)
+- **Peakiness (max ÷ mean) is the wrong score for "is this region active?"** and it picked the *speaker* as the slide region — IoU **0.01**. A sinusoidal bob sampled every 250 ms has near-zero frame deltas at its turning points, which drags the mean down and inflates the ratio; periodic motion scores highest precisely because it is periodic. Replaced with **sparsity** — what fraction of samples changed at all — which is what "a region that is usually still" actually means. IoU 0.01 → **0.89**. Same family as the `p95 × 1.5` and greyscale-signature defects in 0.1.67: a statistic chosen without looking at the shape of the data.
+- **`runAuto` returned the accumulated result set rather than the batch it ran**, so a 7-test run reported 8. Summarise what this call produced.
+- **Results were emitted before being recorded**, so a JS-API-driven run left the UI showing the previous state. This is the **third** occurrence of this bug class in this branch (narrated-review's key chip, media-probe's source panel, here) and is now noted in code at the emit site: record, then emit.
+
+### Tests
+- `tests/playwright/youtube-probe-smoke.js` — **43/43** against real Chromium: the action surface, the parsers against all three caption formats, the mask headroom comparison, the refusal path, that no action leaks a token, and that the report names every test that did not run.
+- **NOT verified — everything with `M` in front of it.** No Google OAuth token has been used here, so `captions.download` on an auto-generated track (**M4**, the load-bearing one — whether ASR tracks are downloadable at all decides the whole captions strategy), the third-party refusal path, and tab capture with audio are all *unrun*, not *passing*. The A-tests run against a synthetic talk, not real conference footage; the mask numbers are a demonstration that the method works, not a measurement of any real recording.
+- **Registry v0.1.68** adds `youtube-probe` under Developer — 45 slugs.
+
 ## [0.1.67] — 2026-08-18
 
 *Two tools landed in this release from separate branches — `media-probe` and
