@@ -64,6 +64,14 @@ CACHE_CONTROL = {
     "image":  "public, max-age=604800",    # 1 week
 }
 
+# Documentation-ish files that must NOT be uploaded as text/html.
+# Each is synced in its own pass so it gets the right Content-Type.
+DOC_TYPES = [
+    (".md",  "text/markdown; charset=utf-8"),
+    (".txt", "text/plain; charset=utf-8"),
+    (".xml", "application/xml"),
+]
+
 HTML_EXTENSIONS  = {".html"}
 CSS_JS_EXTENSIONS = {".css", ".js", ".json"}
 IMAGE_EXTENSIONS  = {".png", ".jpg", ".jpeg", ".gif", ".svg", ".ico", ".webp"}
@@ -207,7 +215,7 @@ def check_broken_links(site_dir):
 # ---------------------------------------------------------------------------
 
 def s3_sync_by_type(source_dir, s3_prefix, file_type, extensions, cache_control,
-                    content_type=None, delete=False):
+                    content_type=None, delete=False, extra_excludes=()):
     """Sync a specific file type from source_dir to an S3 prefix.
 
     Uses `aws s3 sync` via subprocess for performance (per v0.7.6 brief:
@@ -221,6 +229,8 @@ def s3_sync_by_type(source_dir, s3_prefix, file_type, extensions, cache_control,
         cmd += ["--exclude", "README.md", "--exclude", ".*", "--exclude", "cloudfront/*"]
         for ext in CSS_JS_EXTENSIONS | IMAGE_EXTENSIONS | FONT_EXTENSIONS:
             cmd += ["--exclude", f"*{ext}"]
+        for pattern in extra_excludes:
+            cmd += ["--exclude", pattern]
         if delete:
             cmd += ["--delete"]
     else:
@@ -228,6 +238,8 @@ def s3_sync_by_type(source_dir, s3_prefix, file_type, extensions, cache_control,
         cmd += ["--exclude", "*"]
         for ext in extensions:
             cmd += ["--include", f"*{ext}"]
+        if delete:
+            cmd += ["--delete"]
 
     if content_type:
         cmd += ["--content-type", content_type]
@@ -289,6 +301,66 @@ def deploy_to_s3(source_dir, bucket, site, version, deploy_env=None):
         ["aws", "s3", "sync", release_prefix, latest_prefix, "--delete"],
         description="Syncing release to latest/"
     )
+
+
+def _sync_release_tree(source_dir, target_prefix):
+    """Sync an assembled release tree to one S3 prefix, typed pass by typed pass.
+
+    Every pass carries --delete, so a file removed from the release is removed
+    from S3. That is safe here precisely because the source IS the complete
+    served tree — there is no layering and nothing else writes to this prefix.
+    """
+    doc_excludes = [f"*{ext}" for ext, _ct in DOC_TYPES]
+
+    s3_sync_by_type(source_dir, target_prefix, "html",
+                    HTML_EXTENSIONS, CACHE_CONTROL["html"],
+                    content_type="text/html", delete=True,
+                    extra_excludes=doc_excludes)
+    s3_sync_by_type(source_dir, target_prefix, "css",
+                    {".css"}, CACHE_CONTROL["css_js"],
+                    content_type="text/css", delete=True)
+    s3_sync_by_type(source_dir, target_prefix, "js",
+                    {".js"}, CACHE_CONTROL["css_js"],
+                    content_type="application/javascript", delete=True)
+    s3_sync_by_type(source_dir, target_prefix, "json",
+                    {".json"}, CACHE_CONTROL["css_js"],
+                    content_type="application/json", delete=True)
+    s3_sync_by_type(source_dir, target_prefix, "image",
+                    IMAGE_EXTENSIONS, CACHE_CONTROL["image"], delete=True)
+    s3_sync_by_type(source_dir, target_prefix, "font",
+                    FONT_EXTENSIONS, CACHE_CONTROL["image"], delete=True)
+    for ext, content_type in DOC_TYPES:
+        s3_sync_by_type(source_dir, target_prefix, ext.lstrip("."),
+                        {ext}, CACHE_CONTROL["html"],
+                        content_type=content_type, delete=True)
+
+
+def deploy_flat_release(source_dir, bucket, site, version, deploy_env=None):
+    """Deploy a pre-assembled release tree, where source_dir IS the served root.
+
+    Used with scripts/build_release.py, which assembles the flat release folder
+    plus core/ and components/ into one directory shaped exactly like the site.
+
+    This replaces the archive-plus-overlay dance of deploy_clean_urls: there is
+    no nested versioned archive to mirror and no second pass to copy the served
+    content up to the release root, because the source already has that shape.
+
+      releases/{ifd_path}/   immutable snapshot of this version
+      latest/                mirror of the newest release
+    """
+    ifd_path = version_to_ifd_path(version)
+    env_segment = f"{deploy_env}/" if deploy_env else ""
+
+    targets = [
+        (f"releases/{ifd_path}", f"s3://{bucket}/websites/{site}/{env_segment}releases/{ifd_path}/"),
+        ("latest",               f"s3://{bucket}/websites/{site}/{env_segment}latest/"),
+    ]
+
+    for label, prefix in targets:
+        print(f"\n{'='*60}")
+        print(f"Deploying release tree to {label}/")
+        print(f"{'='*60}")
+        _sync_release_tree(source_dir, prefix)
 
 
 def deploy_clean_urls(source_dir, bucket, site, version, deploy_env=None,
@@ -573,6 +645,14 @@ def parse_args():
              "The script extracts locale folders, _common, and root files from this path.",
     )
     parser.add_argument(
+        "--flat-release",
+        action="store_true",
+        help="Deploy a pre-assembled release tree (from scripts/build_release.py) where "
+             "--source-dir is already shaped like the served site. Syncs it to "
+             "releases/{version}/ and latest/ with per-type Content-Type, Cache-Control "
+             "and --delete. Mutually exclusive with --clean-urls.",
+    )
+    parser.add_argument(
         "--dry-run",
         action="store_true",
         help="Print what would be done without executing S3 commands.",
@@ -586,6 +666,10 @@ def main():
     source_dir = Path(args.source_dir).resolve()
     if not source_dir.is_dir():
         print(f"ERROR: source directory does not exist: {source_dir}")
+        sys.exit(1)
+
+    if args.flat_release and args.clean_urls:
+        print("ERROR: --flat-release and --clean-urls are mutually exclusive")
         sys.exit(1)
 
     # Resolve bucket name
@@ -622,6 +706,9 @@ def main():
         ifd_path = version_to_ifd_path(args.version)
         env_segment = f"{args.deploy_env}/" if args.deploy_env else ""
         print(f"\n[dry-run] Would deploy {source_dir} to s3://{bucket}/websites/{args.site}/{env_segment}releases/{ifd_path}/")
+        if args.flat_release:
+            n = sum(1 for p in source_dir.rglob("*") if p.is_file())
+            print(f"[dry-run] Flat release: {n} files, synced with --delete to releases/ and latest/")
         if args.clean_urls:
             print(f"[dry-run] Would deploy clean URLs from {args.clean_urls_source_version or 'source root'}")
         print(f"[dry-run] Would copy release to s3://{bucket}/websites/{args.site}/{env_segment}latest/")
@@ -631,7 +718,10 @@ def main():
         sys.exit(0)
 
     # --- Deploy ---
-    if args.clean_urls:
+    if args.flat_release:
+        deploy_flat_release(source_dir, bucket, args.site, args.version,
+                            deploy_env=args.deploy_env)
+    elif args.clean_urls:
         deploy_clean_urls(source_dir, bucket, args.site, args.version,
                           deploy_env=args.deploy_env,
                           clean_urls_source_version=args.clean_urls_source_version)

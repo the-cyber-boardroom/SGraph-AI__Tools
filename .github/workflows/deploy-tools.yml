@@ -1,15 +1,20 @@
 name: Deploy Tools - tools.sgraph.ai
 
-# v1.0.0 — Unified deploy workflow replacing deploy-tools__dev.yml + deploy-tools__main.yml
+# v2.0.0 — Flat release pipeline (IFD layering retired)
+#
+# The tools tier is no longer assembled by replaying delta folders. RELEASE_DIR
+# below is the complete, served content; scripts/build_release.py copies it plus
+# core/ and components/ into build/, which is deployed as-is.
 #
 # S3 path isolation by branch/environment:
 #   websites/sgraph-tools/dev/    — dev branch (automatic) or manual dispatch
 #   websites/sgraph-tools/main/   — main branch (automatic) or manual dispatch
 #   websites/sgraph-tools/prod/   — production (manual dispatch only)
 #
-# On push to dev:  auto-deploys to dev, runs increment-tag first
-# On push to main: auto-deploys to main
-# workflow_dispatch: choose dev / main / production
+# The deployed version comes from the repo root `version` file, which is what
+# increment-tag maintains — so the git tag, the version file and the S3 release
+# prefix are one number. build_release.py fails the build if that version and
+# RELEASE_DIR are not the same major.minor series.
 
 on:
   push:
@@ -20,6 +25,8 @@ on:
       - 'sgraph_ai_tools__static/**'
       - 'scripts/**'
       - '.github/workflows/deploy-tools.yml'
+      # NOTE: the root `version` file is deliberately NOT listed. increment-tag
+      # commits it, so listing it here could retrigger this workflow in a loop.
       - 'sgraph_ai_tools/version'
   workflow_dispatch:
     inputs:
@@ -38,8 +45,10 @@ concurrency:
   cancel-in-progress: false
 
 env:
-  AWS_REGION : eu-west-2
-  SOURCE_DIR : sgraph_ai_tools__static
+  AWS_REGION  : eu-west-2
+  SOURCE_DIR  : sgraph_ai_tools__static
+  RELEASE_DIR : tools/v0/v0.3/v0.3.0
+  TEST_PORT   : 10063
 
 jobs:
   increment-tag:
@@ -56,33 +65,121 @@ jobs:
           release_type: ${{ github.ref_name == 'main' && 'major' || 'minor' }}
 
   deploy:
-    name: "Deploy Tools to S3 (${{ inputs.environment || github.ref_name || 'dev' }})"
+    name: "Build, Test & Deploy (${{ inputs.environment || github.ref_name || 'dev' }})"
     runs-on: ubuntu-latest
     needs: [increment-tag]
     if: always() && (needs.increment-tag.result == 'success' || needs.increment-tag.result == 'skipped')
-    timeout-minutes: 10
+    timeout-minutes: 25
     environment: ${{ inputs.environment || (github.ref_name == 'main' && 'main') || 'dev' }}
 
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+        with:
+          # Branch tip, not github.sha: increment-tag has just pushed the
+          # version bump and we need to deploy that number, not the one the
+          # triggering commit carried.
+          ref: ${{ github.ref }}
 
       - name: Setup Python
         uses: actions/setup-python@v5
         with:
           python-version: '3.12'
 
-      - name: Resolve latest UI version
-        id: ifd
+      # ── Resolve version ────────────────────────────────────────────────
+      - name: Resolve release version
+        id: ver
         run: |
-          LATEST=$(ls -d ${{ env.SOURCE_DIR }}/tools/v0/v0.1/v0.1.* 2>/dev/null \
-            | sort -V | tail -1 | xargs basename)
-          echo "ui_version=$LATEST" >> $GITHUB_OUTPUT
-          APP_VERSION=$(cat sgraph_ai_tools/version)
-          echo "app_version=$APP_VERSION" >> $GITHUB_OUTPUT
-          echo "Repo version: $APP_VERSION"
-          echo "Auto-detected UI version: $LATEST"
+          # The root `version` file is what increment-tag writes, so this number
+          # is also the git tag and the S3 release prefix.
+          VERSION=$(cat version)
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+          echo "Release version : $VERSION"
+          echo "Release dir     : ${{ env.RELEASE_DIR }}"
 
+      # ── Build ──────────────────────────────────────────────────────────
+      - name: Build release tree
+        run: |
+          python scripts/build_release.py \
+            --source-dir  ${{ env.SOURCE_DIR }} \
+            --release-dir ${{ env.RELEASE_DIR }} \
+            --out         build \
+            --version     ${{ steps.ver.outputs.version }}
+
+      - name: Generate i18n locale pages
+        run: python scripts/generate_tools_i18n_pages.py --source-dir build
+
+      - name: Inject build version
+        run: |
+          python scripts/inject_build_version.py \
+            --version ${{ steps.ver.outputs.version }} \
+            --source-dir build \
+            --commit ${{ github.sha }}
+
+      # ── Verify ─────────────────────────────────────────────────────────
+      - name: Verify flat release matches the legacy layered result
+        # Self-disabling: drops out once the v0.1.x delta folders are removed.
+        run: |
+          if [ -d "${{ env.SOURCE_DIR }}/tools/v0/v0.1" ]; then
+            # --allow-additions: content added to v0.3.0 after the flatten is
+            # expected. What must never happen is a tool added the old way, to
+            # a v0.1.x folder, silently not reaching the release that ships.
+            python scripts/verify_flatten.py \
+              --source-dir ${{ env.SOURCE_DIR }} \
+              --ifd-base   tools/v0/v0.1 \
+              --flat       ${{ env.RELEASE_DIR }} \
+              --allow-additions
+          else
+            echo "Legacy tools/v0/v0.1 is gone — nothing to compare against. Skipping."
+          fi
+
+      - name: Check for broken internal links
+        run: |
+          python - <<'PY'
+          import importlib.util, pathlib, sys
+          spec = importlib.util.spec_from_file_location("d", "scripts/deploy_static_site.py")
+          d = importlib.util.module_from_spec(spec); spec.loader.exec_module(d)
+          broken = d.check_broken_links(pathlib.Path("build"))
+          sys.exit(1 if broken else 0)
+          PY
+
+      # ── Test ───────────────────────────────────────────────────────────
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Install Playwright
+        run: |
+          npm install --no-save --no-audit --no-fund playwright
+          npx playwright install --with-deps chromium
+
+      - name: Run browser smoke tests against the built release
+        run: |
+          python3 -m http.server ${{ env.TEST_PORT }} --directory build &
+          SERVER_PID=$!
+          trap "kill $SERVER_PID" EXIT
+          for i in $(seq 1 30); do
+            curl -sf -o /dev/null "http://127.0.0.1:${{ env.TEST_PORT }}/en-gb/" && break
+            sleep 1
+          done
+
+          # Smoke tests verified to run without external APIs or credentials.
+          # Extend this list as more tests are made self-contained; the ones
+          # left out need network access, API keys, or media fixtures.
+          FAILED=0
+          for t in markdown-viewer-boot-smoke \
+                   narrated-review-boot-smoke \
+                   video-publisher-boot-smoke \
+                   whatsapp-desk-boot-smoke; do
+            echo "::group::$t"
+            BASE_URL="http://127.0.0.1:${{ env.TEST_PORT }}" \
+              node ${{ env.SOURCE_DIR }}/tests/playwright/$t.js || FAILED=1
+            echo "::endgroup::"
+          done
+          exit $FAILED
+
+      # ── Deploy ─────────────────────────────────────────────────────────
       - name: Resolve deployment environment
         id: env
         run: |
@@ -101,38 +198,20 @@ jobs:
             echo "Deploying to DEV → S3: websites/sgraph-tools/dev/"
           fi
 
-      - name: Build layered IFD content
-        run: |
-          echo "Building layered IFD content (all versions merged into _latest/)"
-          python scripts/build_ifd_latest.py \
-            --source-dir ${{ env.SOURCE_DIR }} \
-            --ifd-base tools/v0/v0.1 \
-            --up-to auto
-
-      - name: Generate i18n locale pages
-        run: |
-          python scripts/generate_tools_i18n_pages.py \
-            --source-dir ${{ env.SOURCE_DIR }}/tools/v0/v0.1/_latest
-
-      - name: Inject build version
-        run: |
-          python scripts/inject_build_version.py \
-            --version ${{ steps.ifd.outputs.ui_version }} \
-            --source-dir ${{ env.SOURCE_DIR }}/tools/v0/v0.1/_latest \
-            --commit ${{ github.sha }}
-
-      - name: Check AWS credentials
-        id: check-creds
+      - name: Require AWS credentials
+        # Previously this skipped the deploy and let the job go green, so a
+        # credential misconfiguration shipped nothing and reported success.
         run: |
           if [ -z "${{ secrets.AWS_ACCESS_KEY_ID }}" ] || [ -z "${{ secrets.AWS_SECRET_ACCESS_KEY }}" ]; then
-            echo "has-credentials=false" >> $GITHUB_OUTPUT
-            echo "WARNING: AWS credentials not configured — skipping deployment"
-          else
-            echo "has-credentials=true" >> $GITHUB_OUTPUT
+            echo "::error::AWS credentials are not configured for this environment — cannot deploy."
+            exit 1
+          fi
+          if [ -z "${{ secrets.SGRAPH_TOOLS__S3_BUCKET }}" ]; then
+            echo "::error::SGRAPH_TOOLS__S3_BUCKET is not set for this environment."
+            exit 1
           fi
 
       - name: Configure AWS credentials
-        if: steps.check-creds.outputs.has-credentials == 'true'
         uses: aws-actions/configure-aws-credentials@v4
         with:
           aws-access-key-id     : ${{ secrets.AWS_ACCESS_KEY_ID }}
@@ -140,16 +219,31 @@ jobs:
           aws-region            : ${{ env.AWS_REGION }}
 
       - name: Deploy to S3
-        if: steps.check-creds.outputs.has-credentials == 'true'
         # TODO: add --cloudfront-distribution-id back once CF cache is restored
         run: |
           python scripts/deploy_static_site.py \
             --site sgraph-tools \
-            --version ${{ steps.ifd.outputs.ui_version }} \
-            --source-dir ${{ env.SOURCE_DIR }} \
+            --version ${{ steps.ver.outputs.version }} \
+            --source-dir build \
             --bucket ${{ secrets.SGRAPH_TOOLS__S3_BUCKET }} \
             --region ${{ env.AWS_REGION }} \
             --deploy-env ${{ steps.env.outputs.deploy_env }} \
             --skip-validation \
-            --clean-urls \
-            --clean-urls-source-version tools/v0/v0.1/_latest
+            --flat-release
+        # --skip-validation stays: validate_website_files() checks for pages of
+        # the sgraph.ai marketing site (product/, agents/, contact/) that this
+        # site does not have. The check that matters here — broken internal
+        # links — runs as its own gating step above.
+
+      - name: Summary
+        run: |
+          {
+            echo "### Deployed \`${{ steps.ver.outputs.version }}\` to \`${{ steps.env.outputs.deploy_env }}\`"
+            echo ""
+            echo "| | |"
+            echo "|---|---|"
+            echo "| Release dir | \`${{ env.RELEASE_DIR }}\` |"
+            echo "| S3 prefix | \`websites/sgraph-tools/${{ steps.env.outputs.deploy_env }}/releases/\` |"
+            echo "| Files deployed | $(find build -type f | wc -l) |"
+            echo "| Tools | $(ls build/en-gb | grep -v '\.html$' | wc -l) |"
+          } >> $GITHUB_STEP_SUMMARY

@@ -12,6 +12,14 @@ Intentional deviations (e.g. a tool retired during consolidation) must be listed
 in ALLOWED_REMOVALS below, so every difference is a reviewed line of code rather
 than a silent drift.
 
+Two modes:
+  strict (default)   both trees must match exactly. Use at the moment of the
+                     flatten, to prove nothing was lost.
+  --allow-additions  the flat release may contain extra files. Use afterwards,
+                     while the v0.1.x folders still exist: it keeps catching the
+                     failure that matters — a tool added the old way, to a
+                     v0.1.x folder, that never reaches the release being shipped.
+
 Usage:
   python scripts/verify_flatten.py \\
     --source-dir sgraph_ai_tools__static \\
@@ -79,6 +87,11 @@ def main():
     ap.add_argument("--source-dir", required=True)
     ap.add_argument("--ifd-base",   required=True, help="e.g. tools/v0/v0.1")
     ap.add_argument("--flat",       required=True, help="e.g. tools/v0/v0.3/v0.3.0")
+    ap.add_argument("--allow-additions", action="store_true",
+                    help="Do not fail on files present in the flat release but absent from the "
+                         "layered result. Use once development has moved to the flat release: "
+                         "new content there is expected, while anything missing or changed "
+                         "still means a v0.1.x edit that never reached the shipped release.")
     args = ap.parse_args()
 
     source_dir = Path(args.source_dir).resolve()
@@ -104,7 +117,8 @@ def main():
                        if sha256(winners[rel]) != sha256(flat[rel]))
 
     unexpected_missing = [r for r in missing if not covered(r, ALLOWED_REMOVALS)]
-    unexpected_extra   = [r for r in extra   if not covered(r, ALLOWED_ADDITIONS)]
+    unexpected_extra   = ([] if args.allow_additions
+                          else [r for r in extra if not covered(r, ALLOWED_ADDITIONS)])
     artefacts          = [r for r in flat    if covered(r, CI_ARTEFACTS)]
 
     ok = True
@@ -143,13 +157,21 @@ def main():
             print(f"  ! {r}")
         print()
 
-    allowed = len(missing) - len(unexpected_missing) + len(extra) - len(unexpected_extra)
+    allowed = len(missing) - len(unexpected_missing)
+    if not args.allow_additions:
+        allowed += len(extra) - len(unexpected_extra)
     if allowed:
         print(f"  ({allowed} deviation(s) matched an explicit allow-list entry)")
 
     if ok:
-        print(f"PASS: the flat release is byte-identical to the layered result "
-              f"({len(winners)} files verified).")
+        if args.allow_additions and extra:
+            print(f"PASS: every file the layered result serves is present and identical in the "
+                  f"flat release ({len(winners)} files verified).")
+            print(f"      {len(extra)} file(s) exist only in the flat release — expected, since "
+                  f"development has moved there.")
+        else:
+            print(f"PASS: the flat release is byte-identical to the layered result "
+                  f"({len(winners)} files verified).")
         sys.exit(0)
 
     print("Flat release does NOT match the layered result. See failures above.")
