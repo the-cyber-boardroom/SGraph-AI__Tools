@@ -237,7 +237,7 @@ export const AUTO_TESTS = [
     {
         id: 'A5', group: 'Talk footage (the mask hypothesis)', needs: null,
         title: 'The slide region can be found automatically',
-        hypothesis: 'The slide region changes rarely but completely; the speaker changes constantly and slightly. Ranking cells by peakiness (max change ÷ mean change) should recover the slide rectangle without being told.',
+        hypothesis: 'The slide region changes rarely but completely; the speaker changes constantly and slightly. Ranking cells by SPARSITY — how rarely a cell changes at all, weighted by how big the change is when it comes — should recover the slide rectangle without being told. (Peakiness, max ÷ mean, was tried first and picked the speaker: periodic motion has near-zero deltas at its turning points, which drags the mean down and inflates the ratio.)',
         meaning: {
             pass: 'The operator gets a proposed rectangle instead of drawing one — the mask stops being a chore.',
             fail: 'Ship the mask as a manual rectangle over the filmstrip. Auto-suggestion is a nicety, not a blocker.',
