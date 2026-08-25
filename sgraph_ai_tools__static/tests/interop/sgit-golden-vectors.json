@@ -1,0 +1,74 @@
+{
+  "_source": "sgit-ai \u2014 sgit_ai.crypto.Vault__Crypto.derive_keys()",
+  "_note": "Golden values produced by the CLI itself. The browser modules must reproduce them byte for byte from the same vault key. Every case uses a self-identifying sgit key prefix except 'bare-key', which is the historical form.",
+  "_regenerate": "pip install sgit-ai && python3 tests/interop/regenerate-vectors.py",
+  "vectors": [
+    {
+      "name": "prefixed-vault-key",
+      "vault_key": "sgit_private_vault_correct-horse-battery:k8hbjt8x",
+      "passphrase": "correct-horse-battery",
+      "vault_id": "k8hbjt8x",
+      "read_key_hex": "36d70b885cefcb5b6396017b20ef9364d134393af29f40e7ac3a90f7827790e4",
+      "write_key_hex": "d29d3e83475e24fe465dab663c9cc7b791e2ce10643c8a0b53cc1a62670ecd27",
+      "ref_file_id": "ref-pid-muw-b8d0bd5845d3",
+      "branch_index_file_id": "idx-pid-muw-e8683e4c3598",
+      "branch_ref_main": "ref-pid-muw-d9b52de459af",
+      "branch_ref_web_ui": "ref-pid-muw-3a0085c241ff"
+    },
+    {
+      "name": "bare-key",
+      "vault_key": "correct-horse-battery:k8hbjt8x",
+      "passphrase": "correct-horse-battery",
+      "vault_id": "k8hbjt8x",
+      "read_key_hex": "36d70b885cefcb5b6396017b20ef9364d134393af29f40e7ac3a90f7827790e4",
+      "write_key_hex": "d29d3e83475e24fe465dab663c9cc7b791e2ce10643c8a0b53cc1a62670ecd27",
+      "ref_file_id": "ref-pid-muw-b8d0bd5845d3",
+      "branch_index_file_id": "idx-pid-muw-e8683e4c3598",
+      "branch_ref_main": "ref-pid-muw-d9b52de459af",
+      "branch_ref_web_ui": "ref-pid-muw-3a0085c241ff"
+    },
+    {
+      "name": "legacy-vk1-prefix",
+      "vault_key": "sgit_vk1_correct-horse-battery:k8hbjt8x",
+      "passphrase": "correct-horse-battery",
+      "vault_id": "k8hbjt8x",
+      "read_key_hex": "36d70b885cefcb5b6396017b20ef9364d134393af29f40e7ac3a90f7827790e4",
+      "write_key_hex": "d29d3e83475e24fe465dab663c9cc7b791e2ce10643c8a0b53cc1a62670ecd27",
+      "ref_file_id": "ref-pid-muw-b8d0bd5845d3",
+      "branch_index_file_id": "idx-pid-muw-e8683e4c3598",
+      "branch_ref_main": "ref-pid-muw-d9b52de459af",
+      "branch_ref_web_ui": "ref-pid-muw-3a0085c241ff"
+    },
+    {
+      "name": "passphrase-containing-colons",
+      "vault_key": "sgit_private_vault_pass:with:colons:deadbeef",
+      "passphrase": "pass:with:colons",
+      "vault_id": "deadbeef",
+      "read_key_hex": "a903fc429b2806e6c05ba0d21271d982f451bd3c78e4899a8ee6e0fbed3d9b3f",
+      "write_key_hex": "3da59de516555d963eaf4c5d3179893acd9045bb0df69f3c89c0bed915a77f96",
+      "ref_file_id": "ref-pid-muw-3ddbf2a60fc2",
+      "branch_index_file_id": "idx-pid-muw-e6c81d3d4c14",
+      "branch_ref_main": "ref-pid-muw-3ad8f0b98da7",
+      "branch_ref_web_ui": "ref-pid-muw-425a4fc1c7aa"
+    },
+    {
+      "name": "long-passphrase-with-symbols",
+      "vault_key": "sgit_private_vault_a-much-longer-passphrase-with-symbols-!@#$%:q7zx2m4p",
+      "passphrase": "a-much-longer-passphrase-with-symbols-!@#$%",
+      "vault_id": "q7zx2m4p",
+      "read_key_hex": "eb59b4395c0a6219f3aa107d0fcf6e8e33dea6701cab992feb46867e43b32aa1",
+      "write_key_hex": "8751b469b639e52aca47cf554e5d5dc9b71e78cde2e2388e9f4dc9594bf419ef",
+      "ref_file_id": "ref-pid-muw-60d5580793bf",
+      "branch_index_file_id": "idx-pid-muw-8c83ccc2054c",
+      "branch_ref_main": "ref-pid-muw-9bd666378f24",
+      "branch_ref_web_ui": "ref-pid-muw-d846046e671a"
+    }
+  ],
+  "layout": {
+    "_note": "Where sgit stores each object type on the server, read from its own storage constants.",
+    "obj": "bare/data",
+    "ref": "bare/refs",
+    "key": "bare/keys",
+    "idx": "bare/indexes"
+  }
+}

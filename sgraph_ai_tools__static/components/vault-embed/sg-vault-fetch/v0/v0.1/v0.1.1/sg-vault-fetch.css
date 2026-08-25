@@ -1,0 +1,4 @@
+/* sg-vault-fetch — fetch + decrypt component, renders nothing */
+:host {
+    display: none;
+}

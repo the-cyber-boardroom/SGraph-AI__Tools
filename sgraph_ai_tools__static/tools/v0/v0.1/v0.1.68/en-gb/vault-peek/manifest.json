@@ -1,0 +1,32 @@
+{
+    "id": "vault-peek",
+    "name": "Vault Peek",
+    "slug": "vault-peek",
+    "description": "Browse and decrypt vault content entirely in your browser. Enter a vault key or simple token, explore the file tree, and open any file — markdown, images, PDFs, JSON pages — with full trace visibility.",
+    "icon": "🔍",
+    "version": "0.1.0",
+    "status": "live",
+    "category": "vault",
+    "keywords": ["vault", "browse", "decrypt", "web-crypto", "aes-gcm", "read-key", "file-viewer"],
+    "locale": "en-gb",
+    "loader": [
+        { "phase": 1, "type": "css", "path": "/components/tokens/v1/v1.0/v1.0.0/sg-tokens.css" },
+        { "phase": 1, "type": "css", "path": "./styles/vault-peek.css" },
+        { "phase": 2, "type": "js",  "path": "/components/vault-embed/sg-vault-trace/v0/v0.1/v0.1.0/sg-vault-trace.js" },
+        { "phase": 3, "type": "js",  "entry": true, "path": "./ui/main.js" }
+    ],
+    "dependencies": {
+        "core": [
+            { "module": "sg-vault-client", "path": "/core/vault-client/v1/v1.2/v1.2.3/sg-vault-client.js" },
+            { "module": "sg-layout",       "path": "/core/sg-layout/v0.1.0/sg-layout.js" }
+        ],
+        "shared": [
+            { "module": "sg-vault-trace", "path": "/components/vault-embed/sg-vault-trace/v0/v0.1/v0.1.0/sg-vault-trace.js" }
+        ]
+    },
+    "skills": {
+        "human":   "./SKILL-human.md",
+        "browser": "./SKILL-browser.md",
+        "api":     "./SKILL-api.md"
+    }
+}
