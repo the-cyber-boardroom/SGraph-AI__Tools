@@ -367,10 +367,11 @@ def deploy_clean_urls(source_dir, bucket, site, version, deploy_env=None,
                       clean_urls_source_version=None):
     """Deploy with clean URLs: locale folders go to the releases root.
 
-    CloudFront origin points to releases/{ifd_path}/, so clean URL content
-    (locale folders, _common/, i18n/) must be synced there alongside the
-    full versioned archive. The latest/ prefix is also populated for
-    future use if CloudFront origin is switched.
+    NOTE: earlier revisions of this docstring said the CloudFront origin points at
+    releases/{ifd_path}/. That is not the case — probing the live site shows the
+    origin is latest/ (the nested versioned archive 404s there). The clean URL
+    content is synced to both prefixes anyway: latest/ is what gets served, and
+    releases/{ifd_path}/ is the immutable archive kept for rollback.
 
     Deployment steps:
       1. Sync full source to releases/{ifd_path}/ (versioned archive)
@@ -379,7 +380,7 @@ def deploy_clean_urls(source_dir, bucket, site, version, deploy_env=None,
          b. Locale folders (en-gb/, de-de/, etc.)
          c. i18n/ folder
          d. Root files (index.html, 404.html)
-      3. Build clean latest/ (same structure, for future origin switch)
+      3. Build clean latest/ (the prefix CloudFront actually serves)
     """
     ifd_path = version_to_ifd_path(version)
     env_segment = f"{deploy_env}/" if deploy_env else ""
@@ -419,7 +420,8 @@ def deploy_clean_urls(source_dir, bucket, site, version, deploy_env=None,
         sys.exit(1)
 
     # ----- Step 2: Sync clean URL content to releases/ root -----
-    # CloudFront origin points here, so locale folders must exist at this level.
+    # Locale folders must exist at this level so the archive is self-consistent
+    # and directly usable as a rollback source for latest/.
     print(f"\n{'='*60}")
     print(f"Adding clean URL content to releases/{ifd_path}/ root")
     print(f"{'='*60}")
@@ -437,7 +439,7 @@ def deploy_clean_urls(source_dir, bucket, site, version, deploy_env=None,
 
     # ----- Step 3: Build clean latest/ -----
     print(f"\n{'='*60}")
-    print(f"Building clean URL latest/ (for future origin switch)")
+    print(f"Building clean URL latest/ (the prefix CloudFront serves)")
     print(f"{'='*60}")
 
     # Sync top-level shared folders from source_dir (components/, core/)

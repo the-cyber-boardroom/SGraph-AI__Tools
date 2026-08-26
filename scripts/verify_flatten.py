@@ -42,6 +42,11 @@ from pathlib import Path
 # Paths deliberately dropped from the flat release, relative to the release root.
 # A prefix match: "en-gb/heic-decode" covers everything beneath it.
 ALLOWED_REMOVALS = [
+    # Retired in v0.3.0 (Phase 4e). Both were research probes rather than tools:
+    # no manifest, never listed in TOOL_SLUGS, reachable only by direct URL.
+    # Preserved unchanged in tools/v0/v0.1/v0.1.58/ should they be needed again.
+    "en-gb/heic-decode",         # "HEIC Decode Probe -> HEIC Converter" — produced heic-converter (v0.1.59)
+    "en-gb/google-photos-cors",  # "Google Photos Picker API CORS Probe — Phase 0 (v0.2.58)" — probe complete
 ]
 
 # Paths deliberately added to the flat release that no version folder produced.
@@ -175,8 +180,10 @@ def main():
 
     if ok:
         if args.allow_modifications:
+            covered_paths = len(winners) - (len(missing) - len(unexpected_missing))
             print(f"PASS: every path the layered result serves still exists in the flat "
-                  f"release ({len(winners)} paths checked).")
+                  f"release, except those explicitly retired "
+                  f"({covered_paths}/{len(winners)} paths present).")
             if extra:
                 print(f"      {len(extra)} file(s) exist only in the flat release.")
             print(f"      Content differences were not checked (--allow-modifications).")

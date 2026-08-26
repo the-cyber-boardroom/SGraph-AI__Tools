@@ -188,14 +188,19 @@ jobs:
           DEPLOY_ENV="${{ inputs.environment || github.ref_name }}"
           if [ "$DEPLOY_ENV" == "production" ]; then
             echo "deploy_env=prod" >> $GITHUB_OUTPUT
+            echo "site_url=https://tools.sgraph.ai" >> $GITHUB_OUTPUT
             echo "dist_id=${{ secrets.SGRAPH_TOOLS__PROD__CLOUDFRONT_DISTRIBUTION_ID }}" >> $GITHUB_OUTPUT
             echo "Deploying to PRODUCTION (tools.sgraph.ai) → S3: websites/sgraph-tools/prod/"
           elif [ "$DEPLOY_ENV" == "main" ]; then
             echo "deploy_env=main" >> $GITHUB_OUTPUT
+            # No public URL is confirmed for the main environment; the post-deploy
+            # gate is skipped rather than pointed at a guessed hostname.
+            echo "site_url=" >> $GITHUB_OUTPUT
             echo "dist_id=${{ secrets.SGRAPH_TOOLS__CLOUDFRONT_DISTRIBUTION_ID }}" >> $GITHUB_OUTPUT
             echo "Deploying to MAIN → S3: websites/sgraph-tools/main/"
           else
             echo "deploy_env=dev" >> $GITHUB_OUTPUT
+            echo "site_url=https://dev.tools.sgraph.ai" >> $GITHUB_OUTPUT
             echo "dist_id=${{ secrets.SGRAPH_TOOLS__CLOUDFRONT_DISTRIBUTION_ID }}" >> $GITHUB_OUTPUT
             echo "Deploying to DEV → S3: websites/sgraph-tools/dev/"
           fi
@@ -236,6 +241,22 @@ jobs:
         # the sgraph.ai marketing site (product/, agents/, contact/) that this
         # site does not have. The check that matters here — broken internal
         # links — runs as its own gating step above.
+
+      - name: Verify the deployed site
+        if: steps.env.outputs.site_url != ''
+        # Checks every tool URL, every shared-module import, the root files and the
+        # per-type headers against the release that was just built.
+        #
+        # --expect-version is deliberately NOT passed. CloudFront invalidation is
+        # currently disabled and the default TTL is 300s, so a page cached from the
+        # previous release can still be served for a few minutes after upload. New
+        # objects are cache misses and do come from the origin, so URL coverage and
+        # headers are meaningful immediately; version freshness is not. Pass
+        # --expect-version when running this by hand, after the TTL has elapsed.
+        run: |
+          python scripts/verify_deployment.py \
+            --url ${{ steps.env.outputs.site_url }} \
+            --release-dir ${{ env.SOURCE_DIR }}/${{ env.RELEASE_DIR }}
 
       - name: Summary
         run: |

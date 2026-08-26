@@ -11,45 +11,12 @@
      const manifests = await loadManifests()
      const groups    = groupByCategory(manifests)
 
-   v0.1.47 changes:
-     - Added 'misc' category for tools that don't fit existing categories.
-     - Added 'ai' category for AI/pipeline tools (infographic-gen, page-builder, playbooklm).
-     - Added 'speed-test' to TOOL_SLUGS under Misc.
-     - Added 'page-builder' and 'playbooklm' to TOOL_SLUGS under AI.
 
-   v0.1.48 changes:
-     - Added 'voice-memo' to TOOL_SLUGS under Media (manifest.json added in v0.1.48).
-     - Added 'video-recorder' to TOOL_SLUGS under Media.
 
-   v0.1.56 changes:
-     - Added 'youtube-editor', 'youtube-upload' (added in v0.1.53) under Media.
-     - Added 'sg-video-editor' (added in v0.1.54) under Media.
-     - Added 'linkedin-publisher' (added in v0.1.55) under Misc.
-     - Added 'vault-peek' (added in v0.1.56) under Vault & Send.
 
-   v0.1.57 changes:
-     - Added 'mermaid-diagrams' (added in v0.1.57) under Developer.
 
-   v0.1.58 changes:
-     - Added 'agent-with-tools' (added in v0.1.58) under Developer.
 
-   v0.1.59 changes:
-     - Added 'heic-converter' (added in v0.1.59) under Media. Batch HEIC ->
-       WebP/JPEG/PNG/AVIF converter; shipped as a Phase 1-pulled-forward
-       deliverable of the photo-pack / google-photos plan (v0.2.58). Built on
-       the new shared core/sg-heic module.
 
-   v0.1.60 changes:
-     - Added 'audio-transcribe' (added in v0.1.60) under Media. Record or
-       drag/drop many audio files (incl. WhatsApp .opus voice notes) and
-       transcribe each to text via curated OpenRouter audio models, in-browser.
-       Batch queue + zip bundle + embedded sg-send-drop encrypted send. Adds two
-       new core modules: core/sg-audio-decode (WASM Opus -> WAV) and
-       core/sg-wasm-cache (Cache-API WASM persistence).
-     - Added 'live-transcribe' under Media. A minimal "big button" experience
-       variation of audio-transcribe focused on Live (near-realtime) mode:
-       press to talk, watch the transcript refine, per-segment cost shown; or
-       drop a file. Reuses the audio-transcribe api/ modules + ui-live panel.
 
    v0.1.64 changes (2026-08-05):
      - Added 'video-publisher' under Media. One page from recording to
@@ -117,13 +84,13 @@ const TOOL_SLUGS = [
     // AI / LLM
     'chat', 'one-shot-chat', 'infographic-gen', 'multi-agent-chat', 'agentic', 'model-compatibility',
     // AI Pipelines
-    'playbooklm', 'page-builder',
+    'playbooklm', 'page-builder', 'video-creator',
     // Media
     'image-tools', 'video-tools', 'voice-memo', 'video-recorder',
     'youtube-editor', 'youtube-upload', 'sg-video-editor', 'heic-converter', 'audio-transcribe', 'live-transcribe',
     'video-publisher', 'whatsapp-desk', 'narrated-review', 'media-probe',
     // Vault & Send
-    'vault', 'vault-browser', 'vault-peek', 'openrouter', 'sg-send-cli',
+    'vault', 'vault-browser', 'vault-peek', 'openrouter', 'sg-send-cli', 'send-receive',
     // Code & Runtime
     'pyodide-repl', 'folder-editor', 'llm-dev',
     // Developer — visualisation + sandbox tools
