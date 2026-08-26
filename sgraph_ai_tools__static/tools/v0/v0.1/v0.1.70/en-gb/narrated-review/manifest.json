@@ -1,0 +1,994 @@
+{
+  "name": "Narrated Review",
+  "slug": "narrated-review",
+  "description": "Narrate a walk through your screen and press a key at each moment that matters — or hand over a recording and let its pauses do the pressing. Either way you get an ordered list of captures (a screenshot, the words about it, and the alignment between them) that becomes a markdown document any AI assistant can read directly. No video is ever recorded live; transcription + screenshot-grounded cleanup via OpenRouter (BYOK), everything in-browser.",
+  "icon": "🎬",
+  "version": "0.1.6",
+  "status": "alpha",
+  "category": "media",
+  "keywords": [
+    "narrate",
+    "review",
+    "screenshot",
+    "screen",
+    "transcribe",
+    "markdown",
+    "pairs",
+    "openrouter",
+    "feedback",
+    "video",
+    "video-import",
+    "screencast",
+    "billing",
+    "costs",
+    "audit"
+  ],
+  "dependencies": {
+    "core": [
+      {
+        "module": "sg-tool-api",
+        "path": "/core/sg-tool-api/v0/v0.1/v0.1.0/sg-tool-api.js"
+      },
+      {
+        "module": "sg-capture",
+        "path": "/core/sg-capture/v0/v0.1/v0.1.1/sg-capture.js"
+      },
+      {
+        "module": "sg-live-capture",
+        "path": "/core/sg-live-capture/v0/v0.1/v0.1.0/live-capture.js"
+      },
+      {
+        "module": "sg-transcribe",
+        "path": "/core/sg-transcribe/v0/v0.1/v0.1.0/api-transcribe.js"
+      },
+      {
+        "module": "sg-audio-decode",
+        "path": "/core/sg-audio-decode/v0/v0.1/v0.1.0/sg-audio-decode.js"
+      },
+      {
+        "module": "sg-zip",
+        "path": "/core/sg-zip/v0/v0.1/v0.1.0/sg-zip.js"
+      },
+      {
+        "module": "markdown",
+        "path": "/core/markdown/v1/v1.0/v1.0.0/sg-markdown.js"
+      },
+      {
+        "module": "sg-layout",
+        "path": "/core/sg-layout/v0.1.0/sg-layout.js"
+      },
+      {
+        "module": "manifest-loader",
+        "path": "/core/manifest-loader/v0/v0.1/v0.1.0/manifest-loader.js"
+      },
+      {
+        "module": "sg-video-frames",
+        "path": "/core/sg-video-frames/v0/v0.1/v0.1.0/sg-video-frames.js",
+        "note": "video import: frame extraction reference / FFmpeg audio-extraction fallback"
+      },
+      {
+        "module": "video",
+        "path": "/core/video/v1/v1.0/v1.0.2/sg-video.js",
+        "note": "video import: frame extraction reference / FFmpeg audio-extraction fallback"
+      }
+    ],
+    "shared": [
+      {
+        "module": "sg-site-header",
+        "path": "/components/site-header/v1/v1.0/v1.0.2/sg-site-header.js"
+      },
+      {
+        "module": "sg-pipeline-steps",
+        "path": "/components/sg-pipeline-steps/v0/v0.1/v0.1.0/sg-pipeline-steps.js"
+      },
+      {
+        "module": "sg-send-drop",
+        "path": "/components/send-drop/v1/v1.0/v1.0.0/sg-send-drop.js"
+      },
+      {
+        "module": "sg-llm-request",
+        "path": "/components/llm/sg-llm-request/v0/v0.1/v0.1.6/sg-llm-request.js"
+      },
+      {
+        "module": "sg-llm-events",
+        "path": "/components/llm/sg-llm-events/v0/v0.1/v0.1.0/sg-llm-events.js"
+      },
+      {
+        "module": "sg-tool-api-explorer",
+        "path": "/components/tool-api/sg-tool-api-explorer/v0/v0.1/v0.1.0/sg-tool-api-explorer.js"
+      },
+      {
+        "module": "sg-tool-api-console",
+        "path": "/components/tool-api/sg-tool-api-console/v0/v0.1/v0.1.0/sg-tool-api-console.js"
+      },
+      {
+        "module": "sg-tool-api-manifest",
+        "path": "/components/tool-api/sg-tool-api-manifest/v0/v0.1/v0.1.0/sg-tool-api-manifest.js"
+      }
+    ],
+    "loader": [
+      {
+        "phase": 1,
+        "type": "css",
+        "path": "/core/sg-layout/v0.1.0/sg-layout.css"
+      },
+      {
+        "phase": 1,
+        "type": "css",
+        "path": "./styles/nr.css"
+      },
+      {
+        "phase": 2,
+        "type": "js",
+        "path": "/components/llm/sg-llm-request/v0/v0.1/v0.1.6/sg-llm-request.js"
+      },
+      {
+        "phase": 3,
+        "type": "js",
+        "entry": true,
+        "path": "./api/nr-api.js"
+      }
+    ]
+  },
+  "api": {
+    "version": "0.1.0",
+    "global": "window.__tool",
+    "note": "window.__tool live after tool:ready. startSession() must run in a user gesture (screen picker + mic) and OPENS CAPTURE 1 with the screen as shared: a capture's screenshot is taken when it OPENS, and the words until the next press belong to it (markMoment means NEXT). No video is ever recorded — the screen stream is a frame source only; audio is continuous. Transcription + cleanup are billable OpenRouter calls (BYOK, localStorage 'sg-openrouter-mgmt-key'); in 'grounded' cleanup mode each capture's SCREENSHOT is sent to the model — setCleanupMode({mode:'text-only'|'off'}) to prevent that. Raw transcripts are immutable; edits touch clean text only. Sessions save/load locally via core/sg-vfs. Headless path: addRecording → markAt → transcribeAll → cleanAll → buildDocument needs no gestures. THREE INGEST PATHS land in the same capture list and share everything downstream: live (startSession + markMoment), authored (insertPair), and video (importVideo — extracts the audio, cuts it at its silences, and picks the frame each segment is about). importVideo needs no gesture. EVERY paid call is recorded in a BILLING LEDGER at the transport, so no generation can be made without its id being captured; fetchBilling() then retrieves the provider's own receipt (charged cost, native token counts, provider, latency) from GET /api/v1/generation, and the ledger ships as billing.json in the zip and the vault. Exports also carry a machine-readable moments[] array in session.json joining each capture's image, words, audio and raw transcript, plus a README.md naming that surface — consumers should never parse review.md. AUTOSAVE IS ON BY DEFAULT: every mutation checkpoints for undo, appends to the action log, and schedules a write to the VFS; a localStorage beacon lets the next boot notice a session that was in progress. The audio take is the one thing NOT written while recording (it would be re-encoded every few seconds) — it lands on the first save after capture stops, so a crash mid-recording keeps the captures and loses the audio.",
+    "events": [
+      {
+        "name": "tool:ready",
+        "when": "activate() called",
+        "detail": "{ instanceId, tool, version }"
+      },
+      {
+        "name": "nr:key:set",
+        "when": "the OpenRouter key is set (UI or API)",
+        "detail": "{ present }"
+      },
+      {
+        "name": "nr:session:started",
+        "when": "screen + mic live, PCM rolling",
+        "detail": "{ screen:{width,height}, sampleRate, mimeType }"
+      },
+      {
+        "name": "nr:mark",
+        "when": "a moment is marked (key/click/markAt)",
+        "detail": "{ id, seq, tPress }"
+      },
+      {
+        "name": "nr:suggestion",
+        "when": "sustained unmarked silence detected",
+        "detail": "{ t }"
+      },
+      {
+        "name": "nr:pair:added",
+        "when": "a pair is created",
+        "detail": "{ id, seq, tPress }"
+      },
+      {
+        "name": "nr:pair:updated",
+        "when": "bounds/raw/clean change",
+        "detail": "{ id, field }"
+      },
+      {
+        "name": "nr:pair:removed",
+        "when": "removePair()",
+        "detail": "{ id }"
+      },
+      {
+        "name": "nr:transcribe:started",
+        "when": "a segment goes to the model",
+        "detail": "{ id, model }"
+      },
+      {
+        "name": "nr:transcribe:complete",
+        "when": "raw text landed",
+        "detail": "{ id, chars, costUsd }"
+      },
+      {
+        "name": "nr:transcribe:error",
+        "when": "typed failure",
+        "detail": "{ id, code }"
+      },
+      {
+        "name": "nr:session:ended",
+        "when": "take finalised, lanes auto-running",
+        "detail": "{ pairs, durationMs, takeSizeBytes }"
+      },
+      {
+        "name": "nr:clean:started",
+        "when": "cleanup call sent",
+        "detail": "{ id, model, mode }"
+      },
+      {
+        "name": "nr:clean:complete",
+        "when": "clean text + marks landed",
+        "detail": "{ id, marks, costUsd }"
+      },
+      {
+        "name": "nr:clean:error",
+        "when": "cleanup failed (raw stands)",
+        "detail": "{ id, code }"
+      },
+      {
+        "name": "nr:summary:updated",
+        "when": "rolling summary advanced",
+        "detail": "{ length, atSeq }"
+      },
+      {
+        "name": "nr:pairs:reordered",
+        "when": "movePair()/reorderPairs()",
+        "detail": "{ id?, from?, to?, order? }"
+      },
+      {
+        "name": "nr:chat:started",
+        "when": "askPair()/askSession() sent",
+        "detail": "{ scope, id?, model }"
+      },
+      {
+        "name": "nr:chat:complete",
+        "when": "a chat answer landed",
+        "detail": "{ scope, id?, steps?, changes?, costUsd }"
+      },
+      {
+        "name": "nr:store:saving",
+        "when": "saveSession() begins",
+        "detail": "{ sessionId }"
+      },
+      {
+        "name": "nr:store:saved",
+        "when": "session written to local storage",
+        "detail": "{ sessionId, name, savedAt, pairs }"
+      },
+      {
+        "name": "nr:store:loaded",
+        "when": "a saved session was restored",
+        "detail": "{ sessionId, pairs, hasAudio }"
+      },
+      {
+        "name": "nr:store:deleted",
+        "when": "deleteSession()",
+        "detail": "{ sessionId }"
+      },
+      {
+        "name": "nr:document:built",
+        "when": "buildDocument()",
+        "detail": "{ pairs, bytes }"
+      },
+      {
+        "name": "nr:pdf:created",
+        "when": "downloadPdf()",
+        "detail": "{ name, pages, bytes }"
+      },
+      {
+        "name": "nr:vault:started",
+        "when": "saveToVault() begins",
+        "detail": "{ vaultId, files, includeAudio }"
+      },
+      {
+        "name": "nr:vault:progress",
+        "when": "each vault file written",
+        "detail": "{ written, total, path }"
+      },
+      {
+        "name": "nr:vault:complete",
+        "when": "session written to the vault",
+        "detail": "{ vaultId, base, written, includeAudio }"
+      },
+      {
+        "name": "nr:bundle:created",
+        "when": "downloadZip()",
+        "detail": "{ zipSize, name }"
+      },
+      {
+        "name": "nr:error",
+        "when": "session-level failure",
+        "detail": "{ code, step, message }"
+      },
+      {
+        "name": "nr:reset",
+        "when": "reset()",
+        "detail": "{}"
+      },
+      {
+        "name": "nr:video:started",
+        "when": "a video import began",
+        "detail": "{ name, durationMs, width, height }"
+      },
+      {
+        "name": "nr:video:progress",
+        "when": "each stage of a video import",
+        "detail": "{ step:'audio'|'segments'|'frames'|'captures', done?, total?, message? }"
+      },
+      {
+        "name": "nr:video:complete",
+        "when": "the captures are built",
+        "detail": "{ pairs, segments, durationMs, via }"
+      },
+      {
+        "name": "nr:video:warning",
+        "when": "segmentation found no usable pauses",
+        "detail": "{ code:\"no-pauses-found\", message, capped, segments, calibration }"
+      },
+      {
+        "name": "nr:billing:recorded",
+        "when": "a generation id is captured (every paid call)",
+        "detail": "{ id, scope, pairId }"
+      },
+      {
+        "name": "nr:billing:fetching",
+        "when": "a receipt sweep starts",
+        "detail": "{ pending }"
+      },
+      {
+        "name": "nr:billing:resolved",
+        "when": "one receipt arrives",
+        "detail": "{ id, usd }"
+      },
+      {
+        "name": "nr:billing:complete",
+        "when": "the sweep finishes",
+        "detail": "{ resolved, unresolved, failed, totals }"
+      },
+      {
+        "name": "nr:autosave:status",
+        "when": "autosave state changes",
+        "detail": "{ enabled, saving, unsaved, lastSavedAt }"
+      },
+      {
+        "name": "nr:autosave:saved",
+        "when": "a write lands",
+        "detail": "{ sessionId, at, includeAudio, reason }"
+      },
+      {
+        "name": "nr:autosave:error",
+        "when": "a write fails",
+        "detail": "{ code, message } — never silent"
+      },
+      {
+        "name": "nr:unsaved:found",
+        "when": "a session in progress is recovered",
+        "detail": "{ sessionId, pairs, words, restored }"
+      },
+      {
+        "name": "nr:history:changed",
+        "when": "undo/redo availability changes",
+        "detail": "{ canUndo, canRedo, depth, actions }"
+      },
+      {
+        "name": "nr:action:recorded",
+        "when": "anything is done",
+        "detail": "{ n, action, kind }"
+      },
+      {
+        "name": "nr:stream:cleaning",
+        "when": "cleanup runs DURING capture",
+        "detail": "{ id, seq }"
+      },
+      {
+        "name": "nr:stream:progress",
+        "when": "the streaming chain advances",
+        "detail": "{ cleaned, remaining }"
+      },
+      {
+        "name": "nr:cleanup:timing",
+        "when": "timing/order changes",
+        "detail": "{ timing, order, note }"
+      }
+    ],
+    "actions": {
+      "setApiKey": {
+        "params": {
+          "apiKey": {
+            "type": "string",
+            "secret": true
+          }
+        },
+        "returns": "{ ok, present }",
+        "async": false,
+        "note": "shared BYOK slot 'sg-openrouter-mgmt-key'"
+      },
+      "listModels": {
+        "returns": "[{id,label,cost,speed,available,default}]",
+        "async": false
+      },
+      "getStatus": {
+        "returns": "{ status, sessionId, pairs, durationMs, hasScreen, hasKey, takeSource, video, cleanup, spendCapUsd, costs }",
+        "async": false
+      },
+      "startSession": {
+        "params": {
+          "cleanup": {
+            "type": "string",
+            "optional": true
+          }
+        },
+        "returns": "Promise<{ sessionId, screen, mimeType }>",
+        "async": true,
+        "note": "user gesture required (screen picker + mic)"
+      },
+      "markMoment": {
+        "returns": "Promise<{ id, seq, tPress }>",
+        "async": true,
+        "note": "the keypress: screenshot + VAD-snapped boundary + pair"
+      },
+      "endSession": {
+        "returns": "Promise<{ pairs, durationMs, takeSizeBytes }>",
+        "async": true,
+        "note": "auto-runs transcribeAll then cleanAll when a key is set"
+      },
+      "reset": {
+        "returns": "{ ok }",
+        "async": false
+      },
+      "addRecording": {
+        "params": {
+          "file": {
+            "type": "File"
+          }
+        },
+        "returns": "Promise<{ durationMs, sampleRate }>",
+        "async": true,
+        "note": "headless: audio file becomes the take"
+      },
+      "markAt": {
+        "params": {
+          "t": {
+            "type": "number"
+          },
+          "image": {
+            "type": "Blob",
+            "optional": true
+          }
+        },
+        "returns": "Promise<{ id, seq }>",
+        "async": true,
+        "note": "plant markers in ascending order"
+      },
+      "transcribeAll": {
+        "params": {
+          "concurrency": {
+            "type": "number",
+            "optional": true
+          }
+        },
+        "returns": "Promise<{ done, failed }>",
+        "async": true
+      },
+      "getSession": {
+        "returns": "{ tool, schema, files, sessionId, status, startedAt, durationMs, screen, video, videoImport, rollingSummary, costs, moments, pairs }",
+        "async": false
+      },
+      "getPairs": {
+        "returns": "[pair]",
+        "async": false
+      },
+      "getPair": {
+        "params": {
+          "id": {
+            "type": "string"
+          }
+        },
+        "returns": "pair|null",
+        "async": false
+      },
+      "getPairImage": {
+        "params": {
+          "id": {
+            "type": "string"
+          }
+        },
+        "returns": "Promise<{ dataUrl }>",
+        "async": true
+      },
+      "setBoundary": {
+        "params": {
+          "id": {
+            "type": "string"
+          },
+          "tStart": {
+            "type": "number",
+            "optional": true
+          },
+          "tEnd": {
+            "type": "number",
+            "optional": true
+          }
+        },
+        "returns": "pair",
+        "async": false
+      },
+      "setText": {
+        "params": {
+          "id": {
+            "type": "string"
+          },
+          "text": {
+            "type": "string"
+          }
+        },
+        "returns": "pair",
+        "async": false,
+        "note": "edits CLEAN text only — raw is immutable"
+      },
+      "removePair": {
+        "params": {
+          "id": {
+            "type": "string"
+          }
+        },
+        "returns": "{ removed }",
+        "async": false
+      },
+      "retranscribePair": {
+        "params": {
+          "id": {
+            "type": "string"
+          },
+          "model": {
+            "type": "string",
+            "optional": true
+          }
+        },
+        "returns": "Promise<{ id, text, model }>",
+        "async": true,
+        "note": "previous raw kept in rawVersions"
+      },
+      "cleanPair": {
+        "params": {
+          "id": {
+            "type": "string"
+          },
+          "model": {
+            "type": "string",
+            "optional": true
+          }
+        },
+        "returns": "Promise<{ id, cleanText, marks }>",
+        "async": true
+      },
+      "cleanAll": {
+        "returns": "Promise<{ done, failed }>",
+        "async": true,
+        "note": "sequential, seq order (rolling summary is order-dependent)"
+      },
+      "getSummary": {
+        "returns": "{ summary, atSeq }",
+        "async": false
+      },
+      "buildDocument": {
+        "returns": "{ markdown, images:[{name,pairId}] }",
+        "async": false
+      },
+      "getDocument": {
+        "returns": "{ markdown }|null",
+        "async": false
+      },
+      "downloadZip": {
+        "params": {
+          "include": {
+            "type": "object",
+            "optional": true
+          }
+        },
+        "returns": "Promise<{ name, zipSize, count }>",
+        "async": true
+      },
+      "setCleanupMode": {
+        "params": {
+          "mode": {
+            "type": "string"
+          }
+        },
+        "returns": "{ mode }",
+        "async": false,
+        "note": "'grounded' | 'text-only' | 'off'"
+      },
+      "setSnapConfig": {
+        "params": {
+          "minSilenceMs": {
+            "type": "number",
+            "optional": true
+          },
+          "lookbackMs": {
+            "type": "number",
+            "optional": true
+          },
+          "silenceThreshold": {
+            "type": "number",
+            "optional": true
+          }
+        },
+        "returns": "the snap config",
+        "async": false,
+        "note": "tune boundary snapping to how the narrator speaks; minSilenceMs must exceed their sentence-internal pauses"
+      },
+      "getCostSummary": {
+        "returns": "{ sessionUsd, transcribeUsd, cleanUsd, pending, perPair }",
+        "async": false
+      },
+      "setSpendCap": {
+        "params": {
+          "usd": {
+            "type": "number"
+          }
+        },
+        "returns": "{ cap }",
+        "async": false,
+        "note": "soft cap across transcribe, cleanup and chat; null clears"
+      },
+      "setNotes": {
+        "params": {
+          "id": {
+            "type": "string"
+          },
+          "notes": {
+            "type": "string"
+          }
+        },
+        "returns": "pair",
+        "async": false,
+        "note": "extra comments on a capture — commentary, kept separate from the transcript and rendered as a quoted note"
+      },
+      "movePair": {
+        "params": {
+          "id": {
+            "type": "string"
+          },
+          "toIndex": {
+            "type": "number",
+            "optional": true
+          },
+          "by": {
+            "type": "number",
+            "optional": true
+          }
+        },
+        "returns": "{ id, index, moved }",
+        "async": false,
+        "note": "document order is array order; seq is re-derived, id is stable"
+      },
+      "reorderPairs": {
+        "params": {
+          "order": {
+            "type": "array"
+          }
+        },
+        "returns": "{ order }",
+        "async": false,
+        "note": "explicit whole-list order by id"
+      },
+      "insertPair": {
+        "params": {
+          "text": {
+            "type": "string",
+            "optional": true
+          },
+          "notes": {
+            "type": "string",
+            "optional": true
+          },
+          "image": {
+            "type": "Blob",
+            "optional": true
+          },
+          "raw": {
+            "type": "string",
+            "optional": true
+          },
+          "afterId": {
+            "type": "string",
+            "optional": true
+          },
+          "atIndex": {
+            "type": "number",
+            "optional": true
+          }
+        },
+        "returns": "Promise<pair>",
+        "async": true,
+        "note": "author a capture anywhere in the order — a screenshot, some words, or both. No audio, so it never goes through transcription"
+      },
+      "askPair": {
+        "params": {
+          "id": {
+            "type": "string"
+          },
+          "text": {
+            "type": "string"
+          },
+          "model": {
+            "type": "string",
+            "optional": true
+          },
+          "includeImage": {
+            "type": "boolean",
+            "optional": true
+          }
+        },
+        "returns": "Promise<{ text, model, costUsd }>",
+        "async": true,
+        "note": "chat scoped to ONE capture: its screenshot, raw transcript, analysis, notes + the rolling summary"
+      },
+      "askSession": {
+        "params": {
+          "text": {
+            "type": "string"
+          },
+          "model": {
+            "type": "string",
+            "optional": true
+          },
+          "maxSteps": {
+            "type": "number",
+            "optional": true
+          }
+        },
+        "returns": "Promise<{ text, steps, changes, costUsd }>",
+        "async": true,
+        "note": "agentic chat over the whole review WITH TOOLS: list/get captures, set notes, set analysis, move, insert. Raw transcripts are never writable"
+      },
+      "downloadPdf": {
+        "params": {
+          "includeRaw": {
+            "type": "boolean",
+            "optional": true
+          }
+        },
+        "returns": "Promise<{ name, pages, bytes }>",
+        "async": true,
+        "note": "the artefact as a PDF (images + words); jsPDF lazy-loaded from CDN"
+      },
+      "saveToVault": {
+        "params": {
+          "vaultId": {
+            "type": "string"
+          },
+          "passphrase": {
+            "type": "string",
+            "secret": true,
+            "optional": true
+          },
+          "token": {
+            "type": "string",
+            "secret": true,
+            "optional": true
+          },
+          "includeAudio": {
+            "type": "boolean",
+            "optional": true
+          },
+          "folder": {
+            "type": "string",
+            "optional": true
+          }
+        },
+        "returns": "Promise<{ vaultId, base, written, includeAudio }>",
+        "async": true,
+        "note": "writes review.md + images + raws + notes + session.json into an SG/Send vault. Audio is OFF by default — it is the bulk of the size and only needed to re-transcribe, re-cut a boundary, or build something else from the same materials"
+      },
+      "previewVaultFiles": {
+        "params": {
+          "includeAudio": {
+            "type": "boolean",
+            "optional": true
+          }
+        },
+        "returns": "{ files: [path] }",
+        "async": false,
+        "note": "exactly what saveToVault would write, without writing it"
+      },
+      "saveSession": {
+        "params": {
+          "name": {
+            "type": "string",
+            "optional": true
+          },
+          "includeAudio": {
+            "type": "boolean",
+            "optional": true
+          }
+        },
+        "returns": "Promise<{ sessionId, name, savedAt, pairs }>",
+        "async": true,
+        "note": "persists to core/sg-vfs (IndexedDB) so the session survives a reload — order, notes and edits are not re-derivable. The VFS is text-only, so images/audio are stored base64"
+      },
+      "listSessions": {
+        "returns": "Promise<[{ sessionId, name, savedAt, pairs, durationMs, hasAudio }]>",
+        "async": true,
+        "note": "newest first; reads only the small meta.json per session"
+      },
+      "loadSession": {
+        "params": {
+          "sessionId": {
+            "type": "string"
+          }
+        },
+        "returns": "Promise<{ sessionId, pairs, hasAudio, canRetranscribe }>",
+        "async": true,
+        "note": "restores captures, images, text, notes and order. The PCM store is NOT restored, so re-transcribe and boundary edits need the original take (canRetranscribe:false)"
+      },
+      "deleteSession": {
+        "params": {
+          "sessionId": {
+            "type": "string"
+          }
+        },
+        "returns": "Promise<{ deleted }>",
+        "async": true
+      },
+      "importVideo": {
+        "params": {
+          "file": {
+            "type": "Blob",
+            "note": "a video file"
+          },
+          "leadMs": {
+            "type": "number",
+            "optional": true
+          },
+          "lagMs": {
+            "type": "number",
+            "optional": true
+          },
+          "stepMs": {
+            "type": "number",
+            "optional": true
+          },
+          "endpointMs": {
+            "type": "number",
+            "optional": true
+          },
+          "changeThreshold": {
+            "type": "number",
+            "optional": true
+          },
+          "mergeThreshold": {
+            "type": "number",
+            "optional": true
+          }
+        },
+        "returns": "Promise<{ pairs, segments, durationMs, via, capped, calibration }>",
+        "async": true,
+        "note": "third ingest path — resets the session, then builds captures from the recording. `via` is \"web-audio\" or \"ffmpeg\" (the fallback audio extractor). No gesture required. Segmentation thresholds are CALIBRATED from the recording's own energy distribution (a fixed 0.01 RMS silence threshold failed completely on a real screencast: every segment force-cut at maxUtteranceMs). `capped` counts segments cut at the length limit rather than at a pause — non-zero means the boundaries are suspect."
+      },
+      "getFrameCandidates": {
+        "params": {
+          "id": {
+            "type": "string"
+          }
+        },
+        "returns": "{ id, chosenAt, candidates:[{at,thumb}] }",
+        "async": false,
+        "note": "the frames considered for a video-imported capture — the pick is a first draft, not a verdict"
+      },
+      "setFrame": {
+        "params": {
+          "id": {
+            "type": "string"
+          },
+          "at": {
+            "type": "number",
+            "note": "ms into the video"
+          }
+        },
+        "returns": "Promise<{ id, at }>",
+        "async": true,
+        "note": "re-grab the capture screenshot at another point; any `at` works, not just a candidate. Needs the source video still loaded."
+      },
+      "fetchBilling": {
+        "params": {
+          "delayMs": {
+            "type": "number",
+            "optional": true
+          },
+          "retries": {
+            "type": "number",
+            "optional": true
+          },
+          "force": {
+            "type": "boolean",
+            "optional": true
+          },
+          "ids": {
+            "type": "string[]",
+            "optional": true
+          }
+        },
+        "returns": "Promise<{ resolved, unresolved, failed, totals }>",
+        "async": true,
+        "note": "fetches the provider receipt for every generation lacking one. Idempotent. The generation row is not queryable the instant a completion returns, hence delayMs + retries. Exports call it best-effort first, and it can never block or fail an export."
+      },
+      "getBilling": {
+        "returns": "{ tool, sessionId, note, totals, generations:[{ id, at, scope, pairId, step, model, localCostUsd, chargedUsd, fetchedAt, attempts, lastError, data }] }",
+        "async": false,
+        "note": "the ledger, same shape as billing.json. `data` is the provider record VERBATIM. `localCostUsd` is what the completion claimed; `chargedUsd` is what was charged. Entries with data:null were never resolved — the id is still valid and can be looked up later."
+      },
+      "undo": {
+        "returns": "{ ok, canUndo, canRedo, depth }",
+        "async": false,
+        "note": "Snapshot-based. Undo is itself recorded in the action log — the log is a history of what was DONE, never rewound."
+      },
+      "redo": {
+        "returns": "{ ok, canUndo, canRedo, depth }",
+        "async": false
+      },
+      "getHistory": {
+        "returns": "{ canUndo, canRedo, depth, actions }",
+        "async": false
+      },
+      "getActions": {
+        "returns": "the actions.json document",
+        "async": false,
+        "note": "Append-only log of everything done to this session, with `kind` separating a human/agent edit from what the pipeline did on its own. Saved beside the session and shipped in both zips."
+      },
+      "setAutosave": {
+        "params": {
+          "on": {
+            "type": "boolean"
+          }
+        },
+        "returns": "the autosave status",
+        "async": false,
+        "note": "ON by default. Turning it off is stated loudly in the UI — silent autosave and broken autosave look identical."
+      },
+      "getAutosave": {
+        "returns": "{ enabled, saving, unsaved, lastSavedAt, pendingMs, takeSaved, takeNote }",
+        "async": false
+      },
+      "flushAutosave": {
+        "returns": "the autosave status",
+        "async": true,
+        "note": "Write now, regardless of the debounce."
+      },
+      "findUnsaved": {
+        "returns": "{ found, recoverable, sessionId, pairs, words, ageMs, savedAt }",
+        "async": false,
+        "note": "Reads a localStorage beacon written on every change. `recoverable:false` means something was in progress but never reached disk — say so rather than offering a restore that comes back empty."
+      },
+      "dismissUnsaved": {
+        "returns": "{ ok }",
+        "async": false
+      },
+      "restoreUnsaved": {
+        "returns": "the loadSession result plus restoredFrom",
+        "async": true,
+        "note": "Loads the session the beacon names. Plain loadSession underneath — one tested path back."
+      },
+      "downloadHandover": {
+        "returns": "{ name, zipSize, count, omitted }",
+        "async": true,
+        "note": "The agent bundle: no audio, no PDF (an agent reads neither and they are most of the bytes), plus uncertain.json and actions.json."
+      },
+      "getUncertain": {
+        "returns": "the uncertain.json document",
+        "async": false,
+        "note": "Every span cleanup flagged as UNCERTAIN, with the sentence it sits in and the raw transcript to judge it against. The most-used part of the export."
+      },
+      "setCleanupTiming": {
+        "params": {
+          "timing": {
+            "type": "string",
+            "note": "streaming | after"
+          },
+          "order": {
+            "type": "string",
+            "note": "sequential | parallel"
+          }
+        },
+        "returns": "{ timing, order, note }",
+        "async": false,
+        "note": "streaming (default) cleans each capture as its transcript lands, DURING the recording — cleanup only looks backwards, so it is the identical computation started earlier. order:'parallel' drops the rolling summary and IS a quality change."
+      },
+      "getCleanupTiming": {
+        "returns": "{ timing, order, note, captures, transcribed, cleaned, pendingClean, waitingOn, estimatedRemainingCalls }",
+        "async": false
+      }
+    },
+    "skills": {
+      "human": "./skills/SKILL-human.md",
+      "browser": "./skills/SKILL-browser.md",
+      "api": "./skills/SKILL-api.md"
+    }
+  }
+}
