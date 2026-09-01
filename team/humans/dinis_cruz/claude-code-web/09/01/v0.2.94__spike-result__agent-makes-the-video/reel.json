@@ -10,7 +10,8 @@
     "shot.kind clip = a Playwright recordVideo clip is shot as well; the still used in the video is a frame from it, because video-creator only takes images.",
     "shorts lists the scene ids used for the vertical cut, in order.",
     "No keys or tokens live here. The published vault read key is scraped from https://sgit.ai/demos/vaults/ at capture time.",
-    "label.at is either viewport fractions [x,y] or 'below' / 'above', which anchors the label to the scene's spotlight rect. Absolute fractions were tried first and landed away from their targets."
+    "label.at is either viewport fractions [x,y] or 'below' / 'above', which anchors the label to the scene's spotlight rect. Absolute fractions were tried first and landed away from their targets.",
+    "Narration was tightened after the first render came out at 128 s: 274 words read as 128.5 s of Kokoro at speed 1.0, so 90 s is about 190 words, not the 12 to 15 scenes at 6 to 8 s the recipe suggested."
   ],
   "scenes": [
     {
@@ -41,7 +42,7 @@
     },
     {
       "id": "s02",
-      "narration": "The server stores ciphertext under opaque identifiers. File names, contents, commit messages and branch names never reach it.",
+      "narration": "The server stores ciphertext under opaque identifiers. File names, contents and commit messages never reach it.",
       "caption": "The server sees ciphertext",
       "shot": {
         "kind": "still",
@@ -66,7 +67,7 @@
     },
     {
       "id": "s03",
-      "narration": "Creating a vault is one command. It is registered and its first commit pushed before you see the prompt again.",
+      "narration": "Creating a vault is one command.",
       "caption": "One command",
       "shot": {
         "kind": "still",
@@ -87,7 +88,7 @@
     },
     {
       "id": "s04",
-      "narration": "Then you work like git. Status, commit, branch, history and diffs, sync, and an agent mode built for machines.",
+      "narration": "Then you work like git. Status, commit, history, sync, and an agent mode built for machines.",
       "caption": "Work like git",
       "shot": {
         "kind": "clip",
@@ -110,7 +111,7 @@
     },
     {
       "id": "s05",
-      "narration": "SG Vault is the same vault in the browser. An independent implementation of one encrypted wire format, not a wrapper around the command line.",
+      "narration": "SG Vault is the same vault in the browser. One encrypted wire format, no wrapper around the command line.",
       "caption": "Same vault, in the browser",
       "shot": {
         "kind": "still",
@@ -131,7 +132,7 @@
     },
     {
       "id": "s06",
-      "narration": "You open a vault by its key, carried in the URL fragment. The fragment is never sent to the server, so the server serves the app without ever seeing the key.",
+      "narration": "You open a vault by its key, carried in the URL fragment. The fragment is never sent, so the server never sees the key.",
       "caption": "The key never leaves the browser",
       "shot": {
         "kind": "still",
@@ -156,7 +157,7 @@
     },
     {
       "id": "s07",
-      "narration": "Three pieces. The sgit command line, the SG Vault browser client, and SG Send, the transfer API that stores ciphertext and is the only piece that never sees plaintext.",
+      "narration": "Three pieces. The sgit command line, the SG Vault browser client, and SG Send, the transfer API that never sees plaintext.",
       "caption": "Three pieces, one wire format",
       "shot": {
         "kind": "still",
@@ -177,7 +178,7 @@
     },
     {
       "id": "s08",
-      "narration": "A vault can contain an app. When the vault opens, the app launches, and sharing the vault link is deploying the app.",
+      "narration": "A vault can contain an app. Sharing the vault link is deploying the app.",
       "caption": "The app is the vault",
       "shot": {
         "kind": "still",
@@ -198,7 +199,7 @@
     },
     {
       "id": "s09",
-      "narration": "sgit dot ai publishes read keys for its demo vaults on purpose. A read key is a capability that cannot become write access.",
+      "narration": "sgit dot ai publishes read keys for its demo vaults on purpose. A read key cannot become write access.",
       "caption": "Read keys, published on purpose",
       "shot": {
         "kind": "still",
@@ -226,7 +227,7 @@
     },
     {
       "id": "s10",
-      "narration": "Here is one of them, opened live. Everything on this page was decrypted in the browser with that published read only key.",
+      "narration": "Here is one, opened live. Everything on this page was decrypted in the browser with a published read only key.",
       "caption": "Decrypted in your browser",
       "shot": {
         "kind": "still",
@@ -272,7 +273,7 @@
     },
     {
       "id": "s12",
-      "narration": "And the badge says what the key allows. One read, zero writes. Read only, by construction.",
+      "narration": "And the badge says what the key allows. One read, zero writes.",
       "caption": "Read-only by construction",
       "shot": {
         "kind": "still",
@@ -303,7 +304,7 @@
     },
     {
       "id": "s13",
-      "narration": "pip install sgit dash ai. Or try it in your browser. sgit dot ai.",
+      "narration": "pip install sgit dash ai. Or try it in your browser, at sgit dot ai.",
       "caption": "pip install sgit-ai",
       "shot": {
         "kind": "still",

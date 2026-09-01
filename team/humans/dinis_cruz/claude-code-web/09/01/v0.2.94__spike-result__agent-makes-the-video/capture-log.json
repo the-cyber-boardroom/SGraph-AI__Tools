@@ -1,5 +1,5 @@
 {
-  "started": "2026-09-01T21:39:30.299Z",
+  "started": "2026-09-01T21:49:19.047Z",
   "scenes": [
     {
       "id": "s01",
@@ -23,7 +23,7 @@
           }
         }
       ],
-      "ms": 2544
+      "ms": 2262
     },
     {
       "id": "s02",
@@ -36,9 +36,9 @@
           "resolved": true,
           "rect": {
             "x": 675.796875,
-            "y": 142.76446533203125,
+            "y": 142.76536560058594,
             "w": 466.609375,
-            "h": 186.140625
+            "h": 186.14064025878906
           }
         },
         {
@@ -46,13 +46,10 @@
           "resolved": true,
           "rect": null,
           "text": "the whole list, published",
-          "at": [
-            0.52,
-            0.86
-          ]
+          "at": "below"
         }
       ],
-      "ms": 2409
+      "ms": 2384
     },
     {
       "id": "s03",
@@ -71,7 +68,7 @@
           }
         }
       ],
-      "ms": 2402
+      "ms": 2358
     },
     {
       "id": "s04",
@@ -81,8 +78,8 @@
       "stillFrom": "last-frame-screenshot",
       "clip": {
         "file": "clips/s04.webm",
-        "bytes": 617870,
-        "duration": "00:00:10.00"
+        "bytes": 731653,
+        "duration": "00:00:09.84"
       },
       "ms": 10086
     },
@@ -103,7 +100,7 @@
           }
         }
       ],
-      "ms": 2777
+      "ms": 2746
     },
     {
       "id": "s06",
@@ -126,13 +123,10 @@
           "resolved": true,
           "rect": null,
           "text": "the key lives after the #",
-          "at": [
-            0.36,
-            0.72
-          ]
+          "at": "below"
         }
       ],
-      "ms": 2364
+      "ms": 2354
     },
     {
       "id": "s07",
@@ -151,7 +145,7 @@
           }
         }
       ],
-      "ms": 2351
+      "ms": 2372
     },
     {
       "id": "s08",
@@ -170,7 +164,7 @@
           }
         }
       ],
-      "ms": 2358
+      "ms": 2440
     },
     {
       "id": "s09",
@@ -201,13 +195,10 @@
           "resolved": true,
           "rect": null,
           "text": "keys blurred for the video, not on the site",
-          "at": [
-            0.4,
-            0.9
-          ]
+          "at": "below"
         }
       ],
-      "ms": 2398
+      "ms": 2394
     },
     {
       "id": "s10",
@@ -231,7 +222,7 @@
           }
         }
       ],
-      "ms": 10316
+      "ms": 13637
     },
     {
       "id": "s11",
@@ -242,10 +233,10 @@
       "stillFrom": "last-frame-screenshot",
       "clip": {
         "file": "clips/s11.webm",
-        "bytes": 1510545,
+        "bytes": 1226318,
         "duration": "00:00:24.16"
       },
-      "ms": 24334
+      "ms": 23976
     },
     {
       "id": "s12",
@@ -273,13 +264,10 @@
           "resolved": true,
           "rect": null,
           "text": "R1 W0: one read key, no write key",
-          "at": [
-            0.55,
-            0.12
-          ]
+          "at": "below"
         }
       ],
-      "ms": 8546
+      "ms": 8903
     },
     {
       "id": "s13",
@@ -298,10 +286,10 @@
           }
         }
       ],
-      "ms": 2089
+      "ms": 3438
     }
   ],
   "captured": 15,
   "used": 13,
-  "totalMs": 75071
+  "totalMs": 79448
 }

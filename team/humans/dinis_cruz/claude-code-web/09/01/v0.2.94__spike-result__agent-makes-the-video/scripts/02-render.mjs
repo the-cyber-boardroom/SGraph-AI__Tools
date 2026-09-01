@@ -11,6 +11,8 @@ const ROOT = path.resolve('..');
 const reel = JSON.parse(fs.readFileSync(path.join(ROOT, 'reel.json'), 'utf8'));
 const FORMAT = process.env.FORMAT || 'landscape';
 const POOL = Number(process.env.POOL || 2);
+const WARM = !!process.env.WARM;
+const HEARTBEAT = process.env.HEARTBEAT !== '0';  // repaint the recording canvas every frame; see below   // second generateAudio() pass, to measure whether anything is cached (nothing is)
 const FF = process.env.FFMPEG || 'ffmpeg';
 const scenes = FORMAT === 'shorts' ? reel.shorts.map(id => reel.scenes.find(s => s.id === id)) : reel.scenes;
 const size = FORMAT === 'shorts' ? { width: 1080, height: 1920 } : { width: 1280, height: 720 };
@@ -61,7 +63,7 @@ out.crop = await page.evaluate(async ([slides, size]) => {
 }, [slides, size]);
 
 // TTS: pre-load a pool of our chosen size (sg-tts is a module singleton shared with video-creator).
-const tts = await page.evaluate(async (POOL) => {
+const tts = await page.evaluate(async ([POOL, WARM]) => {
   const mod = await import('/core/sg-tts/v0/v0.1/v0.1.0/sg-tts.js');
   const t0 = performance.now();
   await mod.loadTTS({ poolSize: POOL });
@@ -69,11 +71,12 @@ const tts = await page.evaluate(async (POOL) => {
   const t1 = performance.now();
   const r1 = await window.__tool.generateAudio({ voice: 'af_bella', speed: 1.0 });
   const coldMs = performance.now() - t1;
+  if (!WARM) return { modelLoadMs: loadMs, coldGenMs: coldMs, durations: r1.durations };
   const t2 = performance.now();
   const r2 = await window.__tool.generateAudio({ voice: 'af_bella', speed: 1.0 });
   const warmMs = performance.now() - t2;
   return { modelLoadMs: loadMs, coldGenMs: coldMs, warmGenMs: warmMs, durations: r2.durations, sameDurations: JSON.stringify(r1.durations) === JSON.stringify(r2.durations) };
-}, POOL);
+}, [POOL, WARM]);
 out.tts = tts;
 out.intendedMs = Math.round(tts.durations.reduce((a, b) => a + (b > 0 ? b : 3), 0) * 1000);
 console.log('tts', JSON.stringify({ ...tts, durations: tts.durations.map(d => +d.toFixed(2)) }));
@@ -81,13 +84,31 @@ console.log('tts', JSON.stringify({ ...tts, durations: tts.durations.map(d => +d
 // Record — real time. Then hand the blob to Chromium's downloader (no big body over CDP).
 await page.evaluate((size) => window.__tool.setConfig(size), size);
 const recordStart = Date.now();
-const rec = await page.evaluate(async () => {
+const rec = await page.evaluate(async (HEARTBEAT) => {
   const t = window.__tool;
   const started = performance.now();
-  const { webmBlob } = await t.record({ fps: 30, bitrateKbps: 2500 });
+  const done = t.record({ fps: 30, bitrateKbps: 2500 });
+  // Finding from run 1: canvas.captureStream(30) only emits a frame when the
+  // canvas is painted, and video-creator paints once per slide, so a 128 s
+  // video came out with 13 frames, each a single P-frame the encoder never
+  // refined (text illegible). This loop repaints the recording canvas onto
+  // itself every animation frame so MediaRecorder sees a real 30 fps stream.
+  // It lives here, outside the tool, because the spike must not change tools/.
+  let heartbeats = 0, canvas = null, running = true;
+  if (HEARTBEAT) {
+    const tick = () => {
+      if (!running) return;
+      canvas = canvas || [...document.querySelectorAll('canvas')].find(c => c.style.display === 'none' && c.width === t.getConfig().width);
+      if (canvas) { canvas.getContext('2d').drawImage(canvas, 0, 0); heartbeats++; }
+      requestAnimationFrame(tick);
+    };
+    requestAnimationFrame(tick);
+  }
+  const { webmBlob } = await done;
+  running = false;
   window.__out = webmBlob;
-  return { actualMs: performance.now() - started, size: webmBlob.size, type: webmBlob.type, status: t.getStatus().status };
-});
+  return { actualMs: performance.now() - started, size: webmBlob.size, type: webmBlob.type, status: t.getStatus().status, heartbeat: HEARTBEAT, heartbeats };
+}, HEARTBEAT);
 out.record = rec;
 out.record.wallMs = Date.now() - recordStart;
 console.log('record', JSON.stringify(rec), 'intended', out.intendedMs, 'drift ms', Math.round(rec.actualMs - out.intendedMs));
