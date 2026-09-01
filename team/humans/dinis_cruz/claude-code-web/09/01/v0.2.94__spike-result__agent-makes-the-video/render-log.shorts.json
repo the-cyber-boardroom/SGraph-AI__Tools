@@ -1,0 +1,41 @@
+{
+  "format": "shorts",
+  "crop": [],
+  "images": "images-shorts",
+  "pool": 2,
+  "sceneCount": 6,
+  "started": "2026-09-01T22:04:08.664Z",
+  "toolReadyMs": 1527,
+  "tts": {
+    "modelLoadMs": 5271.200000000186,
+    "coldGenMs": 64429.299999999814,
+    "durations": [
+      7.4,
+      8.85,
+      8.975,
+      8.575,
+      5.325,
+      6.85
+    ]
+  },
+  "intendedMs": 45975,
+  "record": {
+    "actualMs": 46059.39999999991,
+    "size": 5424245,
+    "type": "video/webm;codecs=vp9,opus",
+    "status": "done",
+    "heartbeat": true,
+    "heartbeats": 2761,
+    "wallMs": 46069
+  },
+  "file": {
+    "path": "shorts.webm",
+    "bytes": 5417437,
+    "duration": "00:00:46.01",
+    "streams": [
+      "Stream #0:0(eng): Video: vp9 (Profile 0), yuv420p(tv, smpte170m/unknown/unknown), 1080x1920, SAR 1:1 DAR 9:16, 30 fps, 30 tbr, 1k tbn (default)",
+      "Stream #0:1(eng): Audio: opus, 48000 Hz, stereo, fltp (default)"
+    ]
+  },
+  "totalMs": 117676
+}
