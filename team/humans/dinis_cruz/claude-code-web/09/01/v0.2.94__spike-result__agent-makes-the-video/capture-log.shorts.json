@@ -1,0 +1,159 @@
+{
+  "format": "shorts",
+  "started": "2026-09-01T22:03:22.139Z",
+  "scenes": [
+    {
+      "id": "s01",
+      "kind": "still",
+      "url": "https://sgit.ai/",
+      "annotations": [
+        {
+          "kind": "spot",
+          "spec": [
+            0.28,
+            0.2,
+            0.44,
+            0.22
+          ],
+          "resolved": true,
+          "rect": {
+            "x": 151.20000000000002,
+            "y": 192,
+            "w": 237.6,
+            "h": 211.2
+          }
+        }
+      ],
+      "ms": 2645
+    },
+    {
+      "id": "s02",
+      "kind": "still",
+      "url": "https://sgit.ai/",
+      "annotations": [
+        {
+          "kind": "spot",
+          "spec": "el:right-column",
+          "resolved": true,
+          "rect": {
+            "x": 17.59375,
+            "y": 384.8583984375,
+            "w": 504.8125,
+            "h": 172.078125
+          }
+        },
+        {
+          "kind": "label",
+          "resolved": true,
+          "rect": null,
+          "text": "the whole list, published",
+          "at": "below"
+        }
+      ],
+      "ms": 2512
+    },
+    {
+      "id": "s06",
+      "kind": "still",
+      "url": "https://sgit.ai/vault/",
+      "annotations": [
+        {
+          "kind": "spot",
+          "spec": "el:code",
+          "resolved": true,
+          "rect": {
+            "x": 22.390625,
+            "y": 165.8125,
+            "w": 495.21875,
+            "h": 91.3125
+          }
+        },
+        {
+          "kind": "label",
+          "resolved": true,
+          "rect": null,
+          "text": "the key lives after the #",
+          "at": "below"
+        }
+      ],
+      "ms": 2514
+    },
+    {
+      "id": "s10",
+      "kind": "still",
+      "url": "vault:Field Notes",
+      "annotations": [
+        {
+          "kind": "spot",
+          "spec": [
+            0.3,
+            0.2,
+            0.4,
+            0.3
+          ],
+          "resolved": true,
+          "rect": {
+            "x": 162,
+            "y": 192,
+            "w": 216,
+            "h": 288
+          }
+        }
+      ],
+      "ms": 14933
+    },
+    {
+      "id": "s12",
+      "kind": "still",
+      "url": "vault:Field Notes",
+      "annotations": [
+        {
+          "kind": "spot",
+          "spec": [
+            0.825,
+            0.012,
+            0.135,
+            0.052
+          ],
+          "resolved": true,
+          "rect": {
+            "x": 445.5,
+            "y": 11.52,
+            "w": 72.9,
+            "h": 49.919999999999995
+          }
+        },
+        {
+          "kind": "label",
+          "resolved": true,
+          "rect": null,
+          "text": "R1 W0: one read key, no write key",
+          "at": "below"
+        }
+      ],
+      "ms": 9920
+    },
+    {
+      "id": "s13",
+      "kind": "still",
+      "url": "https://sgit.ai/",
+      "annotations": [
+        {
+          "kind": "spot",
+          "spec": "el:pip",
+          "resolved": true,
+          "rect": {
+            "x": 25.625,
+            "y": 362.609375,
+            "w": 261.53125,
+            "h": 37.1875
+          }
+        }
+      ],
+      "ms": 2133
+    }
+  ],
+  "captured": 6,
+  "used": 6,
+  "totalMs": 34752
+}
