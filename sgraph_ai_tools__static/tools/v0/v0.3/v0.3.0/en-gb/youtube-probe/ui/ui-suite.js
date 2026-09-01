@@ -10,7 +10,7 @@
  * @module ui-suite
  */
 
-const ICON = { pass: '✅', fail: '❌', info: 'ℹ️', blocked: '⏸️', running: '⏳' };
+const ICON = { pass: '✅', fail: '❌', info: 'ℹ️', blocked: '⏸️', error: '💥', running: '⏳' };
 
 export function initSuite(el, state, ctx, api) {
     if (!el) return;
@@ -59,8 +59,11 @@ export function initSuite(el, state, ctx, api) {
             </div>
             <div class="yp-test__hyp">${t.hypothesis}</div>
             ${r ? `<div class="yp-test__detail">${escapeHtml(r.detail)}</div>` : ''}
-            ${r && r.meaning && r.meaning[r.status]
-                ? `<div class="yp-test__meaning"><b>What this means:</b> ${escapeHtml(r.meaning[r.status])}</div>` : ''}
+            ${r && r.status === 'error'
+                ? '<div class="yp-test__meaning"><b>What this means:</b> <b>nothing</b> — the harness'
+                  + ' broke before the hypothesis was tested. Re-run it; this is not evidence either way.</div>'
+                : r && r.meaning && r.meaning[r.status]
+                    ? `<div class="yp-test__meaning"><b>What this means:</b> ${escapeHtml(r.meaning[r.status])}</div>` : ''}
             ${r && r.evidence != null
                 ? `<details class="yp-test__ev"><summary>evidence (${r.ms} ms)</summary><pre>${
                     escapeHtml(JSON.stringify(r.evidence, null, 1))}</pre></details>` : ''}

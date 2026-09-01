@@ -2,6 +2,7 @@
 
 .yp-muted { color: #7a8699; font-size: 0.85em; }
 .yp-ok { color: #14b8a6; font-size: 0.85em; }
+.yp-warn { color: #f59e0b; font-size: 0.85em; }
 .yp-btn {
     background: #1a2234; color: #e2e8f0; border: 1px solid #2c3a52;
     border-radius: 6px; padding: 8px 14px; cursor: pointer; font-size: 0.95em;
@@ -48,6 +49,10 @@ a { color: #14b8a6; }
 .yp-test.is-fail    { border-left-color: #f87171; }
 .yp-test.is-info    { border-left-color: #38bdf8; }
 .yp-test.is-blocked { border-left-color: #f59e0b; }
+/* An ERRORED test measured nothing. Deliberately NOT the fail colour: a broken
+   instrument is not a finding, and colouring it like one is how a decode failure
+   came to be printed under "the tool would produce a confident, wrong document". */
+.yp-test.is-error   { border-left-color: #a855f7; background: #1a1330; }
 .yp-test.is-running { border-left-color: #a855f7; }
 .yp-test__head { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
 .yp-test__id { font-family: ui-monospace, monospace; color: #7a8699; font-size: 0.8em; }

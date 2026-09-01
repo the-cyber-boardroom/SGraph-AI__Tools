@@ -20,12 +20,48 @@ import { parseCaptions, groupCuesByBoundaries, cleanCueText } from './yp-caption
 
 /** Recorded clips are expensive; cache one per layout for the session. */
 const clips = new Map();
+
+/**
+ * Record a clip AND prove it decodes before any test reasons about it.
+ *
+ * On the first live run A6 reported FAIL with "not-video: Could not decode this
+ * video in the browser", and the UI dutifully printed the hypothesis-failed
+ * narrative — "the tool would produce a confident, wrong document from intercut
+ * footage". Nothing of the sort had been measured: MediaRecorder had handed back
+ * a clip the browser could not open, and a broken instrument was rendered as a
+ * finding. That is the precise failure this whole suite exists to prevent, so it
+ * is worth two guards.
+ *
+ * First, the fixture is verified here rather than inside a test, so a bad
+ * recording cannot reach the part of the code that draws conclusions. Second, it
+ * retries once — MediaRecorder flakiness is environmental (a throttled tab is
+ * enough) and a retry costs less than a wrong answer. A second failure throws
+ * `fixture-failed`, which the runner maps to `error`, NOT to `fail`.
+ */
 async function clipFor(layout, ctx) {
     if (clips.has(layout)) return clips.get(layout);
-    ctx.emit?.('yp:test:progress', { message: `recording a synthetic ${layout} talk (~18 s)…` });
-    const clip = await recordTalk({ layout, slideCount: 4, slideMs: 4000 });
-    clips.set(layout, clip);
-    return clip;
+    const attempts = [];
+    for (let attempt = 1; attempt <= 2; attempt++) {
+        ctx.emit?.('yp:test:progress', {
+            message: `recording a synthetic ${layout} talk (~18 s)${attempt > 1 ? ' — retry' : ''}…`,
+        });
+        let clip = null;
+        try {
+            clip = await recordTalk({ layout, slideCount: 4, slideMs: 4000 });
+            const src = await openSource(clip.blob);          // the actual proof
+            const ok = { bytes: clip.blob.size, w: src.width, h: src.height, durationMs: src.durationMs };
+            src.release();
+            if (!ok.w || !ok.h) throw Object.assign(new Error('recorded clip has no picture'), { code: 'fixture-empty' });
+            clips.set(layout, clip);
+            return clip;
+        } catch (err) {
+            attempts.push({ attempt, code: err.code || 'error', message: err.message, bytes: clip?.blob?.size ?? 0 });
+        }
+    }
+    throw Object.assign(
+        new Error(`Could not record a usable ${layout} clip in this browser after 2 attempts — the fixture failed, so nothing about the hypothesis was measured`),
+        { code: 'fixture-failed', attempts },
+    );
 }
 export function clearClips() { clips.clear(); }
 

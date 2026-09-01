@@ -26,6 +26,9 @@ export const TESTS = [...AUTO_TESTS, ...MANUAL_TESTS];
 
 export function getTest(id) { return TESTS.find(t => t.id === id) || null; }
 
+/** Codes meaning "the instrument broke", never "the hypothesis is false". */
+const HARNESS_ERRORS = new Set(['fixture-failed', 'fixture-empty', 'not-video']);
+
 /**
  * Run one test. Never throws — a thrown error IS a result, and losing it to an
  * unhandled rejection would be the worst possible outcome for a diagnostic.
@@ -42,10 +45,19 @@ export async function runTest(id, ctx = {}) {
     try {
         result = await test.run(ctx) || {};
     } catch (err) {
+        // FIVE outcomes, and the distinction between the last two is the whole
+        // point of the tool. `fail` means the hypothesis was tested and did not
+        // hold — a finding. `error` means the instrument broke and NOTHING was
+        // measured. The first live run collapsed the second into the first: a
+        // clip that would not decode was printed under "the tool would produce a
+        // confident, wrong document from intercut footage", a conclusion no
+        // measurement supported. A broken test must never be able to argue.
         result = {
-            status: err.code === 'no-token' || err.code === 'no-client-id' ? 'blocked' : 'fail',
+            status: HARNESS_ERRORS.has(err.code) ? 'error'
+                : (err.code === 'no-token' || err.code === 'no-client-id') ? 'blocked'
+                    : 'fail',
             detail: `${err.code || 'error'}: ${err.message}`,
-            evidence: { code: err.code, status: err.status, reason: err.reason },
+            evidence: { code: err.code, status: err.status, reason: err.reason, attempts: err.attempts },
         };
     }
     const out = {
@@ -90,7 +102,8 @@ export function summarise(results) {
     const by = s => results.filter(r => r.status === s).length;
     return {
         total: results.length,
-        pass: by('pass'), fail: by('fail'), info: by('info'), blocked: by('blocked'),
+        pass: by('pass'), fail: by('fail'), info: by('info'),
+        blocked: by('blocked'), error: by('error'),
         results,
     };
 }
@@ -106,7 +119,8 @@ export function reportMarkdown(results, ctx = {}) {
     const L = [];
     L.push('# YouTube probe — findings');
     L.push('');
-    L.push(`*${s.pass} passed · ${s.fail} failed · ${s.info} recorded · ${s.blocked} blocked — ${new Date().toISOString()}*`);
+    L.push(`*${s.pass} passed · ${s.fail} failed · ${s.info} recorded · ${s.blocked} blocked`
+        + `${s.error ? ` · ${s.error} ERRORED (measured nothing)` : ''} — ${new Date().toISOString()}*`);
     if (ctx.videoId) L.push(`*Video under test: \`${ctx.videoId}\`*`);
     L.push('');
 
@@ -126,13 +140,19 @@ export function reportMarkdown(results, ctx = {}) {
         L.push(`## ${group}`);
         L.push('');
         for (const r of results.filter(x => x.group === group)) {
-            const icon = { pass: '✅', fail: '❌', info: 'ℹ️', blocked: '⏸️' }[r.status] || '·';
+            const icon = { pass: '✅', fail: '❌', info: 'ℹ️', blocked: '⏸️', error: '💥' }[r.status] || '·';
             L.push(`### ${icon} ${r.id} — ${r.title}`);
             L.push('');
             L.push(`*Hypothesis:* ${r.hypothesis}`);
             L.push('');
             L.push(`**${r.status.toUpperCase()}** — ${r.detail}`);
-            if (r.meaning) { L.push(''); L.push(`*What this means:* ${r.meaning[r.status] || r.meaning.default || ''}`); }
+            if (r.status === 'error') {
+                L.push('');
+                L.push('*What this means:* **nothing** — the harness broke before the hypothesis was'
+                    + ' tested. Re-run it. Do not read this as evidence either way.');
+            } else if (r.meaning) {
+                L.push(''); L.push(`*What this means:* ${r.meaning[r.status] || r.meaning.default || ''}`);
+            }
             if (r.evidence != null) {
                 L.push('');
                 L.push('```json');
@@ -146,10 +166,13 @@ export function reportMarkdown(results, ctx = {}) {
     const notRun = TESTS.filter(t => !results.some(r => r.id === t.id));
     L.push('## Not run');
     L.push('');
-    if (!notRun.length && !s.blocked) L.push('*Every test in the suite ran.*');
+    if (!notRun.length && !s.blocked && !s.error) L.push('*Every test in the suite ran.*');
     else {
         for (const t of notRun) L.push(`- \`${t.id}\` ${t.title} — not run${t.needs ? ` (needs ${t.needs})` : ''}`);
         for (const r of results.filter(x => x.status === 'blocked')) L.push(`- \`${r.id}\` ${r.title} — blocked: ${r.detail}`);
+    }
+    for (const r of results.filter(x => x.status === 'error')) {
+        L.push(`- \`${r.id}\` ${r.title} — **errored**, measured nothing: ${r.detail}`);
     }
     L.push('');
     return { markdown: L.join('\n') };

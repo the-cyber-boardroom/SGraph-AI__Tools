@@ -11,6 +11,7 @@
  *
  *   /narrated-review/<sessionId>/meta.json       index entry (cheap to list)
  *                               /session.json    the full serialisable session
+ *                               /actions.json    the append-only action log
  *                               /images/pXX.png  screenshots
  *                               /audio/take.webm the continuous take (optional)
  *
@@ -25,6 +26,7 @@
  */
 
 import { state, config, makePair, resequence } from './nr-state.js';
+import { actionsToJson, loadLog } from './nr-actions.js';
 
 const VFS_MODULE = '/core/sg-vfs/v0/v0.1/v0.1.0/sg-vfs-core.js';
 const IDB_MODULE = '/core/sg-vfs/v0/v0.1/v0.1.0/sg-vfs-provider-indexeddb.js';
@@ -122,6 +124,11 @@ export async function saveSession(p = {}, emit = () => {}) {
         })),
     };
     await fs.writeFile(`${base}/session.json`, JSON.stringify(doc));
+    // The action log is saved beside the session so "what did I do to this"
+    // survives a reload as well as the document does. It is written
+    // best-effort: a session that saves but whose log does not is far better
+    // than a save that fails because of its own audit trail.
+    try { await fs.writeFile(`${base}/actions.json`, JSON.stringify(actionsToJson())); } catch (_) { /* */ }
 
     for (const pair of state.pairs) {
         if (pair.screenshot) {
@@ -177,6 +184,13 @@ export async function loadSession(p = {}, emit = () => {}) {
     const rawDoc = await fs.readFile(`${base}/session.json`, { encoding: 'utf8' })
         .catch(() => { throw Object.assign(new Error(`No saved session ${p.sessionId}`), { code: 'unknown-session' }); });
     const doc = JSON.parse(typeof rawDoc === 'string' ? rawDoc : await new Response(rawDoc).text());
+
+    // Best-effort: an older saved session simply has no log.
+    try {
+        const rawLog = await fs.readFile(`${base}/actions.json`, { encoding: 'utf8' });
+        const parsed = JSON.parse(typeof rawLog === 'string' ? rawLog : await new Response(rawLog).text());
+        loadLog(Array.isArray(parsed?.actions) ? parsed.actions : []);
+    } catch (_) { loadLog([]); }
 
     state.reset();
     state.sessionId = doc.sessionId;
@@ -239,7 +253,7 @@ export async function deleteSession(p = {}, emit = () => {}) {
     if (!p.sessionId) throw Object.assign(new Error('deleteSession needs { sessionId }'), { code: 'bad-params' });
     const fs = await vfs();
     const base = `${ROOT}/${p.sessionId}`;
-    for (const path of [`${base}/session.json`, `${base}/meta.json`, `${base}/audio/take.b64`]) {
+    for (const path of [`${base}/session.json`, `${base}/actions.json`, `${base}/meta.json`, `${base}/audio/take.b64`]) {
         try { await fs.deleteFile(path); } catch (_) { /* */ }
     }
     try {

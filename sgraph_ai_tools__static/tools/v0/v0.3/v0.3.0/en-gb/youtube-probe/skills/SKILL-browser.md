@@ -46,7 +46,7 @@ await page.evaluate(() => window.__tool.setContext({
   videoId: 'https://youtu.be/xxxxxxxxxxx',        // one of yours
   otherVideoId: 'https://youtu.be/yyyyyyyyyyy',   // one you do not own
 }));
-for (const id of ['M1', 'M2', 'M3', 'M4', 'M5', 'M6', 'M7']) {
+for (const id of ['M1', 'M2', 'M3', 'M4', 'M5', 'M9', 'M6', 'M7']) {
   console.log(await page.evaluate(i => window.__tool.runTest({ id: i }), id));
 }
 ```
@@ -55,6 +55,21 @@ for (const id of ['M1', 'M2', 'M3', 'M4', 'M5', 'M6', 'M7']) {
 losing a diagnostic to an unhandled rejection is the worst possible outcome.
 
 M8 needs a real gesture and a tab to share; Playwright cannot pick one for you.
+
+`getStatus()` is **async** and, when a token is present, names the signed-in
+channel: `{ token: { scopes, expiresInS, hasForceSsl }, channel: { id, title,
+videoCount } }`. Still never the token itself. Assert on `channel.videoCount` to
+prove a sign-in reached an account that actually has uploads — the acknowledgement
+the sign-in card was missing entirely on the first live run.
+
+To test the harness-error path without waiting for a flaky recorder, break the
+canvas rather than the recorder — it fails fast, before the 18-second timing loop:
+
+```js
+HTMLCanvasElement.prototype.captureStream = () => { throw new Error('nope'); };
+const r = await window.__tool.runTest({ id: 'A6' });
+// r.status === 'error'  (NOT 'fail'), r.evidence.attempts.length === 2
+```
 
 ## Mocking the YouTube API
 

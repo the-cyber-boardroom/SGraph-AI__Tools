@@ -3,7 +3,7 @@
   "slug": "narrated-review",
   "description": "Narrate a walk through your screen and press a key at each moment that matters — or hand over a recording and let its pauses do the pressing. Either way you get an ordered list of captures (a screenshot, the words about it, and the alignment between them) that becomes a markdown document any AI assistant can read directly. No video is ever recorded live; transcription + screenshot-grounded cleanup via OpenRouter (BYOK), everything in-browser.",
   "icon": "🎬",
-  "version": "0.1.5",
+  "version": "0.1.6",
   "status": "alpha",
   "category": "media",
   "keywords": [
@@ -133,7 +133,7 @@
   "api": {
     "version": "0.1.0",
     "global": "window.__tool",
-    "note": "window.__tool live after tool:ready. startSession() must run in a user gesture (screen picker + mic) and OPENS CAPTURE 1 with the screen as shared: a capture's screenshot is taken when it OPENS, and the words until the next press belong to it (markMoment means NEXT). No video is ever recorded — the screen stream is a frame source only; audio is continuous. Transcription + cleanup are billable OpenRouter calls (BYOK, localStorage 'sg-openrouter-mgmt-key'); in 'grounded' cleanup mode each capture's SCREENSHOT is sent to the model — setCleanupMode({mode:'text-only'|'off'}) to prevent that. Raw transcripts are immutable; edits touch clean text only. Sessions save/load locally via core/sg-vfs. Headless path: addRecording → markAt → transcribeAll → cleanAll → buildDocument needs no gestures. THREE INGEST PATHS land in the same capture list and share everything downstream: live (startSession + markMoment), authored (insertPair), and video (importVideo — extracts the audio, cuts it at its silences, and picks the frame each segment is about). importVideo needs no gesture. EVERY paid call is recorded in a BILLING LEDGER at the transport, so no generation can be made without its id being captured; fetchBilling() then retrieves the provider's own receipt (charged cost, native token counts, provider, latency) from GET /api/v1/generation, and the ledger ships as billing.json in the zip and the vault. Exports also carry a machine-readable moments[] array in session.json joining each capture's image, words, audio and raw transcript, plus a README.md naming that surface — consumers should never parse review.md.",
+    "note": "window.__tool live after tool:ready. startSession() must run in a user gesture (screen picker + mic) and OPENS CAPTURE 1 with the screen as shared: a capture's screenshot is taken when it OPENS, and the words until the next press belong to it (markMoment means NEXT). No video is ever recorded — the screen stream is a frame source only; audio is continuous. Transcription + cleanup are billable OpenRouter calls (BYOK, localStorage 'sg-openrouter-mgmt-key'); in 'grounded' cleanup mode each capture's SCREENSHOT is sent to the model — setCleanupMode({mode:'text-only'|'off'}) to prevent that. Raw transcripts are immutable; edits touch clean text only. Sessions save/load locally via core/sg-vfs. Headless path: addRecording → markAt → transcribeAll → cleanAll → buildDocument needs no gestures. THREE INGEST PATHS land in the same capture list and share everything downstream: live (startSession + markMoment), authored (insertPair), and video (importVideo — extracts the audio, cuts it at its silences, and picks the frame each segment is about). importVideo needs no gesture. EVERY paid call is recorded in a BILLING LEDGER at the transport, so no generation can be made without its id being captured; fetchBilling() then retrieves the provider's own receipt (charged cost, native token counts, provider, latency) from GET /api/v1/generation, and the ledger ships as billing.json in the zip and the vault. Exports also carry a machine-readable moments[] array in session.json joining each capture's image, words, audio and raw transcript, plus a README.md naming that surface — consumers should never parse review.md. AUTOSAVE IS ON BY DEFAULT: every mutation checkpoints for undo, appends to the action log, and schedules a write to the VFS; a localStorage beacon lets the next boot notice a session that was in progress. The audio take is the one thing NOT written while recording (it would be re-encoded every few seconds) — it lands on the first save after capture stops, so a crash mid-recording keeps the captures and loses the audio.",
     "events": [
       {
         "name": "tool:ready",
@@ -329,6 +329,51 @@
         "name": "nr:billing:complete",
         "when": "the sweep finishes",
         "detail": "{ resolved, unresolved, failed, totals }"
+      },
+      {
+        "name": "nr:autosave:status",
+        "when": "autosave state changes",
+        "detail": "{ enabled, saving, unsaved, lastSavedAt }"
+      },
+      {
+        "name": "nr:autosave:saved",
+        "when": "a write lands",
+        "detail": "{ sessionId, at, includeAudio, reason }"
+      },
+      {
+        "name": "nr:autosave:error",
+        "when": "a write fails",
+        "detail": "{ code, message } — never silent"
+      },
+      {
+        "name": "nr:unsaved:found",
+        "when": "a session in progress is recovered",
+        "detail": "{ sessionId, pairs, words, restored }"
+      },
+      {
+        "name": "nr:history:changed",
+        "when": "undo/redo availability changes",
+        "detail": "{ canUndo, canRedo, depth, actions }"
+      },
+      {
+        "name": "nr:action:recorded",
+        "when": "anything is done",
+        "detail": "{ n, action, kind }"
+      },
+      {
+        "name": "nr:stream:cleaning",
+        "when": "cleanup runs DURING capture",
+        "detail": "{ id, seq }"
+      },
+      {
+        "name": "nr:stream:progress",
+        "when": "the streaming chain advances",
+        "detail": "{ cleaned, remaining }"
+      },
+      {
+        "name": "nr:cleanup:timing",
+        "when": "timing/order changes",
+        "detail": "{ timing, order, note }"
       }
     ],
     "actions": {
@@ -858,6 +903,86 @@
         "returns": "{ tool, sessionId, note, totals, generations:[{ id, at, scope, pairId, step, model, localCostUsd, chargedUsd, fetchedAt, attempts, lastError, data }] }",
         "async": false,
         "note": "the ledger, same shape as billing.json. `data` is the provider record VERBATIM. `localCostUsd` is what the completion claimed; `chargedUsd` is what was charged. Entries with data:null were never resolved — the id is still valid and can be looked up later."
+      },
+      "undo": {
+        "returns": "{ ok, canUndo, canRedo, depth }",
+        "async": false,
+        "note": "Snapshot-based. Undo is itself recorded in the action log — the log is a history of what was DONE, never rewound."
+      },
+      "redo": {
+        "returns": "{ ok, canUndo, canRedo, depth }",
+        "async": false
+      },
+      "getHistory": {
+        "returns": "{ canUndo, canRedo, depth, actions }",
+        "async": false
+      },
+      "getActions": {
+        "returns": "the actions.json document",
+        "async": false,
+        "note": "Append-only log of everything done to this session, with `kind` separating a human/agent edit from what the pipeline did on its own. Saved beside the session and shipped in both zips."
+      },
+      "setAutosave": {
+        "params": {
+          "on": {
+            "type": "boolean"
+          }
+        },
+        "returns": "the autosave status",
+        "async": false,
+        "note": "ON by default. Turning it off is stated loudly in the UI — silent autosave and broken autosave look identical."
+      },
+      "getAutosave": {
+        "returns": "{ enabled, saving, unsaved, lastSavedAt, pendingMs, takeSaved, takeNote }",
+        "async": false
+      },
+      "flushAutosave": {
+        "returns": "the autosave status",
+        "async": true,
+        "note": "Write now, regardless of the debounce."
+      },
+      "findUnsaved": {
+        "returns": "{ found, recoverable, sessionId, pairs, words, ageMs, savedAt }",
+        "async": false,
+        "note": "Reads a localStorage beacon written on every change. `recoverable:false` means something was in progress but never reached disk — say so rather than offering a restore that comes back empty."
+      },
+      "dismissUnsaved": {
+        "returns": "{ ok }",
+        "async": false
+      },
+      "restoreUnsaved": {
+        "returns": "the loadSession result plus restoredFrom",
+        "async": true,
+        "note": "Loads the session the beacon names. Plain loadSession underneath — one tested path back."
+      },
+      "downloadHandover": {
+        "returns": "{ name, zipSize, count, omitted }",
+        "async": true,
+        "note": "The agent bundle: no audio, no PDF (an agent reads neither and they are most of the bytes), plus uncertain.json and actions.json."
+      },
+      "getUncertain": {
+        "returns": "the uncertain.json document",
+        "async": false,
+        "note": "Every span cleanup flagged as UNCERTAIN, with the sentence it sits in and the raw transcript to judge it against. The most-used part of the export."
+      },
+      "setCleanupTiming": {
+        "params": {
+          "timing": {
+            "type": "string",
+            "note": "streaming | after"
+          },
+          "order": {
+            "type": "string",
+            "note": "sequential | parallel"
+          }
+        },
+        "returns": "{ timing, order, note }",
+        "async": false,
+        "note": "streaming (default) cleans each capture as its transcript lands, DURING the recording — cleanup only looks backwards, so it is the identical computation started earlier. order:'parallel' drops the rolling summary and IS a quality change."
+      },
+      "getCleanupTiming": {
+        "returns": "{ timing, order, note, captures, transcribed, cleaned, pendingClean, waitingOn, estimatedRemainingCalls }",
+        "async": false
       }
     },
     "skills": {

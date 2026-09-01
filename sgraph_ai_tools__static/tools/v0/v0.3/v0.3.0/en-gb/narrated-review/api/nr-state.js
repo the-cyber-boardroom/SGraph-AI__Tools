@@ -33,10 +33,19 @@ export const config = {
     transcribeModel: null,     // null → core/sg-transcribe DEFAULT_MODEL
     cleanupModel: null,        // null → same as transcribeModel
     cleanup: 'grounded',       // 'grounded' | 'text-only' | 'off'
+    // WHEN cleanup runs, which is not the same question as HOW it runs.
+    // 'streaming' cleans each capture as its transcript lands, during the
+    // recording. Cleanup only ever looks backwards, so this is the identical
+    // computation started earlier — see nr-stream.
+    cleanupTiming: 'streaming',   // 'streaming' | 'after'
+    // 'parallel' drops the rolling summary. Faster, and a REAL quality change:
+    // each capture is then corrected without knowing what came before it.
+    cleanupOrder: 'sequential',   // 'sequential' | 'parallel'
     spendCapUsd: null,
 };
 
-const PERSISTED = ['lookbackMs', 'fallbackLeadMs', 'transcribeModel', 'cleanupModel', 'cleanup', 'spendCapUsd'];
+const PERSISTED = ['lookbackMs', 'fallbackLeadMs', 'transcribeModel', 'cleanupModel', 'cleanup',
+    'cleanupTiming', 'cleanupOrder', 'spendCapUsd'];
 const CONFIG_KEY = 'nr-config';
 
 /** Load persisted config keys (tool page context only; safe if storage blocked). */

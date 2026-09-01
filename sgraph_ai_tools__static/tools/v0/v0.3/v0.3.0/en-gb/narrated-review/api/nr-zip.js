@@ -11,6 +11,8 @@ import { zipEntries } from '/core/sg-zip/v0/v0.1/v0.1.0/sg-zip.js';
 import { state, sessionToJson } from './nr-state.js';
 import { billingToJson } from './nr-billing.js';
 import { buildDocument, imageName } from './nr-document.js';
+import { uncertainToJson } from './nr-handover.js';
+import { actionsToJson } from './nr-actions.js';
 import { pairWav } from './nr-pipeline.js';
 
 /**
@@ -66,6 +68,8 @@ export function buildReadme(include = {}) {
         '| `images/` | One screenshot per capture, named by document position. |',
         '| `raw/` | Unedited transcript per capture, named by stable id. |',
         `| \`audio/\` | ${wantAudio ? 'Per-capture WAV plus the continuous take.' : 'Omitted from this export.'} |`,
+        '| `uncertain.json` | Every span the cleanup model flagged as UNCERTAIN, gathered into one list with the sentence around it and the raw transcript to compare against. **If you are looking for where you can help, start here.** |',
+        '| `actions.json` | Append-only log of what was DONE to this document — reorders, re-transcribes, notes, undos. The words say what was said; this says what was decided. |',
         '| `billing.json` | Every OpenRouter generation id with the provider\'s receipt: what was charged, by which model, for which capture. |',
         '',
         '*Built by narrated-review (tools.sgraph.ai). Nothing left the browser except audio segments and,',
@@ -105,6 +109,13 @@ export function buildSessionEntries(include = {}) {
         entries.push({ path: `audio/take.${ext}`, blob: state.take.blob });
     }
     entries.push({ path: 'session.json', text: JSON.stringify(sessionToJson(), null, 2) });
+    // Both of these are in the handover bundle too. They are here as well
+    // because the full export is the one people actually hand over, and the
+    // uncertain list turned out to be the most-used thing in the whole bundle —
+    // making it exclusive to a second export would hide it from most readers.
+    const uncertain = uncertainToJson();
+    if (uncertain.count) entries.push({ path: 'uncertain.json', text: JSON.stringify(uncertain, null, 2) });
+    entries.push({ path: 'actions.json', text: JSON.stringify(actionsToJson(), null, 2) });
     // Always shipped, even with no receipts fetched: the generation ids alone
     // make the spend auditable later, from the export alone.
     if (state.billing.length) entries.push({ path: 'billing.json', text: JSON.stringify(billingToJson(), null, 2) });

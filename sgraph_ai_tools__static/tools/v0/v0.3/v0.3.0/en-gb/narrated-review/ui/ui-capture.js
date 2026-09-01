@@ -54,6 +54,32 @@ export function initCapture(el, state, config, api, emit, marker) {
             <option value="off">off</option>
           </select>
         </div>
+        <div class="nr-cap__row nr-muted nr-privacy">
+          Clean
+          <select id="nr-clean-timing" title="Cleanup only ever looks backwards, so running it during the recording gives the same result — it is just finished sooner.">
+            <option value="streaming">while recording (same result, ready sooner)</option>
+            <option value="after">after I press Finish</option>
+            <option value="parallel">all at once (faster, loses cross-capture context)</option>
+          </select>
+        </div>
+        <div id="nr-save" class="nr-save">
+          <span id="nr-save-state" class="nr-save__state">Autosave on</span>
+          <button id="nr-save-now" class="nr-btn nr-btn--sm" title="Save now">Save now</button>
+          <button id="nr-save-toggle" class="nr-btn nr-btn--sm" title="Turn autosave off">on</button>
+        </div>
+        <div class="nr-cap__row nr-hist">
+          <button id="nr-undo" class="nr-btn nr-btn--sm" disabled title="Undo (⌘/Ctrl-Z)">↶ Undo</button>
+          <button id="nr-redo" class="nr-btn nr-btn--sm" disabled title="Redo (⌘/Ctrl-⇧-Z)">↷ Redo</button>
+          <span id="nr-hist-state" class="nr-muted"></span>
+        </div>
+        <div id="nr-restore" class="nr-restore" hidden>
+          <div class="nr-restore__title">⚠ An unfinished session was found</div>
+          <div id="nr-restore__what" class="nr-muted"></div>
+          <div class="nr-cap__row">
+            <button id="nr-restore-yes" class="nr-btn nr-btn--primary nr-btn--sm">Restore it</button>
+            <button id="nr-restore-no" class="nr-btn nr-btn--sm">Discard</button>
+          </div>
+        </div>
       </div>`;
 
     const q = s => el.querySelector(s);
@@ -185,6 +211,120 @@ export function initCapture(el, state, config, api, emit, marker) {
                       'nr:store:loaded', 'nr:video:complete']) {
         window.addEventListener(ev, refreshCounts);
     }
+
+    // ── Autosave, visibly ───────────────────────────────────────────────────
+    //
+    // Autosave that works silently is indistinguishable from autosave that is
+    // broken, and the person who most needs to know is the one who has just
+    // finished a long review. So the state is always on screen: when it last
+    // wrote, whether something is pending, and — the case worth shouting about —
+    // if a write failed.
+    const saveState = q('#nr-save-state'), saveBox = q('#nr-save');
+    const toggleBtn = q('#nr-save-toggle');
+    let saveError = null;
+
+    function ago(ts) {
+        if (!ts) return 'not yet';
+        const s2 = Math.round((Date.now() - ts) / 1000);
+        if (s2 < 5) return 'just now';
+        if (s2 < 60) return `${s2}s ago`;
+        return `${Math.round(s2 / 60)}m ago`;
+    }
+
+    async function refreshSave() {
+        let st;
+        try { st = await api.getAutosave(); } catch (_) { return; }
+        toggleBtn.textContent = st.enabled ? 'on' : 'off';
+        toggleBtn.title = st.enabled ? 'Turn autosave off' : 'Turn autosave on';
+        saveBox.classList.toggle('is-off', !st.enabled);
+        saveBox.classList.toggle('is-error', !!saveError);
+        saveBox.classList.toggle('is-pending', !!st.unsaved && !saveError);
+        if (saveError) {
+            saveState.textContent = `⚠ Autosave failed — ${saveError}`;
+        } else if (!st.enabled) {
+            saveState.textContent = 'Autosave OFF — this session is not being saved';
+        } else if (st.saving) {
+            saveState.textContent = 'Saving…';
+        } else if (st.unsaved) {
+            saveState.textContent = `Autosave on · unsaved changes · last saved ${ago(st.lastSavedAt)}`;
+        } else {
+            saveState.textContent = `✓ Autosave on · saved ${ago(st.lastSavedAt)}`;
+        }
+        // The one thing a user cannot infer: the take is not written until the
+        // recording stops, so a crash mid-recording loses the audio.
+        saveState.title = st.takeNote || 'Captures, text and screenshots are saved automatically.';
+    }
+
+    q('#nr-save-now').addEventListener('click', () => { saveError = null; api.flushAutosave().catch(() => {}); });
+    toggleBtn.addEventListener('click', async () => {
+        const st = await api.getAutosave();
+        await api.setAutosave({ on: !st.enabled });
+        refreshSave();
+    });
+    window.addEventListener('nr:autosave:status', refreshSave);
+    window.addEventListener('nr:autosave:saved', () => { saveError = null; refreshSave(); });
+    window.addEventListener('nr:autosave:error', e => { saveError = e.detail?.message || e.detail?.code || 'unknown'; refreshSave(); });
+    setInterval(refreshSave, 15000);            // keep "saved 2m ago" honest
+    refreshSave();
+
+    // ── Undo / redo ─────────────────────────────────────────────────────────
+    const undoBtn = q('#nr-undo'), redoBtn = q('#nr-redo'), histState = q('#nr-hist-state');
+    async function refreshHistory() {
+        let h;
+        try { h = await api.getHistory(); } catch (_) { return; }
+        undoBtn.disabled = !h.canUndo;
+        redoBtn.disabled = !h.canRedo;
+        histState.textContent = h.actions ? `${h.actions} actions logged` : '';
+    }
+    undoBtn.addEventListener('click', () => { api.undo(); refreshHistory(); });
+    redoBtn.addEventListener('click', () => { api.redo(); refreshHistory(); });
+    window.addEventListener('nr:history:changed', refreshHistory);
+    window.addEventListener('nr:action:recorded', refreshHistory);
+    // Bound on the document, but ONLY outside a live session: while capturing,
+    // every key is a capture mark, and stealing ⌘Z from that would be worse
+    // than not having the shortcut at all.
+    document.addEventListener('keydown', ev => {
+        if (!(ev.metaKey || ev.ctrlKey) || String(ev.key).toLowerCase() !== 'z') return;
+        if (state.status === 'capturing') return;
+        ev.preventDefault();
+        if (ev.shiftKey) api.redo(); else api.undo();
+        refreshHistory();
+    });
+    refreshHistory();
+
+    // ── Cleanup timing ──────────────────────────────────────────────────────
+    (async () => {
+        try {
+            const t = await api.getCleanupTiming();
+            q('#nr-clean-timing').value = t.order === 'parallel' ? 'parallel' : t.timing;
+        } catch (_) { /* */ }
+    })();
+    q('#nr-clean-timing').addEventListener('change', e => {
+        const v = e.target.value;
+        api.setCleanupTiming(v === 'parallel'
+            ? { timing: 'streaming', order: 'parallel' }
+            : { timing: v, order: 'sequential' });
+    });
+
+    // ── "You had a session open when the page went away" ────────────────────
+    const restoreBox = q('#nr-restore');
+    (async () => {
+        let found;
+        try { found = await api.findUnsaved(); } catch (_) { return; }
+        if (!found.found) return;
+        const mins = Math.round(found.ageMs / 60000);
+        q('#nr-restore__what').textContent = found.recoverable
+            ? `${found.pairs} capture${found.pairs === 1 ? '' : 's'}, ~${found.words} words, from ${mins < 1 ? 'less than a minute' : `${mins} minute${mins === 1 ? '' : 's'}`} ago.`
+            : `${found.pairs} capture${found.pairs === 1 ? '' : 's'} were in progress, but nothing reached disk — there is nothing to restore.`;
+        q('#nr-restore-yes').disabled = !found.recoverable;
+        restoreBox.hidden = false;
+    })();
+    q('#nr-restore-yes').addEventListener('click', async () => {
+        q('#nr-restore-yes').disabled = true;
+        try { await api.restoreUnsaved(); restoreBox.hidden = true; refreshCounts(); }
+        catch (err) { q('#nr-restore__what').textContent = `Could not restore: ${err.message}`; }
+    });
+    q('#nr-restore-no').addEventListener('click', () => { api.dismissUnsaved(); restoreBox.hidden = true; });
 
     // Liveness meter from the session's suggestion/energy path is overkill for
     // v0.1 — pulse the meter on marks + transcribe events instead.

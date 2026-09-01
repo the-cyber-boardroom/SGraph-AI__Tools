@@ -60,6 +60,19 @@ export const NR_EVENTS = Object.freeze({
     SEND_COMPLETE:       'nr:send:complete',       // { shareUrl }
     SEND_ERROR:          'nr:send:error',          // { code }
 
+    AUTOSAVE_STATUS:     'nr:autosave:status',     // { enabled, saving, unsaved, lastSavedAt, pendingMs }
+    AUTOSAVE_SAVED:      'nr:autosave:saved',      // { sessionId, at, includeAudio, reason }
+    AUTOSAVE_ERROR:      'nr:autosave:error',      // { code, message } — never silent
+    AUTOSAVE_DISMISSED:  'nr:autosave:dismissed',  // {}
+    UNSAVED_FOUND:       'nr:unsaved:found',       // { sessionId, pairs, words, ageMs, recoverable }
+
+    ACTION_RECORDED:     'nr:action:recorded',     // { n, action, kind }
+    HISTORY_CHANGED:     'nr:history:changed',     // { canUndo, canRedo, depth, actions }
+
+    STREAM_CLEANING:     'nr:stream:cleaning',     // { id, seq } — cleanup running DURING capture
+    STREAM_PROGRESS:     'nr:stream:progress',     // { cleaned, remaining }
+    CLEANUP_TIMING:      'nr:cleanup:timing',      // { timing, order, note }
+
     ERROR:               'nr:error',               // { code, step, message }
     RESET:               'nr:reset',               // {}
 });

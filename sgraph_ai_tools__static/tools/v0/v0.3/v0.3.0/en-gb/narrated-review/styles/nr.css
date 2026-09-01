@@ -165,3 +165,26 @@
 .nr-sessions__row { display: flex; gap: 8px; align-items: center; padding: 5px 0;
     border-bottom: 1px solid #1c2740; font-size: 0.9em; color: #e2e8f0; }
 .nr-sessions__row span:nth-child(2) { margin-left: auto; }
+
+/* ── Autosave, history and restore (v0.1.6) ──────────────────────────────── */
+
+/* Autosave that is silent is indistinguishable from autosave that is broken,
+   so this chip is always on screen and changes colour rather than hiding. */
+.nr-save { display: flex; gap: 8px; align-items: center; flex-wrap: wrap;
+    padding: 6px 8px; margin-top: 6px; border-radius: 6px;
+    border: 1px solid #1c3a34; background: #0e1f1d; font-size: 0.82em; }
+.nr-save__state { color: #14b8a6; flex: 1; min-width: 140px; }
+.nr-save.is-pending { border-color: #3a3418; background: #1d1b0e; }
+.nr-save.is-pending .nr-save__state { color: #f59e0b; }
+.nr-save.is-off,
+.nr-save.is-error { border-color: #4a1f1f; background: #1f1010; }
+.nr-save.is-off .nr-save__state,
+.nr-save.is-error .nr-save__state { color: #f87171; }
+
+.nr-hist { gap: 6px; align-items: center; }
+
+/* Deliberately loud. It appears only after work was nearly lost, and being
+   missed is the only way it can fail. */
+.nr-restore { margin-top: 8px; padding: 10px; border-radius: 6px;
+    border: 1px solid #f59e0b; background: #241c08; }
+.nr-restore__title { font-weight: 600; color: #f59e0b; margin-bottom: 4px; }

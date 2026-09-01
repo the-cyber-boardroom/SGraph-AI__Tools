@@ -22,6 +22,10 @@ import { buildPdf } from './nr-pdf.js';
 import * as Store from './nr-store.js';
 import * as Video from './nr-video.js';
 import * as Billing from './nr-billing.js';
+import * as Actions from './nr-actions.js';
+import * as Auto from './nr-autosave.js';
+import * as Stream from './nr-stream.js';
+import { buildHandoverZip, uncertainToJson } from './nr-handover.js';
 import { init as initShell } from '../ui/ui-shell.js';
 
 const api = new SgToolApi({
@@ -40,6 +44,30 @@ function emit(name, detail = {}) { api._emit(name, detail); }
 loadConfig();
 Billing.initBilling({ emit, getApiKey: Pipe.getApiKey });
 Pipe.initPipeline({ emit });
+Actions.initActions({ emit });
+Auto.initAutosave({ emit });
+Stream.initStream({ emit, cleanPair: Pipe.cleanPair });
+
+/**
+ * Every mutation goes through here: checkpoint for undo, log the action, then
+ * mark the session dirty so autosave picks it up.
+ *
+ * Wrapping at the registration boundary rather than inside each method is the
+ * whole point — a method added later gets undo, an audit line and autosave by
+ * being registered, not by its author remembering three separate calls. The one
+ * that gets forgotten is the one that loses someone's work.
+ */
+function mutating(name, fn, opts = {}) {
+    const wrapped = Actions.tracked(name, fn, opts);
+    return function mutate(...args) {
+        const out = wrapped.apply(this, args);
+        if (out && typeof out.then === 'function') {
+            return out.then(v => { Auto.markDirty(name); return v; });
+        }
+        Auto.markDirty(name);
+        return out;
+    };
+}
 Cap.onSuggestion(t => emit(NR_EVENTS.SUGGESTION, { t }));
 
 let lastDocument = null;
@@ -58,8 +86,15 @@ const chatTransport = Billing.billed(makeChatTransport(chatHost, Pipe.getApiKey)
 const marker = buildMarker({
     emit,
     onPairBounded(pair) {
+        Actions.record('capture', { id: pair.id, seq: pair.seq, tPress: pair.tPress }, { kind: 'capture' });
+        Auto.markDirty('capture');
         if (!Pipe.getApiKey()) return;                         // capture works keyless
-        Pipe.transcribePair({ id: pair.id }).catch(() => {});  // errors land on the pair + events
+        // Transcribe, then let the cleanup chain advance. Cleanup only looks
+        // backwards, so it can run now rather than after Finish — see nr-stream.
+        Pipe.transcribePair({ id: pair.id })
+            .then(() => { Actions.record('transcribe', { id: pair.id }, { kind: 'pipeline' }); Stream.pump(); },
+                  () => { Stream.pump(); })                    // a failed transcript must not stall the chain
+            .catch(() => {});
     },
 });
 
@@ -75,6 +110,9 @@ async function startSession(p = {}) {
     state.status = 'capturing';
     state.screen = started.screen;
     state.takeSource = 'live';
+    Actions.resetHistory();
+    Auto.resetAutosave({ loaded: false });
+    Actions.record('startSession', { cleanup: config.cleanup, timing: config.cleanupTiming, order: config.cleanupOrder }, { kind: 'session' });
     emit(NR_EVENTS.SESSION_STARTED, { screen: started.screen, sampleRate: started.sampleRate, mimeType: started.mimeType });
     // Capture 1 opens with the screen as shared — see startFirstCapture.
     const first = await marker.startFirstCapture();
@@ -91,13 +129,20 @@ async function endSession() {
         pairs: state.pairs.length, durationMs: state.durationMs,
         takeSizeBytes: state.take ? state.take.blob.size : 0,
     });
+    Actions.record('endSession', { pairs: state.pairs.length, durationMs: state.durationMs }, { kind: 'capture' });
+    // The take exists only now, and it is the one thing autosave deliberately
+    // skips while recording. Write it before anything else is attempted.
+    Auto.flush('session-ended').catch(() => {});
     // Auto-run the two lanes in the background; explicit calls are idempotent.
+    // With streaming cleanup most captures are already clean by this point, so
+    // cleanAll usually has one or two left to do rather than all of them.
     // The receipts are swept once the lanes settle — that is the "a bit later"
     // the generation endpoint needs.
     if (Pipe.getApiKey()) {
         Pipe.transcribeAll()
             .then(() => (config.cleanup !== 'off' ? Pipe.cleanAll() : null))
             .then(settleBilling)
+            .then(() => Auto.flush('lanes-settled'))
             .catch(() => {});
     }
     return { pairs: state.pairs.length, durationMs: state.durationMs, takeSizeBytes: state.take ? state.take.blob.size : 0 };
@@ -140,6 +185,9 @@ function resetAll() {
     Video.clearVideo();
     state.reset();
     lastDocument = null;
+    Actions.resetHistory();
+    // An explicit reset is a decision, not a crash: stop offering to restore.
+    Auto.forgetSession();
     emit(NR_EVENTS.RESET, {});
     return { ok: true };
 }
@@ -240,10 +288,62 @@ async function downloadZip(p = {}) {
 
 // ── Saved sessions (survive a reload — editing work is not re-derivable) ─────
 
-const saveSession   = (p = {}) => Store.saveSession(p, emit);
+const saveSession   = async (p = {}) => {
+    const r = await Store.saveSession(p, emit);
+    Actions.record('saveSession', { includeAudio: p.includeAudio !== false }, { kind: 'session' });
+    Auto.resetAutosave({ loaded: true, takeSaved: p.includeAudio !== false && !!state.take });
+    return r;
+};
 const listSessions  = ()       => Store.listSessions();
-const loadSession   = (p = {}) => Store.loadSession(p, emit);
 const deleteSession = (p = {}) => Store.deleteSession(p, emit);
+
+/**
+ * Load a saved session. Undo history does NOT carry across: the snapshots
+ * describe a document that is no longer open, and offering to "undo" into it
+ * would silently replace what was just loaded.
+ */
+async function loadSession(p = {}) {
+    const r = await Actions.withoutHistory(() => Store.loadSession(p, emit));
+    // Drop the UNDO SNAPSHOTS — they describe a document that is no longer open,
+    // and undoing into it would silently replace what was just loaded. Keep the
+    // LOG: nr-store just read it back off disk, and wiping it here would make
+    // saving it pointless. (It did exactly that until a restore test noticed the
+    // log came back with one entry in it.)
+    Actions.resetHistory({ keepLog: true });
+    Actions.record('loadSession', { sessionId: p.sessionId }, { kind: 'session' });
+    Auto.resetAutosave({ loaded: true });
+    return r;
+}
+
+/**
+ * Pick up the session that was in progress when the page went away.
+ *
+ * Deliberately a plain `loadSession` underneath: the beacon only ever said
+ * WHICH session was live, never held its content, so there is one code path for
+ * getting a session back and it is the well-tested one.
+ */
+async function restoreUnsaved() {
+    const found = Auto.findUnsaved();
+    if (!found.found) throw Object.assign(new Error('No unsaved session found'), { code: 'no-session' });
+    if (!found.recoverable) {
+        Auto.dismissUnsaved();
+        throw Object.assign(
+            new Error('A session was in progress but never reached disk — there is nothing to restore'),
+            { code: 'not-recoverable' });
+    }
+    const r = await loadSession({ sessionId: found.sessionId });
+    emit(NR_EVENTS.UNSAVED_FOUND, { ...found, restored: true });
+    return { ...r, restoredFrom: found };
+}
+
+/** The agent bundle: no audio, no PDF, plus uncertain.json and actions.json. */
+async function downloadHandover(p = {}) {
+    if (p.billing !== false) await settleBilling();
+    const { blob, name, count, omitted } = await buildHandoverZip();
+    downloadBlob(blob, name);
+    emit(NR_EVENTS.BUNDLE_CREATED, { zipSize: blob.size, name, profile: 'handover' });
+    return { name, zipSize: blob.size, count, omitted };
+}
 
 // ── Config & cost ────────────────────────────────────────────────────────────
 
@@ -287,6 +387,9 @@ function getStatus() {
         cleanup: config.cleanup, spendCapUsd: config.spendCapUsd,
         rollingSummaryChars: state.rollingSummary.length,
         costs: costSummary(),
+        autosave: Auto.status(),
+        history: Actions.historyState(),
+        cleanupTiming: Stream.streamState(),
     };
 }
 
@@ -313,7 +416,7 @@ api
     .register('importVideo',      importVideo,      { async: true,  events: [NR_EVENTS.VIDEO_STARTED, NR_EVENTS.VIDEO_PROGRESS, NR_EVENTS.VIDEO_COMPLETE],
         sanitiseParams: p => ({ ...p, file: p?.file ? `<${p.file.type || 'video'} ${p.file.size || 0}b>` : undefined }) })
     .register('getFrameCandidates', Video.getFrameCandidates, { async: false })
-    .register('setFrame',         (p = {}) => Video.setFrame(p, emit), { async: true, events: [NR_EVENTS.PAIR_UPDATED] })
+    .register('setFrame',         mutating('setFrame', (p = {}) => Video.setFrame(p, emit)), { async: true, events: [NR_EVENTS.PAIR_UPDATED] })
     .register('markAt',           marker.markAt,    { async: true,  events: [NR_EVENTS.MARK, NR_EVENTS.PAIR_ADDED] })
     .register('transcribeAll',    (p = {}) => {
         // Import mode has no endSession — the sweep closes the final open pair.
@@ -325,13 +428,13 @@ api
     .register('getPairs',         () => state.pairs.map(pairToJson), { async: false })
     .register('getPair',          (p = {}) => { const x = getPairById(p.id); return x ? pairToJson(x) : null; }, { async: false })
     .register('getPairImage',     getPairImage,     { async: true })
-    .register('setBoundary',      setBoundary,      { async: false, events: [NR_EVENTS.PAIR_UPDATED] })
-    .register('setNotes',         edit.setNotes,    { async: false, events: [NR_EVENTS.PAIR_UPDATED] })
-    .register('movePair',         edit.movePair,    { async: false, events: [NR_EVENTS.PAIRS_REORDERED] })
-    .register('reorderPairs',     edit.reorderPairs,{ async: false, events: [NR_EVENTS.PAIRS_REORDERED] })
-    .register('insertPair',       edit.insertPair,  { async: true,  events: [NR_EVENTS.PAIR_ADDED] })
-    .register('setText',          setText,          { async: false, events: [NR_EVENTS.PAIR_UPDATED] })
-    .register('removePair',       removePair,       { async: false, events: [NR_EVENTS.PAIR_REMOVED] })
+    .register('setBoundary',      mutating('setBoundary', setBoundary),    { async: false, events: [NR_EVENTS.PAIR_UPDATED] })
+    .register('setNotes',         mutating('setNotes', edit.setNotes),     { async: false, events: [NR_EVENTS.PAIR_UPDATED] })
+    .register('movePair',         mutating('movePair', edit.movePair),     { async: false, events: [NR_EVENTS.PAIRS_REORDERED] })
+    .register('reorderPairs',     mutating('reorderPairs', edit.reorderPairs), { async: false, events: [NR_EVENTS.PAIRS_REORDERED] })
+    .register('insertPair',       mutating('insertPair', edit.insertPair), { async: true,  events: [NR_EVENTS.PAIR_ADDED] })
+    .register('setText',          mutating('setText', setText),            { async: false, events: [NR_EVENTS.PAIR_UPDATED] })
+    .register('removePair',       mutating('removePair', removePair),      { async: false, events: [NR_EVENTS.PAIR_REMOVED] })
     .register('retranscribePair', Pipe.transcribePair, { async: true, events: [NR_EVENTS.TRANSCRIBE_COMPLETE] })
 
     .register('cleanPair',        Pipe.cleanPair,   { async: true,  events: [NR_EVENTS.CLEAN_COMPLETE] })
@@ -356,6 +459,25 @@ api
 
     .register('fetchBilling',     Billing.fetchBilling, { async: true, events: [NR_EVENTS.BILLING_COMPLETE] })
     .register('getBilling',       Billing.getBilling,   { async: false })
+
+    // ── History, autosave and the handover bundle ────────────────────────────
+    .register('undo',             Actions.undo,     { async: false, events: [NR_EVENTS.HISTORY_CHANGED] })
+    .register('redo',             Actions.redo,     { async: false, events: [NR_EVENTS.HISTORY_CHANGED] })
+    .register('getHistory',       Actions.historyState, { async: false })
+    .register('getActions',       Actions.actionsToJson, { async: false })
+
+    .register('setAutosave',      Auto.setAutosave, { async: false, events: [NR_EVENTS.AUTOSAVE_STATUS] })
+    .register('getAutosave',      Auto.status,      { async: false })
+    .register('flushAutosave',    () => Auto.flush('manual'), { async: true, events: [NR_EVENTS.AUTOSAVE_SAVED] })
+    .register('findUnsaved',      Auto.findUnsaved, { async: false })
+    .register('dismissUnsaved',   Auto.dismissUnsaved, { async: false, events: [NR_EVENTS.AUTOSAVE_DISMISSED] })
+    .register('restoreUnsaved',   restoreUnsaved,   { async: true,  events: [NR_EVENTS.STORE_LOADED] })
+
+    .register('downloadHandover', downloadHandover, { async: true,  events: [NR_EVENTS.BUNDLE_CREATED] })
+    .register('getUncertain',     uncertainToJson,  { async: false })
+
+    .register('setCleanupTiming', Stream.setCleanupTiming, { async: false, events: [NR_EVENTS.CLEANUP_TIMING] })
+    .register('getCleanupTiming', Stream.streamState,      { async: false })
 
     .register('setCleanupMode',   setCleanupMode,   { async: false })
     .register('setSnapConfig',    setSnapConfig,    { async: false })

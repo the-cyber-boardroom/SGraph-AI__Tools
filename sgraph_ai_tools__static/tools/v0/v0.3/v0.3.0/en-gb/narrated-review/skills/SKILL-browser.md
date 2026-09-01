@@ -158,3 +158,48 @@ await t.loadSession({ sessionId: meta.sessionId });          // survives a full 
 await __tool.getCostSummary()
 await __tool.getSummary()                // the rolling summary
 ```
+
+## Autosave, undo and the handover bundle (v0.1.6)
+
+Every mutation is checkpointed, logged and autosaved by a wrapper at the
+registration boundary, so driving the tool from Playwright exercises all three
+without doing anything special.
+
+```js
+await page.evaluate(async () => {
+  const t = window.__tool;
+  await t.insertPair({ text: 'a', raw: 'a' });
+  await t.insertPair({ text: 'b', raw: 'b' });
+  const ids = (await t.getPairs()).map(p => p.id);
+  await t.movePair({ id: ids[1], toIndex: 0 });
+  t.undo();                                   // sync; back to a,b
+  await t.flushAutosave();                    // force a write, ignoring the debounce
+});
+```
+
+**Testing the case that matters** — survival across a real reload, recovered
+through the real button rather than the API:
+
+```js
+await page.reload();
+await page.waitForFunction(() => !!window.__tool);
+const found = await page.evaluate(() => window.__tool.findUnsaved());
+// found.recoverable === false means it never reached disk — do NOT offer a restore
+await page.click('#nr-restore-yes');
+```
+
+`beforeunload` is armed when there are unsaved changes or a recording is live.
+Playwright dismisses the dialog automatically; if you need to assert on it, listen
+for `page.on('dialog')` before navigating away.
+
+**DOM contract (added):** `#nr-save` · `#nr-save-state` · `#nr-save-now` ·
+`#nr-save-toggle` · `#nr-undo` · `#nr-redo` · `#nr-hist-state` · `#nr-restore` ·
+`#nr-restore__what` · `#nr-restore-yes` · `#nr-restore-no` · `#nr-clean-timing` ·
+`#nr-ex-handover`
+
+**Events:** `nr:autosave:status`, `nr:autosave:saved`, `nr:autosave:error`,
+`nr:unsaved:found`, `nr:history:changed`, `nr:action:recorded`,
+`nr:stream:cleaning`, `nr:stream:progress`, `nr:cleanup:timing`.
+
+Waiting on `nr:stream:progress` is how you observe cleanup running *during* a
+recording rather than after it.

@@ -293,3 +293,106 @@ await t.downloadZip();                            // review.md + images/ + audio
   base64 (~33% larger).
 - The take is webm/opus (or ogg) — the per-pair WAVs are the model-ready audio.
 - Vault-as-home, annotation, and screenshot-only mode are the ranked v0.2 queue.
+
+---
+
+## Durability, history and the handover bundle (v0.1.6)
+
+### Autosave
+
+`setAutosave({on})` · `getAutosave()` · `flushAutosave()` · `findUnsaved()` ·
+`restoreUnsaved()` · `dismissUnsaved()`
+
+On by default. Every registered mutation goes through one wrapper that
+**checkpoints for undo, appends to the action log, then marks the session
+dirty** — wrapping at the registration boundary rather than inside each method,
+so a method added later inherits all three by being registered. The one that
+gets forgotten is the one that loses someone's work.
+
+Three guards, because each catches what the one before misses:
+
+1. `beforeunload` — the only thing that can stop a reload *before* it happens.
+   Armed when there are unsaved changes **and also whenever a recording is
+   live**, since a recording cannot be resumed by any amount of saving.
+2. Autosave to the VFS — debounced 3.5 s, ceiling 30 s. (Much longer than
+   `sg-video-editor`'s 750 ms, and deliberately: that tool writes a few KB of
+   JSON to localStorage, this one base64s every screenshot into IndexedDB.)
+3. A localStorage **beacon** — a few hundred bytes naming what was in progress,
+   written synchronously on every change. It never holds content; it says which
+   session was live so the next boot can offer it back.
+
+`findUnsaved()` distinguishes `recoverable:true` from `recoverable:false`. The
+second means something was in progress and **never reached disk** — there is
+nothing to restore, and saying so is better than offering a restore that comes
+back empty.
+
+**The take is not written while capturing.** It grows for the whole recording and
+the VFS is text-only, so every pass would re-base64 the entire thing. It lands on
+the first save after capture stops. A crash mid-recording keeps captures,
+screenshots and transcripts, and loses the audio. `getAutosave().takeNote` says
+so in words, so a UI does not have to carry its own copy of the rule.
+
+### Undo/redo, and the action log
+
+`undo()` · `redo()` · `getHistory()` · `getActions()`
+
+**Snapshots, not inverse operations.** An inverse has to be written correctly for
+every new mutation, and the day someone adds a mutation and forgets its inverse,
+undo silently corrupts the document. A snapshot cannot be forgotten. Screenshots
+are held **by reference** — immutable once captured, so sharing them costs a
+pointer rather than a megabyte. Cap 60.
+
+Snapshots deliberately exclude the billing ledger and accumulated costs: undo
+must never make money that was spent look unspent.
+
+**The log is a separate thing and is never rewound.** `undo` appends an `undo`
+entry. "What did I do to this document" and "what does it say now" are different
+questions, and only the first is unrecoverable from the finished artefact. It is
+sanitised (blobs, data URLs and anything matching `/key|token|secret/` are
+stripped), saved beside the session, and shipped in both zips as `actions.json`.
+
+`loadSession` keeps the loaded log but **drops the undo snapshots** — they
+describe a document that is no longer open, and undoing into it would silently
+replace what was just loaded.
+
+### Streaming cleanup
+
+`setCleanupTiming({timing, order})` · `getCleanupTiming()`
+
+Cleanup was sequential because the rolling summary is order-dependent. That is a
+constraint on ORDER, and it was being treated as a constraint on TIME — so
+nothing was cleaned until the recording stopped, and Finish began N sequential
+model calls each carrying a screenshot.
+
+Cleanup is **causal**: it never looks forward. Cleaning capture 3 when capture 3's
+transcript lands produces byte-for-byte what cleaning it twenty minutes later
+would have, because its raw text, its screenshot and the summary of 1–2 are all
+already final. `timing:'streaming'` (default) is therefore **the same computation
+started earlier, with no quality trade-off**, and the wait after Finish collapses
+from N calls to roughly one.
+
+The order rule: capture *k* is cleaned only once every capture before it is
+cleaned, skipped, or given up on. Transcription is parallel so capture 3 often
+lands before capture 2 — the chain waits. A capture whose transcription *failed*
+is stepped over rather than blocking everything behind it.
+
+`order:'parallel'` drops the rolling summary entirely. Faster again, and **a real
+quality change** — each capture is corrected with no knowledge of what came
+before. Offered, off by default, and named honestly rather than sold as a speed
+setting.
+
+### The handover bundle
+
+`downloadHandover()` · `getUncertain()`
+
+Same session, packed for a reader with no ears. Drops `audio/` and the PDF — an
+agent gets nothing from either, and audio is usually 90%+ of the bytes, which is
+the difference between a bundle that must be uploaded and one that fits in a
+context window. Adds:
+
+- **`uncertain.json`** — every flagged span lifted out of `pairs[i].clean.marks`
+  into one list, each with `context` (the sentence it sits in) and `rawText` (what
+  was actually heard). A mark alone is not actionable; a mark with its context is.
+  It is in the **full** export too — it turned out to be the most-used part of the
+  bundle, and hiding it in a second export would keep it from most readers.
+- **`actions.json`** — see above.

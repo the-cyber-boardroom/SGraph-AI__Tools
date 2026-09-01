@@ -17,6 +17,12 @@ export function initExport(el, state, api) {
           <button id="nr-ex-pdf" class="nr-btn">📕 Download PDF</button>
           <button id="nr-ex-send" class="nr-btn">🔐 Share via SG/Send</button>
         </div>
+        <div class="nr-export__row">
+          <button id="nr-ex-handover" class="nr-btn">🤖 Agent handover zip</button>
+          <span class="nr-muted">Same content, no audio and no PDF — an agent reads neither, and they are
+            most of the size. Adds <code>uncertain.json</code> (every flagged span with its context) and
+            <code>actions.json</code> (what was done to the document).</span>
+        </div>
         <h4>Billing <span class="nr-muted">— the provider's own receipts</span></h4>
         <div class="nr-export__row">
           <button id="nr-bill-fetch" class="nr-btn">🧾 Fetch receipts</button>
@@ -52,6 +58,14 @@ export function initExport(el, state, api) {
             const r = await api.downloadZip({ include: include() });
             q('#nr-ex-status').textContent = `✓ ${r.name} (${(r.zipSize / 1024).toFixed(0)} KB, ${r.count} captures)`;
         } catch (err) { q('#nr-ex-status').textContent = `zip failed: ${err.message}`; }
+    });
+
+    q('#nr-ex-handover').addEventListener('click', async () => {
+        try {
+            const r = await api.downloadHandover({});
+            q('#nr-ex-status').textContent =
+                `✓ ${r.name} (${(r.zipSize / 1024).toFixed(0)} KB, ${r.count} captures) — omitted: ${r.omitted.join('; ')}`;
+        } catch (err) { q('#nr-ex-status').textContent = `handover failed: ${err.message}`; }
     });
 
     async function refreshSessions() {

@@ -131,6 +131,36 @@ export async function videoInfo({ videoId }) {
 }
 
 /**
+ * Is this an auto-generated track?
+ *
+ * The API documents `trackKind` as `ASR`, and returns it lowercase as `asr`.
+ * A `=== 'ASR'` comparison therefore reports every auto-generated track as
+ * "uploaded/edited", which is exactly what M3 did on the first live run: it said
+ * "0 auto-generated" about a video whose only track WAS auto-generated. M4 then
+ * downloaded that track anyway — through its "no ASR found, take the first one"
+ * fallback — and labelled the result `asr`. The right answer arrived by luck.
+ *
+ * Compare case-insensitively, in one place, so the two tests cannot disagree
+ * about what they are looking at again.
+ */
+export function isAsr(track) {
+    return String(track?.trackKind || '').toLowerCase() === 'asr';
+}
+
+/** The signed-in account's channel — the acknowledgement that a sign-in worked. */
+export async function myChannel() {
+    const r = await v3('channels?mine=true&part=snippet,statistics');
+    if (!r.ok) throw Object.assign(new Error(`channels ${r.status}: ${describe(r)}`), { code: 'api-error', status: r.status });
+    const it = r.json?.items?.[0];
+    if (!it) throw Object.assign(new Error('This token has no YouTube channel'), { code: 'no-channel' });
+    return {
+        id: it.id,
+        title: it.snippet?.title || null,
+        videoCount: Number(it.statistics?.videoCount ?? 0),
+    };
+}
+
+/**
  * Caption TRACKS for a video.
  *
  * For a video you do not own this is expected to fail — and the shape of that
@@ -150,7 +180,7 @@ export async function listCaptions({ videoId }) {
             id: i.id,
             language: i.snippet?.language,
             name: i.snippet?.name || '',
-            trackKind: i.snippet?.trackKind,          // 'ASR' = auto-generated
+            trackKind: i.snippet?.trackKind,          // documented 'ASR', returned 'asr' — use isAsr()
             isDraft: i.snippet?.isDraft,
             lastUpdated: i.snippet?.lastUpdated,
         })),
@@ -170,7 +200,7 @@ export async function downloadCaption({ trackId, format = 'vtt', trackKind }) {
     if (!r.ok) {
         const reason = reasonOf(r);
         throw Object.assign(new Error(`captions.download ${r.status}: ${describe(r)}`), {
-            code: trackKind === 'ASR' ? 'asr-download-refused' : 'download-refused',
+            code: isAsr({ trackKind }) ? 'asr-download-refused' : 'download-refused',
             status: r.status, reason, trackKind,
         });
     }
@@ -191,9 +221,20 @@ export async function probeTimedText({ videoId, lang = 'en' }) {
     try {
         const res = await fetch(url);
         const body = await res.text();
-        return { reachable: true, status: res.status, bytes: body.length, sample: body.slice(0, 200) };
+        // Reachable is not the same as usable. On the first live run this
+        // returned HTTP 200 with ZERO bytes, and reporting that as "reachable"
+        // read as though the undocumented route worked — it does not. The
+        // endpoint now requires signed parameters, so an empty 200 is a polite
+        // refusal wearing a success code. Three outcomes, named apart.
+        return {
+            outcome: body.length ? 'readable' : 'empty',
+            reachable: true, status: res.status, bytes: body.length, sample: body.slice(0, 200),
+        };
     } catch (err) {
-        return { reachable: false, error: err.message, likelyCors: /fetch|CORS|Failed/i.test(err.message) };
+        return {
+            outcome: 'blocked', reachable: false, status: null, bytes: 0,
+            error: err.message, likelyCors: /fetch|CORS|Failed/i.test(err.message),
+        };
     }
 }
 

@@ -151,3 +151,64 @@ for instance) out of the same materials. It is much the largest part.
 | Chrome/Edge | Full support |
 | Firefox | Works; screen picker UI differs |
 | Safari | Screen capture support varies by version; audio path uses the same never-fail WAV encode as audio-transcribe |
+
+---
+
+## Your work is saved as you go (v0.1.6)
+
+**Autosave is on by default.** The chip under the cleanup selector always says
+where you stand: `✓ Autosave on · saved just now`, or `unsaved changes`, or —
+loudly, in red — `Autosave OFF` or `⚠ Autosave failed`. There is no silent
+state, because silent autosave and broken autosave look exactly the same from
+the outside, and the person who finds out is always the one who has just
+finished something long.
+
+It writes into the session you loaded, or mints a new one on the first save.
+**Save now** forces a write; the toggle turns it off if you would rather.
+
+**If you reload by accident, you get it back.** The tab now asks before
+unloading whenever there are unsaved changes or a recording is live, and if the
+page does go away, the next visit shows a banner — *"An unfinished session was
+found — 8 captures, ~1,400 words, from 2 minutes ago"* — with **Restore it** and
+**Discard**.
+
+**One honest gap: the audio take is not written until recording stops.** It
+grows for the whole session and would have to be re-encoded on every pass, so a
+crash *during* a recording keeps your captures, screenshots and transcripts and
+loses the audio. Everything after Finish is fully covered.
+
+## Undo and redo
+
+**↶ Undo / ↷ Redo** in the capture panel, or ⌘/Ctrl-Z and ⌘/Ctrl-⇧-Z — but only
+outside a live recording, where every keystroke is a capture mark and stealing
+⌘Z from that would be worse than having no shortcut.
+
+Reorders, notes, text edits, inserts, removals and boundary changes are all
+undoable. **The action log is separate and is never rewound**: undoing an edit
+appends an "undo" entry rather than erasing the edit, because what you *did* to
+a document and what it *says* now are different questions. That log ships as
+`actions.json`.
+
+## Cleanup now runs while you record
+
+The **Clean** selector chooses when:
+
+| Setting | What happens |
+|---|---|
+| **while recording** (default) | Each capture is cleaned as its transcript lands. **Identical output** — cleanup only ever looks backwards — so by the time you press Finish, most of it is already done. |
+| after I press Finish | The old behaviour. Same result, all at the end. |
+| all at once | Fastest, and **a real quality change**: each capture is corrected without knowing what came before it, so a term established early will not inform a later capture. |
+
+The wait after Finish used to be one model call per capture, in series. It is
+now usually one or two calls total.
+
+## The agent handover zip
+
+**🤖 Agent handover zip** in Export. Same content, minus the audio and the PDF —
+an agent reads neither, and they are most of the bytes. It adds two files:
+
+- **`uncertain.json`** — every span the cleanup model flagged, gathered into one
+  list with the sentence around it and the unedited transcript to compare
+  against. This turned out to be the most-used part of the export, so it is now
+  in the full zip as well, not just this one.
+- **`actions.json`** — what was done to the document, in order.

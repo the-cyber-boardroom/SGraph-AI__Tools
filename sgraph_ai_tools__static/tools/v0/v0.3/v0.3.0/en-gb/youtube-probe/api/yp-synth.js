@@ -140,7 +140,12 @@ export async function recordTalk(opts = {}) {
         ...dest.stream.getAudioTracks(),
     ]);
     const chunks = [];
-    const rec = new MediaRecorder(stream, { mimeType: 'video/webm' });
+    // Ask for a codec the browser has actually said it supports. A bare
+    // 'video/webm' is accepted almost everywhere but leaves the codec to the
+    // implementation, and one live run produced a clip no <video> would open.
+    const mimeType = ['video/webm;codecs=vp9,opus', 'video/webm;codecs=vp8,opus', 'video/webm']
+        .find(t => MediaRecorder.isTypeSupported?.(t)) || 'video/webm';
+    const rec = new MediaRecorder(stream, { mimeType });
     rec.ondataavailable = e => { if (e.data.size) chunks.push(e.data); };
 
     const paintTimer = setInterval(paint, 33);        // the speaker moves constantly
@@ -176,9 +181,18 @@ export async function recordTalk(opts = {}) {
     voiced.stop(); noise.stop(); hum.stop();
     try { await actx.close(); } catch (_) { /* */ }
 
+    const blob = new Blob(chunks, { type: mimeType });
+    // Fail loudly HERE, where the cause is still visible. A zero-byte clip
+    // handed to the analyser surfaces later as "could not decode", which reads
+    // like a property of the footage rather than of the recorder.
+    if (!blob.size) {
+        throw Object.assign(
+            new Error(`MediaRecorder produced no data for the ${layout} clip (${chunks.length} chunks, ${mimeType})`),
+            { code: 'fixture-empty', chunks: chunks.length, mimeType },
+        );
+    }
     return {
-        blob: new Blob(chunks, { type: 'video/webm' }),
-        durationMs, layout, slideChangesMs,
+        blob, mimeType, durationMs, layout, slideChangesMs,
         trueRegion: TRUE_SLIDE_REGION[layout], w: W, h: H,
     };
 }

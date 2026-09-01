@@ -67,6 +67,7 @@ The playground path is there because the question is worth answering *today*.
 | **M4 ⭐** | **Will the API hand back that track's body?** The question the pack hinges on. |
 | **M5** | How does the captions API refuse a video you don't own? |
 | **M6** | Can we still get public metadata (title, channel, duration) for it? |
+| **M9 ⭐** | **Will it hand back that third-party track's BODY?** Listing and downloading are different permissions. |
 | **M7** | Is the unofficial `timedtext` endpoint really blocked from a browser? |
 | **M8 ⭐** | **Can a playing YouTube tab be captured with its audio?** |
 
@@ -79,7 +80,7 @@ broken.
 
 ## Reading the results
 
-Four outcomes, and **`info` is a real one**: many of these tests are questions, not
+Five outcomes, and **`info` is a real one**: many of these tests are questions, not
 assertions.
 
 | | Meaning |
@@ -88,6 +89,14 @@ assertions.
 | ❌ fail | It did not — often the more useful result |
 | ℹ️ info | A fact was recorded; there was no right answer to have |
 | ⏸️ blocked | Could not run — no token, no gesture, no support |
+| 💥 error | **The harness broke. Nothing was measured.** Re-run it. |
+
+That last row was added the hard way. On the first live run a synthetic clip
+failed to record, and the tool printed ❌ next to "the tool would produce a
+confident, wrong document from intercut footage" — a conclusion about footage it
+had never managed to look at. A broken instrument must not be able to argue, so
+`error` is now its own outcome, is never given a "what this means", and is listed
+under **Not run**.
 
 Every row shows its **hypothesis** before the verdict, and expanding one shows
 what a pass and a fail each *mean for the plan*. A result should change what you
@@ -107,4 +116,7 @@ named. Copy it, or download it as markdown or JSON, and attach it to the pack.
   than brightness, and a speaker who moves every frame. It is still not a real
   conference recording, and **A3–A6 cannot stand in for running one**.
 - Tab-audio capture is a Chromium strength and weaker elsewhere.
+- **`captions.list` on a video you do not own may return tracks** (measured, not
+  assumed — it surprised us). Whether the *body* comes back is M9, and it is a
+  different permission. Do not plan on the first without running the second.
 - Use a short-lived playground token, not anything long-lived.

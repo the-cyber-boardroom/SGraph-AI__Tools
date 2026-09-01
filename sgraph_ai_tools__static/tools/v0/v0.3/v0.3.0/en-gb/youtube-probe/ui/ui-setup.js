@@ -44,6 +44,7 @@ export function initSetup(el, state, ctx, api) {
             <input id="yp-client" placeholder="xxxxx.apps.googleusercontent.com" autocomplete="off">
             <button id="yp-signin" class="yp-btn yp-btn--sm">Sign in</button>
           </div>
+          <div id="yp-signin-state" class="yp-muted"></div>
         </div>
 
         <h4>2 · Videos to test against</h4>
@@ -83,16 +84,56 @@ export function initSetup(el, state, ctx, api) {
             q('#yp-token-state').className = r.present ? 'yp-ok' : 'yp-muted';
         }).catch(() => {});
     }
+
+    /**
+     * Acknowledge the sign-in IN THE PANEL THAT PERFORMED IT.
+     *
+     * The first live run signed in through this card and got no response here at
+     * all — the only acknowledgement appeared as "✓ token set" in the *other*
+     * card, next to the paste box, which reads as "your pasted token was
+     * accepted" and says nothing about whether the Google account came through.
+     * So: name the channel and its video count, which is the question actually
+     * being asked ("did I log into an account that has videos?"), and the scope
+     * and expiry, which is what makes any later 403 interpretable.
+     */
+    function showSignIn(text, cls = 'yp-muted') {
+        const n = q('#yp-signin-state');
+        n.textContent = text;
+        n.className = cls;
+    }
+
+    async function describeSignIn() {
+        showSignIn('checking the account…');
+        try {
+            const info = await api.getStatus({});
+            const bits = [];
+            if (info.channel?.title) {
+                bits.push(`✓ signed in as “${info.channel.title}”`);
+                bits.push(`${info.channel.videoCount} video${info.channel.videoCount === 1 ? '' : 's'}`);
+            } else {
+                bits.push('✓ signed in');
+            }
+            if (info.token?.hasForceSsl) bits.push('force-ssl granted');
+            else bits.push('⚠ force-ssl NOT granted — M4 will 403 for the wrong reason');
+            if (info.token?.expiresInS) bits.push(`~${Math.round(info.token.expiresInS / 60)} min left`);
+            showSignIn(bits.join(' · '), info.token?.hasForceSsl ? 'yp-ok' : 'yp-warn');
+        } catch (err) {
+            showSignIn(`signed in, but the account could not be read: ${err.code || 'error'} — ${err.message}`, 'yp-warn');
+        }
+    }
+
     q('#yp-token-save').addEventListener('click', () => {
         api.setToken({ token: q('#yp-token').value });
         q('#yp-token').value = '';
         refreshToken();
+        describeSignIn();
     });
     q('#yp-signin').addEventListener('click', async () => {
-        q('#yp-token-state').textContent = 'opening Google…';
+        showSignIn('opening Google…');
         try { await api.signIn({ clientId: q('#yp-client').value.trim() }); }
-        catch (err) { q('#yp-token-state').textContent = `${err.code || 'error'}: ${err.message}`; return; }
+        catch (err) { showSignIn(`${err.code || 'error'}: ${err.message}`, 'yp-warn'); return; }
         refreshToken();
+        describeSignIn();
     });
     window.addEventListener('yp:auth:changed', refreshToken);
 

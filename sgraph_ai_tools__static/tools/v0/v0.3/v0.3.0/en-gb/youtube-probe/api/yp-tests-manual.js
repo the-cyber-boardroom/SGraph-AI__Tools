@@ -11,6 +11,7 @@
  */
 
 import * as YT from './yp-youtube.js';
+import { isAsr } from './yp-youtube.js';
 import { parseCaptions } from './yp-captions.js';
 import { probeTabCapture, VERDICTS } from './yp-tabcapture.js';
 
@@ -71,14 +72,17 @@ export const MANUAL_TESTS = [
         async run(ctx) {
             const id = needVideo(ctx);
             const r = await YT.listCaptions({ videoId: id });
-            const asr = r.tracks.filter(t => t.trackKind === 'ASR');
+            const asr = r.tracks.filter(isAsr);
             ctx.tracks = r.tracks;
             return {
                 status: r.tracks.length ? 'pass' : 'fail',
                 detail: r.tracks.length
                     ? `${r.tracks.length} track(s); ${asr.length} auto-generated (ASR), ${r.tracks.length - asr.length} uploaded/edited.`
+                      + ` Kinds as returned: ${r.tracks.map(t => t.trackKind).join(', ')}.`
                     : 'No caption tracks on this video.',
-                evidence: { videoId: id, tracks: r.tracks },
+                // trackKind verbatim, because the first live run disagreed with
+                // M4 about the very same track and the raw string settles it.
+                evidence: { videoId: id, tracks: r.tracks, asrCount: asr.length },
             };
         },
     },
@@ -87,6 +91,7 @@ export const MANUAL_TESTS = [
         title: '⭐ captions.download on an AUTO-GENERATED track',
         hypothesis: 'THE question the pack hinges on: will the API return the body of an ASR track to a third-party OAuth client, or refuse it?',
         meaning: {
+            info: 'Inconclusive: a caption body came back, but not from an auto-generated track. Point M3/M4 at a video with no hand-uploaded subtitles before reading anything into this.',
             pass: 'Route B is the primary ingest for your own videos. The words are free and already timestamped — no VAD, no silence threshold, and the whole class of defect that has bitten this project twice cannot arise on that path.',
             fail: 'Route B degrades to manually-uploaded tracks only, which most talk uploads do not have. The corpus runs on route A (Studio download) or C (tab capture) with real transcription — and pack Phase 2 shrinks to optional.',
             blocked: 'Unanswered. Needs a token with force-ssl (M1) and one of your own video ids (M3).',
@@ -94,18 +99,24 @@ export const MANUAL_TESTS = [
         async run(ctx) {
             const id = needVideo(ctx);
             const tracks = ctx.tracks || (await YT.listCaptions({ videoId: id })).tracks;
-            const asr = tracks.find(t => t.trackKind === 'ASR');
+            const asr = tracks.find(isAsr);
             const track = asr || tracks[0];
             if (!track) return { status: 'blocked', detail: 'No caption track to try — run M3 first.', evidence: { videoId: id } };
             try {
                 const dl = await YT.downloadCaption({ trackId: track.id, format: 'vtt', trackKind: track.trackKind });
                 const parsed = parseCaptions(dl.body);
                 ctx.cues = parsed.cues;
+                // A download that succeeded on a STANDARD track does not answer
+                // this test's question. Passing on it would put "ASR captions can
+                // be downloaded" in the report on the strength of a hand-uploaded
+                // subtitle file — so say which kind actually came back.
                 return {
-                    status: 'pass',
-                    detail: `Downloaded a ${track.trackKind} track: ${dl.bytes} bytes, ${parsed.cues.length} cues parsed (${parsed.format}). First cue: “${parsed.cues[0]?.text?.slice(0, 60) || ''}”.`,
+                    status: asr ? 'pass' : 'info',
+                    detail: asr
+                        ? `Downloaded the auto-generated (${track.trackKind}) track: ${dl.bytes} bytes, ${parsed.cues.length} cues parsed (${parsed.format}). First cue: “${parsed.cues[0]?.text?.slice(0, 60) || ''}”.`
+                        : `Downloaded a “${track.trackKind}” track, NOT an auto-generated one — ${dl.bytes} bytes, ${parsed.cues.length} cues. This video has no ASR track, so the ASR question is still open: try a video you have not uploaded subtitles for.`,
                     evidence: {
-                        videoId: id, trackKind: track.trackKind, bytes: dl.bytes,
+                        videoId: id, trackKind: track.trackKind, wasAsr: !!asr, bytes: dl.bytes,
                         format: parsed.format, cues: parsed.cues.length, dropped: parsed.dropped,
                         firstCues: parsed.cues.slice(0, 5),
                     },
@@ -114,7 +125,7 @@ export const MANUAL_TESTS = [
                 return {
                     status: 'fail',
                     detail: `${track.trackKind} track refused — HTTP ${err.status}${err.reason ? ` (${err.reason})` : ''}. ${err.message}`,
-                    evidence: { videoId: id, trackKind: track.trackKind, status: err.status, reason: err.reason, code: err.code },
+                    evidence: { videoId: id, trackKind: track.trackKind, wasAsr: !!asr, status: err.status, reason: err.reason, code: err.code },
                 };
             }
         },
@@ -147,6 +158,51 @@ export const MANUAL_TESTS = [
         },
     },
     {
+        // Numbered M9 but placed here, directly after the test that raised the
+        // question: M5 came back with tracks for a video the user does not own,
+        // which nobody expected. Listing a track and being handed its body are
+        // different permissions, and only the second one builds a tool.
+        id: 'M9', group: 'Other people\'s videos', needs: 'token',
+        title: '⭐ captions.download on a video you do NOT own',
+        hypothesis: 'M5 showed the API will LIST tracks on a third-party video. Downloading the body is a separate permission — if it also works, route C (tab capture) stops being the only path for other people\'s talks.',
+        meaning: {
+            pass: 'MUCH bigger than the pack assumed: third-party talks can be mined from captions alone, with no tab capture and no transcription. Verify against a second unrelated video before building on it.',
+            fail: 'The expected boundary, now measured rather than assumed: list is public, download is owner-only. Third-party videos need route C, and M5 was never the good news it looked like.',
+            blocked: 'Needs a third-party video id (and M5 to have found a track on it).',
+        },
+        async run(ctx) {
+            const id = YT.parseVideoId(ctx.otherVideoId);
+            if (!id) return { status: 'blocked', detail: 'Set a third-party video id or URL first.', evidence: null };
+            let tracks;
+            try { tracks = (await YT.listCaptions({ videoId: id })).tracks; }
+            catch (err) {
+                return {
+                    status: 'blocked',
+                    detail: `captions.list already refused this video (HTTP ${err.status}) — there is no track to try downloading. See M5.`,
+                    evidence: { videoId: id, status: err.status, reason: err.reason, code: err.code },
+                };
+            }
+            const track = tracks.find(isAsr) || tracks[0];
+            if (!track) return { status: 'blocked', detail: 'No caption track listed on that video.', evidence: { videoId: id } };
+            try {
+                const dl = await YT.downloadCaption({ trackId: track.id, format: 'vtt', trackKind: track.trackKind });
+                const parsed = parseCaptions(dl.body);
+                return {
+                    status: 'pass',
+                    detail: `Downloaded a “${track.trackKind}” track from a video you do not own: ${dl.bytes} bytes, ${parsed.cues.length} cues. First cue: “${parsed.cues[0]?.text?.slice(0, 60) || ''}”.`,
+                    evidence: { videoId: id, trackKind: track.trackKind, wasAsr: isAsr(track), bytes: dl.bytes,
+                        cues: parsed.cues.length, firstCues: parsed.cues.slice(0, 3) },
+                };
+            } catch (err) {
+                return {
+                    status: 'fail',
+                    detail: `Refused — HTTP ${err.status}${err.reason ? ` (${err.reason})` : ''}. Listing a third-party track is allowed; fetching its body is not.`,
+                    evidence: { videoId: id, trackKind: track.trackKind, status: err.status, reason: err.reason, code: err.code },
+                };
+            }
+        },
+    },
+    {
         id: 'M6', group: 'Other people\'s videos', needs: 'token',
         title: 'Public metadata for any video',
         hypothesis: 'videos.list returns title, channel and duration for any public video — enough to label a tab-captured session properly.',
@@ -170,17 +226,21 @@ export const MANUAL_TESTS = [
         hypothesis: 'youtube.com/api/timedtext has no CORS headers, so a page cannot read it. Probed rather than assumed.',
         meaning: {
             fail: 'Confirmed blocked. Worth having watched: “we assumed” and “we measured” are different standards, and this project has been wrong by reasoning before.',
-            pass: 'It responded — record exactly what came back before relying on an endpoint YouTube does not document.',
+            info: 'It answered but sent nothing. An empty 200 is a refusal wearing a success code — the endpoint now wants signed parameters a page cannot mint. Treat the route as closed, and note that “reachable” was never the same question as “usable”.',
+            pass: 'It returned actual caption text — record exactly what came back before relying on an endpoint YouTube does not document.',
         },
         async run(ctx) {
             const id = YT.parseVideoId(ctx.otherVideoId) || YT.parseVideoId(ctx.videoId);
             if (!id) return { status: 'blocked', detail: 'Set a video id first.', evidence: null };
             const r = await YT.probeTimedText({ videoId: id });
+            const detail = {
+                readable: () => `Returned caption text: HTTP ${r.status}, ${r.bytes} bytes.`,
+                empty:    () => `HTTP ${r.status} with ZERO bytes — it answered, but sent no captions. Reachable, not usable.`,
+                blocked:  () => `Blocked from the browser: ${r.error}${r.likelyCors ? ' (consistent with a CORS refusal — no response is visible to the page)' : ''}.`,
+            }[r.outcome];
             return {
-                status: r.reachable ? 'pass' : 'fail',
-                detail: r.reachable
-                    ? `Reachable: HTTP ${r.status}, ${r.bytes} bytes.`
-                    : `Blocked from the browser: ${r.error}${r.likelyCors ? ' (consistent with a CORS refusal — no response is visible to the page)' : ''}.`,
+                status: { readable: 'pass', empty: 'info', blocked: 'fail' }[r.outcome] || 'info',
+                detail: detail(),
                 evidence: { videoId: id, ...r },
             };
         },

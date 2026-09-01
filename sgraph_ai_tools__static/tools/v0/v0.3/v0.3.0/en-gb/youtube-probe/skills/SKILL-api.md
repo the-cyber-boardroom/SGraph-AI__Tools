@@ -20,17 +20,32 @@ first-class outcome.
 Every test carries a `meaning` map keyed by status, so a result says what it
 changes about the plan. `runTest` never throws.
 
+**Five statuses, and `error` is load-bearing.** `fail` means the hypothesis was
+tested and did not hold — a finding. `error` means the instrument broke and
+**nothing was measured**. The first live run collapsed the second into the first: a
+synthetic clip would not decode, and the report printed the hypothesis-failed
+narrative about footage it had never seen. Codes in `HARNESS_ERRORS`
+(`fixture-failed`, `fixture-empty`, `not-video`) now map to `error`, which gets no
+`meaning`, is excluded from "every test ran", and is listed under **Not run**.
+Fixtures are verified — recorded, opened, and checked for a picture — before any
+test reasons about them, and a failed recording is retried once.
+
 ## The three routes this page exists to test
 
 | Route | Works for | Probed by |
 |---|---|---|
 | **A** Studio download → `importVideo()` | your own videos | already shipped — nothing to probe |
-| **B** captions over the API | **your own only** — owner-scoped | M1–M4 |
+| **B** captions over the API | your own — and possibly more, see M5/M9 | M1–M4 |
 | **C** tab capture | **anything you can watch** | M8 |
 
-M5–M7 establish the boundary: what the API refuses for a video you do not own, and
-whether the unofficial `timedtext` endpoint is reachable from a page. For
-third-party videos **route C is the only path**, which is why M8 carries a star.
+M5–M7 and M9 establish the boundary: what the API refuses for a video you do not
+own, and whether the unofficial `timedtext` endpoint is reachable from a page.
+
+**Routes B and C are complementary, not alternatives.** Captions give free,
+already-timestamped words with no VAD anywhere on the path; tab capture gives the
+actual audio and the actual pixels. A talk wants both — the captions as the text
+spine, the capture for the audio you can re-listen to and the frames worth
+keeping. Treating them as either/or was an early framing error in the pack.
 
 ## The offline battery (A1–A7)
 
@@ -78,7 +93,7 @@ so masking is cropping before the draw. `diff`, `otsuSplit`, `findScenes` and
 `plan` are untouched because none of them ever sees pixels. **If the measurement
 says masking helps, then it earns a place in core** — not before.
 
-## The manual battery (M1–M8)
+## The manual battery (M1–M9)
 
 `setToken({token})` for a pasted token, or `signIn({clientId})` for the GIS flow
 via `core/youtube-upload`'s `requestAccess` — the same helper `youtube-editor`
@@ -94,10 +109,28 @@ into a clear one.
 distinct from `no-captions`, because a track that exists and will not be handed
 over is a different fact from no track at all, and they lead to different tools.
 
+**`trackKind` comes back lowercase.** The API documents `ASR`; it returns `asr`.
+A `=== 'ASR'` comparison therefore called an auto-generated track "uploaded", which
+is exactly what M3 reported on the first live run about a video whose only track
+WAS auto-generated — while M4 downloaded that same track through its fallback and
+labelled it `asr`. One `isAsr()` helper, compared case-insensitively, so the two
+tests cannot disagree about what they are looking at. M4 also refuses to claim a
+pass when the track it got was not auto-generated: it returns `info` and says so.
+
+**M9 asks the question M5 raised.** `captions.list` on a third-party video was
+expected to be refused and was not — it returned tracks. Listing a track and being
+handed its body are different permissions, and only the second one builds a tool,
+so M9 tries the download. Whichever way it lands, it is measured rather than
+inferred from M5.
+
 **M7 probes `timedtext` head-on** even though it is expected to fail. "We assumed
 it was blocked" and "we watched it be blocked" are different standards of
 evidence, and this pack has been wrong by reasoning before. A CORS refusal appears
 as a TypeError with no status; that is recorded as-is rather than dressed up.
+Three outcomes, not two: `readable`, `empty` and `blocked`. The live run returned
+**HTTP 200 with zero bytes**, which the first version reported as "Reachable" — true,
+useless, and read as though the undocumented route worked. An empty 200 is a
+refusal wearing a success code, so it is `info`, never `pass`.
 
 **M8** checks the track count *and* real audio energy. A stream carrying an audio
 track of pure digital silence would pass a naive check and fail in practice —

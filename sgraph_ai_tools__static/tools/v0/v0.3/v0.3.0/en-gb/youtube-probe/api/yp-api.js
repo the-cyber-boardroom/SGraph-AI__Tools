@@ -110,9 +110,40 @@ async function signIn(p = {}) {
     return { present: true };
 }
 
+/**
+ * Status, including WHO is signed in when a token is present.
+ *
+ * Still never returns the token — only what can be said about it. The account
+ * lookup is cached against the token itself so a UI may call this freely; a new
+ * token invalidates it.
+ */
+let accountCache = null;
+async function getStatus() {
+    const base = {
+        running: state.running, ran: state.results.length, tests: TESTS.length,
+        hasToken: !!YT.getToken(), videoId: ctx.videoId || null, otherVideoId: ctx.otherVideoId || null,
+    };
+    const token = YT.getToken();
+    if (!token) { accountCache = null; return { ...base, token: null, channel: null }; }
+    if (accountCache?.for === token) return { ...base, ...accountCache.value };
+    const value = { token: null, channel: null };
+    // Two independent calls, and one failing must not hide the other: a token
+    // with no channel is still a valid token, and a valid token on an account
+    // with no channel is exactly the case worth naming out loud.
+    const [info, channel] = await Promise.allSettled([YT.tokenInfo(), YT.myChannel()]);
+    if (info.status === 'fulfilled') {
+        const { scopes, expiresInS, hasForceSsl } = info.value;
+        value.token = { scopes, expiresInS, hasForceSsl };   // never the token itself
+    }
+    if (channel.status === 'fulfilled') value.channel = channel.value;
+    accountCache = { for: token, value };
+    return { ...base, ...value };
+}
+
 function reset() {
     state.reset();
     clearClips();
+    accountCache = null;
     emit(YP_EVENTS.RESET, {});
     return { ok: true };
 }
@@ -132,10 +163,7 @@ api
     .register('signIn',         signIn,          { async: true, events: [YP_EVENTS.AUTH_CHANGED],
         sanitiseParams: p => ({ ...p }) })
     .register('hasToken',       () => ({ present: !!YT.getToken() }), { async: false })
-    .register('getStatus',      () => ({
-        running: state.running, ran: state.results.length, tests: TESTS.length,
-        hasToken: !!YT.getToken(), videoId: ctx.videoId || null, otherVideoId: ctx.otherVideoId || null,
-    }), { async: false })
+    .register('getStatus',      getStatus,       { async: true })
     .register('reset',          reset,           { async: false, events: [YP_EVENTS.RESET] });
 
 // JS-API-first: activate before UI so window.__tool is live from tool:ready.
