@@ -2,6 +2,44 @@
 
 All notable changes to `sgraph_ai_tools__static` are documented here.
 
+## [0.1.71] — 2026-08-26
+
+### Added (SG Page Recorder extension — the fifth feed)
+A narrated review already aligns three things: a screenshot, the words about it, and the moment. This adds the one none of them can carry — **what the operator actually did**: the mouse path taken to find a control, the pause before the click, the shortcut reached for instead of the menu, the console error nobody was looking at, the request that quietly 500'd. For a UX question those *are* the answer.
+
+- **`extension/sg-page-recorder/v0.1.0/`** (MV3, Chromium) — `service-worker.js`, `content-input.js` (isolated world: mouse, keys, scroll, focus), `page-hooks.js` (main world: console, fetch/XHR/PerformanceObserver, scripted probes), `content-bridge.js`, popup, README.
+- **`narrated-review` v0.1.7** — `api/nr-input.js` (the track) + `api/nr-extension.js` (the bridge), 7 new actions, 3 new events, `input.json` in **both** bundles with a `moments[]` array already sliced per capture.
+
+### Why it has to be an extension — measured, not assumed
+`getDisplayMedia` hands back pixels and audio and nothing else. Probed in a real browser rather than recalled: the only constrainable display properties Chrome now reports are **`displaySurface` and `restrictOwnAudio`** (`cursor` is not even in `getSupportedConstraints()` any more), and `CaptureController` — the newest surface-control API — exposes `forwardWheel`, `setFocusBehavior` and the zoom methods. **Every one of those points outward, into the captured tab.** There is no inbound channel, by design: screen-sharing a bank tab must not let the sharer read the keyboard. So mouse, keys, console and network cannot be recovered from a capture stream at any quality, and an extension with its own permission grant is the only honest route.
+- A dead constraint found on the way: `core/sg-capture` asks for `cursor: 'always'`, which Chrome no longer supports. Harmless — the cursor is still painted into screen/window captures by default — but the code implies control we do not have. Left in place (versions are immutable and it is shared by other tools); **flagged in the reality document** rather than silently changed.
+
+### Privacy is in the data model, not the documentation
+- **Password and payment fields record nothing** — not the characters, not the length, only that typing happened. Same for `[data-sg-no-capture]`, an opt-out any page can use.
+- **Keyboard is off by default.** The middle mode records *which* key but masks printable characters to `·`: shortcuts, navigation, rhythm and hesitation survive; what you typed does not. Literal text is a deliberate third setting.
+- **A modifier makes it a shortcut, not content.** `Ctrl-S` is recorded literally even when masked — nobody types a password with Ctrl held, and the shortcut is exactly the signal a UX question asks about. The first version masked it; the smoke test caught that.
+- **Network is metadata only: no headers, no bodies, at any setting.** That is where session tokens and personal data live, and a recording that quietly contains a bearer token is a liability, not a feature. Query strings are stripped by default — ids and tokens hide there too.
+- **Every refusal is counted** (`redacted`), because an absent event and a withheld one must never look the same.
+- Permissions are `scripting` + `activeTab` + `storage`. **No `tabs` permission, no host permissions**, so the extension cannot see what you are browsing; the only always-on content script is the bridge, scoped to the tool's own origins. And **the extension contains no network code at all** — the cheapest way to be able to say the data goes nowhere else and mean it.
+
+### The tool cannot arm a tab, deliberately
+`chrome.scripting.executeScript` runs under `activeTab`, which the browser grants only in response to a click on the extension's own icon. `attachInput()` picks up a tab that is **already** armed, and when it cannot find one it says exactly what to do. A web page starting a recording on another page is precisely the capability that should not exist — including for ours.
+
+### Scripted probes
+`runPageProbe({ js, on })` runs operator-authored JavaScript in the recorded page on a trigger (`manual` / `start` / `stop` / `click` / `keydown` / `scroll` / `interval`), with the result landing on the timeline in order. It captures what a screenshot cannot — a computed value, a store's state, a filtered list length. `new Function` rather than `eval`, so a snippet cannot reach the recorder's own closure; results pass through the same size-bounded serialiser as console arguments; a probe that throws records the error instead of taking the recorder down; and every probe **and** result is logged to `actions.json`.
+
+### The checkboxes are shown even when they cannot be used
+…and say why, in a sentence a user can act on. A hidden feature teaches nobody it exists, and a disabled one with no reason is indistinguishable from a broken one — the failure this project keeps writing tests about.
+
+### Fixed
+- `nr-input` **clamped** an event from before the recording started with `Math.max(0, …)`, dropping it neatly into capture 1 — a moment at which it did not happen. Pre-session events are now discarded and counted as `outsideSession`. Inventing a position is worse than having none.
+
+### Tests
+- `tests/playwright/sg-page-recorder-smoke.js` — **27 assertions** driving real mouse, keyboard, console, fetch and XHR at the recorder loaded into a real page: movement is throttled, a click names the element it hit, `hello` is unrecoverable in masked mode while `Ctrl-S` survives, a password field leaks nothing, query strings are stripped, no headers or bodies are kept, a probe runs and a failing probe records its error, and nothing is recorded after stop.
+- `narrated-review-safety-smoke` grew to **38** — the unavailable-extension path states its reason on screen, `attachInput` refuses with a typed code, and events land in the capture whose bounds contain them.
+- boot **51/51**, pipeline **58/58**, video **33/33** still green.
+- **NOT verified: the arming handshake.** `activeTab` needs a real click on the extension icon, which Playwright cannot synthesise, and the service worker cannot message itself. Adding `<all_urls>` host permissions would make it testable and would also hand the extension access to every site the user visits — a bad trade for a green tick. The recorder logic behind the handshake is covered; the click is not.
+
 ## [0.1.70] — 2026-08-26
 
 ### Added (narrated-review v0.1.6 — durability, history, and a bundle shaped for agents)

@@ -1,0 +1,35 @@
+<!doctype html>
+<meta charset="utf-8">
+<title>SG Page Recorder</title>
+<style>
+  body { font: 13px/1.45 system-ui, sans-serif; width: 300px; margin: 0; padding: 12px;
+         background: #0d1424; color: #e6edf7; }
+  h1 { font-size: 14px; margin: 0 0 8px; }
+  label { display: block; margin: 5px 0; }
+  .warn { color: #f59e0b; font-size: 11px; margin: 6px 0; }
+  .muted { color: #7a8699; font-size: 11px; }
+  button { font: inherit; padding: 6px 10px; border-radius: 5px; cursor: pointer;
+           border: 1px solid #24406b; background: #16233d; color: #e6edf7; }
+  button.rec { background: #7f1d1d; border-color: #dc2626; }
+  select { background: #0b1220; color: #e6edf7; border: 1px solid #24406b; border-radius: 4px; }
+  #state { margin-top: 8px; }
+</style>
+<h1>SG Page Recorder</h1>
+<div class="muted" id="tab">…</div>
+<label><input type="checkbox" id="mouse" checked> mouse movement &amp; clicks</label>
+<label><input type="checkbox" id="scroll" checked> scrolling</label>
+<label><input type="checkbox" id="console" checked> console output</label>
+<label><input type="checkbox" id="network" checked> network (metadata only)</label>
+<label>keyboard
+  <select id="keys">
+    <option value="off">off</option>
+    <option value="keys">which keys (characters hidden)</option>
+    <option value="text">literal text typed</option>
+  </select>
+</label>
+<div class="warn" id="keywarn" hidden>
+  Literal text is recorded. Password fields are never captured in any mode.
+</div>
+<p><button id="go">Start recording this tab</button></p>
+<div id="state" class="muted"></div>
+<script src="popup.js"></script>

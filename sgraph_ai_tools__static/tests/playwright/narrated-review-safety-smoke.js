@@ -160,6 +160,57 @@ async function run() {
         assert(/start here/i.test(bundle.readme),
             'the handover README points a reader at the uncertain list first');
 
+        // ── The input feed (extension absent here — that is the case to test) ──
+        const avail = await page.evaluate(() => window.__tool.inputAvailability());
+        assert(avail.available === false, 'with no extension the input feed reports unavailable');
+        assert(/pixels and audio only/.test(avail.reason),
+            'and says WHY in a sentence a user can act on, not just "unavailable"', avail.reason);
+        assert(await page.isVisible('#nr-input'),
+            'the checkboxes are still SHOWN — a hidden feature teaches nobody it exists');
+        assert(await page.isDisabled('#nr-in-attach'), 'but attaching is disabled');
+        const why = await page.textContent('#nr-input-why');
+        assert(/not installed/i.test(why), 'and the panel states the reason on screen', why);
+
+        const attachErr = await page.evaluate(async () => {
+            try { await window.__tool.attachInput({}); return null; } catch (e) { return e.code; }
+        });
+        assert(attachErr === 'no-extension', 'attachInput refuses with a typed code', String(attachErr));
+
+        // Ingestion, sliced per capture, on the session clock.
+        const track = await page.evaluate(async () => {
+            const st = await import('./api/nr-state.js');
+            const inp = await import('./api/nr-input.js');
+            inp.clearInput();
+            st.state.startedAt = 1000;                       // session clock origin
+            st.state.pairs[0].tStart = 0; st.state.pairs[0].tEnd = 5000;
+            st.state.pairs[1].tStart = 5000; st.state.pairs[1].tEnd = 10000;
+            inp.ingest({ tabId: 7, url: 'https://example.test/app', events: [
+                { t: 900,  k: 'move', x: 1, y: 1 },          // BEFORE the session started
+                { t: 1500, k: 'move', x: 10, y: 10 },
+                { t: 1600, k: 'move', x: 20, y: 20 },
+                { t: 1700, k: 'click', x: 20, y: 20, el: { sel: 'button#go' } },
+                { t: 2000, k: 'key', key: '·', redacted: true },
+                { t: 7000, k: 'console', level: 'error', args: ['boom'] },
+                { t: 7500, k: 'net', method: 'GET', url: 'https://x/api', status: 500, ok: false },
+            ], redacted: 1, dropped: 0 });
+            return { summary: inp.inputSummary(), doc: inp.inputToJson() };
+        });
+        assert(track.summary.total === 6 && track.summary.outside === 1,
+            'an event from before the session started is dropped and COUNTED, not clamped to t=0 '
+            + '(which would place it inside capture 1, where it never happened)',
+            JSON.stringify(track.summary));
+        const m = track.doc.moments;
+        assert(m[0].counts.clicks === 1 && m[1].counts.clicks === 0,
+            'events land in the capture whose bounds contain them');
+        assert(m[1].counts.errors === 1 && m[1].counts.networkFailed === 1,
+            'console errors and failed requests are surfaced per capture');
+        assert(m[0].mousePath.length >= 2 && 'tMs' in m[0].mousePath[0],
+            'the mouse path is on the session clock, ready to replay');
+        assert(/wall/.test(track.doc.schema.clock),
+            'and the document says which clock that is, rather than leaving it to be guessed');
+        assert(/NEVER recorded/.test(track.doc.schema.privacy),
+            'the schema states the redaction rules to whoever reads the file');
+
         assert(errors.length === 0, 'zero uncaught errors through the whole run', errors.join(' | '));
     } catch (err) {
         console.error(`  ✗ ${err.message}`);
