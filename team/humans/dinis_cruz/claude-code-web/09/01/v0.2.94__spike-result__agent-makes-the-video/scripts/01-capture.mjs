@@ -10,8 +10,15 @@ import { annotate } from './annotate.mjs';
 const ROOT = path.resolve('..');
 const reel = JSON.parse(fs.readFileSync(path.join(ROOT, 'reel.json'), 'utf8'));
 const FF = process.env.FFMPEG || 'ffmpeg';
-for (const d of ['images', 'clips']) fs.mkdirSync(path.join(ROOT, d), { recursive: true });
-const log = { started: new Date().toISOString(), scenes: [], captured: 0, used: 0 };
+// FORMAT=shorts re-shoots the shorts scenes at a phone viewport (540x960 @2x =
+// 1080x1920) instead of cropping desktop stills: the page's own responsive
+// layout is the "focus rect". Clips are shot as stills in this mode.
+const FORMAT = process.env.FORMAT || 'landscape';
+const VIEW = FORMAT === 'shorts' ? { viewport: { width: 540, height: 960 }, deviceScaleFactor: 2 } : { viewport: { width: 1280, height: 720 } };
+const IMG = FORMAT === 'shorts' ? 'images-shorts' : 'images';
+const SCENES = FORMAT === 'shorts' ? reel.shorts.map(id => reel.scenes.find(s => s.id === id)) : reel.scenes;
+for (const d of [IMG, 'clips']) fs.mkdirSync(path.join(ROOT, d), { recursive: true });
+const log = { format: FORMAT, started: new Date().toISOString(), scenes: [], captured: 0, used: 0 };
 const T0 = Date.now();
 
 const browser = await launch();
@@ -50,12 +57,12 @@ async function settle(page, scene) {
   return anchor;
 }
 
-for (const scene of reel.scenes) {
+for (const scene of SCENES) {
   const t = Date.now();
   const entry = { id: scene.id, kind: scene.shot.kind, url: scene.shot.url };
   try {
-    if (scene.shot.kind === 'clip') {
-      const ctx = await context(browser, { recordVideo: { dir: path.join(ROOT, 'clips'), size: { width: 1280, height: 720 } } });
+    if (scene.shot.kind === 'clip' && FORMAT !== 'shorts') {
+      const ctx = await context(browser, { ...VIEW, recordVideo: { dir: path.join(ROOT, 'clips'), size: { width: 1280, height: 720 } } });
       const page = await ctx.newPage();
       const anchor = await settle(page, scene);
       await sleep(1200);
@@ -65,11 +72,11 @@ for (const scene of reel.scenes) {
         const [popup] = await Promise.all([ctx.waitForEvent('page', { timeout: 8000 }).catch(() => null), target.click({ timeout: 10000 })]);
         entry.clickOpenedNewPage = !!popup;
         await sleep(4000);
-        if (popup) { await popup.waitForLoadState('networkidle').catch(() => {}); await sleep(3000); await popup.screenshot({ path: path.join(ROOT, 'images', `${scene.id}.png`) }); entry.stillFrom = 'popup-screenshot'; }
+        if (popup) { await popup.waitForLoadState('networkidle').catch(() => {}); await sleep(3000); await popup.screenshot({ path: path.join(ROOT, IMG, `${scene.id}.png`) }); entry.stillFrom = 'popup-screenshot'; }
       }
       entry.annotations = await annotate(page, scene, anchor);
       await sleep(800);
-      if (!entry.stillFrom) { await page.screenshot({ path: path.join(ROOT, 'images', `${scene.id}.png`) }); entry.stillFrom = 'last-frame-screenshot'; }
+      if (!entry.stillFrom) { await page.screenshot({ path: path.join(ROOT, IMG, `${scene.id}.png`) }); entry.stillFrom = 'last-frame-screenshot'; }
       const vpath = await page.video().path();
       await ctx.close();
       const dst = path.join(ROOT, 'clips', `${scene.id}.webm`);
@@ -78,12 +85,13 @@ for (const scene of reel.scenes) {
       entry.clip = { file: `clips/${scene.id}.webm`, bytes: fs.statSync(dst).size, duration: (/Duration: ([\d:.]+)/.exec(dur) || [])[1] };
       log.captured += 2; log.used += 1;
     } else {
-      const ctx = await context(browser);
+      const ctx = await context(browser, VIEW);
       const page = await ctx.newPage();
       const anchor = await settle(page, scene);
+      for (const sel of (FORMAT === 'shorts' ? scene.shot.click || [] : [])) { await page.getByText(sel.replace(/^text:/, ''), { exact: false }).first().click({ timeout: 10000 }); await sleep(5000); }
       entry.annotations = await annotate(page, scene, anchor);
       await sleep(300);
-      await page.screenshot({ path: path.join(ROOT, 'images', `${scene.id}.png`) });
+      await page.screenshot({ path: path.join(ROOT, IMG, `${scene.id}.png`) });
       await ctx.close();
       log.captured += 1; log.used += 1;
     }
@@ -97,5 +105,5 @@ for (const scene of reel.scenes) {
 }
 await browser.close();
 log.totalMs = Date.now() - T0;
-fs.writeFileSync(path.join(ROOT, 'capture-log.json'), JSON.stringify(log, null, 2));
+fs.writeFileSync(path.join(ROOT, FORMAT === 'shorts' ? 'capture-log.shorts.json' : 'capture-log.json'), JSON.stringify(log, null, 2));
 console.log('done', log.totalMs, 'ms; captured', log.captured, 'used', log.used);

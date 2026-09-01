@@ -15,15 +15,21 @@ const WARM = !!process.env.WARM;
 const HEARTBEAT = process.env.HEARTBEAT !== '0';  // repaint the recording canvas every frame; see below   // second generateAudio() pass, to measure whether anything is cached (nothing is)
 const FF = process.env.FFMPEG || 'ffmpeg';
 const scenes = FORMAT === 'shorts' ? reel.shorts.map(id => reel.scenes.find(s => s.id === id)) : reel.scenes;
+// Shorts: CROP=1 crops the desktop stills to 9:16 around the focus rect (output
+// shorts-crop.webm); otherwise stills re-shot at a phone viewport are used from
+// images-shorts/ as they are (output shorts.webm).
+const CROP = FORMAT === 'shorts' && !!process.env.CROP;
+const IMG = FORMAT === 'shorts' && !CROP ? 'images-shorts' : 'images';
+const OUT = CROP ? 'shorts-crop' : FORMAT;
 const size = FORMAT === 'shorts' ? { width: 1080, height: 1920 } : { width: 1280, height: 720 };
 const T0 = Date.now();
-const out = { format: FORMAT, pool: POOL, sceneCount: scenes.length, started: new Date().toISOString() };
+const out = { format: FORMAT, crop: CROP, images: IMG, pool: POOL, sceneCount: scenes.length, started: new Date().toISOString() };
 
 // Slides go in as {name, dataUrl}; name doubles as the caption because
 // video-creator's _drawSlide prints `${slide.name} • i/n` in its bottom bar.
 const slides = scenes.map(s => ({
   id: s.id, name: s.caption, narration: s.narration, focus: s.shot.focus || null,
-  dataUrl: 'data:image/png;base64,' + fs.readFileSync(path.join(ROOT, 'images', `${s.id}.png`)).toString('base64'),
+  dataUrl: 'data:image/png;base64,' + fs.readFileSync(path.join(ROOT, IMG, `${s.id}.png`)).toString('base64'),
 }));
 
 const browser = await launch();
@@ -36,12 +42,12 @@ await page.waitForFunction(() => !!window.__tool, null, { timeout: 30000 });
 out.toolReadyMs = Date.now() - T0;
 
 // Load slides — cropping to 9:16 around the focus rect for shorts, in-page (the browser is the compositor).
-out.crop = await page.evaluate(async ([slides, size]) => {
+out.crop = await page.evaluate(async ([slides, size, CROP]) => {
   const files = []; const report = [];
   for (const s of slides) {
     const img = await new Promise((res, rej) => { const i = new Image(); i.onload = () => res(i); i.onerror = rej; i.src = s.dataUrl; });
     let blob;
-    if (size.width < size.height) {                       // vertical: crop a 9:16 window that contains the focus rect
+    if (CROP) {                                            // vertical: crop a 9:16 window that contains the focus rect
       const W = img.width, H = img.height, winW = Math.round(H * 9 / 16);
       const f = s.focus || [0, 0, 1, 1];
       const fx = f[0] * W, fw = f[2] * W;
@@ -60,7 +66,7 @@ out.crop = await page.evaluate(async ([slides, size]) => {
   await t.loadSlides({ files });
   slides.forEach((s, i) => t.setNarration({ slideIndex: i, text: s.narration }));
   return report;
-}, [slides, size]);
+}, [slides, size, CROP]);
 
 // TTS: pre-load a pool of our chosen size (sg-tts is a module singleton shared with video-creator).
 const tts = await page.evaluate(async ([POOL, WARM]) => {
@@ -84,7 +90,7 @@ console.log('tts', JSON.stringify({ ...tts, durations: tts.durations.map(d => +d
 // Record — real time. Then hand the blob to Chromium's downloader (no big body over CDP).
 await page.evaluate((size) => window.__tool.setConfig(size), size);
 const recordStart = Date.now();
-const rec = await page.evaluate(async (HEARTBEAT) => {
+const rec = await page.evaluate(async ([HEARTBEAT, size]) => {
   const t = window.__tool;
   const started = performance.now();
   const done = t.record({ fps: 30, bitrateKbps: 2500 });
@@ -98,7 +104,9 @@ const rec = await page.evaluate(async (HEARTBEAT) => {
   if (HEARTBEAT) {
     const tick = () => {
       if (!running) return;
-      canvas = canvas || [...document.querySelectorAll('canvas')].find(c => c.style.display === 'none' && c.width === t.getConfig().width);
+      // Note: every window.__tool method returns a Promise, sync ones included
+      // (SgToolApi._invoke is async), so t.getConfig().width is undefined here.
+      canvas = canvas || [...document.querySelectorAll('canvas')].find(c => c.style.display === 'none' && c.width === size.width && c.height === size.height);
       if (canvas) { canvas.getContext('2d').drawImage(canvas, 0, 0); heartbeats++; }
       requestAnimationFrame(tick);
     };
@@ -107,8 +115,8 @@ const rec = await page.evaluate(async (HEARTBEAT) => {
   const { webmBlob } = await done;
   running = false;
   window.__out = webmBlob;
-  return { actualMs: performance.now() - started, size: webmBlob.size, type: webmBlob.type, status: t.getStatus().status, heartbeat: HEARTBEAT, heartbeats };
-}, HEARTBEAT);
+  return { actualMs: performance.now() - started, size: webmBlob.size, type: webmBlob.type, status: (await t.getStatus()).status, heartbeat: HEARTBEAT, heartbeats };
+}, [HEARTBEAT, size]);
 out.record = rec;
 out.record.wallMs = Date.now() - recordStart;
 console.log('record', JSON.stringify(rec), 'intended', out.intendedMs, 'drift ms', Math.round(rec.actualMs - out.intendedMs));
@@ -116,16 +124,16 @@ const [download] = await Promise.all([
   page.waitForEvent('download', { timeout: 60000 }),
   page.evaluate(() => window.__tool.download({ blob: window.__out, filename: 'out.webm' })),
 ]);
-const raw = path.join(ROOT, `${FORMAT}.raw.webm`);
+const raw = path.join(ROOT, `${OUT}.raw.webm`);
 await download.saveAs(raw);
 await browser.close();
 
 // MediaRecorder WebMs carry no duration header; a copy-remux writes one.
-const final = path.join(ROOT, `${FORMAT}.webm`);
+const final = path.join(ROOT, `${OUT}.webm`);
 execFileSync(FF, ['-hide_banner', '-v', 'error', '-y', '-i', raw, '-c', 'copy', final]);
 fs.unlinkSync(raw);
 let info = ''; try { execFileSync(FF, ['-i', final], { stdio: ['ignore', 'pipe', 'pipe'] }); } catch (e) { info = e.stderr.toString(); }
-out.file = { path: `${FORMAT}.webm`, bytes: fs.statSync(final).size, duration: (/Duration: ([\d:.]+)/.exec(info) || [])[1], streams: (info.match(/Stream #.*/g) || []).map(s => s.trim()) };
+out.file = { path: `${OUT}.webm`, bytes: fs.statSync(final).size, duration: (/Duration: ([\d:.]+)/.exec(info) || [])[1], streams: (info.match(/Stream #.*/g) || []).map(s => s.trim()) };
 out.totalMs = Date.now() - T0;
-fs.writeFileSync(path.join(ROOT, `render-log.${FORMAT}.json`), JSON.stringify(out, null, 2));
+fs.writeFileSync(path.join(ROOT, `render-log.${OUT}.json`), JSON.stringify(out, null, 2));
 console.log('done', JSON.stringify(out.file), 'total', out.totalMs, 'ms');
