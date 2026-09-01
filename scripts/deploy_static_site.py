@@ -335,7 +335,8 @@ def _sync_release_tree(source_dir, target_prefix):
                         content_type=content_type, delete=True)
 
 
-def deploy_flat_release(source_dir, bucket, site, version, deploy_env=None):
+def deploy_flat_release(source_dir, bucket, site, version, deploy_env=None,
+                        latest_subdir=None, latest_only=False):
     """Deploy a pre-assembled release tree, where source_dir IS the served root.
 
     Used with scripts/build_release.py, which assembles the flat release folder
@@ -350,11 +351,18 @@ def deploy_flat_release(source_dir, bucket, site, version, deploy_env=None):
     """
     ifd_path = version_to_ifd_path(version)
     env_segment = f"{deploy_env}/" if deploy_env else ""
+    sub = f"{latest_subdir.strip('/')}/" if latest_subdir else ""
 
     targets = [
         (f"releases/{ifd_path}", f"s3://{bucket}/websites/{site}/{env_segment}releases/{ifd_path}/"),
-        ("latest",               f"s3://{bucket}/websites/{site}/{env_segment}latest/"),
+        (f"latest/{sub}".rstrip("/"), f"s3://{bucket}/websites/{site}/{env_segment}latest/{sub}"),
     ]
+    if latest_only:
+        # Side-by-side preview mode: the old pipeline still owns the version
+        # counter, so skipping the archive avoids two writers racing for the
+        # same releases/{version}/ prefix. The archive starts when this
+        # pipeline takes over latest/ for real.
+        targets = targets[1:]
 
     for label, prefix in targets:
         print(f"\n{'='*60}")
@@ -647,6 +655,20 @@ def parse_args():
              "The script extracts locale folders, _common, and root files from this path.",
     )
     parser.add_argument(
+        "--latest-subdir",
+        default=None,
+        help="With --flat-release: deploy under latest/{subdir}/ instead of latest/ "
+             "root. Lets a new release tree run side by side with whatever currently "
+             "owns latest/ (e.g. 'v3' serves at {site}/v3/... with no CloudFront change).",
+    )
+    parser.add_argument(
+        "--latest-only",
+        action="store_true",
+        help="With --flat-release: skip the releases/{version}/ archive and only sync "
+             "the latest target. For side-by-side preview, where another pipeline still "
+             "owns the version counter.",
+    )
+    parser.add_argument(
         "--flat-release",
         action="store_true",
         help="Deploy a pre-assembled release tree (from scripts/build_release.py) where "
@@ -707,13 +729,19 @@ def main():
     if args.dry_run:
         ifd_path = version_to_ifd_path(args.version)
         env_segment = f"{args.deploy_env}/" if args.deploy_env else ""
-        print(f"\n[dry-run] Would deploy {source_dir} to s3://{bucket}/websites/{args.site}/{env_segment}releases/{ifd_path}/")
         if args.flat_release:
             n = sum(1 for p in source_dir.rglob("*") if p.is_file())
-            print(f"[dry-run] Flat release: {n} files, synced with --delete to releases/ and latest/")
-        if args.clean_urls:
-            print(f"[dry-run] Would deploy clean URLs from {args.clean_urls_source_version or 'source root'}")
-        print(f"[dry-run] Would copy release to s3://{bucket}/websites/{args.site}/{env_segment}latest/")
+            sub = f"{args.latest_subdir.strip('/')}/" if args.latest_subdir else ""
+            if not args.latest_only:
+                print(f"\n[dry-run] Would sync {n} files to s3://{bucket}/websites/{args.site}/{env_segment}releases/{ifd_path}/")
+                print(f"[dry-run] Would sync {n} files to s3://{bucket}/websites/{args.site}/{env_segment}latest/{sub}")
+            else:
+                print(f"\n[dry-run] Would sync {n} files to s3://{bucket}/websites/{args.site}/{env_segment}latest/{sub} (latest-only)")
+        else:
+            print(f"\n[dry-run] Would deploy {source_dir} to s3://{bucket}/websites/{args.site}/{env_segment}releases/{ifd_path}/")
+            if args.clean_urls:
+                print(f"[dry-run] Would deploy clean URLs from {args.clean_urls_source_version or 'source root'}")
+            print(f"[dry-run] Would copy release to s3://{bucket}/websites/{args.site}/{env_segment}latest/")
         for dist_id in args.cloudfront_distribution_id:
             print(f"[dry-run] Would invalidate CloudFront {dist_id}")
         print("\nDry run complete.")
@@ -722,7 +750,9 @@ def main():
     # --- Deploy ---
     if args.flat_release:
         deploy_flat_release(source_dir, bucket, args.site, args.version,
-                            deploy_env=args.deploy_env)
+                            deploy_env=args.deploy_env,
+                            latest_subdir=args.latest_subdir,
+                            latest_only=args.latest_only)
     elif args.clean_urls:
         deploy_clean_urls(source_dir, bucket, args.site, args.version,
                           deploy_env=args.deploy_env,
