@@ -1,0 +1,307 @@
+{
+  "started": "2026-09-01T21:39:30.299Z",
+  "scenes": [
+    {
+      "id": "s01",
+      "kind": "still",
+      "url": "https://sgit.ai/",
+      "annotations": [
+        {
+          "kind": "spot",
+          "spec": [
+            0.28,
+            0.2,
+            0.44,
+            0.22
+          ],
+          "resolved": true,
+          "rect": {
+            "x": 358.40000000000003,
+            "y": 144,
+            "w": 563.2,
+            "h": 158.4
+          }
+        }
+      ],
+      "ms": 2544
+    },
+    {
+      "id": "s02",
+      "kind": "still",
+      "url": "https://sgit.ai/",
+      "annotations": [
+        {
+          "kind": "spot",
+          "spec": "el:right-column",
+          "resolved": true,
+          "rect": {
+            "x": 675.796875,
+            "y": 142.76446533203125,
+            "w": 466.609375,
+            "h": 186.140625
+          }
+        },
+        {
+          "kind": "label",
+          "resolved": true,
+          "rect": null,
+          "text": "the whole list, published",
+          "at": [
+            0.52,
+            0.86
+          ]
+        }
+      ],
+      "ms": 2409
+    },
+    {
+      "id": "s03",
+      "kind": "still",
+      "url": "https://sgit.ai/",
+      "annotations": [
+        {
+          "kind": "spot",
+          "spec": "el:terminal",
+          "resolved": true,
+          "rect": {
+            "x": 176.984375,
+            "y": 142.015625,
+            "w": 926.03125,
+            "h": 187.59375
+          }
+        }
+      ],
+      "ms": 2402
+    },
+    {
+      "id": "s04",
+      "kind": "clip",
+      "url": "https://sgit.ai/",
+      "annotations": [],
+      "stillFrom": "last-frame-screenshot",
+      "clip": {
+        "file": "clips/s04.webm",
+        "bytes": 617870,
+        "duration": "00:00:10.00"
+      },
+      "ms": 10086
+    },
+    {
+      "id": "s05",
+      "kind": "still",
+      "url": "https://sgit.ai/vault/",
+      "annotations": [
+        {
+          "kind": "spot",
+          "spec": "el:heading:What SG/Vault is",
+          "resolved": true,
+          "rect": {
+            "x": 182.390625,
+            "y": 95.75,
+            "w": 915.21875,
+            "h": 26.875
+          }
+        }
+      ],
+      "ms": 2777
+    },
+    {
+      "id": "s06",
+      "kind": "still",
+      "url": "https://sgit.ai/vault/",
+      "annotations": [
+        {
+          "kind": "spot",
+          "spec": "el:code",
+          "resolved": true,
+          "rect": {
+            "x": 182.390625,
+            "y": 139.0625,
+            "w": 915.21875,
+            "h": 91.3125
+          }
+        },
+        {
+          "kind": "label",
+          "resolved": true,
+          "rect": null,
+          "text": "the key lives after the #",
+          "at": [
+            0.36,
+            0.72
+          ]
+        }
+      ],
+      "ms": 2364
+    },
+    {
+      "id": "s07",
+      "kind": "still",
+      "url": "https://sgit.ai/vault/",
+      "annotations": [
+        {
+          "kind": "spot",
+          "spec": "el:table",
+          "resolved": true,
+          "rect": {
+            "x": 182.390625,
+            "y": 151.5625,
+            "w": 915.21875,
+            "h": 157.1875
+          }
+        }
+      ],
+      "ms": 2351
+    },
+    {
+      "id": "s08",
+      "kind": "still",
+      "url": "https://sgit.ai/vault/",
+      "annotations": [
+        {
+          "kind": "spot",
+          "spec": "el:heading:Vault apps: the app is the vault",
+          "resolved": true,
+          "rect": {
+            "x": 182.390625,
+            "y": 95.53125,
+            "w": 915.21875,
+            "h": 26.875
+          }
+        }
+      ],
+      "ms": 2358
+    },
+    {
+      "id": "s09",
+      "kind": "still",
+      "url": "https://sgit.ai/demos/vaults/index.html",
+      "annotations": [
+        {
+          "kind": "spot",
+          "spec": "el:table",
+          "resolved": true,
+          "rect": {
+            "x": 22.390625,
+            "y": 95.34375,
+            "w": 1235.21875,
+            "h": 1464.28125
+          }
+        },
+        {
+          "kind": "blur",
+          "spec": "el:keys",
+          "resolved": true,
+          "rect": {
+            "multi": 19
+          }
+        },
+        {
+          "kind": "label",
+          "resolved": true,
+          "rect": null,
+          "text": "keys blurred for the video, not on the site",
+          "at": [
+            0.4,
+            0.9
+          ]
+        }
+      ],
+      "ms": 2398
+    },
+    {
+      "id": "s10",
+      "kind": "still",
+      "url": "vault:Field Notes",
+      "annotations": [
+        {
+          "kind": "spot",
+          "spec": [
+            0.3,
+            0.2,
+            0.4,
+            0.3
+          ],
+          "resolved": true,
+          "rect": {
+            "x": 384,
+            "y": 144,
+            "w": 512,
+            "h": 216
+          }
+        }
+      ],
+      "ms": 10316
+    },
+    {
+      "id": "s11",
+      "kind": "clip",
+      "url": "vault:Field Notes",
+      "clickOpenedNewPage": false,
+      "annotations": [],
+      "stillFrom": "last-frame-screenshot",
+      "clip": {
+        "file": "clips/s11.webm",
+        "bytes": 1510545,
+        "duration": "00:00:24.16"
+      },
+      "ms": 24334
+    },
+    {
+      "id": "s12",
+      "kind": "still",
+      "url": "vault:Field Notes",
+      "annotations": [
+        {
+          "kind": "spot",
+          "spec": [
+            0.825,
+            0.012,
+            0.135,
+            0.052
+          ],
+          "resolved": true,
+          "rect": {
+            "x": 1056,
+            "y": 8.64,
+            "w": 172.8,
+            "h": 37.44
+          }
+        },
+        {
+          "kind": "label",
+          "resolved": true,
+          "rect": null,
+          "text": "R1 W0: one read key, no write key",
+          "at": [
+            0.55,
+            0.12
+          ]
+        }
+      ],
+      "ms": 8546
+    },
+    {
+      "id": "s13",
+      "kind": "still",
+      "url": "https://sgit.ai/",
+      "annotations": [
+        {
+          "kind": "spot",
+          "spec": "el:pip",
+          "resolved": true,
+          "rect": {
+            "x": 300.3125,
+            "y": 408.671875,
+            "w": 261.53125,
+            "h": 37.1875
+          }
+        }
+      ],
+      "ms": 2089
+    }
+  ],
+  "captured": 15,
+  "used": 13,
+  "totalMs": 75071
+}

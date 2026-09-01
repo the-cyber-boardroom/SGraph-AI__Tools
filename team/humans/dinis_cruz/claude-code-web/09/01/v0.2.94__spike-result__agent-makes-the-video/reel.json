@@ -1,0 +1,334 @@
+{
+  "title": "SGit vaults in 90 seconds",
+  "subject": "sgit.ai — the SG/Vault page, the sgit home page, and a published vault opened live in SG/App",
+  "written": "2026-09-01",
+  "voice": "af_bella",
+  "notes": [
+    "Shape invented for this spike, not taken from the demo-reel pack. Fields: narration (spoken), caption (on-screen, short, different), shot (how the still is made).",
+    "shot.url is a public page. shot.annotate is what gets injected into the page DOM before the screenshot: spot = spotlight rect in viewport fractions [x,y,w,h]; label = a tag placed at [x,y]; blur = a blur rect.",
+    "shot.focus is the 9:16 crop region used for the vertical cut, in fractions of the landscape still. Absent = whole frame (letterboxed).",
+    "shot.kind clip = a Playwright recordVideo clip is shot as well; the still used in the video is a frame from it, because video-creator only takes images.",
+    "shorts lists the scene ids used for the vertical cut, in order.",
+    "No keys or tokens live here. The published vault read key is scraped from https://sgit.ai/demos/vaults/ at capture time.",
+    "label.at is either viewport fractions [x,y] or 'below' / 'above', which anchors the label to the scene's spotlight rect. Absolute fractions were tried first and landed away from their targets."
+  ],
+  "scenes": [
+    {
+      "id": "s01",
+      "narration": "This is sgit. Git workflows over folders that are encrypted before anything leaves your machine.",
+      "caption": "Encrypted before it leaves",
+      "shot": {
+        "kind": "still",
+        "url": "https://sgit.ai/",
+        "scrollTo": "top",
+        "annotate": [
+          {
+            "spot": [
+              0.28,
+              0.2,
+              0.44,
+              0.22
+            ]
+          }
+        ],
+        "focus": [
+          0.22,
+          0.1,
+          0.56,
+          1.0
+        ]
+      }
+    },
+    {
+      "id": "s02",
+      "narration": "The server stores ciphertext under opaque identifiers. File names, contents, commit messages and branch names never reach it.",
+      "caption": "The server sees ciphertext",
+      "shot": {
+        "kind": "still",
+        "url": "https://sgit.ai/",
+        "scrollTo": "text:What the server sees",
+        "annotate": [
+          {
+            "spot": "el:right-column"
+          },
+          {
+            "label": "the whole list, published",
+            "at": "below"
+          }
+        ],
+        "focus": [
+          0.44,
+          0.0,
+          0.56,
+          1.0
+        ]
+      }
+    },
+    {
+      "id": "s03",
+      "narration": "Creating a vault is one command. It is registered and its first commit pushed before you see the prompt again.",
+      "caption": "One command",
+      "shot": {
+        "kind": "still",
+        "url": "https://sgit.ai/",
+        "scrollTo": "text:Work like git",
+        "annotate": [
+          {
+            "spot": "el:terminal"
+          }
+        ],
+        "focus": [
+          0.12,
+          0.0,
+          0.56,
+          1.0
+        ]
+      }
+    },
+    {
+      "id": "s04",
+      "narration": "Then you work like git. Status, commit, branch, history and diffs, sync, and an agent mode built for machines.",
+      "caption": "Work like git",
+      "shot": {
+        "kind": "clip",
+        "url": "https://sgit.ai/",
+        "scrollTo": "text:Work like git",
+        "clickTabs": [
+          "Work like git",
+          "History & diffs",
+          "Sync",
+          "Agent mode"
+        ],
+        "annotate": [],
+        "focus": [
+          0.12,
+          0.0,
+          0.56,
+          1.0
+        ]
+      }
+    },
+    {
+      "id": "s05",
+      "narration": "SG Vault is the same vault in the browser. An independent implementation of one encrypted wire format, not a wrapper around the command line.",
+      "caption": "Same vault, in the browser",
+      "shot": {
+        "kind": "still",
+        "url": "https://sgit.ai/vault/",
+        "scrollTo": "text:What SG/Vault is",
+        "annotate": [
+          {
+            "spot": "el:heading:What SG/Vault is"
+          }
+        ],
+        "focus": [
+          0.1,
+          0.0,
+          0.56,
+          1.0
+        ]
+      }
+    },
+    {
+      "id": "s06",
+      "narration": "You open a vault by its key, carried in the URL fragment. The fragment is never sent to the server, so the server serves the app without ever seeing the key.",
+      "caption": "The key never leaves the browser",
+      "shot": {
+        "kind": "still",
+        "url": "https://sgit.ai/vault/",
+        "scrollTo": "text:You open a vault by its key",
+        "annotate": [
+          {
+            "spot": "el:code"
+          },
+          {
+            "label": "the key lives after the #",
+            "at": "below"
+          }
+        ],
+        "focus": [
+          0.12,
+          0.0,
+          0.56,
+          1.0
+        ]
+      }
+    },
+    {
+      "id": "s07",
+      "narration": "Three pieces. The sgit command line, the SG Vault browser client, and SG Send, the transfer API that stores ciphertext and is the only piece that never sees plaintext.",
+      "caption": "Three pieces, one wire format",
+      "shot": {
+        "kind": "still",
+        "url": "https://sgit.ai/vault/",
+        "scrollTo": "text:The three pieces",
+        "annotate": [
+          {
+            "spot": "el:table"
+          }
+        ],
+        "focus": [
+          0.12,
+          0.0,
+          0.56,
+          1.0
+        ]
+      }
+    },
+    {
+      "id": "s08",
+      "narration": "A vault can contain an app. When the vault opens, the app launches, and sharing the vault link is deploying the app.",
+      "caption": "The app is the vault",
+      "shot": {
+        "kind": "still",
+        "url": "https://sgit.ai/vault/",
+        "scrollTo": "text:Vault apps: the app is the vault",
+        "annotate": [
+          {
+            "spot": "el:heading:Vault apps: the app is the vault"
+          }
+        ],
+        "focus": [
+          0.12,
+          0.0,
+          0.56,
+          1.0
+        ]
+      }
+    },
+    {
+      "id": "s09",
+      "narration": "sgit dot ai publishes read keys for its demo vaults on purpose. A read key is a capability that cannot become write access.",
+      "caption": "Read keys, published on purpose",
+      "shot": {
+        "kind": "still",
+        "url": "https://sgit.ai/demos/vaults/index.html",
+        "scrollTo": "text:Published read key",
+        "annotate": [
+          {
+            "spot": "el:table"
+          },
+          {
+            "blur": "el:keys"
+          },
+          {
+            "label": "keys blurred for the video, not on the site",
+            "at": "below"
+          }
+        ],
+        "focus": [
+          0.0,
+          0.0,
+          0.56,
+          1.0
+        ]
+      }
+    },
+    {
+      "id": "s10",
+      "narration": "Here is one of them, opened live. Everything on this page was decrypted in the browser with that published read only key.",
+      "caption": "Decrypted in your browser",
+      "shot": {
+        "kind": "still",
+        "url": "vault:Field Notes",
+        "scrollTo": "top",
+        "annotate": [
+          {
+            "spot": [
+              0.3,
+              0.2,
+              0.4,
+              0.3
+            ]
+          }
+        ],
+        "focus": [
+          0.22,
+          0.0,
+          0.56,
+          1.0
+        ]
+      }
+    },
+    {
+      "id": "s11",
+      "narration": "Behind the app is the vault itself. Files, history and branches, in the same file browser you get for any vault.",
+      "caption": "Files, history, branches",
+      "shot": {
+        "kind": "clip",
+        "url": "vault:Field Notes",
+        "scrollTo": "top",
+        "click": [
+          "text:Open Vault"
+        ],
+        "annotate": [],
+        "focus": [
+          0.0,
+          0.0,
+          0.56,
+          1.0
+        ]
+      }
+    },
+    {
+      "id": "s12",
+      "narration": "And the badge says what the key allows. One read, zero writes. Read only, by construction.",
+      "caption": "Read-only by construction",
+      "shot": {
+        "kind": "still",
+        "url": "vault:Field Notes",
+        "scrollTo": "top",
+        "annotate": [
+          {
+            "spot": [
+              0.825,
+              0.012,
+              0.135,
+              0.052
+            ]
+          },
+          {
+            "label": "R1 W0: one read key, no write key",
+            "at": "below"
+          }
+        ],
+        "focus": [
+          0.44,
+          0.0,
+          0.56,
+          1.0
+        ],
+        "note": "SG/App's header is shadow DOM: element targeting failed, so the spotlight is a hand-measured viewport rect."
+      }
+    },
+    {
+      "id": "s13",
+      "narration": "pip install sgit dash ai. Or try it in your browser. sgit dot ai.",
+      "caption": "pip install sgit-ai",
+      "shot": {
+        "kind": "still",
+        "url": "https://sgit.ai/",
+        "scrollTo": "top",
+        "annotate": [
+          {
+            "spot": "el:pip"
+          }
+        ],
+        "focus": [
+          0.22,
+          0.1,
+          0.56,
+          1.0
+        ]
+      }
+    }
+  ],
+  "shorts": [
+    "s01",
+    "s02",
+    "s06",
+    "s10",
+    "s12",
+    "s13"
+  ]
+}
