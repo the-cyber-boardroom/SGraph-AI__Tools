@@ -1,0 +1,68 @@
+{
+  "name": "YouTube Probe",
+  "slug": "youtube-probe",
+  "description": "A test harness, not a product. Answers the open questions in the talk-miner pack with evidence instead of reasoning: will the API hand back an auto-generated caption track, does talk footage (a moving speaker beside slides) need a region mask, and can a YouTube tab be captured with its audio? Seven offline tests need no token, no network and no clicks; eight manual ones need a Google access token or one gesture.",
+  "icon": "🔬",
+  "version": "0.1.1",
+  "status": "alpha",
+  "category": "developer",
+  "keywords": ["youtube", "captions", "oauth", "probe", "diagnostics", "tab-capture", "scene-detection", "region-mask", "talk", "poc"],
+  "why": "The v0.2.92 talk-miner pack rests on two unmeasured assumptions — that ASR captions can be downloaded, and that talk footage defeats the shipped frame metrics. This project has twice shipped a confident number that a real recording immediately falsified. This page measures both before anything is built.",
+  "dependencies": {
+    "core": [
+      { "module": "sg-tool-api", "path": "/core/sg-tool-api/v0/v0.1/v0.1.0/sg-tool-api.js" },
+      { "module": "sg-media-analysis", "path": "/core/sg-media-analysis/v0/v0.1/v0.1.0/frame-metrics.js", "note": "the metrics under test — masked and unmasked, unchanged" },
+      { "module": "youtube-upload", "path": "/core/youtube-upload/v0/v0.1/v0.1.0/sg-youtube-upload.js", "note": "requestAccess — the same GIS helper youtube-editor uses" },
+      { "module": "sg-layout", "path": "/core/sg-layout/v0.1.0/sg-layout.js" },
+      { "module": "markdown", "path": "/core/markdown/v1/v1.0/v1.0.0/sg-markdown.js" }
+    ],
+    "components": [
+      { "component": "sg-tool-api-explorer", "path": "/components/tool-api/sg-tool-api-explorer/v0/v0.1/v0.1.0/sg-tool-api-explorer.js" },
+      { "component": "sg-tool-api-console", "path": "/components/tool-api/sg-tool-api-console/v0/v0.1/v0.1.0/sg-tool-api-console.js" },
+      { "component": "sg-tool-api-manifest", "path": "/components/tool-api/sg-tool-api-manifest/v0/v0.1/v0.1.0/sg-tool-api-manifest.js" }
+    ],
+    "loader": [
+      { "phase": 1, "type": "css", "path": "/core/sg-layout/v0.1.0/sg-layout.css" },
+      { "phase": 1, "type": "css", "path": "./styles/yp.css" },
+      { "phase": 2, "type": "js", "entry": true, "path": "./api/yp-api.js" }
+    ]
+  },
+  "api": {
+    "version": "0.1.0",
+    "global": "window.__tool",
+    "note": "window.__tool live after tool:ready. A PROBE SUITE, not a pass/fail suite: most tests ask a question nobody has answered, so `info` is a first-class outcome and every result carries its evidence. Statuses are pass | fail | info | blocked | error, and `error` is load-bearing: it means the HARNESS broke and NOTHING was measured, which must never be reported as the hypothesis failing. Each test states what a pass and a fail MEAN for the v0.2.92 pack, so a result changes the plan rather than colouring a row. A1–A7 need no token, no network and no gesture — they are a real regression suite for the caption parser and the region-mask hypothesis and are safe in CI. M1–M7 and M9 need a Google access token; M8 needs a real click. Access tokens are never returned by any action, only their presence.",
+    "events": [
+      { "name": "tool:ready", "when": "activate() called", "detail": "{ instanceId, tool, version }" },
+      { "name": "yp:test:started", "when": "a test begins", "detail": "{ id, title }" },
+      { "name": "yp:test:progress", "when": "a long test reports", "detail": "{ message?, done?, total? }" },
+      { "name": "yp:test:complete", "when": "a test finishes", "detail": "the full result record" },
+      { "name": "yp:suite:complete", "when": "a batch finishes", "detail": "{ total, pass, fail, info, blocked, error, results }" },
+      { "name": "yp:auth:changed", "when": "a token is set or sign-in completes", "detail": "{ present }" },
+      { "name": "yp:reset", "when": "results cleared", "detail": "{}" }
+    ],
+    "actions": {
+      "listTests": { "returns": "{ tests: [{ id, group, title, hypothesis, needs }] }", "async": false },
+      "runTest": { "params": { "id": { "type": "string" } }, "returns": "Promise<result>", "async": true, "note": "never throws — a thrown error IS a result, and losing it to an unhandled rejection would be the worst outcome for a diagnostic" },
+      "runAuto": { "returns": "Promise<{ total, pass, fail, info, blocked, error, results }>", "async": true, "note": "A1–A7. No token, no network, no gesture — records a synthetic talk in-page, ~1 minute" },
+      "runAll": { "params": { "ids": { "type": "string[]", "optional": true } }, "returns": "Promise<summary>", "async": true, "note": "everything except M8, which needs a gesture" },
+      "setContext": { "params": { "videoId": { "type": "string", "optional": true }, "otherVideoId": { "type": "string", "optional": true }, "talks": { "type": "number", "optional": true }, "capturesPerTalk": { "type": "number", "optional": true }, "captureSeconds": { "type": "number", "optional": true } }, "returns": "the context", "async": false, "note": "videoId is one of YOURS (M3/M4); otherVideoId is one you do NOT own (M5–M7, M9). URLs or bare ids both work" },
+      "getContext": { "returns": "the context", "async": false },
+      "getResults": { "returns": "{ total, pass, fail, info, blocked, error, results }", "async": false },
+      "getReport": { "returns": "{ markdown }", "async": false, "note": "leads with the M4 verdict — the question the pack hinges on — and ends with what did NOT run" },
+      "downloadReport": { "params": { "format": { "type": "string", "note": "md | json" } }, "returns": "{ name, bytes }", "async": false },
+      "setToken": { "params": { "token": { "type": "string", "secret": true } }, "returns": "{ present }", "async": false, "note": "paste from the OAuth Playground. Never returned by any action" },
+      "signIn": { "params": { "clientId": { "type": "string", "optional": true }, "scope": { "type": "string", "optional": true } }, "returns": "Promise<{ present }>", "async": true, "note": "GIS flow via core/youtube-upload requestAccess. Asks for youtube.readonly + youtube.force-ssl" },
+      "hasToken": { "returns": "{ present }", "async": false },
+      "getStatus": { "returns": "Promise<{ running, ran, tests, hasToken, videoId, otherVideoId, token: { scopes, expiresInS, hasForceSsl } | null, channel: { id, title, videoCount } | null }>", "async": true, "note": "when a token is present this names the signed-in CHANNEL — the acknowledgement that a sign-in reached an account with videos. Cached against the token. Still never returns the token itself" },
+      "reset": { "returns": "{ ok }", "async": false, "note": "clears results AND the cached synthetic clips" }
+    },
+    "errors": ["bad-params", "no-token", "no-client-id", "bad-token", "forbidden", "not-found", "api-error", "asr-download-refused", "share-refused", "unsupported"]
+  },
+  "limitations": [
+    "This is a diagnostic page, not the tool the pack describes. It builds nothing and keeps nothing.",
+    "The caption parsers live here rather than in core/youtube-api on purpose — promoting a parser before knowing whether it has a source is the extract-before-validating mistake the video-review pack already made once.",
+    "A3–A6 measure a SYNTHETIC talk. It carries the traps this project has been caught by (room-tone floor above 0.01, real colour change, a speaker that moves every frame), but it is not a real conference recording and cannot stand in for one.",
+    "M8 depends on the browser's tab-audio support, which is a Chromium strength and weaker elsewhere. A 'no-audio-track' verdict is usually a window shared instead of a tab.",
+    "Access tokens are held in memory and localStorage for the session. Use a short-lived OAuth Playground token rather than anything long-lived."
+  ]
+}
