@@ -3,16 +3,20 @@
   "name": "SG Page Recorder",
   "version": "0.1.0",
   "description": "Record mouse, keyboard, console, network and scripted probes from a page you are narrating, and stream them to narrated-review on tools.sgraph.ai.",
-
-  "permissions": ["scripting", "activeTab", "storage"],
-
-  "background": { "service_worker": "service-worker.js", "type": "module" },
-
+  "permissions": [
+    "scripting",
+    "activeTab",
+    "storage",
+    "sidePanel"
+  ],
+  "background": {
+    "service_worker": "service-worker.js",
+    "type": "module"
+  },
   "action": {
     "default_popup": "popup.html",
-    "default_title": "SG Page Recorder — arm this tab"
+    "default_title": "SG Page Recorder \u2014 arm this tab"
   },
-
   "content_scripts": [
     {
       "matches": [
@@ -20,12 +24,23 @@
         "https://dev.tools.sgraph.ai/*",
         "http://localhost/*"
       ],
-      "js": ["content-bridge.js"],
+      "js": [
+        "content-bridge.js"
+      ],
       "run_at": "document_start"
     }
   ],
-
   "web_accessible_resources": [
-    { "resources": ["page-hooks.js"], "matches": ["<all_urls>"] }
-  ]
+    {
+      "resources": [
+        "page-hooks.js"
+      ],
+      "matches": [
+        "<all_urls>"
+      ]
+    }
+  ],
+  "side_panel": {
+    "default_path": "sidepanel.html"
+  }
 }

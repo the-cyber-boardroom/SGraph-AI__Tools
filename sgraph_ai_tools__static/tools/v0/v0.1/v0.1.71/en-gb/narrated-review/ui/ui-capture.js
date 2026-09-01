@@ -77,10 +77,11 @@ export function initCapture(el, state, config, api, emit, marker) {
             <b>Page recorder</b>
             <span id="nr-input-state" class="nr-muted"></span>
           </div>
-          <label class="nr-export__opt"><input id="nr-in-mouse" type="checkbox" checked disabled> capture mouse movements</label>
+          <label class="nr-export__opt"><input id="nr-in-mouse" type="checkbox" disabled> capture mouse movements</label>
           <label class="nr-export__opt"><input id="nr-in-keys" type="checkbox" disabled> capture keyboard</label>
-          <label class="nr-export__opt"><input id="nr-in-console" type="checkbox" checked disabled> capture console</label>
-          <label class="nr-export__opt"><input id="nr-in-net" type="checkbox" checked disabled> capture network</label>
+          <label class="nr-export__opt"><input id="nr-in-console" type="checkbox" disabled> capture console</label>
+          <label class="nr-export__opt"><input id="nr-in-net" type="checkbox" disabled> capture network</label>
+          <div class="nr-muted">Every feed is off until you turn it on in the extension, on the tab being recorded.</div>
           <div id="nr-input-why" class="nr-muted"></div>
           <div class="nr-cap__row">
             <button id="nr-in-attach" class="nr-btn nr-btn--sm" disabled>Attach recorded tab</button>

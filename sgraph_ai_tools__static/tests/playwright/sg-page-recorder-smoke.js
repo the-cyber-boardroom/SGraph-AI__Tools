@@ -63,6 +63,26 @@ async function run() {
         await page.addScriptTag({ content: fs.readFileSync(path.join(EXT, 'content-input.js'), 'utf8') });
         ok('both recorder scripts load into a real page');
 
+        // ── OFF BY DEFAULT. A recorder that records because nobody changed a
+        // setting will one day capture something it should not have.
+        const defaults = await page.evaluate(() => window.__sgPageRecorder.report());
+        assert(defaults.cfg.mouse === false && defaults.cfg.console === false
+            && defaults.cfg.network === false && defaults.cfg.scroll === false
+            && defaults.cfg.keys === 'off',
+            'every feed is OFF by default', JSON.stringify(defaults.cfg));
+        const idle = await page.evaluate(async () => {
+            window.__sgPageRecorder.start({});             // armed, nothing ticked
+            return window.__sgPageRecorder.report();
+        });
+        await page.mouse.move(11, 11); await page.mouse.move(80, 90);
+        await page.keyboard.type('quiet');
+        await page.waitForTimeout(1200);
+        const quiet = await page.evaluate(() => window.__batches.flatMap(b => b.events || []).length);
+        assert(idle.on === true && quiet === 0,
+            'armed with nothing ticked records NOTHING at all', `${quiet} events`);
+        await page.evaluate(() => window.__sgPageRecorder.stop());
+        await page.evaluate(() => { window.__batches = []; });
+
         const started = await page.evaluate(() =>
             window.__sgPageRecorder.start({ mouse: true, keys: 'keys', console: true, network: true, scroll: true }));
         assert(started.on === true, 'the recorder starts');
@@ -151,6 +171,36 @@ async function run() {
         await page.waitForTimeout(600);
         const afterStop = await page.evaluate(() => window.__batches.flatMap(b => b.events || []).length);
         assert(afterStop === after.n, 'and records nothing once stopped', `${after.n} → ${afterStop}`);
+        // ── Standalone artefacts: the extension without any tool attached ───
+        const bundle = await page.evaluate(async () => {
+            const art = await import('/extension/sg-page-recorder/v0.1.0/artefacts.js');
+            const session = {
+                url: 'https://example.test/app', title: 'Demo', startedAt: 1000, redacted: 7,
+                events: [
+                    { t: 1500, k: 'click', x: 1, y: 1, el: { sel: 'button#save', text: 'Save changes' } },
+                    { t: 1800, k: 'console', level: 'error', args: ['TypeError: boom'], at: 'app.js:42' },
+                    { t: 1900, k: 'net', method: 'POST', url: 'https://api.test/save?…', status: 500, ok: false, ms: 812 },
+                ],
+                shots: [{ t: 1550, dataUrl: 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==' }],
+            };
+            const { blob, entries } = art.buildBundle(session);
+            const head = new Uint8Array(await blob.slice(0, 4).arrayBuffer());
+            return { entries, size: blob.size, head: Array.from(head),
+                report: art.buildReport(session), json: art.buildJson(session) };
+        });
+        assert(bundle.head.join(',') === '80,75,3,4', 'the standalone bundle is a real zip (PK\x03\x04)');
+        assert(bundle.entries.includes('report.md') && bundle.entries.includes('session.json')
+            && bundle.entries.includes('images/shot-01.png'),
+            'carrying report.md, session.json, events.json and the screenshots', bundle.entries.join());
+        assert(/## What went wrong/.test(bundle.report)
+            && bundle.report.indexOf('What went wrong') < bundle.report.indexOf('What was done'),
+            'the report leads with what BROKE, which is why someone opened it');
+        assert(/\*\*Save changes\*\*/.test(bundle.report),
+            'and names the clicked control rather than its coordinates');
+        assert(/7 keystrokes were redacted/.test(bundle.report),
+            'and says what was withheld, so absent is never confused with refused');
+        assert(/never recorded/.test(bundle.json.schema.privacy),
+            'session.json states the privacy rules to whoever reads it');
     } catch (err) {
         console.error(`  ✗ ${err.message}`);
         failed++;

@@ -16,10 +16,11 @@
 </style>
 <h1>SG Page Recorder</h1>
 <div class="muted" id="tab">…</div>
-<label><input type="checkbox" id="mouse" checked> mouse movement &amp; clicks</label>
-<label><input type="checkbox" id="scroll" checked> scrolling</label>
-<label><input type="checkbox" id="console" checked> console output</label>
-<label><input type="checkbox" id="network" checked> network (metadata only)</label>
+<div class="muted">Nothing is recorded until you tick it. All feeds start off.</div>
+<label><input type="checkbox" id="mouse"> mouse movement &amp; clicks</label>
+<label><input type="checkbox" id="scroll"> scrolling</label>
+<label><input type="checkbox" id="console"> console output</label>
+<label><input type="checkbox" id="network"> network (metadata only)</label>
 <label>keyboard
   <select id="keys">
     <option value="off">off</option>
@@ -30,6 +31,7 @@
 <div class="warn" id="keywarn" hidden>
   Literal text is recorded. Password fields are never captured in any mode.
 </div>
-<p><button id="go">Start recording this tab</button></p>
+<p><button id="go">Start recording this tab</button>
+   <button id="panel">Open side panel</button></p>
 <div id="state" class="muted"></div>
 <script src="popup.js"></script>

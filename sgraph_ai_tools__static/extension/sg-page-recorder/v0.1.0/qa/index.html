@@ -1,0 +1,132 @@
+<!doctype html>
+<meta charset="utf-8">
+<title>SG Page Recorder — QA target</title>
+<style>
+  :root { color-scheme: dark; }
+  body { font: 14px/1.6 system-ui, sans-serif; margin: 0; padding: 24px;
+         background: #0d1424; color: #e6edf7; max-width: 900px; }
+  h1 { font-size: 20px; margin: 0 0 4px; }
+  h2 { font-size: 13px; text-transform: uppercase; letter-spacing: .06em;
+       color: #7a8699; margin: 26px 0 8px; border-bottom: 1px solid #1c2740; padding-bottom: 4px; }
+  .muted { color: #7a8699; font-size: 12px; }
+  button { font: inherit; padding: 7px 12px; border-radius: 6px; cursor: pointer;
+           border: 1px solid #24406b; background: #16233d; color: #e6edf7; margin: 3px 4px 3px 0; }
+  button.danger { background: #7f1d1d; border-color: #dc2626; }
+  input { background: #0b1220; color: #e6edf7; border: 1px solid #24406b;
+          border-radius: 5px; padding: 6px 8px; font: inherit; margin: 3px 4px; }
+  .box { border: 1px solid #1c2740; border-radius: 8px; padding: 12px; margin: 8px 0; background: #101a2e; }
+  .secret { border-color: #f59e0b; background: #241c08; }
+  code { background: #0a1020; padding: 1px 5px; border-radius: 4px; font-size: 12px; }
+  .expect { color: #14b8a6; font-size: 12px; margin-top: 4px; }
+  #maze { height: 160px; border: 1px dashed #24406b; border-radius: 8px; position: relative;
+          margin: 8px 0; background: #0a1020; }
+  #target { position: absolute; right: 12px; bottom: 12px; }
+  ol { padding-left: 20px; }
+</style>
+
+<h1>SG Page Recorder — QA target</h1>
+<p class="muted">A page built to make every rule the recorder claims to follow visible.
+Arm this tab from the extension, tick the feeds you are testing, then work down the page.
+Each block says what you should see in the side panel.</p>
+
+<h2>1 · Mouse</h2>
+<div class="box">
+  <div id="maze"><button id="target">click me last</button></div>
+  <div class="muted">Move slowly across the box, then click the button in the corner.</div>
+  <div class="expect">Expect: <code>move</code> count climbing (~30/s, not 60), then one
+    <code>click</code> naming <b>click me last</b> — not just coordinates.</div>
+</div>
+
+<h2>2 · Keyboard — the part that must be right</h2>
+<div class="box">
+  <label>Ordinary text <input id="plain" placeholder="type: hello"></label>
+  <button id="shortcut-hint">…then press Ctrl-S (or ⌘-S)</button>
+  <div class="expect">Expect in <b>which keys</b> mode: five <code>·</code> entries, and
+    <code>ctrl+s</code> recorded <b>literally</b>. A shortcut is an action, not typed content.</div>
+</div>
+<div class="box secret">
+  <label>Password <input type="password" id="pw" placeholder="type: hunter2"></label>
+  <label>Card number <input id="cc" autocomplete="cc-number" placeholder="type: 4111"></label>
+  <div class="expect">Expect: <b>zero</b> characters recorded, in every mode, including
+    “literal text”. The side panel should show the redaction counter going up.</div>
+</div>
+<div class="box secret" data-sg-no-capture>
+  <label>Inside <code>[data-sg-no-capture]</code> <input id="optout" placeholder="type: anything"></label>
+  <div class="expect">Expect: nothing recorded — any page can opt a region out.</div>
+</div>
+
+<h2>3 · Console</h2>
+<div class="box">
+  <button id="c-log">console.log</button>
+  <button id="c-warn">console.warn</button>
+  <button id="c-error" class="danger">console.error</button>
+  <button id="c-throw" class="danger">throw (uncaught)</button>
+  <button id="c-reject" class="danger">unhandled rejection</button>
+  <button id="c-big">log a huge object</button>
+  <div class="expect">Expect: each appears in the live feed; errors in red. The huge object
+    must be <b>truncated</b>, not inlined — and the page must keep working.</div>
+</div>
+
+<h2>4 · Network</h2>
+<div class="box">
+  <button id="n-fetch">fetch 200</button>
+  <button id="n-404" class="danger">fetch 404</button>
+  <button id="n-xhr">XHR</button>
+  <button id="n-token" class="danger">fetch with ?token=SECRET</button>
+  <button id="n-img">load an image</button>
+  <div class="expect">Expect: method, status and duration for each. The token request must
+    appear as <code>…?…</code> with <b>no SECRET anywhere</b>, and no headers or bodies at all.</div>
+</div>
+
+<h2>5 · Probes</h2>
+<div class="box">
+  <p>Rows: <span id="rows">3</span> · <button id="add-row">add a row</button></p>
+  <div class="muted">In the side panel, run
+    <code>document.getElementById('rows').textContent</code> — once, then on every click.</div>
+  <div class="expect">Expect: the value recorded each time, changing as you add rows. A probe
+    that throws (<code>window.__nope.boom</code>) records the error and keeps recording.</div>
+</div>
+
+<h2>6 · Volume &amp; stopping</h2>
+<div class="box">
+  <button id="flood">fire 500 console lines</button>
+  <div class="expect">Expect: counts rise, the feed stays responsive, nothing is lost silently —
+    if the cap is hit, <code>dropped</code> appears. Then <b>Stop</b> in the popup and confirm
+    the counts <b>freeze</b>.</div>
+</div>
+
+<h2>7 · The bundle</h2>
+<div class="box">
+  <div class="muted">Take a 📸 screenshot, then Export bundle.</div>
+  <div class="expect">Expect a zip with <code>report.md</code>, <code>session.json</code>,
+    <code>events.json</code> and <code>images/shot-01.png</code>. The report should lead with
+    the console errors and failed requests, and list the clicks by <b>name</b>.</div>
+</div>
+
+<script>
+  const $ = s => document.querySelector(s);
+  $('#c-log').onclick = () => console.log('a log line', { a: 1, b: [1, 2, 3] });
+  $('#c-warn').onclick = () => console.warn('careful');
+  $('#c-error').onclick = () => console.error('deliberate error for QA');
+  $('#c-throw').onclick = () => { setTimeout(() => { throw new Error('uncaught QA error'); }, 0); };
+  $('#c-reject').onclick = () => { Promise.reject(new Error('unhandled QA rejection')); };
+  $('#c-big').onclick = () => {
+    const big = {}; for (let i = 0; i < 5000; i++) big['k' + i] = 'x'.repeat(50);
+    console.log('huge', big, document.body);
+  };
+  $('#n-fetch').onclick = () => fetch(location.href).catch(() => {});
+  $('#n-404').onclick = () => fetch(location.pathname + 'definitely-missing').catch(() => {});
+  $('#n-xhr').onclick = () => { const x = new XMLHttpRequest(); x.open('GET', location.href); x.send(); };
+  $('#n-token').onclick = () => fetch(location.pathname + '?token=SECRET&id=42').catch(() => {});
+  $('#n-img').onclick = () => { const i = new Image(); i.src = 'data:image/gif;base64,R0lGODlhAQABAAAAACw='; document.body.appendChild(i); };
+  $('#add-row').onclick = () => { $('#rows').textContent = Number($('#rows').textContent) + 1; };
+  $('#flood').onclick = () => { for (let i = 0; i < 500; i++) console.log('flood', i); };
+  $('#shortcut-hint').onclick = () => $('#plain').focus();
+  // A moving target so a mouse path has something to be a path THROUGH.
+  let a = 0;
+  setInterval(() => {
+    a += 0.03;
+    const t = $('#target');
+    t.style.transform = `translate(${Math.sin(a) * 40}px, ${Math.cos(a) * 20}px)`;
+  }, 33);
+</script>

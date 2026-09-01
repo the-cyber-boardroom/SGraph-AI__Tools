@@ -2,6 +2,29 @@
 
 All notable changes to `sgraph_ai_tools__static` are documented here.
 
+## [0.1.72] — 2026-09-01
+
+### Changed — every capture feed is now OFF by default
+Mouse, scroll, console and network were on when the popup opened; keyboard was already off. All five now start disabled, in the recorder itself and in both UIs. **Arm a tab with nothing ticked and the correct result is that nothing is recorded** — which is now the first thing the smoke test checks. A recorder that records because nobody changed a setting will one day capture something it should not have.
+
+### Added — the side panel, which is also where the extension stops needing a tool
+- **`sidepanel.html` / `sidepanel.js`** (`chrome.sidePanel`). A popup closes the moment you click into the page, which is always the moment worth seeing; the panel stays put beside it. Live counts per feed, a rolling feed of clicks, console errors and failed requests **as they happen**, a probe box (run once, or on every click), a screenshot button, and the export. Redactions and dropped events are shown, not buried.
+- **Standalone artefacts — `artefacts.js` + `zip-store.js`.** Press Export and get a zip of `report.md`, `session.json`, `events.json` and `images/`, with no narrated-review anywhere in the loop. Point it at a broken page, do the broken thing, export, hand it over: **the zip is the bug report.** `report.md` leads with *What went wrong* — console errors and failed requests — then lists the actions **by name** (`click — Save changes`, not `click 812,140`), because that is the order someone actually reads it in.
+- **`zip-store.js`** is the ZIP format written out longhand, about eighty lines, STORE-only. The extension has no bundler and no network access to fetch JSZip, and staying a folder of plain files that anyone can read end to end before trusting it with their keystrokes is worth more than compressing already-compressed PNGs. Verified with `unzip -t`, not just by reading it back.
+- **Screenshots** via `chrome.tabs.captureVisibleTab` under the same `activeTab` grant — no new permission.
+
+### Added — QA target page and script
+- **`qa/index.html`** — a page built to make every rule the recorder claims visible: a *moving* click target (so a mouse path has something to be a path through), an ordinary text field beside a password field and a `[data-sg-no-capture]` region, console buttons including a 5,000-key object and an uncaught throw, network buttons including one with `?token=SECRET`, a probe fixture, and a 500-line flood.
+- **`qa/QA.md`** — the manual script, with the expected result for each step and **two `grep` checks that prove the redaction actually held** (`grep -c hunter2` and `grep -c SECRET`, both must be 0). Verify by search, not by eye.
+- `scripts/run-locally.sh` now serves `extension/`, so the QA page has the URL the docs point at.
+
+### Added — the extension published as an SG/Send vault
+The whole folder is committed and pushed to a client-side-encrypted vault on `dev.send.sgraph.ai` — a good fit for shipping an unsigned extension, since the recipient needs one key, gets the exact bytes, and can `sgit pull` later versions. **Round-trip verified**: cloned back into a clean directory and `diff -r` against the source reports identical. The vault key is deliberately **not** in this repository — a key committed to git is a key that has left the vault.
+
+### Tests
+- `sg-page-recorder-smoke.js` grew to **35**. New: every feed is off by default, and a tab armed with nothing ticked records **zero** events; the standalone bundle is a real zip (`PK\x03\x04`) carrying the right entries; the report leads with what broke before what was done; it names the clicked control; it states what was withheld; and `session.json` carries the privacy rules in its schema.
+- **NOT verified:** the side panel has not been opened in a real browser here — `chrome.sidePanel` needs the extension loaded, and the arming handshake it hangs off still cannot be driven from Playwright. Its data path (drain → summarise → buildBundle) *is* covered; the panel chrome around it is not.
+
 ## [0.1.71] — 2026-08-26
 
 ### Added (SG Page Recorder extension — the fifth feed)

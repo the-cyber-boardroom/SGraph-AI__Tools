@@ -43,6 +43,13 @@ async function refresh() {
     }
 }
 
+$('#panel').addEventListener('click', async () => {
+    // Must be called in the same turn as the user gesture, or Chrome refuses.
+    const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+    try { await chrome.sidePanel.open({ tabId: tab.id }); window.close(); }
+    catch (err) { $('#state').textContent = `side panel: ${err.message}`; }
+});
+
 $('#go').addEventListener('click', async () => {
     const list = await chrome.runtime.sendMessage({ type: 'sgpr:list' });
     const mine = (list?.tabs || []).find(t => t.tabId === tabId);

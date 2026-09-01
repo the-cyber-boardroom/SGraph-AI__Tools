@@ -70,6 +70,10 @@ done
 # Symlink core/ and components/ from static root
 [ -d "$STATIC_DIR/core" ]       && ln -sf "$STATIC_DIR/core"       "$SERVE_DIR/core"
 [ -d "$STATIC_DIR/components" ] && ln -sf "$STATIC_DIR/components" "$SERVE_DIR/components"
+# extension/ is outside the IFD tree (it is not version-layered) but is deployed
+# by file type from the static root, so serve it here too — the QA target page
+# lives under it and the docs point people at a URL.
+[ -d "$STATIC_DIR/extension" ]  && ln -sf "$STATIC_DIR/extension"  "$SERVE_DIR/extension"
 
 # Symlink tests/
 [ -d "$STATIC_DIR/tests" ]      && ln -sf "$STATIC_DIR/tests"      "$SERVE_DIR/tests"

@@ -105,6 +105,11 @@ chrome.runtime.onMessage.addListener((msg, sender, reply) => {
                     url: s.url, title: s.title, startedAt: s.startedAt, armed: s.armed });
             } else if (msg.type === 'sgpr:run') {
                 reply(await chrome.tabs.sendMessage(msg.tabId, { type: 'sgpr:run', id: msg.id, js: msg.js, on: msg.on }));
+            } else if (msg.type === 'sgpr:shot') {
+                // A screenshot of the visible tab. `activeTab` covers this for a
+                // tab the user armed, which is the only tab we ever want it for.
+                const dataUrl = await chrome.tabs.captureVisibleTab(undefined, { format: 'png' });
+                reply({ dataUrl });
             } else if (msg.type === 'sgpr:ping') {
                 reply({ ok: true, version: chrome.runtime.getManifest().version });
             } else if (msg.type === 'sgpr:forget') {
@@ -119,3 +124,9 @@ chrome.runtime.onMessage.addListener((msg, sender, reply) => {
 });
 
 chrome.tabs.onRemoved.addListener(tabId => sessions.delete(tabId));
+
+// The side panel is where a recording is actually watched — a popup closes the
+// moment you click into the page, which is always the moment worth seeing.
+try {
+    chrome.sidePanel?.setPanelBehavior?.({ openPanelOnActionClick: false });
+} catch (_) { /* older Chromium — the panel is still openable from the popup */ }

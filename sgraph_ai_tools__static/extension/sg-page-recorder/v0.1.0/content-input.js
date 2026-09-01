@@ -32,7 +32,10 @@
     const FLUSH_MS = 1000;
     const CAP = 200_000;                                 // stated, not silent — see `capped`
 
-    const cfg = { mouse: true, keys: 'off', console: true, network: true, scroll: true };
+    // EVERYTHING OFF BY DEFAULT. A recorder that starts recording because nobody
+    // changed anything is a recorder that will one day capture something it
+    // should not have. Each feed is turned on deliberately, per tab, per session.
+    const cfg = { mouse: false, keys: 'off', console: false, network: false, scroll: false };
     let on = false, buf = [], dropped = 0, redacted = 0, lastMouse = 0, lastX = 0, lastY = 0, total = 0;
 
     const now = () => Date.now();

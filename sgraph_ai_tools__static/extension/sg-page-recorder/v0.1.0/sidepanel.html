@@ -1,0 +1,63 @@
+<!doctype html>
+<meta charset="utf-8">
+<title>SG Page Recorder</title>
+<style>
+  :root { color-scheme: dark; }
+  body { font: 13px/1.5 system-ui, sans-serif; margin: 0; padding: 12px;
+         background: #0d1424; color: #e6edf7; }
+  h1 { font-size: 14px; margin: 0 0 2px; }
+  h2 { font-size: 12px; text-transform: uppercase; letter-spacing: .06em;
+       color: #7a8699; margin: 16px 0 6px; }
+  .muted { color: #7a8699; font-size: 11px; }
+  .rec { color: #f87171; font-weight: 600; }
+  .grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; }
+  .stat { background: #101a2e; border: 1px solid #1c2740; border-radius: 6px; padding: 6px 8px; }
+  .stat b { display: block; font-size: 18px; line-height: 1.1; }
+  .stat.bad b { color: #f87171; }
+  .stat.warn b { color: #f59e0b; }
+  button { font: inherit; padding: 5px 9px; border-radius: 5px; cursor: pointer;
+           border: 1px solid #24406b; background: #16233d; color: #e6edf7; }
+  button:disabled { opacity: .45; cursor: default; }
+  button.primary { background: #0f766e; border-color: #14b8a6; }
+  .row { display: flex; gap: 6px; flex-wrap: wrap; margin: 8px 0; }
+  #feed { max-height: 40vh; overflow: auto; border: 1px solid #1c2740; border-radius: 6px;
+          background: #0a1020; padding: 6px; font-family: ui-monospace, monospace; font-size: 11px; }
+  #feed div { padding: 1px 0; border-bottom: 1px solid #111a2c; white-space: nowrap;
+              overflow: hidden; text-overflow: ellipsis; }
+  .k { color: #7a8699; }
+  .err { color: #f87171; }
+  .ok { color: #14b8a6; }
+  input[type=text] { width: 100%; box-sizing: border-box; background: #0b1220; color: #e6edf7;
+                     border: 1px solid #24406b; border-radius: 4px; padding: 4px 6px; font: inherit; }
+</style>
+
+<h1>SG Page Recorder</h1>
+<div class="muted" id="where">no tab</div>
+<div id="status" class="muted"></div>
+
+<h2>Captured</h2>
+<div class="grid" id="stats"></div>
+<div class="muted" id="privacy"></div>
+
+<h2>Live</h2>
+<div id="feed"><div class="muted">nothing yet</div></div>
+
+<h2>Probe the page</h2>
+<input type="text" id="probe" placeholder="document.querySelectorAll('[role=row]').length">
+<div class="row">
+  <button id="run">Run once</button>
+  <button id="onclick">Run on every click</button>
+</div>
+
+<h2>Artefacts</h2>
+<div class="row">
+  <button id="shot">📸 Screenshot</button>
+  <button id="export" class="primary">⬇ Export bundle</button>
+  <button id="clear">Clear</button>
+</div>
+<div class="muted" id="exported"></div>
+<div class="muted">The bundle is a zip — <code>report.md</code>, <code>session.json</code>,
+  <code>events.json</code> and any screenshots. No tool needed; hand it straight to a
+  colleague or an agent.</div>
+
+<script type="module" src="sidepanel.js"></script>
