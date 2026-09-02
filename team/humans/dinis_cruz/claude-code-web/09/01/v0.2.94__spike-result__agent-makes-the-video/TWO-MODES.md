@@ -35,7 +35,7 @@ For unattended runs from the browser the only route with no clicks is 3, the SG/
 
 All **PROPOSED**, in the order they would be built:
 
-1. **A reel page** (`tools/…/demo-reel/`, or a vault app): open a folder, show the scene list as the side-by-side document already does (`reel.html` is most of this UI), edit narration and captions, mark a scene for re-shoot.
+1. **A reel page** (`tools/…/demo-reel/`, or a vault app): open a folder, show the scene list as the side-by-side document already does (`storyboard.html` is most of this UI), edit narration and captions, mark a scene for re-shoot.
 2. **A capture panel** with the three routes above as buttons, the same-origin annotation injector, and a drag-a-rect fallback for cross-origin captures.
 3. **A narrate step** that only re-generates changed scenes, keyed by a hash of (text, voice, provider). Neither `sg-tts` nor the OpenRouter module caches; this is the second-biggest cost after the render.
 4. **The compositor and the closing slide moved into `video-creator`** (`setConfig({ header, captionBand })` and `setSlideImage({slideIndex, file})`), so the page does not carry the spike's pre-compositor.

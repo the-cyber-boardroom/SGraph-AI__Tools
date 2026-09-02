@@ -119,8 +119,8 @@ About three days, leaving `demo-reel` as a JSON shape plus two scripts. The pack
 | `scripts/02-render.mjs` | Drives `video-creator`'s JS API: slides, TTS timing, heartbeat, download, remux; `CROP=1` for the crop variant |
 | `scripts/03-frames.sh` | Frame extraction |
 | `scripts/slides.mjs` | Round 2: in-page slide compositor (header, caption band, title and closing slides) |
-| `scripts/04-doc.mjs` | Round 2: `reel.html` and `reel.pdf`, the storyboard sheet; `INLINE=1` for a single-file copy |
-| `reel.html`, `reel.pdf` | Round 2: one row per scene, artefact beside caption, narration and shot spec, with timecodes |
+| `scripts/04-doc.mjs` | Round 2: `storyboard.html` and `storyboard.pdf`, the storyboard sheet; `INLINE=1` for a single-file copy |
+| `storyboard.html`, `storyboard.pdf` | Round 2: one row per scene, artefact beside caption, narration and shot spec, with timecodes |
 | `.gitignore` | `*.webm` and the inline HTML are not committed; the videos are handed over directly |
 | `scripts/sg-tts-shim-openrouter.js` | Round 3: `sg-tts`'s interface over `core/sg-tts-openrouter`, served in place of `sg-tts` when `TTS=openrouter` |
 | `TWO-MODES.md` | Round 3: the session-skill mode against the browser mode, and what each still needs |
@@ -145,7 +145,7 @@ No key, token or vault key is in this folder. The published read key used for th
 - **Every slide is now composed before it reaches `video-creator`**, in-page on a canvas (`scripts/slides.mjs`): a header strip with the title, date, author and scene number; the screenshot; and a caption band carrying the short caption and the narration being spoken. `video-creator` is unchanged. Its own 48 px bottom bar is kept and turned into a footer by naming every `File` with the title, date and author line, so it prints `SGit vaults in 90 seconds · 2026-09-01 · made by a Claude Code agent, unattended • 3 / 15`.
 - **An opening title slide and a closing "how this video was made" slide** are generated the same way. The closing slide shows measured numbers: screenshots shot and used, capture time, words, seconds of speech and the seconds Kokoro took to make them, model load, render time, pipeline wall clock, API cost. The numbers are only known after TTS, and `loadSlides()` resets audio, so the closing slide is loaded as a placeholder and its image swapped just before `record()`: the `tool:slides:loaded` event hands out the tool's own slide array by reference, and mutating `dataUrl` on the last entry is enough. That is a use of the public event, not a patch.
 - **Portrait spotlights** now resolve through open shadow roots and same-origin iframes (`annotate.mjs`, `deepAll`). The SG/App header badge is found in shadow DOM at both viewports. The vault app itself renders in a sandboxed `srcdoc` iframe whose document the parent cannot read, so that one scene keeps a rect per format.
-- **The reel as a document**: `scripts/04-doc.mjs` writes `reel.html` (one row per scene: still or clip on the left, caption, narration and the shot description on the right, with the phone still underneath) and prints it to `reel.pdf` with Chromium. `INLINE=1` produces a single self-contained file for publishing.
+- **The reel as a document**: `scripts/04-doc.mjs` writes `storyboard.html` (one row per scene: still or clip on the left, caption, narration and the shot description on the right, with the phone still underneath) and prints it to `storyboard.pdf` with Chromium. `INLINE=1` produces a single self-contained file for publishing.
 - **Videos are no longer committed.** `.gitignore` in this folder ignores `*.webm`; the videos are handed to the requester directly.
 
 ## Numbers, round 2

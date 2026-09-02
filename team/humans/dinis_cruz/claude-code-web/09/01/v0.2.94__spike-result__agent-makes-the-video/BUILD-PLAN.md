@@ -34,7 +34,7 @@ Done test: the spike's `02-render.mjs` shrinks to loading images and calling the
 
 ## Phase 2 — the reel page, in the browser (about 3 days)
 
-6. `tools/…/demo-reel/`: open a reel folder (zip or SG/Send vault: `reel.json` + `images/` + `clips/`), show it as the storyboard already does (`reel.html` is the layout), edit narration and captions, reorder, mark scenes for re-shoot.
+6. `tools/…/demo-reel/`: open a reel folder (zip or SG/Send vault: `reel.json` + `images/` + `clips/`), show it as the storyboard already does (`storyboard.html` is the layout), edit narration and captions, reorder, mark scenes for re-shoot.
 7. A capture panel with the three routes from the POC: `getDisplayMedia` tab capture (one click per scene), the sg-page-recorder extension, and the SG/Playwright service for unattended runs; the same-origin annotation injector for our own pages and vault apps; a drag-a-rect spotlight for cross-origin captures.
 8. Narrate only changed scenes (Phase 1's cache), render both formats, publish through `youtube-upload`.
 9. Everything as `SgToolApi` actions so the page is drivable headless: `openReel`, `setScene`, `capture`, `narrate`, `render`, `publish`.

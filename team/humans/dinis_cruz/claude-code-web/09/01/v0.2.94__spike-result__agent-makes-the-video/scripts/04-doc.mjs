@@ -1,9 +1,11 @@
-// 04-doc.mjs — the reel as a document: one row per scene, artefact on the left
-// (the annotated still, or the clip where one was shot) and the words on the
-// right (caption, narration, what the shot is). Writes reel.html next to the
-// images (relative paths, small, commit-friendly) and prints it to reel.pdf via
-// Chromium. INLINE=1 writes reel.inline.html with images and clips embedded as
-// data URIs, for publishing as a single file.
+// 04-doc.mjs — the storyboard: one row per scene, the words on the left
+// (caption, narration, how the image was created) and the artefact on the right
+// (the annotated still, or the clip where one was shot). Writes storyboard.html
+// next to the images (relative paths) and prints it to storyboard.pdf via
+// Chromium on a short wide page, one scene per page. INLINE=1 writes
+// storyboard.inline.html with images and clips embedded as data URIs, for
+// publishing as a single file. STORYBOARD_VERSION is printed in the footer and
+// on the console so a run on stale scripts is visible in the output.
 import fs from 'node:fs';
 import path from 'node:path';
 import { launch, context } from './browser.mjs';
@@ -11,6 +13,7 @@ import { launch, context } from './browser.mjs';
 const ROOT = path.resolve('..');
 const reel = JSON.parse(fs.readFileSync(path.join(ROOT, 'reel.json'), 'utf8'));
 const INLINE = !!process.env.INLINE;
+export const STORYBOARD_VERSION = 'storyboard generator v3 (2026-09-02)';   // bump when the layout or the columns change
 const logs = {};
 for (const f of ['landscape', 'shorts', 'landscape-openrouter']) { try { logs[f] = JSON.parse(fs.readFileSync(path.join(ROOT, `render-log.${f}.json`), 'utf8')); } catch {} }
 const esc = (s) => String(s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
@@ -108,6 +111,7 @@ const html = `<!doctype html>
   .renders thead th { color:var(--dim); font-weight:500; text-transform:uppercase; letter-spacing:.04em; font-size:11px; }
   .renders p { font-size:14px; color:var(--dim); margin:12px 0 0; }
   .renders code { font-family:"IBM Plex Mono", monospace; font-size:13px; }
+  .renders .gen { font-family:"IBM Plex Mono", monospace; font-size:11px; color:var(--dim); }
   .poster-print { display:none; }
   a { color:var(--accent); }
   :focus-visible { outline:2px solid var(--mark); outline-offset:2px; }
@@ -170,18 +174,18 @@ const html = `<!doctype html>
     <h3>Renders</h3>
     <div class="wrap"><table><thead><tr><th>cut</th><th>length</th><th>size</th><th>slides</th><th>TTS</th><th>record</th><th>drift</th><th>pipeline</th><th>API cost</th></tr></thead>
     <tbody>${renderRow('landscape', 'landscape 1280×720 · Kokoro')}${renderRow('shorts', 'shorts 1080×1920 · Kokoro')}${renderRow('landscape-openrouter', 'landscape 1280×720 · OpenRouter gpt-audio')}</tbody></table></div>
-    <p>Source of truth is <code>reel.json</code>. Stills in <code>images/</code> (desktop) and <code>images-shorts/</code> (phone); clips in <code>clips/</code>. Timecodes are the landscape cut's TTS durations. API cost is the narration provider's charge, priced per request from the OpenRouter generation endpoint; Kokoro runs locally at $0.00.</p>
+    <p>Source of truth is <code>reel.json</code>. Stills in <code>images/</code> (desktop) and <code>images-shorts/</code> (phone); clips in <code>clips/</code>. Timecodes are the landscape cut's TTS durations. API cost is the narration provider's charge, priced per request from the OpenRouter generation endpoint; Kokoro runs locally at $0.00. <span class="gen">${STORYBOARD_VERSION}</span></p>
   </section>
 </main></body></html>`;
-const outName = INLINE ? 'reel.inline.html' : 'reel.html';
+const outName = INLINE ? 'storyboard.inline.html' : 'storyboard.html';
 fs.writeFileSync(path.join(ROOT, outName), html);
-console.log('wrote', outName, (fs.statSync(path.join(ROOT, outName)).size / 1e6).toFixed(2), 'MB');
+console.log(STORYBOARD_VERSION, '· wrote', outName, (fs.statSync(path.join(ROOT, outName)).size / 1e6).toFixed(2), 'MB');
 if (!INLINE) {
   const browser = await launch(); const ctx = await context(browser); const page = await ctx.newPage();   // bridged, so the web fonts load into the PDF
-  await page.goto('file://' + path.join(ROOT, 'reel.html'), { waitUntil: 'networkidle' });
+  await page.goto('file://' + path.join(ROOT, 'storyboard.html'), { waitUntil: 'networkidle' });
   await page.evaluate(() => document.fonts.ready);
   await page.emulateMedia({ media: 'print' });
-  await page.pdf({ path: path.join(ROOT, 'reel.pdf'), preferCSSPageSize: true, printBackground: true });
+  await page.pdf({ path: path.join(ROOT, 'storyboard.pdf'), preferCSSPageSize: true, printBackground: true });
   await browser.close();
-  console.log('wrote reel.pdf', (fs.statSync(path.join(ROOT, 'reel.pdf')).size / 1e6).toFixed(2), 'MB');
+  console.log('wrote storyboard.pdf', (fs.statSync(path.join(ROOT, 'storyboard.pdf')).size / 1e6).toFixed(2), 'MB');
 }
