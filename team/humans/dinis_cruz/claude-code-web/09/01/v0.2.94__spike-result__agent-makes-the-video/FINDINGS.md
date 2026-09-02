@@ -164,3 +164,34 @@ Drift grew from round 1 (58 ms/min) to 134 ms/min with the heartbeat repainting 
 - **The closing metadata slide needs a hook the tool does not have**: "replace slide N's image without losing audio". The event-reference trick works but is fragile. `setSlideImage({slideIndex, file})` would be the honest API.
 - **Cost** on the closing slide is the part that is hardest to make true. API cost is exactly $0 here (nothing left the container except page fetches and the model download). Compute is a container-minute estimate. The agent session's own token cost is not visible from inside the session, so the slide says so rather than guessing.
 - **Deep element targeting** removed both hand-measured rects that could be removed, and found the one that cannot: content in a sandboxed iframe. That is a real limit of "annotations as data" for vault apps and should be in the pack.
+
+---
+
+# Round 3 — narrator voice, no bottom bar, OpenRouter narration, the two modes
+
+*2 Sep 2026. Requested: a male narrator voice; drop the bottom bar in landscape and give the picture the space; an option to narrate through OpenRouter; and a think-through of a session mode versus a browser mode, with a proof of concept on screenshots from the browser.*
+
+## What changed
+
+- **`video-creator` got its first change, as an IFD delta at `tools/v0/v0.1/v0.1.72/en-gb/video-creator/api/`**: two `setConfig()` flags, `paintEveryFrame` (the fix for the one-frame-per-slide finding, now inside the tool; the spike's external heartbeat is off by default and kept behind `HEARTBEAT=1` for comparison) and `captionBar` (false drops the filename bar). Both default to the old behaviour. The reality document has the entry.
+- **Voice**: Kokoro `am_michael` by default. Five male samples (`am_michael`, `am_fenrir`, `bm_george`, `bm_fable`, `am_onyx`) were generated on the same sentences and handed over for a choice; `VOICE=` selects.
+- **OpenRouter narration** (`TTS=openrouter`): the repo already had `core/sg-tts-openrouter` (streams `openai/gpt-audio` PCM16 through chat completions). `scripts/sg-tts-shim-openrouter.js` wraps it in `sg-tts`'s interface and Playwright serves it in place of `/core/sg-tts/…/sg-tts.js`, so `video-creator` narrates through OpenRouter with no change to the tool. The key lives in page memory for the run and never touches disk. Every generation id is priced afterwards from `GET /api/v1/generation`, and the exact figure goes on the closing slide.
+- **Compositor**: with the bar gone the picture area grows by 48 px in both formats.
+- **`TWO-MODES.md`** and `poc/`: the session-skill mode against the browser mode, and the screenshot proof of concept.
+
+## Numbers, round 3
+
+__R3NUMBERS__
+
+## What this round says about the design
+
+- **Provider choice belongs at the `sg-tts` seam, and the seam is already right.** `generateAudio(text, {voice, speed}) → {data, sampleRate, durationSecs}` was enough to swap engines by swapping a module. `video-creator` should import a provider by config rather than the Kokoro module by path; that is a one-line change in `video-pipeline.js` and the shim becomes `core/sg-tts-provider`.
+- **OpenRouter changes the economics of the browser mode.** Kokoro costs nothing but runs at about twice the audio length on CPU and needs a 114 MB download; gpt-audio runs at about a third of the audio length and costs about eight cents a minute. A person editing a script and re-narrating one line wants the second.
+- **Verbatim is a property to check, not assume.** gpt-audio is a chat model asked to read aloud; the render log records the transcript against the text for every scene, and the count of mismatches is in the numbers above.
+- **The one-frame-per-slide bug is now fixed where it belongs**, and the heartbeat measurement from round 2 is what justified it.
+
+## The screenshot proof of concept, in one line each
+
+- A page cannot read or rasterise a cross-origin iframe: `contentDocument` is null.
+- A page can capture its own tab's pixels with `getDisplayMedia`, iframe content included, for one click and one permission per shot; the POC did so headless with Chromium's auto-select flags and the image is in `poc/`.
+- Without clicks, the SG/Playwright service is the browser mode's Playwright, and it takes the same shot spec.

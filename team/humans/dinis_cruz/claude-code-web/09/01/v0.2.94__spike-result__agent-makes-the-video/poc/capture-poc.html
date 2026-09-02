@@ -1,0 +1,55 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><title>POC — can a web page screenshot a site it shows in an iframe?</title>
+<style>
+  body { margin:0; font:15px/1.5 system-ui, sans-serif; background:#0a0a18; color:#e6edf7; }
+  main { max-width:1100px; margin:0 auto; padding:24px; }
+  input { width:60%; padding:8px; font:inherit; } button { padding:8px 14px; font:inherit; margin-left:6px; }
+  iframe { width:100%; height:480px; border:1px solid #334155; background:#fff; margin-top:12px; }
+  #out img, #out canvas { max-width:100%; border:1px solid #14b8a6; margin-top:12px; display:block; }
+  pre { background:#0f172a; padding:12px; border-radius:6px; white-space:pre-wrap; }
+</style></head>
+<body><main>
+  <h1>Screenshot-from-the-browser POC</h1>
+  <p>Three ways a page can try to capture what it shows in an iframe. Each button reports what happened.</p>
+  <input id="url" value="https://sgit.ai/vault/"> <button id="load">Load</button>
+  <button id="dom">1 · DOM read</button> <button id="svg">2 · SVG foreignObject</button> <button id="display">3 · getDisplayMedia</button>
+  <iframe id="frame"></iframe>
+  <pre id="log"></pre>
+  <div id="out"></div>
+<script>
+  const $ = (s) => document.querySelector(s);
+  const log = (m) => { $('#log').textContent += m + '\n'; };
+  window.__poc = { results: {} };
+  $('#load').onclick = () => { $('#frame').src = $('#url').value; };
+
+  // 1. Read the iframe's document. Only works same-origin.
+  $('#dom').onclick = () => {
+    try { const d = $('#frame').contentDocument; const ok = !!d && !!d.body;
+      log(`1 DOM read: ${ok ? 'readable, ' + d.body.innerText.length + ' chars' : 'contentDocument is ' + d}`); window.__poc.results.dom = ok; }
+    catch (e) { log('1 DOM read: blocked — ' + e.message); window.__poc.results.dom = false; }
+  };
+  // 2. Serialise the iframe's DOM into an SVG <foreignObject> and draw it on a canvas. Same-origin only, and CSS/fonts/images often go missing.
+  $('#svg').onclick = async () => {
+    try {
+      const d = $('#frame').contentDocument; if (!d) throw new Error('cross-origin: no document');
+      const html = new XMLSerializer().serializeToString(d.documentElement);
+      const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="1280" height="720"><foreignObject width="100%" height="100%">${html}</foreignObject></svg>`;
+      const img = new Image(); const url = URL.createObjectURL(new Blob([svg], { type: 'image/svg+xml' }));
+      await new Promise((res, rej) => { img.onload = res; img.onerror = () => rej(new Error('SVG would not rasterise')); img.src = url; });
+      const c = document.createElement('canvas'); c.width = 1280; c.height = 720; c.getContext('2d').drawImage(img, 0, 0);
+      c.toDataURL(); $('#out').appendChild(c); log('2 SVG: rasterised (same-origin only; external CSS and images are usually lost)'); window.__poc.results.svg = true;
+    } catch (e) { log('2 SVG: ' + e.message); window.__poc.results.svg = false; }
+  };
+  // 3. Ask the browser for a capture of this tab. Needs a user gesture and a permission prompt; captures pixels of anything, cross-origin included.
+  $('#display').onclick = async () => {
+    try {
+      const stream = await navigator.mediaDevices.getDisplayMedia({ video: { displaySurface: 'browser' }, preferCurrentTab: true, audio: false });
+      const v = document.createElement('video'); v.srcObject = stream; await v.play(); await new Promise(r => setTimeout(r, 800));
+      const c = document.createElement('canvas'); c.width = v.videoWidth; c.height = v.videoHeight; c.getContext('2d').drawImage(v, 0, 0);
+      stream.getTracks().forEach(t => t.stop()); $('#out').appendChild(c);
+      log(`3 getDisplayMedia: captured ${c.width}×${c.height} (pixels of the whole tab, cross-origin included; needed a click and a permission)`);
+      window.__poc.results.display = { w: c.width, h: c.height }; window.__poc.shot = c.toDataURL('image/png');
+    } catch (e) { log('3 getDisplayMedia: ' + e.name + ' — ' + e.message); window.__poc.results.display = false; }
+  };
+</script>
+</main></body></html>

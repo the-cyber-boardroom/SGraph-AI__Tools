@@ -13,7 +13,10 @@ const reel = JSON.parse(fs.readFileSync(path.join(ROOT, 'reel.json'), 'utf8'));
 const FORMAT = process.env.FORMAT || 'landscape';
 const POOL = Number(process.env.POOL || 2);
 const WARM = !!process.env.WARM;
-const HEARTBEAT = process.env.HEARTBEAT !== '0';  // repaint the recording canvas every frame; see below   // second generateAudio() pass, to measure whether anything is cached (nothing is)
+const TTS = process.env.TTS || 'kokoro';            // kokoro | openrouter — openrouter swaps the sg-tts module for the shim
+const VOICE = process.env.VOICE || (TTS === 'openrouter' ? 'onyx' : 'am_michael');
+const CAPTION_BAR = process.env.CAPTION_BAR === '1'; // video-creator's own filename bar (off by default since v0.1.72)
+const HEARTBEAT = process.env.HEARTBEAT === '1';     // external repaint loop; unnecessary once the tool paints every frame
 const FF = process.env.FFMPEG || 'ffmpeg';
 const scenes = FORMAT === 'shorts' ? reel.shorts.map(id => reel.scenes.find(s => s.id === id)) : reel.scenes;
 // Shorts: CROP=1 crops the desktop stills to 9:16 around the focus rect (output
@@ -21,7 +24,7 @@ const scenes = FORMAT === 'shorts' ? reel.shorts.map(id => reel.scenes.find(s =>
 // images-shorts/ as they are (output shorts.webm).
 const CROP = FORMAT === 'shorts' && !!process.env.CROP;
 const IMG = FORMAT === 'shorts' && !CROP ? 'images-shorts' : 'images';
-const OUT = CROP ? 'shorts-crop' : FORMAT;
+const OUT = (CROP ? 'shorts-crop' : FORMAT) + (process.env.SUFFIX || '');   // e.g. SUFFIX=-openrouter
 const size = FORMAT === 'shorts' ? { width: 1080, height: 1920 } : { width: 1280, height: 720 };
 const T0 = Date.now();
 const out = { format: FORMAT, crop: CROP, images: IMG, pool: POOL, sceneCount: scenes.length, started: new Date().toISOString() };
@@ -40,7 +43,13 @@ const words = scenes.reduce((n, s) => n + s.narration.split(/\s+/).length, 0) + 
 
 const browser = await launch();
 const ctx = await context(browser, { acceptDownloads: true });
+if (TTS === 'openrouter') {
+  const key = process.env.OPENROUTER_API_KEY; if (!key) throw new Error('TTS=openrouter needs OPENROUTER_API_KEY');
+  await ctx.addInitScript((k) => { window.__OPENROUTER_KEY = k; }, key);          // page memory only, never on disk
+  await ctx.route('**/core/sg-tts/v0/v0.1/v0.1.0/sg-tts.js', route => route.fulfill({ contentType: 'text/javascript', body: fs.readFileSync(path.join(import.meta.dirname, 'sg-tts-shim-openrouter.js'), 'utf8') }));
+}
 const page = await ctx.newPage();
+await page.addInitScript((bar) => { window.__slideBar = bar; }, CAPTION_BAR ? 48 : 0);
 page.on('pageerror', e => console.log('  [pageerror]', e.message.slice(0, 200)));
 page.on('crash', () => console.log('  [CRASH]'));
 await page.goto('http://localhost:10063/en-gb/video-creator/', { waitUntil: 'domcontentloaded' });
@@ -85,23 +94,42 @@ out.compose = await page.evaluate(async ([slides, size, CROP, meta, intro, outro
 console.log('compose', JSON.stringify({ count: out.compose.count, gotSlidesRef: out.compose.gotSlidesRef }));
 
 // TTS: pre-load a pool of our chosen size (sg-tts is a module singleton shared with video-creator).
-const tts = await page.evaluate(async ([POOL, WARM]) => {
+const tts = await page.evaluate(async ([POOL, WARM, VOICE]) => {
   const mod = await import('/core/sg-tts/v0/v0.1/v0.1.0/sg-tts.js');
   const t0 = performance.now();
-  await mod.loadTTS({ poolSize: POOL });
+  await mod.loadTTS({ poolSize: POOL, voice: VOICE });
   const loadMs = performance.now() - t0;
   const t1 = performance.now();
-  const r1 = await window.__tool.generateAudio({ voice: 'af_bella', speed: 1.0 });
+  const r1 = await window.__tool.generateAudio({ voice: VOICE, speed: 1.0 });
   const coldMs = performance.now() - t1;
   if (!WARM) return { modelLoadMs: loadMs, coldGenMs: coldMs, durations: r1.durations };
   const t2 = performance.now();
-  const r2 = await window.__tool.generateAudio({ voice: 'af_bella', speed: 1.0 });
+  const r2 = await window.__tool.generateAudio({ voice: VOICE, speed: 1.0 });
   const warmMs = performance.now() - t2;
   return { modelLoadMs: loadMs, coldGenMs: coldMs, warmGenMs: warmMs, durations: r2.durations, sameDurations: JSON.stringify(r1.durations) === JSON.stringify(r2.durations) };
-}, [POOL, WARM]);
+}, [POOL, WARM, VOICE]);
 out.tts = tts;
 out.intendedMs = Math.round(tts.durations.reduce((a, b) => a + (b > 0 ? b : 3), 0) * 1000);
 console.log('tts', JSON.stringify({ ...tts, durations: tts.durations.map(d => +d.toFixed(2)) }));
+
+// OpenRouter: price the run exactly from the generation ids (asked from Node, with the key).
+let cost = { label: '$0.00 · no LLM, TTS or image API calls', usd: 0, requests: 0 };
+if (TTS === 'openrouter') {
+  const gens = await page.evaluate(() => window.__ttsGenerations || []);
+  let usd = 0, priced = 0, mismatched = 0;
+  for (const g of gens) {
+    if (g.transcript && g.transcript.replace(/\W+/g, '').toLowerCase() !== g.text.replace(/\W+/g, '').toLowerCase()) mismatched++;
+    if (!g.id) continue;
+    for (let attempt = 0; attempt < 8; attempt++) {           // the generation record lags the response by a few seconds
+      const r = await fetch(`https://openrouter.ai/api/v1/generation?id=${g.id}`, { headers: { Authorization: `Bearer ${process.env.OPENROUTER_API_KEY}` } });
+      if (r.ok) { const j = await r.json(); usd += Number(j.data?.total_cost || 0); priced++; break; }
+      await sleep(2500);
+    }
+  }
+  cost = { label: `$${usd.toFixed(4)} · OpenRouter openai/gpt-audio, ${gens.length} requests, ${priced} priced`, usd, requests: gens.length, priced, transcriptMismatches: mismatched, generations: gens.map(g => ({ id: g.id, ms: g.ms, durationMs: g.durationMs, mismatch: g.transcript?.replace(/\W+/g, '').toLowerCase() !== g.text.replace(/\W+/g, '').toLowerCase() })) };
+  console.log('openrouter cost', JSON.stringify({ usd: cost.usd, requests: cost.requests, priced: cost.priced, transcriptMismatches: mismatched }));
+}
+out.cost = cost;
 
 // Closing slide with the real numbers: everything measured up to here, plus the
 // record, which runs in real time and so is known before it starts.
@@ -112,10 +140,12 @@ const rows = [
   ['When', meta.date],
   ['Script', `${scenes.length} scenes + title and closing · ${words} words · reel.json written first`],
   ['Screenshots', `${captureLog.captured} shot, ${captureLog.used} used · Playwright, headless · ${(captureLog.totalMs / 1000).toFixed(0)} s`],
-  ['Narration', `Kokoro-82M in the browser (${POOL} workers) · ${audioS.toFixed(1)} s of speech in ${(tts.coldGenMs / 1000).toFixed(0)} s · model load ${(tts.modelLoadMs / 1000).toFixed(1)} s`],
+  ['Narration', TTS === 'openrouter'
+    ? `OpenRouter openai/gpt-audio, voice ${VOICE} · ${audioS.toFixed(1)} s of speech in ${(tts.coldGenMs / 1000).toFixed(0)} s`
+    : `Kokoro-82M in the browser (${POOL} workers), voice ${VOICE} · ${audioS.toFixed(1)} s of speech in ${(tts.coldGenMs / 1000).toFixed(0)} s · model load ${(tts.modelLoadMs / 1000).toFixed(1)} s`],
   ['Render', `video-creator, canvas + MediaRecorder, real time · ${audioS.toFixed(0)} s`],
   ['Pipeline wall clock', `${(captureLog.totalMs / 1000 + soFarS + audioS).toFixed(0)} s: capture ${(captureLog.totalMs / 1000).toFixed(0)} + compose and narrate ${soFarS.toFixed(0)} + render ${audioS.toFixed(0)}`],
-  ['API cost', '$0.00 · no LLM, TTS or image API calls'],
+  ['API cost', cost.label],
   ['Compute', 'one 4-core container · agent session tokens not metered here'],
 ];
 out.closingRows = rows;
@@ -129,7 +159,7 @@ const swapped = await page.evaluate(async ([rows, meta, size, FILE_NAME, outro, 
 console.log('closing slide swapped:', swapped);
 
 // Record — real time. Then hand the blob to Chromium's downloader (no big body over CDP).
-await page.evaluate((size) => window.__tool.setConfig(size), size);
+await page.evaluate(([size, CAPTION_BAR]) => window.__tool.setConfig({ ...size, captionBar: CAPTION_BAR, paintEveryFrame: true }), [size, CAPTION_BAR]);
 const recordStart = Date.now();
 const rec = await page.evaluate(async ([HEARTBEAT, size]) => {
   const t = window.__tool;

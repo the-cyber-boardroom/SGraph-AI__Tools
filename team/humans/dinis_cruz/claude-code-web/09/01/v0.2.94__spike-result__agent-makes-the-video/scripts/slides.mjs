@@ -20,10 +20,13 @@ export const compositorSource = `
   const loadImg = (src) => new Promise((res, rej) => { const i = new Image(); i.onload = () => res(i); i.onerror = rej; i.src = src; });
   const toFile = (c, name) => new Promise(r => c.toBlob(b => r(new File([b], name, { type: 'image/png' })), 'image/png'));
 
-  // Layout per format. BAR is video-creator's own bottom bar (48 px, filename).
+  // Layout per format. BAR is video-creator's own bottom bar (48 px with the
+  // filename in it); 0 once the tool's captionBar flag is off (v0.1.72), which
+  // hands the strip back to the picture.
+  const BAR = (typeof window !== 'undefined' && window.__slideBar != null) ? window.__slideBar : 48;
   function layout(W, H) {
     const vertical = H > W;
-    const BAR = 48, header = vertical ? 96 : 56, band = vertical ? 400 : 168;
+    const header = vertical ? 96 : 56, band = vertical ? 400 : 168;
     return { W, H, vertical, BAR, header, band, fontBase: vertical ? 34 : 26, capFont: vertical ? 30 : 22, pad: vertical ? 48 : 40 };
   }
 

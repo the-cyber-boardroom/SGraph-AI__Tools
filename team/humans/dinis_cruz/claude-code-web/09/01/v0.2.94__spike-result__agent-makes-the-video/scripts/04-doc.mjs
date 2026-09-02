@@ -12,7 +12,7 @@ const ROOT = path.resolve('..');
 const reel = JSON.parse(fs.readFileSync(path.join(ROOT, 'reel.json'), 'utf8'));
 const INLINE = !!process.env.INLINE;
 const logs = {};
-for (const f of ['landscape', 'shorts']) { try { logs[f] = JSON.parse(fs.readFileSync(path.join(ROOT, `render-log.${f}.json`), 'utf8')); } catch {} }
+for (const f of ['landscape', 'shorts', 'landscape-openrouter']) { try { logs[f] = JSON.parse(fs.readFileSync(path.join(ROOT, `render-log.${f}.json`), 'utf8')); } catch {} }
 const esc = (s) => String(s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
 const b64 = (p, mime) => `data:${mime};base64,` + fs.readFileSync(p).toString('base64');
 const src = (rel, mime) => INLINE ? b64(path.join(ROOT, rel), mime) : rel;
