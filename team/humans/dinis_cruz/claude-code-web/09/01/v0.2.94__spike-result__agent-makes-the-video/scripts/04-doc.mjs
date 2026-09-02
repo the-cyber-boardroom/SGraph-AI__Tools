@@ -121,7 +121,7 @@ const html = `<!doctype html>
   <section class="renders">
     <h3>Renders</h3>
     <div class="wrap"><table><thead><tr><th>cut</th><th>length</th><th>size</th><th>slides</th><th>TTS</th><th>record</th><th>drift</th><th>pipeline</th></tr></thead>
-    <tbody>${renderRow('landscape', 'landscape 1280×720')}${renderRow('shorts', 'shorts 1080×1920')}</tbody></table></div>
+    <tbody>${renderRow('landscape', 'landscape 1280×720 · Kokoro')}${renderRow('shorts', 'shorts 1080×1920 · Kokoro')}${renderRow('landscape-openrouter', 'landscape 1280×720 · OpenRouter gpt-audio')}</tbody></table></div>
     <p>Source of truth is <code>reel.json</code>. Stills in <code>images/</code> (desktop) and <code>images-shorts/</code> (phone); clips in <code>clips/</code>. Timecodes are the landscape cut's TTS durations.</p>
   </section>
 </main></body></html>`;
