@@ -35,13 +35,13 @@ const rows = reel.scenes.map((s, i) => {
   const k = i + 1;   // slide index: 0 is the title slide
   return `
   <article class="scene" id="${s.id}">
-    <div class="art">${media}</div>
     <div class="words">
       <p class="slug"><span class="tc">${starts[k] != null ? tc(starts[k]) : '—'}</span><span>scene ${i + 1} of ${reel.scenes.length}</span><span>${s.id}</span><span>${fmtDur(durs[k])}</span></p>
       <h2>${esc(s.caption)}</h2>
       <blockquote class="say">${esc(s.narration)}</blockquote>
       <p class="shot">${what.map(esc).join('<span class="sep"> · </span>')}</p>
     </div>
+    <div class="art">${media}</div>
   </article>`;
 }).join('\n');
 
@@ -71,8 +71,8 @@ const html = `<!doctype html>
   .slug .tc { color:var(--accent-ink); background:var(--accent); padding:1px 8px; border-radius:3px; font-weight:500; font-variant-numeric:tabular-nums; }
   .say { margin:0; font-size:22px; line-height:1.45; background:var(--panel); border:1px solid var(--rule); border-left:5px solid var(--accent); border-radius:6px; padding:16px 20px; }
   .shot { font-family:"IBM Plex Mono", monospace; font-size:12.5px; color:var(--dim); margin:14px 0 0; line-height:1.7; }
-  /* Fixed image column: every frame is the same width and sits at the same x, whatever the text beside it does. */
-  .scene { display:grid; grid-template-columns: 620px minmax(0, 1fr); gap:32px; padding:30px 0; border-bottom:1px solid var(--rule); align-items:start; break-inside:avoid; }
+  /* Text on the left; a fixed image column on the right, so every frame is the same width and sits at the same x. */
+  .scene { display:grid; grid-template-columns: minmax(0, 1fr) 620px; gap:32px; padding:30px 0; border-bottom:1px solid var(--rule); align-items:start; break-inside:avoid; }
   .art { width:620px; }
   .art img, .art video { display:block; width:100%; height:auto; border:1px solid var(--rule); background:#0a0a18; }
   .art > img, .art > video { border-radius:4px; }
@@ -97,7 +97,7 @@ const html = `<!doctype html>
   .transcript button { font:inherit; font-size:14px; padding:6px 12px; border:1px solid var(--rule); background:var(--panel); color:var(--ink); border-radius:4px; cursor:pointer; margin-bottom:12px; }
   @media (max-width: 1000px) { .scene { grid-template-columns: 1fr; } .art { width:100%; } header.sheet { grid-template-columns: 1fr; } header.sheet .meta { text-align:left; } }
   @page { size: A4 landscape; margin: 12mm; }
-  @media print { :root { --bg:#fff; --panel:#fff; --ink:#111827; --dim:#5b6472; --rule:#d7dde2; --accent:#0f766e; --accent-ink:#fff; } body { font-size:12px; } main { padding:0; max-width:none; } .scene { page-break-inside:avoid; gap:18px; padding:16px 0; grid-template-columns: 150mm minmax(0,1fr); } .art { width:150mm; } .say { font-size:14px; padding:10px 14px; } .scene h2 { font-size:19px; } video { display:none; } .poster-print { display:block; } header.sheet h1 { font-size:34px; } .transcript button { display:none; } .transcript pre { font-size:12px; } }
+  @media print { :root { --bg:#fff; --panel:#fff; --ink:#111827; --dim:#5b6472; --rule:#d7dde2; --accent:#0f766e; --accent-ink:#fff; } body { font-size:12px; } main { padding:0; max-width:none; } .scene { page-break-inside:avoid; gap:18px; padding:16px 0; grid-template-columns: minmax(0,1fr) 150mm; } .art { width:150mm; } .say { font-size:14px; padding:10px 14px; } .scene h2 { font-size:19px; } video { display:none; } .poster-print { display:block; } header.sheet h1 { font-size:34px; } .transcript button { display:none; } .transcript pre { font-size:12px; } }
 </style></head>
 <body><main>
   <header class="sheet">
