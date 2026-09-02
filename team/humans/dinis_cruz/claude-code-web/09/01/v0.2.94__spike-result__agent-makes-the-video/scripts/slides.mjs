@@ -69,9 +69,13 @@ export const compositorSource = `
     if (L.vertical) {          // phone still: full width, anchored to the top, clipped by the band
       const s = W / img.width; ctx.drawImage(img, 0, 0, img.width, Math.min(img.height, areaH / s), 0, areaY, W, Math.min(img.height * s, areaH));
     } else {
-      const s = Math.min((W - 2 * 16) / img.width, (areaH - 2 * 12) / img.height);
-      const dw = img.width * s, dh = img.height * s;
-      ctx.drawImage(img, (W - dw) / 2, areaY + (areaH - dh) / 2, dw, dh);
+      // Desktop still: fill the picture area's full width and crop its height to the
+      // area's aspect, keeping the spotlighted element (scene.focusRect, in still px)
+      // in view. A 16:9 still fitted whole into a ~2.6:1 area wasted a third of the width.
+      const s = W / img.width, winH = Math.min(img.height, areaH / s);
+      let sy = 0;
+      if (scene.focusRect) { const f = scene.focusRect; sy = Math.round(f.y + f.h / 2 - winH / 2); sy = Math.max(0, Math.min(img.height - winH, sy)); }
+      ctx.drawImage(img, 0, sy, img.width, winH, 0, areaY, W, winH * s);
     }
     drawHeader(ctx, L, meta, meta.date + ' · ' + meta.author + ' · ' + index + ' / ' + total);
     const lines = drawBand(ctx, L, scene.caption, scene.narration);

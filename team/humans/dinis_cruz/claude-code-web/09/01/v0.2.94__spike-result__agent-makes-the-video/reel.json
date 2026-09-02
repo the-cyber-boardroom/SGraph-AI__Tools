@@ -13,7 +13,8 @@
     "label.at is either viewport fractions [x,y] or 'below' / 'above', which anchors the label to the scene's spotlight rect. Absolute fractions were tried first and landed away from their targets.",
     "Narration was tightened after the first render came out at 128 s: 274 words read as 128.5 s of Kokoro at speed 1.0, so 90 s is about 190 words, not the 12 to 15 scenes at 6 to 8 s the recipe suggested.",
     "Round 2: title/subtitle/author/date and intro/outro were added; s01, s10 and s12 moved from hand-measured rects to element targets, resolved through shadow roots and iframes, after the rects missed at the phone viewport.",
-    "s10 keeps a rect per format: the vault app renders inside a sandboxed srcdoc iframe whose document the parent page cannot read, so no element target can be resolved there."
+    "s10 keeps a rect per format: the vault app renders inside a sandboxed srcdoc iframe whose document the parent page cannot read, so no element target can be resolved there.",
+    "Round 4: the intro was rewritten to preview the video after the first one echoed scene one almost word for word. Landscape stills are cropped to the picture area's own aspect around the spotlight, so the page fills the width."
   ],
   "scenes": [
     {
@@ -348,7 +349,7 @@
   "author": "a Claude Code agent, unattended",
   "date": "2026-09-01",
   "intro": {
-    "narration": "SGit vaults, in ninety seconds. Encrypted, versioned folders the server can never read.",
+    "narration": "In the next ninety seconds: what a vault is, what the server can and cannot see, and a published vault opened live in the browser.",
     "caption": "What this video covers"
   },
   "outro": {

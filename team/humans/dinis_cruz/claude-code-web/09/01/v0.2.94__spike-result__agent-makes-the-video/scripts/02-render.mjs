@@ -34,11 +34,13 @@ const out = { format: FORMAT, crop: CROP, images: IMG, pool: POOL, sceneCount: s
 // the title/date/author line and that bar becomes a persistent footer.
 const meta = { title: reel.title, subtitle: reel.subtitle, author: reel.author, date: reel.date };
 const FILE_NAME = `${meta.title} · ${meta.date} · made by ${meta.author}`;
+const captureLog = JSON.parse(fs.readFileSync(path.join(ROOT, FORMAT === 'shorts' ? 'capture-log.shorts.json' : 'capture-log.json'), 'utf8'));
+// The first resolved spotlight rect of each scene, in still px, keeps the crop centred on the point of the shot.
+const focusRects = Object.fromEntries(captureLog.scenes.map(e => [e.id, (e.annotations || []).find(a => a.kind === 'spot' && a.rect && !a.rect.multi)?.rect || null]));
 const slides = scenes.map(s => ({
-  id: s.id, name: FILE_NAME, caption: s.caption, narration: s.narration, focus: s.shot.focus || null,
+  id: s.id, name: FILE_NAME, caption: s.caption, narration: s.narration, focus: s.shot.focus || null, focusRect: focusRects[s.id] || null,
   dataUrl: 'data:image/png;base64,' + fs.readFileSync(path.join(ROOT, IMG, `${s.id}.png`)).toString('base64'),
 }));
-const captureLog = JSON.parse(fs.readFileSync(path.join(ROOT, FORMAT === 'shorts' ? 'capture-log.shorts.json' : 'capture-log.json'), 'utf8'));
 const words = scenes.reduce((n, s) => n + s.narration.split(/\s+/).length, 0) + reel.intro.narration.split(/\s+/).length + reel.outro.narration.split(/\s+/).length;
 
 const browser = await launch();

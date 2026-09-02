@@ -211,3 +211,15 @@ The same 257 words read 123 s in Kokoro and 110 s in gpt-audio: the OpenRouter v
 - A page cannot read or rasterise a cross-origin iframe: `contentDocument` is null.
 - A page can capture its own tab's pixels with `getDisplayMedia`, iframe content included, for one click and one permission per shot; the POC did so headless with Chromium's auto-select flags and the image is in `poc/`.
 - Without clicks, the SG/Playwright service is the browser mode's Playwright, and it takes the same shot spec.
+
+---
+
+# Round 4 — fill the picture area, stop the intro echoing scene one
+
+*2 Sep 2026. Two observations from watching round 3: dark margins either side of the screenshot in landscape, and an intro line that repeated scene one.*
+
+- **The letterbox above and below in a desktop player is the player's, not the video's.** The file is 1280×720; a window that is not 16:9 pads it. YouTube's landscape player is 16:9 and Shorts is 9:16, so neither cut shows bars there.
+- **The margins inside the frame were real.** The picture area between header and caption band is about 2.6:1 and a 16:9 still fitted whole into it used 65 % of the width. Landscape stills are now cropped to the picture area's own aspect, centred on the scene's first spotlight rect from `capture-log.json` and clamped to the still, so the page fills the width and its text is about a third larger. Portrait was already full width. The header and the caption band did not change.
+- **The intro** now previews the video ("what a vault is, what the server can and cannot see, and a published vault opened live") instead of restating scene one.
+- **Voice**: Kokoro `am_michael` stays the free default; OpenRouter `onyx` is the paid option, a user's choice.
+- **A design note for the tool.** The right fix is to shoot at the picture area's aspect in the first place (`capture` with a 1280×496 viewport for this layout), so element targeting and scrolling are computed for the frame that will be shown. Cropping after the fact is the cheap version and depends on the spotlight rect being right; scenes without a spotlight are cropped from the top.
