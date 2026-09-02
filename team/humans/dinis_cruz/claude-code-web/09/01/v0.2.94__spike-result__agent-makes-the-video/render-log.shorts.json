@@ -4,8 +4,8 @@
   "images": "images-shorts",
   "pool": 2,
   "sceneCount": 6,
-  "started": "2026-09-02T14:26:05.234Z",
-  "toolReadyMs": 2499,
+  "started": "2026-09-02T14:43:18.115Z",
+  "toolReadyMs": 1831,
   "compose": {
     "report": [
       {
@@ -37,10 +37,10 @@
     "count": 8
   },
   "tts": {
-    "modelLoadMs": 6906,
-    "coldGenMs": 98553.09999999998,
+    "modelLoadMs": 7556.699999999953,
+    "coldGenMs": 96414.5,
     "durations": [
-      7.275,
+      9.925,
       7.925,
       9.2,
       9.5,
@@ -50,7 +50,7 @@
       11.6
     ]
   },
-  "intendedMs": 67200,
+  "intendedMs": 69850,
   "cost": {
     "label": "$0.00 · no LLM, TTS or image API calls",
     "usd": 0,
@@ -67,7 +67,7 @@
     ],
     [
       "Script",
-      "6 scenes + title and closing · 141 words · reel.json written first"
+      "6 scenes + title and closing · 153 words · reel.json written first"
     ],
     [
       "Screenshots",
@@ -75,15 +75,15 @@
     ],
     [
       "Narration",
-      "Kokoro-82M in the browser (2 workers), voice am_michael · 67.2 s of speech in 99 s · model load 6.9 s"
+      "Kokoro-82M in the browser (2 workers), voice am_michael · 69.8 s of speech in 96 s · model load 7.6 s"
     ],
     [
       "Render",
-      "video-creator, canvas + MediaRecorder, real time · 67 s"
+      "video-creator, canvas + MediaRecorder, real time · 70 s"
     ],
     [
       "Pipeline wall clock",
-      "208 s: capture 33 + compose and narrate 109 + render 67"
+      "209 s: capture 33 + compose and narrate 106 + render 70"
     ],
     [
       "API cost",
@@ -95,22 +95,22 @@
     ]
   ],
   "record": {
-    "actualMs": 67330,
-    "size": 7420877,
+    "actualMs": 69977.1000000001,
+    "size": 6552245,
     "type": "video/webm;codecs=vp9,opus",
     "status": "done",
     "heartbeat": false,
     "heartbeats": 0,
-    "wallMs": 67336
+    "wallMs": 69983
   },
   "file": {
     "path": "shorts.webm",
-    "bytes": 7410619,
-    "duration": "00:01:07.27",
+    "bytes": 6541482,
+    "duration": "00:01:09.94",
     "streams": [
       "Stream #0:0(eng): Video: vp9 (Profile 0), yuv420p(tv, smpte170m/unknown/unknown), 1080x1920, SAR 1:1 DAR 9:16, 1k fps, 1k tbr, 1k tbn (default)",
       "Stream #0:1(eng): Audio: opus, 48000 Hz, stereo, fltp (default)"
     ]
   },
-  "totalMs": 176071
+  "totalMs": 176532
 }
