@@ -116,7 +116,7 @@ const rows = [
   ['Render', `video-creator, canvas + MediaRecorder, real time · ${audioS.toFixed(0)} s`],
   ['Pipeline wall clock', `${(captureLog.totalMs / 1000 + soFarS + audioS).toFixed(0)} s: capture ${(captureLog.totalMs / 1000).toFixed(0)} + compose and narrate ${soFarS.toFixed(0)} + render ${audioS.toFixed(0)}`],
   ['API cost', '$0.00 · no LLM, TTS or image API calls'],
-  ['Compute', 'one 4-core container, ~10 min of CPU for both cuts · agent session tokens not metered here'],
+  ['Compute', 'one 4-core container · agent session tokens not metered here'],
 ];
 out.closingRows = rows;
 const swapped = await page.evaluate(async ([rows, meta, size, FILE_NAME, outro, src]) => {

@@ -95,15 +95,17 @@ export const compositorSource = `
     ctx.fillStyle = C.bg; ctx.fillRect(0, 0, W, H);
     drawHeader(ctx, L, meta, meta.date + ' · ' + meta.author);
     ctx.textAlign = 'left'; ctx.textBaseline = 'top';
-    const f = L.vertical ? 30 : 24, lh = f * 1.55; let y = L.header + (L.vertical ? 48 : 28);
+    const f = L.vertical ? 30 : 22, lh = f * 1.5; let y = L.header + (L.vertical ? 48 : 24);
+    const limit = H - L.BAR - L.band - lh;
     ctx.font = '700 ' + (L.vertical ? 40 : 30) + 'px system-ui, sans-serif'; ctx.fillStyle = C.ink;
     ctx.fillText(outro.caption, L.pad, y); y += (L.vertical ? 40 : 30) * 1.6;
     const col = L.vertical ? W * 0.42 : W * 0.30;
     for (const [k, v] of rows) {
       ctx.font = '600 ' + f + 'px system-ui, sans-serif'; ctx.fillStyle = C.dim; ctx.fillText(k, L.pad, y);
       ctx.font = '500 ' + f + 'px system-ui, sans-serif'; ctx.fillStyle = C.ink;
-      const vl = wrap(ctx, String(v), W - col - L.pad); for (const ln of vl) { ctx.fillText(ln, col, y); y += lh; }
-      if (y > H - L.BAR - L.band - lh) break;
+      const vl = wrap(ctx, String(v), W - col - L.pad);
+      if (y + vl.length * lh > limit) break;                 // never run into the caption band
+      for (const ln of vl) { ctx.fillText(ln, col, y); y += lh; }
     }
     drawBand(ctx, L, outro.caption, outro.narration);
     return { file: await toFile(c, fileName), lines: 0 };

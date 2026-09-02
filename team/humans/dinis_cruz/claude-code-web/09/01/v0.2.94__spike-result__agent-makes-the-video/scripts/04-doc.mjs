@@ -6,7 +6,7 @@
 // data URIs, for publishing as a single file.
 import fs from 'node:fs';
 import path from 'node:path';
-import { launch } from './browser.mjs';
+import { launch, context } from './browser.mjs';
 
 const ROOT = path.resolve('..');
 const reel = JSON.parse(fs.readFileSync(path.join(ROOT, 'reel.json'), 'utf8'));
@@ -17,81 +17,120 @@ const esc = (s) => String(s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;
 const b64 = (p, mime) => `data:${mime};base64,` + fs.readFileSync(p).toString('base64');
 const src = (rel, mime) => INLINE ? b64(path.join(ROOT, rel), mime) : rel;
 
+// Timecodes: the landscape render's TTS durations, in order title · scenes · closing.
+const durs = logs.landscape?.tts?.durations || [];
+const tc = (sec) => `${String(Math.floor(sec / 60)).padStart(2, '0')}:${String(Math.floor(sec % 60)).padStart(2, '0')}`;
+const starts = []; let acc = 0; for (const d of durs) { starts.push(acc); acc += d; }
+const fmtDur = (d) => d ? `${d.toFixed(1)} s` : '';
+
 const rows = reel.scenes.map((s, i) => {
   const clip = s.shot.kind === 'clip' && fs.existsSync(path.join(ROOT, 'clips', `${s.id}.webm`));
   const media = clip
     ? `<video controls muted playsinline preload="metadata" poster="${src(`images/${s.id}.png`, 'image/png')}" src="${src(`clips/${s.id}.webm`, 'video/webm')}"></video>`
     : `<img src="${src(`images/${s.id}.png`, 'image/png')}" alt="${esc(s.caption)}">`;
   const phone = fs.existsSync(path.join(ROOT, 'images-shorts', `${s.id}.png`))
-    ? `<img class="phone" src="${src(`images-shorts/${s.id}.png`, 'image/png')}" alt="${esc(s.caption)} (phone)">` : '';
+    ? `<figure class="phone"><img src="${src(`images-shorts/${s.id}.png`, 'image/png')}" alt="${esc(s.caption)} at a phone viewport"><figcaption>phone cut</figcaption></figure>` : '';
   const ann = Array.isArray(s.shot.annotate) ? s.shot.annotate : (s.shot.annotate?.landscape || []);
-  const what = [s.shot.kind === 'clip' ? 'clip' : 'still', s.shot.url.replace(/^vault:/, 'published vault: '), s.shot.scrollTo?.replace(/^text:/, 'scrolled to “') + (s.shot.scrollTo?.startsWith('text:') ? '”' : ''),
-    ...ann.map(a => a.spot ? 'spotlight ' + (typeof a.spot === 'string' ? a.spot.replace(/^el:/, 'on ') : 'rect') : a.blur ? 'blur ' + a.blur.replace(/^el:/, '') : a.label ? `label “${a.label}”` : '')].filter(Boolean);
+  const what = [s.shot.kind === 'clip' ? 'clip' : 'still', s.shot.url.replace(/^vault:/, 'published vault “') + (s.shot.url.startsWith('vault:') ? '”' : ''),
+    s.shot.scrollTo?.startsWith('text:') ? `scroll to “${s.shot.scrollTo.slice(5)}”` : '',
+    ...ann.map(a => a.spot ? 'spot ' + (typeof a.spot === 'string' ? a.spot.replace(/^el:/, '') : 'rect') : a.blur ? 'blur ' + a.blur.replace(/^el:/, '') : a.label ? `label “${a.label}”` : '')].filter(Boolean);
+  const k = i + 1;   // slide index: 0 is the title slide
   return `
-  <section class="scene" id="${s.id}">
-    <div class="media">${media}${phone}</div>
+  <article class="scene" id="${s.id}">
+    <div class="art">${media}${phone}</div>
     <div class="words">
-      <div class="n">${i + 1} / ${reel.scenes.length} · ${s.id}</div>
+      <p class="slug"><span class="tc">${starts[k] != null ? tc(starts[k]) : '—'}</span><span>scene ${i + 1} of ${reel.scenes.length}</span><span>${s.id}</span><span>${fmtDur(durs[k])}</span></p>
       <h2>${esc(s.caption)}</h2>
-      <p class="narration">${esc(s.narration)}</p>
-      <p class="shot">${what.map(esc).join(' · ')}</p>
+      <p class="say">${esc(s.narration)}</p>
+      <p class="shot">${what.map(esc).join('<span class="sep"> · </span>')}</p>
     </div>
-  </section>`;
+  </article>`;
 }).join('\n');
 
-const meta = (f) => { const l = logs[f]; if (!l) return ''; return `<li><b>${f}</b>: ${l.file.duration} · ${(l.file.bytes / 1e6).toFixed(1)} MB · ${l.sceneCount} scenes · TTS ${(l.tts.coldGenMs / 1000).toFixed(0)} s · record ${(l.record.actualMs / 1000).toFixed(1)} s (intended ${(l.intendedMs / 1000).toFixed(1)} s) · pipeline ${(l.totalMs / 1000).toFixed(0)} s</li>`; };
+const renderRow = (f, label) => { const l = logs[f]; if (!l) return ''; return `<tr><th>${label}</th><td>${l.file.duration.replace(/^00:/, '')}</td><td>${(l.file.bytes / 1e6).toFixed(1)} MB</td><td>${l.sceneCount + 2}</td><td>${(l.tts.coldGenMs / 1000).toFixed(0)} s</td><td>${(l.record.actualMs / 1000).toFixed(1)} s</td><td>${Math.round(l.record.actualMs - l.intendedMs)} ms</td><td>${(l.totalMs / 1000).toFixed(0)} s</td></tr>`; };
+const closingRows = logs.landscape?.closingRows || [];
 const html = `<!doctype html>
 <html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<title>${esc(reel.title)} — reel</title>
+<title>${esc(reel.title)}</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Condensed:wght@500;600;700&family=IBM+Plex+Mono:wght@400;500&family=Source+Serif+4:ital,opsz,wght@0,8..60,400;0,8..60,600;1,8..60,400&display=swap">
 <style>
-  :root { --ink:#0f172a; --dim:#64748b; --teal:#0f766e; --line:#e2e8f0; --bg:#ffffff; }
-  @media (prefers-color-scheme: dark) { :root { --ink:#e6edf7; --dim:#94a3b8; --teal:#14b8a6; --line:#1e293b; --bg:#0a0a18; } }
-  body { margin:0; background:var(--bg); color:var(--ink); font:16px/1.5 system-ui, sans-serif; }
-  main { max-width:1200px; margin:0 auto; padding:32px 24px 64px; }
-  header.top { border-bottom:3px solid var(--teal); padding-bottom:16px; margin-bottom:8px; }
-  header.top h1 { font-size:34px; margin:0 0 4px; }
-  header.top p { margin:0; color:var(--dim); }
-  .scene { display:grid; grid-template-columns: 1.35fr 1fr; gap:28px; padding:28px 0; border-bottom:1px solid var(--line); align-items:start; break-inside:avoid; page-break-inside:avoid; }
-  .media img, .media video { width:100%; height:auto; border-radius:8px; border:1px solid var(--line); background:#000; display:block; }
-  .media img.phone { width:32%; margin-top:12px; }
-  .words .n { color:var(--dim); font-size:13px; letter-spacing:.06em; text-transform:uppercase; }
-  .words h2 { font-size:22px; margin:4px 0 10px; color:var(--teal); }
-  .words .narration { font-size:18px; margin:0 0 12px; }
-  .words .shot { color:var(--dim); font-size:13px; margin:0; }
-  footer { margin-top:28px; color:var(--dim); font-size:14px; }
-  footer ul { padding-left:18px; }
-  @media (max-width: 760px) { .scene { grid-template-columns: 1fr; } }
+  :root { --bg:#f6f7f5; --panel:#ffffff; --ink:#111827; --dim:#5b6472; --rule:#d7dde2; --accent:#0f766e; --accent-ink:#ffffff; --mark:#14b8a6; }
+  @media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) { --bg:#0a0e1a; --panel:#111827; --ink:#e6edf7; --dim:#97a3b6; --rule:#243044; --accent:#14b8a6; --accent-ink:#04110f; --mark:#14b8a6; } }
+  :root[data-theme="dark"] { --bg:#0a0e1a; --panel:#111827; --ink:#e6edf7; --dim:#97a3b6; --rule:#243044; --accent:#14b8a6; --accent-ink:#04110f; --mark:#14b8a6; }
+  * { box-sizing:border-box; }
+  body { margin:0; background:var(--bg); color:var(--ink); font-family:"Source Serif 4", Georgia, serif; font-size:17px; line-height:1.5; }
+  main { max-width:1180px; margin:0 auto; padding:40px 28px 72px; }
+  .display { font-family:"IBM Plex Sans Condensed", "Arial Narrow", sans-serif; }
+  .mono { font-family:"IBM Plex Mono", ui-monospace, Menlo, monospace; }
+  header.sheet { display:grid; grid-template-columns: 1fr auto; gap:24px; align-items:end; padding-bottom:20px; border-bottom:3px solid var(--accent); }
+  header.sheet h1 { font-family:"IBM Plex Sans Condensed", "Arial Narrow", sans-serif; font-weight:700; font-size:clamp(34px, 5vw, 56px); line-height:1; letter-spacing:-.01em; margin:0 0 10px; text-wrap:balance; }
+  header.sheet .sub { font-size:19px; margin:0; max-width:60ch; }
+  header.sheet .meta { font-family:"IBM Plex Mono", monospace; font-size:13px; color:var(--dim); text-align:right; line-height:1.7; }
+  header.sheet .meta b { color:var(--ink); font-weight:500; }
+  .intro, .outro { padding:26px 0; border-bottom:1px solid var(--rule); }
+  .intro h2, .outro h2, .scene h2 { font-family:"IBM Plex Sans Condensed", "Arial Narrow", sans-serif; font-weight:600; font-size:27px; line-height:1.15; margin:6px 0 10px; text-wrap:balance; }
+  .slug { display:flex; gap:14px; flex-wrap:wrap; font-family:"IBM Plex Mono", monospace; font-size:12.5px; color:var(--dim); margin:0; letter-spacing:.02em; text-transform:uppercase; }
+  .slug .tc { color:var(--accent-ink); background:var(--accent); padding:1px 8px; border-radius:3px; font-weight:500; font-variant-numeric:tabular-nums; }
+  .say { margin:0; font-size:19px; max-width:52ch; }
+  .shot { font-family:"IBM Plex Mono", monospace; font-size:12.5px; color:var(--dim); margin:14px 0 0; line-height:1.7; }
+  .scene { display:grid; grid-template-columns: minmax(0, 1.3fr) minmax(0, 1fr); gap:32px; padding:30px 0; border-bottom:1px solid var(--rule); align-items:start; break-inside:avoid; }
+  .art { display:grid; grid-template-columns: 1fr auto; gap:14px; align-items:start; }
+  .art img, .art video { display:block; width:100%; height:auto; border:1px solid var(--rule); background:#0a0a18; }
+  .art > img, .art > video { border-radius:4px; }
+  .art .phone { margin:0; width:96px; }
+  .art .phone img { border-radius:4px; }
+  .art .phone figcaption { font-family:"IBM Plex Mono", monospace; font-size:11px; color:var(--dim); margin-top:6px; text-align:center; }
+  .outro ul { margin:12px 0 0; padding-left:0; list-style:none; display:grid; grid-template-columns:repeat(auto-fit, minmax(300px, 1fr)); gap:8px 28px; }
+  .outro li { font-size:15px; border-top:1px solid var(--rule); padding:8px 0; }
+  .outro li b { font-family:"IBM Plex Sans Condensed", sans-serif; font-weight:600; color:var(--accent); margin-right:8px; text-transform:uppercase; font-size:13px; letter-spacing:.04em; }
+  .renders { margin-top:34px; }
+  .renders h3 { font-family:"IBM Plex Sans Condensed", sans-serif; font-weight:600; font-size:20px; margin:0 0 8px; }
+  .renders .wrap { overflow-x:auto; }
+  .renders table { border-collapse:collapse; width:100%; font-family:"IBM Plex Mono", monospace; font-size:12.5px; font-variant-numeric:tabular-nums; }
+  .renders th, .renders td { text-align:left; padding:7px 12px 7px 0; border-bottom:1px solid var(--rule); white-space:nowrap; }
+  .renders thead th { color:var(--dim); font-weight:500; text-transform:uppercase; letter-spacing:.04em; font-size:11px; }
+  .renders p { font-size:14px; color:var(--dim); margin:12px 0 0; }
+  .renders code { font-family:"IBM Plex Mono", monospace; font-size:13px; }
+  a { color:var(--accent); }
+  :focus-visible { outline:2px solid var(--mark); outline-offset:2px; }
+  @media (max-width: 800px) { .scene { grid-template-columns: 1fr; } header.sheet { grid-template-columns: 1fr; } header.sheet .meta { text-align:left; } }
   @page { size: A4 landscape; margin: 12mm; }
-  @media print { body { background:#fff; color:#0f172a; } .scene { page-break-inside:avoid; } video { display:none; } }
+  @media print { :root { --bg:#fff; --panel:#fff; --ink:#111827; --dim:#5b6472; --rule:#d7dde2; --accent:#0f766e; --accent-ink:#fff; } body { font-size:12px; } main { padding:0; max-width:none; } .scene { page-break-inside:avoid; gap:18px; padding:16px 0; } .say { font-size:13px; } .scene h2 { font-size:19px; } video { display:none; } .art .phone { width:64px; } header.sheet h1 { font-size:34px; } }
 </style></head>
 <body><main>
-  <header class="top">
-    <h1>${esc(reel.title)}</h1>
-    <p>${esc(reel.subtitle)} · ${esc(reel.date)} · made by ${esc(reel.author)} · ${reel.scenes.length} scenes</p>
-  </header>
-  <section class="scene">
-    <div class="words" style="grid-column: 1 / -1">
-      <div class="n">opening</div><h2>${esc(reel.intro.caption)}</h2><p class="narration">${esc(reel.intro.narration)}</p>
+  <header class="sheet">
+    <div>
+      <h1>${esc(reel.title)}</h1>
+      <p class="sub">${esc(reel.subtitle)}</p>
     </div>
+    <div class="meta"><b>${esc(reel.date)}</b><br>made by ${esc(reel.author)}<br>${reel.scenes.length} scenes · ${durs.length ? tc(acc) + ' landscape' : 'not yet rendered'}<br>source: reel.json</div>
+  </header>
+  <section class="intro">
+    <p class="slug"><span class="tc">${durs.length ? tc(0) : '—'}</span><span>opening</span><span>${fmtDur(durs[0])}</span></p>
+    <h2>${esc(reel.intro.caption)}</h2>
+    <p class="say">${esc(reel.intro.narration)}</p>
   </section>
   ${rows}
-  <section class="scene">
-    <div class="words" style="grid-column: 1 / -1">
-      <div class="n">closing</div><h2>${esc(reel.outro.caption)}</h2><p class="narration">${esc(reel.outro.narration)}</p>
-      ${logs.landscape ? `<ul>${logs.landscape.closingRows.map(([k, v]) => `<li><b>${esc(k)}</b>: ${esc(v)}</li>`).join('')}</ul>` : ''}
-    </div>
+  <section class="outro">
+    <p class="slug"><span class="tc">${starts.length ? tc(starts[starts.length - 1]) : '—'}</span><span>closing</span><span>${fmtDur(durs[durs.length - 1])}</span></p>
+    <h2>${esc(reel.outro.caption)}</h2>
+    <p class="say">${esc(reel.outro.narration)}</p>
+    ${closingRows.length ? `<ul>${closingRows.map(([k, v]) => `<li><b>${esc(k)}</b>${esc(v)}</li>`).join('')}</ul>` : ''}
   </section>
-  <footer>
-    <p>Source of truth: <code>reel.json</code>. Stills in <code>images/</code> (desktop, 1280×720) and <code>images-shorts/</code> (phone, 1080×1920); clips in <code>clips/</code>. Renders:</p>
-    <ul>${meta('landscape')}${meta('shorts')}</ul>
-  </footer>
+  <section class="renders">
+    <h3>Renders</h3>
+    <div class="wrap"><table><thead><tr><th>cut</th><th>length</th><th>size</th><th>slides</th><th>TTS</th><th>record</th><th>drift</th><th>pipeline</th></tr></thead>
+    <tbody>${renderRow('landscape', 'landscape 1280×720')}${renderRow('shorts', 'shorts 1080×1920')}</tbody></table></div>
+    <p>Source of truth is <code>reel.json</code>. Stills in <code>images/</code> (desktop) and <code>images-shorts/</code> (phone); clips in <code>clips/</code>. Timecodes are the landscape cut's TTS durations.</p>
+  </section>
 </main></body></html>`;
 const outName = INLINE ? 'reel.inline.html' : 'reel.html';
 fs.writeFileSync(path.join(ROOT, outName), html);
 console.log('wrote', outName, (fs.statSync(path.join(ROOT, outName)).size / 1e6).toFixed(2), 'MB');
 if (!INLINE) {
-  const browser = await launch(); const page = await browser.newPage();
-  await page.goto('file://' + path.join(ROOT, 'reel.html'), { waitUntil: 'load' });
+  const browser = await launch(); const ctx = await context(browser); const page = await ctx.newPage();   // bridged, so the web fonts load into the PDF
+  await page.goto('file://' + path.join(ROOT, 'reel.html'), { waitUntil: 'networkidle' });
+  await page.evaluate(() => document.fonts.ready);
   await page.pdf({ path: path.join(ROOT, 'reel.pdf'), format: 'A4', landscape: true, printBackground: true, margin: { top: '12mm', bottom: '12mm', left: '12mm', right: '12mm' } });
   await browser.close();
   console.log('wrote reel.pdf', (fs.statSync(path.join(ROOT, 'reel.pdf')).size / 1e6).toFixed(2), 'MB');

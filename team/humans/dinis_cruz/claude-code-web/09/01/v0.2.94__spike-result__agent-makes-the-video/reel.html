@@ -1,0 +1,204 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>SGit vaults in 90 seconds</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Condensed:wght@500;600;700&family=IBM+Plex+Mono:wght@400;500&family=Source+Serif+4:ital,opsz,wght@0,8..60,400;0,8..60,600;1,8..60,400&display=swap">
+<style>
+  :root { --bg:#f6f7f5; --panel:#ffffff; --ink:#111827; --dim:#5b6472; --rule:#d7dde2; --accent:#0f766e; --accent-ink:#ffffff; --mark:#14b8a6; }
+  @media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) { --bg:#0a0e1a; --panel:#111827; --ink:#e6edf7; --dim:#97a3b6; --rule:#243044; --accent:#14b8a6; --accent-ink:#04110f; --mark:#14b8a6; } }
+  :root[data-theme="dark"] { --bg:#0a0e1a; --panel:#111827; --ink:#e6edf7; --dim:#97a3b6; --rule:#243044; --accent:#14b8a6; --accent-ink:#04110f; --mark:#14b8a6; }
+  * { box-sizing:border-box; }
+  body { margin:0; background:var(--bg); color:var(--ink); font-family:"Source Serif 4", Georgia, serif; font-size:17px; line-height:1.5; }
+  main { max-width:1180px; margin:0 auto; padding:40px 28px 72px; }
+  .display { font-family:"IBM Plex Sans Condensed", "Arial Narrow", sans-serif; }
+  .mono { font-family:"IBM Plex Mono", ui-monospace, Menlo, monospace; }
+  header.sheet { display:grid; grid-template-columns: 1fr auto; gap:24px; align-items:end; padding-bottom:20px; border-bottom:3px solid var(--accent); }
+  header.sheet h1 { font-family:"IBM Plex Sans Condensed", "Arial Narrow", sans-serif; font-weight:700; font-size:clamp(34px, 5vw, 56px); line-height:1; letter-spacing:-.01em; margin:0 0 10px; text-wrap:balance; }
+  header.sheet .sub { font-size:19px; margin:0; max-width:60ch; }
+  header.sheet .meta { font-family:"IBM Plex Mono", monospace; font-size:13px; color:var(--dim); text-align:right; line-height:1.7; }
+  header.sheet .meta b { color:var(--ink); font-weight:500; }
+  .intro, .outro { padding:26px 0; border-bottom:1px solid var(--rule); }
+  .intro h2, .outro h2, .scene h2 { font-family:"IBM Plex Sans Condensed", "Arial Narrow", sans-serif; font-weight:600; font-size:27px; line-height:1.15; margin:6px 0 10px; text-wrap:balance; }
+  .slug { display:flex; gap:14px; flex-wrap:wrap; font-family:"IBM Plex Mono", monospace; font-size:12.5px; color:var(--dim); margin:0; letter-spacing:.02em; text-transform:uppercase; }
+  .slug .tc { color:var(--accent-ink); background:var(--accent); padding:1px 8px; border-radius:3px; font-weight:500; font-variant-numeric:tabular-nums; }
+  .say { margin:0; font-size:19px; max-width:52ch; }
+  .shot { font-family:"IBM Plex Mono", monospace; font-size:12.5px; color:var(--dim); margin:14px 0 0; line-height:1.7; }
+  .scene { display:grid; grid-template-columns: minmax(0, 1.3fr) minmax(0, 1fr); gap:32px; padding:30px 0; border-bottom:1px solid var(--rule); align-items:start; break-inside:avoid; }
+  .art { display:grid; grid-template-columns: 1fr auto; gap:14px; align-items:start; }
+  .art img, .art video { display:block; width:100%; height:auto; border:1px solid var(--rule); background:#0a0a18; }
+  .art > img, .art > video { border-radius:4px; }
+  .art .phone { margin:0; width:96px; }
+  .art .phone img { border-radius:4px; }
+  .art .phone figcaption { font-family:"IBM Plex Mono", monospace; font-size:11px; color:var(--dim); margin-top:6px; text-align:center; }
+  .outro ul { margin:12px 0 0; padding-left:0; list-style:none; display:grid; grid-template-columns:repeat(auto-fit, minmax(300px, 1fr)); gap:8px 28px; }
+  .outro li { font-size:15px; border-top:1px solid var(--rule); padding:8px 0; }
+  .outro li b { font-family:"IBM Plex Sans Condensed", sans-serif; font-weight:600; color:var(--accent); margin-right:8px; text-transform:uppercase; font-size:13px; letter-spacing:.04em; }
+  .renders { margin-top:34px; }
+  .renders h3 { font-family:"IBM Plex Sans Condensed", sans-serif; font-weight:600; font-size:20px; margin:0 0 8px; }
+  .renders .wrap { overflow-x:auto; }
+  .renders table { border-collapse:collapse; width:100%; font-family:"IBM Plex Mono", monospace; font-size:12.5px; font-variant-numeric:tabular-nums; }
+  .renders th, .renders td { text-align:left; padding:7px 12px 7px 0; border-bottom:1px solid var(--rule); white-space:nowrap; }
+  .renders thead th { color:var(--dim); font-weight:500; text-transform:uppercase; letter-spacing:.04em; font-size:11px; }
+  .renders p { font-size:14px; color:var(--dim); margin:12px 0 0; }
+  .renders code { font-family:"IBM Plex Mono", monospace; font-size:13px; }
+  a { color:var(--accent); }
+  :focus-visible { outline:2px solid var(--mark); outline-offset:2px; }
+  @media (max-width: 800px) { .scene { grid-template-columns: 1fr; } header.sheet { grid-template-columns: 1fr; } header.sheet .meta { text-align:left; } }
+  @page { size: A4 landscape; margin: 12mm; }
+  @media print { :root { --bg:#fff; --panel:#fff; --ink:#111827; --dim:#5b6472; --rule:#d7dde2; --accent:#0f766e; --accent-ink:#fff; } body { font-size:12px; } main { padding:0; max-width:none; } .scene { page-break-inside:avoid; gap:18px; padding:16px 0; } .say { font-size:13px; } .scene h2 { font-size:19px; } video { display:none; } .art .phone { width:64px; } header.sheet h1 { font-size:34px; } }
+</style></head>
+<body><main>
+  <header class="sheet">
+    <div>
+      <h1>SGit vaults in 90 seconds</h1>
+      <p class="sub">Encrypted, versioned folders the server can never read</p>
+    </div>
+    <div class="meta"><b>2026-09-01</b><br>made by a Claude Code agent, unattended<br>13 scenes · 01:57 landscape<br>source: reel.json</div>
+  </header>
+  <section class="intro">
+    <p class="slug"><span class="tc">00:00</span><span>opening</span><span>7.1 s</span></p>
+    <h2>What this video covers</h2>
+    <p class="say">SGit vaults, in ninety seconds. Encrypted, versioned folders the server can never read.</p>
+  </section>
+  
+  <article class="scene" id="s01">
+    <div class="art"><img src="images/s01.png" alt="Encrypted before it leaves"><figure class="phone"><img src="images-shorts/s01.png" alt="Encrypted before it leaves at a phone viewport"><figcaption>phone cut</figcaption></figure></div>
+    <div class="words">
+      <p class="slug"><span class="tc">00:07</span><span>scene 1 of 13</span><span>s01</span><span>7.4 s</span></p>
+      <h2>Encrypted before it leaves</h2>
+      <p class="say">This is sgit. Git workflows over folders that are encrypted before anything leaves your machine.</p>
+      <p class="shot">still<span class="sep"> · </span>https://sgit.ai/<span class="sep"> · </span>spot heading:The encrypted git</p>
+    </div>
+  </article>
+
+  <article class="scene" id="s02">
+    <div class="art"><img src="images/s02.png" alt="The server sees ciphertext"><figure class="phone"><img src="images-shorts/s02.png" alt="The server sees ciphertext at a phone viewport"><figcaption>phone cut</figcaption></figure></div>
+    <div class="words">
+      <p class="slug"><span class="tc">00:14</span><span>scene 2 of 13</span><span>s02</span><span>8.8 s</span></p>
+      <h2>The server sees ciphertext</h2>
+      <p class="say">The server stores ciphertext under opaque identifiers. File names, contents and commit messages never reach it.</p>
+      <p class="shot">still<span class="sep"> · </span>https://sgit.ai/<span class="sep"> · </span>scroll to “What the server sees”<span class="sep"> · </span>spot right-column<span class="sep"> · </span>label “the whole list, published”</p>
+    </div>
+  </article>
+
+  <article class="scene" id="s03">
+    <div class="art"><img src="images/s03.png" alt="One command"></div>
+    <div class="words">
+      <p class="slug"><span class="tc">00:23</span><span>scene 3 of 13</span><span>s03</span><span>2.6 s</span></p>
+      <h2>One command</h2>
+      <p class="say">Creating a vault is one command.</p>
+      <p class="shot">still<span class="sep"> · </span>https://sgit.ai/<span class="sep"> · </span>scroll to “Work like git”<span class="sep"> · </span>spot terminal</p>
+    </div>
+  </article>
+
+  <article class="scene" id="s04">
+    <div class="art"><video controls muted playsinline preload="metadata" poster="images/s04.png" src="clips/s04.webm"></video></div>
+    <div class="words">
+      <p class="slug"><span class="tc">00:25</span><span>scene 4 of 13</span><span>s04</span><span>7.3 s</span></p>
+      <h2>Work like git</h2>
+      <p class="say">Then you work like git. Status, commit, history, sync, and an agent mode built for machines.</p>
+      <p class="shot">clip<span class="sep"> · </span>https://sgit.ai/<span class="sep"> · </span>scroll to “Work like git”</p>
+    </div>
+  </article>
+
+  <article class="scene" id="s05">
+    <div class="art"><img src="images/s05.png" alt="Same vault, in the browser"></div>
+    <div class="words">
+      <p class="slug"><span class="tc">00:33</span><span>scene 5 of 13</span><span>s05</span><span>8.5 s</span></p>
+      <h2>Same vault, in the browser</h2>
+      <p class="say">SG Vault is the same vault in the browser. One encrypted wire format, no wrapper around the command line.</p>
+      <p class="shot">still<span class="sep"> · </span>https://sgit.ai/vault/<span class="sep"> · </span>scroll to “What SG/Vault is”<span class="sep"> · </span>spot heading:What SG/Vault is</p>
+    </div>
+  </article>
+
+  <article class="scene" id="s06">
+    <div class="art"><img src="images/s06.png" alt="The key never leaves the browser"><figure class="phone"><img src="images-shorts/s06.png" alt="The key never leaves the browser at a phone viewport"><figcaption>phone cut</figcaption></figure></div>
+    <div class="words">
+      <p class="slug"><span class="tc">00:41</span><span>scene 6 of 13</span><span>s06</span><span>9.0 s</span></p>
+      <h2>The key never leaves the browser</h2>
+      <p class="say">You open a vault by its key, carried in the URL fragment. The fragment is never sent, so the server never sees the key.</p>
+      <p class="shot">still<span class="sep"> · </span>https://sgit.ai/vault/<span class="sep"> · </span>scroll to “You open a vault by its key”<span class="sep"> · </span>spot code<span class="sep"> · </span>label “the key lives after the #”</p>
+    </div>
+  </article>
+
+  <article class="scene" id="s07">
+    <div class="art"><img src="images/s07.png" alt="Three pieces, one wire format"></div>
+    <div class="words">
+      <p class="slug"><span class="tc">00:50</span><span>scene 7 of 13</span><span>s07</span><span>12.3 s</span></p>
+      <h2>Three pieces, one wire format</h2>
+      <p class="say">Three pieces. The sgit command line, the SG Vault browser client, and SG Send, the transfer API that never sees plaintext.</p>
+      <p class="shot">still<span class="sep"> · </span>https://sgit.ai/vault/<span class="sep"> · </span>scroll to “The three pieces”<span class="sep"> · </span>spot table</p>
+    </div>
+  </article>
+
+  <article class="scene" id="s08">
+    <div class="art"><img src="images/s08.png" alt="The app is the vault"></div>
+    <div class="words">
+      <p class="slug"><span class="tc">01:02</span><span>scene 8 of 13</span><span>s08</span><span>5.5 s</span></p>
+      <h2>The app is the vault</h2>
+      <p class="say">A vault can contain an app. Sharing the vault link is deploying the app.</p>
+      <p class="shot">still<span class="sep"> · </span>https://sgit.ai/vault/<span class="sep"> · </span>scroll to “Vault apps: the app is the vault”<span class="sep"> · </span>spot heading:Vault apps: the app is the vault</p>
+    </div>
+  </article>
+
+  <article class="scene" id="s09">
+    <div class="art"><img src="images/s09.png" alt="Read keys, published on purpose"></div>
+    <div class="words">
+      <p class="slug"><span class="tc">01:08</span><span>scene 9 of 13</span><span>s09</span><span>8.4 s</span></p>
+      <h2>Read keys, published on purpose</h2>
+      <p class="say">sgit dot ai publishes read keys for its demo vaults on purpose. A read key cannot become write access.</p>
+      <p class="shot">still<span class="sep"> · </span>https://sgit.ai/demos/vaults/index.html<span class="sep"> · </span>scroll to “Published read key”<span class="sep"> · </span>spot table<span class="sep"> · </span>blur keys<span class="sep"> · </span>label “keys blurred for the video, not on the site”</p>
+    </div>
+  </article>
+
+  <article class="scene" id="s10">
+    <div class="art"><img src="images/s10.png" alt="Decrypted in your browser"><figure class="phone"><img src="images-shorts/s10.png" alt="Decrypted in your browser at a phone viewport"><figcaption>phone cut</figcaption></figure></div>
+    <div class="words">
+      <p class="slug"><span class="tc">01:16</span><span>scene 10 of 13</span><span>s10</span><span>8.6 s</span></p>
+      <h2>Decrypted in your browser</h2>
+      <p class="say">Here is one, opened live. Everything on this page was decrypted in the browser with a published read only key.</p>
+      <p class="shot">still<span class="sep"> · </span>published vault “Field Notes”<span class="sep"> · </span>spot rect<span class="sep"> · </span>label “decrypted in the browser, with a published read key”</p>
+    </div>
+  </article>
+
+  <article class="scene" id="s11">
+    <div class="art"><video controls muted playsinline preload="metadata" poster="images/s11.png" src="clips/s11.webm"></video></div>
+    <div class="words">
+      <p class="slug"><span class="tc">01:25</span><span>scene 11 of 13</span><span>s11</span><span>8.6 s</span></p>
+      <h2>Files, history, branches</h2>
+      <p class="say">Behind the app is the vault itself. Files, history and branches, in the same file browser you get for any vault.</p>
+      <p class="shot">clip<span class="sep"> · </span>published vault “Field Notes”</p>
+    </div>
+  </article>
+
+  <article class="scene" id="s12">
+    <div class="art"><img src="images/s12.png" alt="Read-only by construction"><figure class="phone"><img src="images-shorts/s12.png" alt="Read-only by construction at a phone viewport"><figcaption>phone cut</figcaption></figure></div>
+    <div class="words">
+      <p class="slug"><span class="tc">01:34</span><span>scene 12 of 13</span><span>s12</span><span>5.3 s</span></p>
+      <h2>Read-only by construction</h2>
+      <p class="say">And the badge says what the key allows. One read, zero writes.</p>
+      <p class="shot">still<span class="sep"> · </span>published vault “Field Notes”<span class="sep"> · </span>spot badges<span class="sep"> · </span>label “R1 W0: one read key, no write key”</p>
+    </div>
+  </article>
+
+  <article class="scene" id="s13">
+    <div class="art"><img src="images/s13.png" alt="pip install sgit-ai"><figure class="phone"><img src="images-shorts/s13.png" alt="pip install sgit-ai at a phone viewport"><figcaption>phone cut</figcaption></figure></div>
+    <div class="words">
+      <p class="slug"><span class="tc">01:39</span><span>scene 13 of 13</span><span>s13</span><span>6.8 s</span></p>
+      <h2>pip install sgit-ai</h2>
+      <p class="say">pip install sgit dash ai. Or try it in your browser, at sgit dot ai.</p>
+      <p class="shot">still<span class="sep"> · </span>https://sgit.ai/<span class="sep"> · </span>spot pip</p>
+    </div>
+  </article>
+  <section class="outro">
+    <p class="slug"><span class="tc">01:46</span><span>closing</span><span>10.9 s</span></p>
+    <h2>How this video was made</h2>
+    <p class="say">This video was made by an agent, end to end, with no human at a screen and no API cost. The numbers are on the screen.</p>
+    <ul><li><b>Made by</b>a Claude Code agent, unattended</li><li><b>When</b>2026-09-01</li><li><b>Script</b>13 scenes + title and closing · 257 words · reel.json written first</li><li><b>Screenshots</b>15 shot, 13 used · Playwright, headless · 93 s</li><li><b>Narration</b>Kokoro-82M in the browser (2 workers) · 117.1 s of speech in 252 s · model load 14.7 s</li><li><b>Render</b>video-creator, canvas + MediaRecorder, real time · 117 s</li><li><b>Pipeline wall clock</b>479 s: capture 93 + compose and narrate 270 + render 117</li><li><b>API cost</b>$0.00 · no LLM, TTS or image API calls</li><li><b>Compute</b>one 4-core container, ~10 min of CPU for both cuts · agent session tokens not metered here</li></ul>
+  </section>
+  <section class="renders">
+    <h3>Renders</h3>
+    <div class="wrap"><table><thead><tr><th>cut</th><th>length</th><th>size</th><th>slides</th><th>TTS</th><th>record</th><th>drift</th><th>pipeline</th></tr></thead>
+    <tbody><tr><th>landscape 1280×720</th><td>01:57.16</td><td>10.8 MB</td><td>15</td><td>252 s</td><td>117.3 s</td><td>217 ms</td><td>387 s</td></tr><tr><th>shorts 1080×1920</th><td>00:46.01</td><td>5.4 MB</td><td>8</td><td>64 s</td><td>46.1 s</td><td>84 ms</td><td>118 s</td></tr></tbody></table></div>
+    <p>Source of truth is <code>reel.json</code>. Stills in <code>images/</code> (desktop) and <code>images-shorts/</code> (phone); clips in <code>clips/</code>. Timecodes are the landscape cut's TTS durations.</p>
+  </section>
+</main></body></html>
