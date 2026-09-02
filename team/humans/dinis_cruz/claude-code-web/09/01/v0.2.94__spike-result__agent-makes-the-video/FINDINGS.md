@@ -1,0 +1,227 @@
+# Spike: agent makes the video — findings
+
+**Date:** 1 Sep 2026   **Subject:** SGit vaults: sgit.ai home, the SG/Vault docs page, the published-vaults page, and the "Field Notes" vault opened live in SG/App and SG/Vault   **Time spent:** about 65 minutes of wall clock from first reading the brief (≈21:05 UTC) to the last render (22:08), all of it one agent session with no human at a screen. Three render passes were made; the first two are kept in the numbers as evidence.
+
+The OpenRouter key supplied for narration was **not used**. Kokoro ran locally in the browser, as the brief said it would; nothing in this folder calls OpenRouter. It can be revoked.
+
+## Did it work?
+
+Yes, with one large caveat that is the main result. Two videos came out from a `reel.json` written first, thirteen stills and two clips shot by Playwright, Kokoro narration and `video-creator`'s own recorder. The caveat: **as shipped, `video-creator` wrote 13 video frames into a 128-second video**, one per slide. `canvas.captureStream(30)` only emits a frame when the canvas is painted, the tool paints once per slide, and each slide became a single under-budgeted P-frame the encoder never refined, so every screenshot was an illegible smear (`frames/run1-*.png`). A twelve-line repaint loop injected from outside the tool (`scripts/02-render.mjs`, "heartbeat") gives MediaRecorder a real 30 fps stream and the text is sharp (`frames/landscape-*.png`).
+
+Would I publish them as they are? The landscape one, nearly: the voice says "ess-git", and the caption bar is 16 px. The shorts one shot at a phone viewport, yes, with the same two fixes. The shorts one *cropped* from desktop stills, no, and that answers the focus-rect question below.
+
+## The video
+
+| File | Length | Size | Scenes | Frames | Notes |
+|---|---|---|---|---|---|
+| `landscape.webm` | 99.1 s | 9.8 MB | 13 | 2,973 (30 fps) | 1280×720 VP9/Opus, heartbeat on |
+| `shorts.webm` | 46.0 s | 5.4 MB | 6 | 1,380 (30 fps) | 1080×1920, stills re-shot at a 540×960 @2× viewport |
+| `shorts-crop.webm` | 46.0 s | 3.5 MB | 6 | 1,380 (30 fps) | Same six scenes, desktop stills cropped to a 9:16 window around the focus rect. Kept for comparison; every crop was lossy |
+
+Watch them, or look at `frames/`. Run 1 (274 words, no heartbeat) is not committed; `frames/run1-*.png` show what it looked like.
+
+## Numbers
+
+| Measurement | Value |
+|---|---|
+| Intended duration (sum of TTS durations) | landscape 99,100 ms · shorts 45,975 ms |
+| Actual `record()` duration (`performance.now`) | landscape 99,196 ms · shorts 46,059 ms |
+| **Drift** | landscape **+96 ms (58 ms/min)** · shorts +84 ms (110 ms/min). Without the heartbeat: +66 ms in 128.5 s (31 ms/min) and +55 ms in 99.1 s. Frame timestamps in the run-1 file matched the intended scene starts to within 37 ms at the last slide |
+| Frames written, as shipped | **13 in 128.5 s** (2 keyframes). With heartbeat: 2,973 in 99.1 s |
+| TTS, model load from local disk cache | 5.4 to 7.2 s (2 workers) |
+| TTS, generation | 122 to 158 s for 99 to 128 s of speech: **1.24× the audio length** with 2 WASM workers. One worker (probe): 17.9 s for 8 s |
+| TTS, warm second call | 158.1 s after 157.9 s: **identical, nothing is cached** |
+| TTS, first-ever download | 92 MB model + 22 MB WASM runtime, once; not timed separately because it crashed the page the first time (below) |
+| Wall clock, script → video (one TTS pass) | landscape 229 s (3 min 49 s); shorts 118 s. With the second TTS pass: 454 s |
+| Capture, 13 scenes landscape | 79 s (2.4 s per still; 10 to 24 s per scene on the live vault or with a clip) |
+| Capture, 6 scenes at phone viewport | 35 s |
+| Screenshots captured / used | 15 / 13 landscape (two clips also yield a still), 6 / 6 shorts, plus 7 reconnaissance shots and 13 from a first capture run with a scrolling bug: **41 shot, 19 used** |
+| Scenes that would not crop to 9:16 | **6 of 6.** A full-height 9:16 window of a 1280×720 still is 405 px wide, 32 % of the page; every focus rect was wider |
+| Narration pace | 274 words → 128.5 s; 218 words → 99.1 s: **about 2.1 to 2.2 words per second at speed 1.0** |
+| Output bit rate | 2,500 kbps requested; 9.8 MB / 99 s ≈ 790 kbps actual for static slides |
+
+**How to read the drift row.** The recorder advances slides with `setTimeout(duration*1000)` and starts each slide's audio in the same tick. Drift is tens of milliseconds per minute, so audio stays on picture for any reel we would make. The clock the demo-reel pack worried about is fine; **the frame source is the problem**, and the number that exposes it is frames per second, which the pack does not list.
+
+**TTS is the cost.** 1.24× the audio length per pass, no cache, and the pool size decides everything: one worker was 2.2× the audio length. "Ten minutes end to end" is plausible for a 90-second reel only with a cached second run; the first run here was under four minutes for 99 s of video, of which 99 s is the unavoidable real-time record and 122 s is TTS.
+
+## What was hard
+
+1. **Getting Chromium onto the internet — ~15 min, plus ~6 min for the second wall.** Every `https://` navigation from Playwright's Chromium fails with `ERR_CONNECTION_RESET` in this container, while `curl`, Node's `fetch` and `openssl s_client` through the same proxy succeed. The proxy status endpoint shows the tunnel opening, ~1.7 KB sent (a ClientHello), 39 bytes back (the `200 Connection established`) and the tunnel closing after 6 s; the likely cause is the size or content of Chromium's TLS 1.3 ClientHello, unconfirmed because the two ways to test it were outside what this session may do. The fix is `scripts/browser.mjs`: `context.route()` every non-localhost request through Node's `fetch` (`NODE_USE_ENV_PROXY=1` plus the proxy CA) and fulfil it. It covered page loads, the SG/App vault (182 requests), `esm.sh` module imports *from inside a Web Worker*, and Hugging Face. The second wall: fulfilling the 92 MB ONNX model through the DevTools protocol killed the page ("Target closed", no crash event). `scripts/cache-server.mjs` (30 lines, CORS and Range) plus a 302 from the bridge for anything over 8 MB fixed that and made re-runs fast.
+2. **Finding out why the video was smeared — ~10 min.** Frames extracted at 9 s and 97 s showed the *next* scene. `ffmpeg -vf showinfo` explained it at once: 13 frames, 2 keyframes, one per slide. Nothing in the tool, the brief or the demo-reel pack anticipates this, and it is the one thing to know before building a renderer on `video-creator`.
+3. **Element targeting on real pages — ~10 min.** sgit.ai sets `scroll-behavior: smooth`, so `scrollIntoView()` returns before the scroll happens and every screenshot showed the top of the page; the first capture run "resolved" only targets that were visible without scrolling. Tab buttons carry their number in a child `<span>`, so text matching on "2 Work like git" fails. SG/App's header is shadow DOM, so `document.querySelectorAll` cannot see the "R1 W0" badge; that spotlight is a hand-measured rect, and at the phone viewport it lands on the wrong button (`images-shorts/s12.png`), which is the argument for element targets in one picture.
+4. **A heartbeat that did nothing — ~5 min.** The first heartbeat run recorded 0 repaints because **every `window.__tool` method returns a Promise, the sync ones included** (`SgToolApi._invoke` is `async`), so `t.getConfig().width` is `undefined`. The same thing made `getStatus().audioDurations` come back null in the probe. Worth a line in the tool-API docs.
+
+Smaller, ~5 min each: `NODE_PATH` is ignored by ESM `import` (the recipe's `node script.mjs` line fails as written; `createRequire` works); MediaRecorder's WebM has no duration header and Playwright's bundled `ffmpeg` is too stripped to remux it (`imageio-ffmpeg` from PyPI brings a full static build); `ffmpeg -i` exits 1 by design; `ffmpeg -ss` on a 13-frame file returns the *next* frame, which is what made the smear look like drift.
+
+## What was easy that we expected to be hard
+
+- **Annotation by DOM injection: ~15 min for spotlight, label and blur**, including a resolver that turns "the table after this heading" into a rect. The `box-shadow: 0 0 0 9999px` spotlight looks deliberate on every page it was tried on. Blur over 19 read-key cells on the published-vaults page worked first time. Labels placed by absolute fractions landed away from their targets; anchoring them "below the spotlight" fixed that in one edit. The proposal budgets two to three days for an annotation renderer; the renderer is the browser.
+- **Two aspect ratios.** Re-shooting six scenes at a 540×960 @2× viewport took 35 s and no new code beyond a viewport option: the site's responsive layout did the framing, the same `scrollTo` and element targets resolved, and the result reads on a phone. Cropping desktop stills, the pack's plan, took ten lines and produced cut-off sentences in every scene.
+- **Shooting clips.** Two clips (10 s tab walk, 24 s "Open Vault" into the SG/Vault file browser) came from `recordVideo` with no extra code; the last frame served as the still.
+- **Driving a live vault.** The SG/App page for a published vault rendered through the bridge, "Open Vault" opened the SG/Vault file browser in the same tab, and the screenshots show the real product decrypting real content with a real published read key.
+- **Captions for free.** `_drawSlide` prints `${slide.name} • i/n` in a bottom bar, so naming each `File` after the scene's caption gives a caption track with no code. 16 px, so a proof, not a feature.
+- **Headless MediaRecorder.** Valid VP9/Opus WebM headless, first time, no `xvfb`.
+
+## Is the proposed demo-reel design right?
+
+1. **Annotations as data, never baked pixels — confirmed, with a twist.** The data that survived a viewport change was not `{type:'circle', at:[…]}` but *"the element after this heading"*: nine of thirteen scenes targeted by DOM query and all nine re-resolved at phone size; the two fraction rects did not. The primitive list can shrink to **spot, label, blur**; nothing wanted an arrow, circle or pointer.
+2. **One document, two aspect ratios via a focus rect — wrong as stated.** Six of six scenes could not crop to 9:16 without loss, because a full-height 9:16 window of a desktop still is 405 px of 1280. The right reading of "one document" is one *script* shot at two *viewports*: the shots are cheap to take twice (35 s) and the page does the layout. Keep the focus rect only as a fallback for sources that are not web pages.
+3. **Caption as a separate authored track — confirmed, strongly.** Written before capture, the caption told me which screenshot I needed; the narration did not. Rendering is the gap: 16 px is unreadable on a phone. This is the one primitive worth building.
+4. **Multi-shot scenes under one narration — unnecessary here.** Thirteen scenes, one image each; not once did I want a second image under the same sentence. The one place motion mattered was a clip. Skip it until a script needs it.
+5. **The reel document as the API — confirmed.** `reel.json` was written first and everything else read it. Its shape (`narration`, `caption`, `shot{url, scrollTo, annotate[], focus}`, `shorts[]`) is smaller than the pack's and was enough. What an agent needs that the pack does not name: **`scrollTo` and element-relative targets**, because the agent never sees the page, and **a pronunciation map** (I wrote "sgit dot ai" into the narration to steer Kokoro, which is the wrong place).
+6. **Import from narrated-review as a transform — not tested, probably unnecessary.** Writing thirteen scenes from the page text took about fifteen minutes. Keep the mapping documented; do not build it first.
+7. **Handoff via files/VFS, not localStorage — confirmed trivially.** Stills were 76 to 209 KB, 1.4 MB for thirteen; clips 2.1 MB. Files on disk plus `File` objects built in-page were the whole handoff.
+8. **Measure render pacing first — confirmed, and it found something else.** Drift was under 100 ms in every run. The measurement worth having was frame count. Add "frames per second written" to Phase 0.
+9. **Clips as a shot type — cheap to shoot, unproven to play.** Shooting was free; playing a clip inside the render is untested because `video-creator` takes images, and the last frame as a still was good enough for both clips here. Phase 3.5 is the right place for it.
+
+## What would you actually build?
+
+If I had to make ten of these, the smallest thing is **not a new tool**. It is four fixes, in this order:
+
+1. **Make `video-creator` paint every frame** (a `requestAnimationFrame` redraw, or `track.requestFrame()` at the configured fps) and emit a keyframe on each slide change. Without this every output is unpublishable. One afternoon.
+2. **Cache TTS by (text, voice, speed) hash** in `sg-tts`, in memory and in `sg-vfs`. The second render of a reel then costs the record time and nothing else. One afternoon.
+3. **A caption track in `_drawSlide`**: a large, wrapped, high-contrast caption instead of the filename bar, sized per aspect ratio. Half a day.
+4. **A capture script, not a capture tool**: what `01-capture.mjs` and `annotate.mjs` already are, tidied, with `scrollTo`, element-relative spot/label/blur, a viewport per format, and `recordVideo` clips. It lives next to the reel, runs under Playwright, needs no UI. One day to make it reusable.
+
+About three days, leaving `demo-reel` as a JSON shape plus two scripts. The pack's Phases 1 to 3 (annotation renderer, scene model, import) can wait until a tenth video wants something these do not give. Two things to add to the pack before anyone builds it: **the frames-per-second measurement**, and **the rule that the agent that writes the reel also shoots it**, because the shot spec that works is "scroll to this text, spotlight the table after it".
+
+## What did NOT work
+
+- **Chromium HTTPS through the agent proxy.** `net::ERR_CONNECTION_RESET` on every external `https://` URL. Worked around with the Node bridge, **not** fixed; anyone repeating this in a container with the same proxy hits it in the first minute.
+- **`route.fulfill()` with a 92 MB body.** `Target page, context or browser has been closed`, no `crash` event. Worked around with the local cache server.
+- **`--disable-features=…`, `--ssl-version-max=tls1.2` and a Local State preference for post-quantum key agreement.** No effect on the ClientHello size. The policy-file route and a ClientHello sniffer were both refused by the session's permission model, so the hypothesis stays unconfirmed.
+- **`video-creator` as shipped for screenshots with text**: 13 frames per 128 s. Worked around with the heartbeat, which is a spike hack, not a fix.
+- **`window.__tool.getConfig()` / `getStatus()` as sync calls**: they return Promises.
+- **Element targeting in shadow DOM** (SG/App header): a hand-measured rect, which then missed at the phone viewport.
+- **The 9:16 crop of desktop stills**: cut-off sentences in all six scenes (`frames/shorts-crop-*.png`).
+- **The SGit "create a real vault" path.** Not attempted: `sgit` is not installed here, no Send token was given, and the published read-only vault gave the live shots the script needed. The video shows a published vault opened live, not one being created.
+- **The 60 to 120 s budget on the first try.** 274 words became 128.5 s. Plan on about 2.1 words per second.
+- **Pronunciation.** Kokoro says "ess-git"; "sgit dot ai" and "sgit dash ai" in the narration steer it, at the cost of putting engine knowledge into the script.
+
+## Artefacts
+
+| File | What |
+|---|---|
+| `landscape.webm` | The 16:9 video, 1280×720; round 2: 117 s with title and closing slides. Not committed |
+| `shorts.webm` | The 9:16 cut, 1080×1920; round 2: 64 s, six scenes at a phone viewport plus title and closing. Not committed |
+| `shorts-crop.webm` | Round 1 only: the same six scenes from cropped desktop stills. Not committed |
+| `reel.json` | The script: 13 scenes, narration + caption + shot spec, invented for this spike, with notes on what changed and why |
+| `capture-log.json`, `capture-log.shorts.json` | What each shot resolved to, timings, captured/used counts |
+| `render-log.landscape.json`, `render-log.shorts.json`, `render-log.shorts-crop.json` | TTS, intended vs actual, heartbeats, file info, wall clock |
+| `images/` | The thirteen annotated desktop stills as loaded into `video-creator` |
+| `images-shorts/` | The six phone-viewport stills |
+| `clips/` | The two Playwright clips (s04 tab walk, s11 Open Vault) |
+| `frames/` | Stills every 8 s (landscape) / 6 s (shorts) from the final videos; `run1-*` from the no-heartbeat render; `shorts-crop-*` from the crop variant |
+| `scripts/browser.mjs` | Playwright launcher with the Node-fetch egress bridge and the big-file cache redirect |
+| `scripts/cache-server.mjs` | Local CORS/Range server for cached large files |
+| `scripts/00-probe.mjs` | The TTS + MediaRecorder probe |
+| `scripts/01-capture.mjs`, `scripts/annotate.mjs` | Scene capture, per-format viewport, DOM-injected annotation |
+| `scripts/02-render.mjs` | Drives `video-creator`'s JS API: slides, TTS timing, heartbeat, download, remux; `CROP=1` for the crop variant |
+| `scripts/03-frames.sh` | Frame extraction |
+| `scripts/slides.mjs` | Round 2: in-page slide compositor (header, caption band, title and closing slides) |
+| `scripts/04-doc.mjs` | Round 2: `reel.html` and `reel.pdf`, the storyboard sheet; `INLINE=1` for a single-file copy |
+| `reel.html`, `reel.pdf` | Round 2: one row per scene, artefact beside caption, narration and shot spec, with timecodes |
+| `.gitignore` | `*.webm` and the inline HTML are not committed; the videos are handed over directly |
+| `scripts/sg-tts-shim-openrouter.js` | Round 3: `sg-tts`'s interface over `core/sg-tts-openrouter`, served in place of `sg-tts` when `TTS=openrouter` |
+| `TWO-MODES.md` | Round 3: the session-skill mode against the browser mode, and what each still needs |
+| `poc/` | Round 3: the iframe screenshot proof of concept (page, headless test, the captured image) |
+| `landscape-openrouter.webm` | Round 3: the landscape reel narrated through OpenRouter. Not committed |
+| `sgraph_ai_tools__static/tools/v0/v0.1/v0.1.72/` | Round 3: the `video-creator` delta with `paintEveryFrame` and `captionBar` |
+| `BUILD-PLAN.md` | The plan: what exists, three phases to a demo-reel tool, and the pack's decisions with the spike's verdicts |
+| `library/skills/make-a-demo-reel/SKILL.md` | The skill: how another agent repeats this run with the scripts in this folder |
+
+Run order: `scripts/run-locally.sh` (repo root) → `cache-server.mjs` → `01-capture.mjs` (`FORMAT=landscape`, then `FORMAT=shorts`) → `02-render.mjs` (same two formats) → `03-frames.sh`. Environment for the Node scripts: `NODE_PATH=/opt/node22/lib/node_modules NODE_USE_ENV_PROXY=1 NODE_EXTRA_CA_CERTS=/root/.ccr/ca-bundle.crt CACHE_DIR=<dir> FFMPEG=<full ffmpeg>`.
+
+No key, token or vault key is in this folder. The published read key used for the live shots is scraped from https://sgit.ai/demos/vaults/ at capture time and never written to disk.
+
+---
+
+# Round 2 — captions, title and closing slides, the reel as a document
+
+*Same day, after the first videos were reviewed. Requested: captions on screen, the title, date and author always visible, an opening title slide, a closing slide with how long it took and what it cost, a side-by-side document of screenshot next to text, and the portrait spotlights aligned. Also: no video files in git.*
+
+## What changed
+
+- **Every slide is now composed before it reaches `video-creator`**, in-page on a canvas (`scripts/slides.mjs`): a header strip with the title, date, author and scene number; the screenshot; and a caption band carrying the short caption and the narration being spoken. `video-creator` is unchanged. Its own 48 px bottom bar is kept and turned into a footer by naming every `File` with the title, date and author line, so it prints `SGit vaults in 90 seconds · 2026-09-01 · made by a Claude Code agent, unattended • 3 / 15`.
+- **An opening title slide and a closing "how this video was made" slide** are generated the same way. The closing slide shows measured numbers: screenshots shot and used, capture time, words, seconds of speech and the seconds Kokoro took to make them, model load, render time, pipeline wall clock, API cost. The numbers are only known after TTS, and `loadSlides()` resets audio, so the closing slide is loaded as a placeholder and its image swapped just before `record()`: the `tool:slides:loaded` event hands out the tool's own slide array by reference, and mutating `dataUrl` on the last entry is enough. That is a use of the public event, not a patch.
+- **Portrait spotlights** now resolve through open shadow roots and same-origin iframes (`annotate.mjs`, `deepAll`). The SG/App header badge is found in shadow DOM at both viewports. The vault app itself renders in a sandboxed `srcdoc` iframe whose document the parent cannot read, so that one scene keeps a rect per format.
+- **The reel as a document**: `scripts/04-doc.mjs` writes `reel.html` (one row per scene: still or clip on the left, caption, narration and the shot description on the right, with the phone still underneath) and prints it to `reel.pdf` with Chromium. `INLINE=1` produces a single self-contained file for publishing.
+- **Videos are no longer committed.** `.gitignore` in this folder ignores `*.webm`; the videos are handed to the requester directly.
+
+## Numbers, round 2
+
+| Measurement | Landscape (15 slides) | Shorts (8 slides) |
+|---|---|---|
+| Length | 01:57.17 (117.1 s of speech) | 01:04.08 (64.0 s) |
+| File | 10.7 MB, 1280×720, 30 fps | 6.8 MB, 1080×1920, 30 fps |
+| Intended vs actual record | 117,075 vs 117,337 ms | 63,950 vs 64,196 ms |
+| **Drift** | **+262 ms (134 ms/min)** | +246 ms (230 ms/min) |
+| Heartbeat repaints | 7,009 | 3,830 |
+| TTS generation | 237 s for 117 s of speech (2.02×) | 139 s for 64 s (2.17×) |
+| Model load (disk cache) | 8.1 s | 9.9 s |
+| Capture | 93 s, 15 shot / 13 used | 33 s, 6 / 6 |
+| Script → video wall clock | 366 s | 217 s |
+| Annotation targets resolved by element | 11 of 13 scenes | 5 of 6 |
+
+Drift grew from round 1 (58 ms/min) to 134 ms/min with the heartbeat repainting a composed 1280×720 slide sixty times a second next to the encoder; still a quarter of a second over two minutes, and still not the problem. TTS was slower than in round 1 (2.02× against 1.24×) because the capture of the shorts scenes and git work overlapped its first minute; the second pass with nothing else running was 2.02×. The closing slide overflowed its band on the first attempt (the last row printed one wrapped line too many) and cost one re-render, about seven minutes.
+
+## What this round says about the design
+
+- **The caption track is the biggest single improvement per line of code**, and it belongs in `_drawSlide`, not in a pre-compositor. The pre-compositor exists only because the spike may not touch the tool; a real fix is `setConfig({ header, caption })` and about sixty lines in the pipeline.
+- **The closing metadata slide needs a hook the tool does not have**: "replace slide N's image without losing audio". The event-reference trick works but is fragile. `setSlideImage({slideIndex, file})` would be the honest API.
+- **Cost** on the closing slide is the part that is hardest to make true. API cost is exactly $0 here (nothing left the container except page fetches and the model download). Compute is a container-minute estimate. The agent session's own token cost is not visible from inside the session, so the slide says so rather than guessing.
+- **Deep element targeting** removed both hand-measured rects that could be removed, and found the one that cannot: content in a sandboxed iframe. That is a real limit of "annotations as data" for vault apps and should be in the pack.
+
+---
+
+# Round 3 — narrator voice, no bottom bar, OpenRouter narration, the two modes
+
+*2 Sep 2026. Requested: a male narrator voice; drop the bottom bar in landscape and give the picture the space; an option to narrate through OpenRouter; and a think-through of a session mode versus a browser mode, with a proof of concept on screenshots from the browser.*
+
+## What changed
+
+- **`video-creator` got its first change, as an IFD delta at `tools/v0/v0.1/v0.1.72/en-gb/video-creator/api/`**: two `setConfig()` flags, `paintEveryFrame` (the fix for the one-frame-per-slide finding, now inside the tool; the spike's external heartbeat is off by default and kept behind `HEARTBEAT=1` for comparison) and `captionBar` (false drops the filename bar). Both default to the old behaviour. The reality document has the entry.
+- **Voice**: Kokoro `am_michael` by default. Five male samples (`am_michael`, `am_fenrir`, `bm_george`, `bm_fable`, `am_onyx`) were generated on the same sentences and handed over for a choice; `VOICE=` selects.
+- **OpenRouter narration** (`TTS=openrouter`): the repo already had `core/sg-tts-openrouter` (streams `openai/gpt-audio` PCM16 through chat completions). `scripts/sg-tts-shim-openrouter.js` wraps it in `sg-tts`'s interface and Playwright serves it in place of `/core/sg-tts/…/sg-tts.js`, so `video-creator` narrates through OpenRouter with no change to the tool. The key lives in page memory for the run and never touches disk. Every generation id is priced afterwards from `GET /api/v1/generation`, and the exact figure goes on the closing slide.
+- **Compositor**: with the bar gone the picture area grows by 48 px in both formats.
+- **`TWO-MODES.md`** and `poc/`: the session-skill mode against the browser mode, and the screenshot proof of concept.
+
+## Numbers, round 3
+
+| Measurement | Landscape, Kokoro am_michael | Shorts, Kokoro am_michael | Landscape, OpenRouter gpt-audio onyx |
+|---|---|---|---|
+| Length | 02:03.14 (123.0 s of speech) | 01:07.27 (67.2 s) | 01:50.55 (110.4 s) |
+| File | 8.4 MB · 3,689 frames, 30 fps painted by the tool | 7.4 MB · 2,012 frames | 8.0 MB |
+| Drift | +177 ms (86 ms/min) | +130 ms (116 ms/min) | +160 ms (87 ms/min) |
+| Narration time | 166 s for 123 s (1.35× audio length, 2 workers) | 99 s for 67 s (1.47×) | **5.2 s for 110 s (0.05×)**, 15 requests in parallel |
+| Model load | 8.0 s | 6.9 s | none |
+| API cost | $0.00 | $0.00 | **$0.1466** for 15 requests, 15 priced from the generation endpoint |
+| Transcript mismatches | n/a | n/a | 0 of 15 |
+| Script → video wall clock | 303 s | 176 s | 127 s |
+
+The same 257 words read 123 s in Kokoro and 110 s in gpt-audio: the OpenRouter voice is about 10 % faster, which is worth knowing when a reel is planned to a length. The tool's own repaint (`paintEveryFrame`) replaced the external heartbeat with the same result: 30 fps and sharp text. The first two Kokoro attempts of this round failed on a script error (a constant declared twice), not on the pipeline.
+
+## What this round says about the design
+
+- **Provider choice belongs at the `sg-tts` seam, and the seam is already right.** `generateAudio(text, {voice, speed}) → {data, sampleRate, durationSecs}` was enough to swap engines by swapping a module. `video-creator` should import a provider by config rather than the Kokoro module by path; that is a one-line change in `video-pipeline.js` and the shim becomes `core/sg-tts-provider`.
+- **OpenRouter changes the economics of the browser mode.** Kokoro costs nothing but runs at about twice the audio length on CPU and needs a 114 MB download; gpt-audio runs at about a third of the audio length and costs about eight cents a minute. A person editing a script and re-narrating one line wants the second.
+- **Verbatim is a property to check, not assume.** gpt-audio is a chat model asked to read aloud; the render log records the transcript against the text for every scene, and the count of mismatches is in the numbers above.
+- **The one-frame-per-slide bug is now fixed where it belongs**, and the heartbeat measurement from round 2 is what justified it.
+
+## The screenshot proof of concept, in one line each
+
+- A page cannot read or rasterise a cross-origin iframe: `contentDocument` is null.
+- A page can capture its own tab's pixels with `getDisplayMedia`, iframe content included, for one click and one permission per shot; the POC did so headless with Chromium's auto-select flags and the image is in `poc/`.
+- Without clicks, the SG/Playwright service is the browser mode's Playwright, and it takes the same shot spec.
+
+---
+
+# Round 4 — fill the picture area, stop the intro echoing scene one
+
+*2 Sep 2026. Two observations from watching round 3: dark margins either side of the screenshot in landscape, and an intro line that repeated scene one.*
+
+- **The letterbox above and below in a desktop player is the player's, not the video's.** The file is 1280×720; a window that is not 16:9 pads it. YouTube's landscape player is 16:9 and Shorts is 9:16, so neither cut shows bars there.
+- **The margins inside the frame were real.** The picture area between header and caption band is about 2.6:1 and a 16:9 still fitted whole into it used 65 % of the width. Landscape stills are now cropped to the picture area's own aspect, centred on the scene's first spotlight rect from `capture-log.json` and clamped to the still, so the page fills the width and its text is about a third larger. Portrait was already full width. The header and the caption band did not change.
+- **The intro** now previews the video ("what a vault is, what the server can and cannot see, and a published vault opened live") instead of restating scene one.
+- **Voice**: Kokoro `am_michael` stays the free default; OpenRouter `onyx` is the paid option, a user's choice.
+- **A design note for the tool.** The right fix is to shoot at the picture area's aspect in the first place (`capture` with a 1280×496 viewport for this layout), so element targeting and scrolling are computed for the frame that will be shown. Cropping after the fact is the cheap version and depends on the spotlight rect being right; scenes without a spotlight are cropped from the top.

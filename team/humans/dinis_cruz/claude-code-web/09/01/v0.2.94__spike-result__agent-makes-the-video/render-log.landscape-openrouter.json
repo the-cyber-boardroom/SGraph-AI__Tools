@@ -1,0 +1,245 @@
+{
+  "format": "landscape",
+  "crop": false,
+  "images": "images",
+  "pool": 2,
+  "sceneCount": 13,
+  "started": "2026-09-02T14:29:34.673Z",
+  "toolReadyMs": 1935,
+  "compose": {
+    "report": [
+      {
+        "id": "s01",
+        "narrationLines": 2
+      },
+      {
+        "id": "s02",
+        "narrationLines": 2
+      },
+      {
+        "id": "s03",
+        "narrationLines": 1
+      },
+      {
+        "id": "s04",
+        "narrationLines": 2
+      },
+      {
+        "id": "s05",
+        "narrationLines": 2
+      },
+      {
+        "id": "s06",
+        "narrationLines": 2
+      },
+      {
+        "id": "s07",
+        "narrationLines": 2
+      },
+      {
+        "id": "s08",
+        "narrationLines": 1
+      },
+      {
+        "id": "s09",
+        "narrationLines": 2
+      },
+      {
+        "id": "s10",
+        "narrationLines": 2
+      },
+      {
+        "id": "s11",
+        "narrationLines": 2
+      },
+      {
+        "id": "s12",
+        "narrationLines": 1
+      },
+      {
+        "id": "s13",
+        "narrationLines": 1
+      }
+    ],
+    "gotSlidesRef": true,
+    "count": 15
+  },
+  "tts": {
+    "modelLoadMs": 0,
+    "coldGenMs": 5224.09999999986,
+    "durations": [
+      6.55,
+      7.15,
+      8,
+      2.8,
+      7,
+      9.7,
+      8.3,
+      9.6,
+      4.95,
+      7.85,
+      7.35,
+      8.4,
+      4.95,
+      7.3,
+      10.55
+    ]
+  },
+  "intendedMs": 110450,
+  "cost": {
+    "label": "$0.1466 · OpenRouter openai/gpt-audio, 15 requests, 15 priced",
+    "usd": 0.14656553999999997,
+    "requests": 15,
+    "priced": 15,
+    "transcriptMismatches": 0,
+    "generations": [
+      {
+        "id": "gen-1788359377-R4m0cWCOgR2totWTGcM5",
+        "ms": 1998,
+        "durationMs": 2800,
+        "mismatch": false
+      },
+      {
+        "id": "gen-1788359377-JGNdRcHCYp87s9O0fbKw",
+        "ms": 2296,
+        "durationMs": 4950,
+        "mismatch": false
+      },
+      {
+        "id": "gen-1788359377-u7MORrfILcQYDJYGHDxb",
+        "ms": 2510,
+        "durationMs": 7000,
+        "mismatch": false
+      },
+      {
+        "id": "gen-1788359377-CslsyL74lWklnZ6l5GjT",
+        "ms": 2626,
+        "durationMs": 7300,
+        "mismatch": false
+      },
+      {
+        "id": "gen-1788359377-KKTjvGutCEqfDNl4aMpU",
+        "ms": 2693,
+        "durationMs": 7150,
+        "mismatch": false
+      },
+      {
+        "id": "gen-1788359377-rTwHcKr1aHvJPOh1SuRe",
+        "ms": 2710,
+        "durationMs": 7850,
+        "mismatch": false
+      },
+      {
+        "id": "gen-1788359377-c6B9pc0T65a8STcl59RC",
+        "ms": 2731,
+        "durationMs": 8000,
+        "mismatch": false
+      },
+      {
+        "id": "gen-1788359377-BWpkasFlr8IZZvLdUu2L",
+        "ms": 2956,
+        "durationMs": 8300,
+        "mismatch": false
+      },
+      {
+        "id": "gen-1788359377-RwYKJilp6wggZRTaSniy",
+        "ms": 3023,
+        "durationMs": 9700,
+        "mismatch": false
+      },
+      {
+        "id": "gen-1788359377-i5P9THvkxYZIwbJznqjZ",
+        "ms": 3044,
+        "durationMs": 8400,
+        "mismatch": false
+      },
+      {
+        "id": "gen-1788359377-UAuTpwWQ4oTVlrYdOnPW",
+        "ms": 3320,
+        "durationMs": 10550,
+        "mismatch": false
+      },
+      {
+        "id": "gen-1788359377-ZFGDmZkPMSpqp1kxpNAL",
+        "ms": 3531,
+        "durationMs": 9600,
+        "mismatch": false
+      },
+      {
+        "id": "gen-1788359377-E5evx4S2Y52s50Cd2FPW",
+        "ms": 3711,
+        "durationMs": 7350,
+        "mismatch": false
+      },
+      {
+        "id": "gen-1788359378-u3ppyr0sXVZHB59526tR",
+        "ms": 3737,
+        "durationMs": 4950,
+        "mismatch": false
+      },
+      {
+        "id": "gen-1788359377-obvhKIv9c6v3P3v0G1Pc",
+        "ms": 5223,
+        "durationMs": 6550,
+        "mismatch": false
+      }
+    ]
+  },
+  "closingRows": [
+    [
+      "Made by",
+      "a Claude Code agent, unattended"
+    ],
+    [
+      "When",
+      "2026-09-01"
+    ],
+    [
+      "Script",
+      "13 scenes + title and closing · 257 words · reel.json written first"
+    ],
+    [
+      "Screenshots",
+      "15 shot, 13 used · Playwright, headless · 93 s"
+    ],
+    [
+      "Narration",
+      "OpenRouter openai/gpt-audio, voice onyx · 110.4 s of speech in 5 s"
+    ],
+    [
+      "Render",
+      "video-creator, canvas + MediaRecorder, real time · 110 s"
+    ],
+    [
+      "Pipeline wall clock",
+      "219 s: capture 93 + compose and narrate 16 + render 110"
+    ],
+    [
+      "API cost",
+      "$0.1466 · OpenRouter openai/gpt-audio, 15 requests, 15 priced"
+    ],
+    [
+      "Compute",
+      "one 4-core container · agent session tokens not metered here"
+    ]
+  ],
+  "record": {
+    "actualMs": 110609.6000000001,
+    "size": 8056641,
+    "type": "video/webm;codecs=vp9,opus",
+    "status": "done",
+    "heartbeat": false,
+    "heartbeats": 0,
+    "wallMs": 110617
+  },
+  "file": {
+    "path": "landscape-openrouter.webm",
+    "bytes": 8037930,
+    "duration": "00:01:50.55",
+    "streams": [
+      "Stream #0:0(eng): Video: vp9 (Profile 0), yuv420p(tv, smpte170m/unknown/unknown), 1280x720, SAR 1:1 DAR 16:9, 1k fps, 1k tbr, 1k tbn (default)",
+      "Stream #0:1(eng): Audio: opus, 48000 Hz, stereo, fltp (default)"
+    ]
+  },
+  "totalMs": 127239
+}

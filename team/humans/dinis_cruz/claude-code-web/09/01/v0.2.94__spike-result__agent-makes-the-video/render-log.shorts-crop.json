@@ -1,0 +1,138 @@
+{
+  "format": "shorts",
+  "crop": [
+    {
+      "id": "s01",
+      "focus": [
+        0.22,
+        0.1,
+        0.56,
+        1
+      ],
+      "windowPx": [
+        438,
+        0,
+        405,
+        720
+      ],
+      "lossy": true
+    },
+    {
+      "id": "s02",
+      "focus": [
+        0.44,
+        0,
+        0.56,
+        1
+      ],
+      "windowPx": [
+        719,
+        0,
+        405,
+        720
+      ],
+      "lossy": true
+    },
+    {
+      "id": "s06",
+      "focus": [
+        0.12,
+        0,
+        0.56,
+        1
+      ],
+      "windowPx": [
+        310,
+        0,
+        405,
+        720
+      ],
+      "lossy": true
+    },
+    {
+      "id": "s10",
+      "focus": [
+        0.22,
+        0,
+        0.56,
+        1
+      ],
+      "windowPx": [
+        438,
+        0,
+        405,
+        720
+      ],
+      "lossy": true
+    },
+    {
+      "id": "s12",
+      "focus": [
+        0.44,
+        0,
+        0.56,
+        1
+      ],
+      "windowPx": [
+        719,
+        0,
+        405,
+        720
+      ],
+      "lossy": true
+    },
+    {
+      "id": "s13",
+      "focus": [
+        0.22,
+        0.1,
+        0.56,
+        1
+      ],
+      "windowPx": [
+        438,
+        0,
+        405,
+        720
+      ],
+      "lossy": true
+    }
+  ],
+  "images": "images",
+  "pool": 2,
+  "sceneCount": 6,
+  "started": "2026-09-01T22:06:06.658Z",
+  "toolReadyMs": 1941,
+  "tts": {
+    "modelLoadMs": 5334.200000000186,
+    "coldGenMs": 63150.69999999972,
+    "durations": [
+      7.4,
+      8.85,
+      8.975,
+      8.575,
+      5.325,
+      6.85
+    ]
+  },
+  "intendedMs": 45975,
+  "record": {
+    "actualMs": 46080,
+    "size": 3489197,
+    "type": "video/webm;codecs=vp9,opus",
+    "status": "done",
+    "heartbeat": true,
+    "heartbeats": 2763,
+    "wallMs": 46083
+  },
+  "file": {
+    "path": "shorts-crop.webm",
+    "bytes": 3482360,
+    "duration": "00:00:46.03",
+    "streams": [
+      "Stream #0:0(eng): Video: vp9 (Profile 0), yuv420p(tv, smpte170m/unknown/unknown), 1080x1920, SAR 1:1 DAR 9:16, 60 fps, 60 tbr, 1k tbn (default)",
+      "Stream #0:1(eng): Audio: opus, 48000 Hz, stereo, fltp (default)"
+    ]
+  },
+  "totalMs": 117043
+}

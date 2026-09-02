@@ -1,0 +1,359 @@
+{
+  "title": "SGit vaults in 90 seconds",
+  "subject": "sgit.ai — the SG/Vault page, the sgit home page, and a published vault opened live in SG/App",
+  "written": "2026-09-01",
+  "voice": "af_bella",
+  "notes": [
+    "Shape invented for this spike, not taken from the demo-reel pack. Fields: narration (spoken), caption (on-screen, short, different), shot (how the still is made).",
+    "shot.url is a public page. shot.annotate is what gets injected into the page DOM before the screenshot: spot = spotlight rect in viewport fractions [x,y,w,h]; label = a tag placed at [x,y]; blur = a blur rect.",
+    "shot.focus is the 9:16 crop region used for the vertical cut, in fractions of the landscape still. Absent = whole frame (letterboxed).",
+    "shot.kind clip = a Playwright recordVideo clip is shot as well; the still used in the video is a frame from it, because video-creator only takes images.",
+    "shorts lists the scene ids used for the vertical cut, in order.",
+    "No keys or tokens live here. The published vault read key is scraped from https://sgit.ai/demos/vaults/ at capture time.",
+    "label.at is either viewport fractions [x,y] or 'below' / 'above', which anchors the label to the scene's spotlight rect. Absolute fractions were tried first and landed away from their targets.",
+    "Narration was tightened after the first render came out at 128 s: 274 words read as 128.5 s of Kokoro at speed 1.0, so 90 s is about 190 words, not the 12 to 15 scenes at 6 to 8 s the recipe suggested.",
+    "Round 2: title/subtitle/author/date and intro/outro were added; s01, s10 and s12 moved from hand-measured rects to element targets, resolved through shadow roots and iframes, after the rects missed at the phone viewport.",
+    "s10 keeps a rect per format: the vault app renders inside a sandboxed srcdoc iframe whose document the parent page cannot read, so no element target can be resolved there.",
+    "Round 4: the intro was rewritten to preview the video after the first one echoed scene one almost word for word. Landscape stills are cropped to the picture area's own aspect around the spotlight, so the page fills the width."
+  ],
+  "scenes": [
+    {
+      "id": "s01",
+      "narration": "This is sgit. Git workflows over folders that are encrypted before anything leaves your machine.",
+      "caption": "Encrypted before it leaves",
+      "shot": {
+        "kind": "still",
+        "url": "https://sgit.ai/",
+        "scrollTo": "top",
+        "annotate": [
+          {
+            "spot": "el:heading:The encrypted git"
+          }
+        ],
+        "focus": [
+          0.22,
+          0.1,
+          0.56,
+          1.0
+        ]
+      }
+    },
+    {
+      "id": "s02",
+      "narration": "The server stores ciphertext under opaque identifiers. File names, contents and commit messages never reach it.",
+      "caption": "The server sees ciphertext",
+      "shot": {
+        "kind": "still",
+        "url": "https://sgit.ai/",
+        "scrollTo": "text:What the server sees",
+        "annotate": [
+          {
+            "spot": "el:right-column"
+          },
+          {
+            "label": "the whole list, published",
+            "at": "below"
+          }
+        ],
+        "focus": [
+          0.44,
+          0.0,
+          0.56,
+          1.0
+        ]
+      }
+    },
+    {
+      "id": "s03",
+      "narration": "Creating a vault is one command.",
+      "caption": "One command",
+      "shot": {
+        "kind": "still",
+        "url": "https://sgit.ai/",
+        "scrollTo": "text:Work like git",
+        "annotate": [
+          {
+            "spot": "el:terminal"
+          }
+        ],
+        "focus": [
+          0.12,
+          0.0,
+          0.56,
+          1.0
+        ]
+      }
+    },
+    {
+      "id": "s04",
+      "narration": "Then you work like git. Status, commit, history, sync, and an agent mode built for machines.",
+      "caption": "Work like git",
+      "shot": {
+        "kind": "clip",
+        "url": "https://sgit.ai/",
+        "scrollTo": "text:Work like git",
+        "clickTabs": [
+          "Work like git",
+          "History & diffs",
+          "Sync",
+          "Agent mode"
+        ],
+        "annotate": [],
+        "focus": [
+          0.12,
+          0.0,
+          0.56,
+          1.0
+        ]
+      }
+    },
+    {
+      "id": "s05",
+      "narration": "SG Vault is the same vault in the browser. One encrypted wire format, no wrapper around the command line.",
+      "caption": "Same vault, in the browser",
+      "shot": {
+        "kind": "still",
+        "url": "https://sgit.ai/vault/",
+        "scrollTo": "text:What SG/Vault is",
+        "annotate": [
+          {
+            "spot": "el:heading:What SG/Vault is"
+          }
+        ],
+        "focus": [
+          0.1,
+          0.0,
+          0.56,
+          1.0
+        ]
+      }
+    },
+    {
+      "id": "s06",
+      "narration": "You open a vault by its key, carried in the URL fragment. The fragment is never sent, so the server never sees the key.",
+      "caption": "The key never leaves the browser",
+      "shot": {
+        "kind": "still",
+        "url": "https://sgit.ai/vault/",
+        "scrollTo": "text:You open a vault by its key",
+        "annotate": [
+          {
+            "spot": "el:code"
+          },
+          {
+            "label": "the key lives after the #",
+            "at": "below"
+          }
+        ],
+        "focus": [
+          0.12,
+          0.0,
+          0.56,
+          1.0
+        ]
+      }
+    },
+    {
+      "id": "s07",
+      "narration": "Three pieces. The sgit command line, the SG Vault browser client, and SG Send, the transfer API that never sees plaintext.",
+      "caption": "Three pieces, one wire format",
+      "shot": {
+        "kind": "still",
+        "url": "https://sgit.ai/vault/",
+        "scrollTo": "text:The three pieces",
+        "annotate": [
+          {
+            "spot": "el:table"
+          }
+        ],
+        "focus": [
+          0.12,
+          0.0,
+          0.56,
+          1.0
+        ]
+      }
+    },
+    {
+      "id": "s08",
+      "narration": "A vault can contain an app. Sharing the vault link is deploying the app.",
+      "caption": "The app is the vault",
+      "shot": {
+        "kind": "still",
+        "url": "https://sgit.ai/vault/",
+        "scrollTo": "text:Vault apps: the app is the vault",
+        "annotate": [
+          {
+            "spot": "el:heading:Vault apps: the app is the vault"
+          }
+        ],
+        "focus": [
+          0.12,
+          0.0,
+          0.56,
+          1.0
+        ]
+      }
+    },
+    {
+      "id": "s09",
+      "narration": "sgit dot ai publishes read keys for its demo vaults on purpose. A read key cannot become write access.",
+      "caption": "Read keys, published on purpose",
+      "shot": {
+        "kind": "still",
+        "url": "https://sgit.ai/demos/vaults/index.html",
+        "scrollTo": "text:Published read key",
+        "annotate": [
+          {
+            "spot": "el:table"
+          },
+          {
+            "blur": "el:keys"
+          },
+          {
+            "label": "keys blurred for the video, not on the site",
+            "at": "below"
+          }
+        ],
+        "focus": [
+          0.0,
+          0.0,
+          0.56,
+          1.0
+        ]
+      }
+    },
+    {
+      "id": "s10",
+      "narration": "Here is one, opened live. Everything on this page was decrypted in the browser with a published read only key.",
+      "caption": "Decrypted in your browser",
+      "shot": {
+        "kind": "still",
+        "url": "vault:Field Notes",
+        "scrollTo": "top",
+        "annotate": {
+          "landscape": [
+            {
+              "spot": [
+                0.3,
+                0.2,
+                0.4,
+                0.3
+              ]
+            },
+            {
+              "label": "decrypted in the browser, with a published read key",
+              "at": "below"
+            }
+          ],
+          "shorts": [
+            {
+              "spot": [
+                0.08,
+                0.16,
+                0.84,
+                0.18
+              ]
+            },
+            {
+              "label": "decrypted in the browser, with a published read key",
+              "at": "below"
+            }
+          ]
+        },
+        "focus": [
+          0.22,
+          0.0,
+          0.56,
+          1.0
+        ]
+      }
+    },
+    {
+      "id": "s11",
+      "narration": "Behind the app is the vault itself. Files, history and branches, in the same file browser you get for any vault.",
+      "caption": "Files, history, branches",
+      "shot": {
+        "kind": "clip",
+        "url": "vault:Field Notes",
+        "scrollTo": "top",
+        "click": [
+          "text:Open Vault"
+        ],
+        "annotate": [],
+        "focus": [
+          0.0,
+          0.0,
+          0.56,
+          1.0
+        ]
+      }
+    },
+    {
+      "id": "s12",
+      "narration": "And the badge says what the key allows. One read, zero writes.",
+      "caption": "Read-only by construction",
+      "shot": {
+        "kind": "still",
+        "url": "vault:Field Notes",
+        "scrollTo": "top",
+        "annotate": [
+          {
+            "spot": "el:badges"
+          },
+          {
+            "label": "R1 W0: one read key, no write key",
+            "at": "below"
+          }
+        ],
+        "focus": [
+          0.44,
+          0.0,
+          0.56,
+          1.0
+        ],
+        "note": "SG/App's header is shadow DOM: element targeting failed, so the spotlight is a hand-measured viewport rect."
+      }
+    },
+    {
+      "id": "s13",
+      "narration": "pip install sgit dash ai. Or try it in your browser, at sgit dot ai.",
+      "caption": "pip install sgit-ai",
+      "shot": {
+        "kind": "still",
+        "url": "https://sgit.ai/",
+        "scrollTo": "top",
+        "annotate": [
+          {
+            "spot": "el:pip"
+          }
+        ],
+        "focus": [
+          0.22,
+          0.1,
+          0.56,
+          1.0
+        ]
+      }
+    }
+  ],
+  "shorts": [
+    "s01",
+    "s02",
+    "s06",
+    "s10",
+    "s12",
+    "s13"
+  ],
+  "subtitle": "Encrypted, versioned folders the server can never read",
+  "author": "a Claude Code agent, unattended",
+  "date": "2026-09-01",
+  "intro": {
+    "narration": "In the next ninety seconds: what a vault is, what the server can and cannot see, and a published vault opened live in the browser.",
+    "caption": "What this video covers"
+  },
+  "outro": {
+    "narration": "This video was made by an agent, end to end, with no human at a screen and no API cost. The numbers are on the screen.",
+    "caption": "How this video was made"
+  }
+}
