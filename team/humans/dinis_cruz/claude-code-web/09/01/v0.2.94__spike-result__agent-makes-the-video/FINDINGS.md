@@ -122,6 +122,11 @@ About three days, leaving `demo-reel` as a JSON shape plus two scripts. The pack
 | `scripts/04-doc.mjs` | Round 2: `reel.html` and `reel.pdf`, the storyboard sheet; `INLINE=1` for a single-file copy |
 | `reel.html`, `reel.pdf` | Round 2: one row per scene, artefact beside caption, narration and shot spec, with timecodes |
 | `.gitignore` | `*.webm` and the inline HTML are not committed; the videos are handed over directly |
+| `scripts/sg-tts-shim-openrouter.js` | Round 3: `sg-tts`'s interface over `core/sg-tts-openrouter`, served in place of `sg-tts` when `TTS=openrouter` |
+| `TWO-MODES.md` | Round 3: the session-skill mode against the browser mode, and what each still needs |
+| `poc/` | Round 3: the iframe screenshot proof of concept (page, headless test, the captured image) |
+| `landscape-openrouter.webm` | Round 3: the landscape reel narrated through OpenRouter. Not committed |
+| `sgraph_ai_tools__static/tools/v0/v0.1/v0.1.72/` | Round 3: the `video-creator` delta with `paintEveryFrame` and `captionBar` |
 
 Run order: `scripts/run-locally.sh` (repo root) → `cache-server.mjs` → `01-capture.mjs` (`FORMAT=landscape`, then `FORMAT=shorts`) → `02-render.mjs` (same two formats) → `03-frames.sh`. Environment for the Node scripts: `NODE_PATH=/opt/node22/lib/node_modules NODE_USE_ENV_PROXY=1 NODE_EXTRA_CA_CERTS=/root/.ccr/ca-bundle.crt CACHE_DIR=<dir> FFMPEG=<full ffmpeg>`.
 
@@ -181,7 +186,18 @@ Drift grew from round 1 (58 ms/min) to 134 ms/min with the heartbeat repainting 
 
 ## Numbers, round 3
 
-__R3NUMBERS__
+| Measurement | Landscape, Kokoro am_michael | Shorts, Kokoro am_michael | Landscape, OpenRouter gpt-audio onyx |
+|---|---|---|---|
+| Length | 02:03.14 (123.0 s of speech) | 01:07.27 (67.2 s) | 01:50.55 (110.4 s) |
+| File | 8.4 MB · 3,689 frames, 30 fps painted by the tool | 7.4 MB · 2,012 frames | 8.0 MB |
+| Drift | +177 ms (86 ms/min) | +130 ms (116 ms/min) | +160 ms (87 ms/min) |
+| Narration time | 166 s for 123 s (1.35× audio length, 2 workers) | 99 s for 67 s (1.47×) | **5.2 s for 110 s (0.05×)**, 15 requests in parallel |
+| Model load | 8.0 s | 6.9 s | none |
+| API cost | $0.00 | $0.00 | **$0.1466** for 15 requests, 15 priced from the generation endpoint |
+| Transcript mismatches | n/a | n/a | 0 of 15 |
+| Script → video wall clock | 303 s | 176 s | 127 s |
+
+The same 257 words read 123 s in Kokoro and 110 s in gpt-audio: the OpenRouter voice is about 10 % faster, which is worth knowing when a reel is planned to a length. The tool's own repaint (`paintEveryFrame`) replaced the external heartbeat with the same result: 30 fps and sharp text. The first two Kokoro attempts of this round failed on a script error (a constant declared twice), not on the pipeline.
 
 ## What this round says about the design
 

@@ -4,8 +4,8 @@
   "images": "images-shorts",
   "pool": 2,
   "sceneCount": 6,
-  "started": "2026-09-02T11:47:58.769Z",
-  "toolReadyMs": 2929,
+  "started": "2026-09-02T14:26:05.234Z",
+  "toolReadyMs": 2499,
   "compose": {
     "report": [
       {
@@ -37,20 +37,25 @@
     "count": 8
   },
   "tts": {
-    "modelLoadMs": 9885.399999999907,
-    "coldGenMs": 138958.90000000002,
+    "modelLoadMs": 6906,
+    "coldGenMs": 98553.09999999998,
     "durations": [
-      7.1,
-      7.4,
-      8.85,
-      8.975,
-      8.575,
+      7.275,
+      7.925,
+      9.2,
+      9.5,
+      9.1,
       5.325,
-      6.85,
-      10.875
+      7.275,
+      11.6
     ]
   },
-  "intendedMs": 63950,
+  "intendedMs": 67200,
+  "cost": {
+    "label": "$0.00 · no LLM, TTS or image API calls",
+    "usd": 0,
+    "requests": 0
+  },
   "closingRows": [
     [
       "Made by",
@@ -70,15 +75,15 @@
     ],
     [
       "Narration",
-      "Kokoro-82M in the browser (2 workers) · 64.0 s of speech in 139 s · model load 9.9 s"
+      "Kokoro-82M in the browser (2 workers), voice am_michael · 67.2 s of speech in 99 s · model load 6.9 s"
     ],
     [
       "Render",
-      "video-creator, canvas + MediaRecorder, real time · 64 s"
+      "video-creator, canvas + MediaRecorder, real time · 67 s"
     ],
     [
       "Pipeline wall clock",
-      "249 s: capture 33 + compose and narrate 153 + render 64"
+      "208 s: capture 33 + compose and narrate 109 + render 67"
     ],
     [
       "API cost",
@@ -86,26 +91,26 @@
     ],
     [
       "Compute",
-      "one 4-core container, ~10 min of CPU for both cuts · agent session tokens not metered here"
+      "one 4-core container · agent session tokens not metered here"
     ]
   ],
   "record": {
-    "actualMs": 64195.59999999998,
-    "size": 6813162,
+    "actualMs": 67330,
+    "size": 7420877,
     "type": "video/webm;codecs=vp9,opus",
     "status": "done",
-    "heartbeat": true,
-    "heartbeats": 3830,
-    "wallMs": 64208
+    "heartbeat": false,
+    "heartbeats": 0,
+    "wallMs": 67336
   },
   "file": {
     "path": "shorts.webm",
-    "bytes": 6803507,
-    "duration": "00:01:04.08",
+    "bytes": 7410619,
+    "duration": "00:01:07.27",
     "streams": [
       "Stream #0:0(eng): Video: vp9 (Profile 0), yuv420p(tv, smpte170m/unknown/unknown), 1080x1920, SAR 1:1 DAR 9:16, 1k fps, 1k tbr, 1k tbn (default)",
       "Stream #0:1(eng): Audio: opus, 48000 Hz, stereo, fltp (default)"
     ]
   },
-  "totalMs": 217099
+  "totalMs": 176071
 }
