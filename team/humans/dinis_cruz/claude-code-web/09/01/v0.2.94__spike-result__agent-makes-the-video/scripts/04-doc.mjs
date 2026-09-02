@@ -50,14 +50,20 @@ const rows = reel.scenes.map((s, i) => {
       <p class="slug"><span class="tc">${starts[k] != null ? tc(starts[k]) : '—'}</span><span>scene ${i + 1} of ${reel.scenes.length}</span><span>${s.id}</span><span>${fmtDur(durs[k])}</span></p>
       <h2>${esc(s.caption)}</h2>
       <blockquote class="say">${esc(s.narration)}</blockquote>
-      <div class="shot"><span class="shot-label">How this shot was taken</span><ul>${what.map(w => `<li>${esc(w)}</li>`).join('')}</ul></div>
+      <div class="shot"><span class="shot-label">How this image was created</span><ul>${what.map(w => `<li>${esc(w)}</li>`).join('')}</ul></div>
     </div>
     <div class="art">${media}</div>
   </article>`;
 }).join('\n');
 
-const renderRow = (f, label) => { const l = logs[f]; if (!l) return ''; return `<tr><th>${label}</th><td>${l.file.duration.replace(/^00:/, '')}</td><td>${(l.file.bytes / 1e6).toFixed(1)} MB</td><td>${l.sceneCount + 2}</td><td>${(l.tts.coldGenMs / 1000).toFixed(0)} s</td><td>${(l.record.actualMs / 1000).toFixed(1)} s</td><td>${Math.round(l.record.actualMs - l.intendedMs)} ms</td><td>${(l.totalMs / 1000).toFixed(0)} s</td></tr>`; };
+const renderRow = (f, label) => { const l = logs[f]; if (!l) return ''; const usd = l.cost?.usd; const cost = !usd ? '$0.00' : `$${usd.toFixed(3)}`;
+  return `<tr><th>${label}</th><td>${l.file.duration.replace(/^00:/, '')}</td><td>${(l.file.bytes / 1e6).toFixed(1)} MB</td><td>${l.sceneCount + 2}</td><td>${(l.tts.coldGenMs / 1000).toFixed(0)} s</td><td>${(l.record.actualMs / 1000).toFixed(1)} s</td><td>${Math.round(l.record.actualMs - l.intendedMs)} ms</td><td>${(l.totalMs / 1000).toFixed(0)} s</td><td>${cost}</td></tr>`; };
 const closingRows = logs.landscape?.closingRows || [];
+const transcriptLines = [
+  { tc: durs.length ? tc(0) : '', label: 'opening', text: reel.intro.narration },
+  ...reel.scenes.map((x, i) => ({ tc: starts[i + 1] != null ? tc(starts[i + 1]) : '', label: `scene ${i + 1} · ${x.caption}`, text: x.narration })),
+  { tc: starts.length ? tc(starts[starts.length - 1]) : '', label: 'closing', text: reel.outro.narration },
+];
 const html = `<!doctype html>
 <html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title>${esc(reel.title)}</title>
@@ -81,7 +87,7 @@ const html = `<!doctype html>
   .slug { display:flex; gap:14px; flex-wrap:wrap; font-family:"IBM Plex Mono", monospace; font-size:12.5px; color:var(--dim); margin:0; letter-spacing:.02em; text-transform:uppercase; }
   .slug .tc { color:var(--accent-ink); background:var(--accent); padding:1px 8px; border-radius:3px; font-weight:500; font-variant-numeric:tabular-nums; }
   .say { margin:0; font-size:22px; line-height:1.45; background:var(--panel); border:1px solid var(--rule); border-left:5px solid var(--accent); border-radius:6px; padding:16px 20px; }
-  .shot { margin:14px 0 0; }
+  .shot { margin:26px 0 0; }
   .shot-label { display:block; font-family:"IBM Plex Sans Condensed", sans-serif; font-weight:600; font-size:12px; letter-spacing:.06em; text-transform:uppercase; color:var(--accent); margin-bottom:4px; }
   .shot ul { margin:0; padding:0; list-style:none; font-family:"IBM Plex Mono", monospace; font-size:12.5px; color:var(--dim); line-height:1.7; }
   .shot li { padding-left:16px; position:relative; }
@@ -108,7 +114,11 @@ const html = `<!doctype html>
   .transcript { margin-top:40px; padding-top:24px; border-top:3px solid var(--accent); }
   .transcript h3 { font-family:"IBM Plex Sans Condensed", sans-serif; font-weight:600; font-size:24px; margin:0 0 6px; }
   .transcript p.hint { color:var(--dim); font-size:14px; margin:0 0 14px; }
-  .transcript pre { white-space:pre-wrap; font-family:"Source Serif 4", Georgia, serif; font-size:18px; line-height:1.6; background:var(--panel); border:1px solid var(--rule); border-radius:6px; padding:20px 24px; margin:0; }
+  .transcript .lines { list-style:none; margin:0; padding:0; }
+  .transcript .lines li { display:grid; grid-template-columns: 64px 1fr; gap:4px 18px; padding:14px 0; border-top:1px solid var(--rule); break-inside:avoid; page-break-inside:avoid; align-items:baseline; }
+  .transcript .lines .t { font-family:"IBM Plex Mono", monospace; font-size:12.5px; color:var(--accent-ink); background:var(--accent); padding:1px 7px; border-radius:3px; font-variant-numeric:tabular-nums; justify-self:start; }
+  .transcript .lines .who { font-family:"IBM Plex Sans Condensed", sans-serif; font-weight:600; font-size:13px; letter-spacing:.04em; text-transform:uppercase; color:var(--dim); }
+  .transcript .lines p { grid-column:2; margin:0; font-size:19px; line-height:1.5; }
   .transcript button { font:inherit; font-size:14px; padding:6px 12px; border:1px solid var(--rule); background:var(--panel); color:var(--ink); border-radius:4px; cursor:pointer; margin-bottom:12px; }
   @media (max-width: 1000px) { .scene { grid-template-columns: 1fr; } .art { width:100%; } header.sheet { grid-template-columns: 1fr; } header.sheet .meta { text-align:left; } }
   /* PDF: a short, wide page fitted to one scene row (header and opening on page 1, closing and transcript after), so a
@@ -124,8 +134,8 @@ const html = `<!doctype html>
     .outro { break-before:page; page-break-before:always; }
     .outro ul { grid-template-columns: 1fr 1fr; gap:2px 20px; } .outro li { font-size:11px; padding:4px 0; }
     .say { font-size:14px; padding:10px 14px; line-height:1.4; } .scene h2, .intro h2, .outro h2 { font-size:19px; margin:4px 0 8px; }
-    .slug { font-size:10.5px; } .shot { margin-top:8px; } .shot-label { font-size:10px; } .shot ul { font-size:10.5px; line-height:1.5; }
-    .transcript { break-before:page; page-break-before:always; margin-top:0; padding-top:0; border-top:0; } .transcript h3 { font-size:18px; } .transcript button { display:none; } .transcript pre { font-size:11.5px; line-height:1.5; padding:12px 16px; }
+    .slug { font-size:10.5px; } .shot { margin-top:16px; } .shot-label { font-size:10px; } .shot ul { font-size:10.5px; line-height:1.5; }
+    .transcript { break-before:page; page-break-before:always; margin-top:0; padding-top:0; border-top:0; } .transcript h3 { font-size:18px; } .transcript button { display:none; } .transcript .lines li { padding:8px 0; gap:2px 14px; grid-template-columns:52px 1fr; } .transcript .lines p { font-size:13px; } .transcript .lines .t { font-size:10px; } .transcript .lines .who { font-size:10px; } .transcript .hint { font-size:11px; }
     .renders { margin-top:16px; } .renders h3 { font-size:15px; } .renders table { font-size:10px; }
   }
 </style></head>
@@ -151,15 +161,16 @@ const html = `<!doctype html>
   </section>
   <section class="transcript">
     <h3>Transcript</h3>
-    <p class="hint">The narration in order, as plain text, ready to paste next to the video.</p>
+    <p class="hint">The narration in order, as it is spoken. Copy it as plain text to post next to the video.</p>
     <button type="button" onclick="navigator.clipboard.writeText(document.getElementById('transcript-text').textContent).then(() => { this.textContent = 'Copied'; })">Copy transcript</button>
-    <pre id="transcript-text">${esc([reel.intro.narration, ...reel.scenes.map(x => x.narration), reel.outro.narration].join('\n\n'))}</pre>
+    <ol class="lines">${transcriptLines.map(l => `<li><span class="t">${l.tc}</span><span class="who">${esc(l.label)}</span><p>${esc(l.text)}</p></li>`).join('')}</ol>
+    <pre id="transcript-text" hidden>${esc(transcriptLines.map(l => l.text).join('\n\n'))}</pre>
   </section>
   <section class="renders">
     <h3>Renders</h3>
-    <div class="wrap"><table><thead><tr><th>cut</th><th>length</th><th>size</th><th>slides</th><th>TTS</th><th>record</th><th>drift</th><th>pipeline</th></tr></thead>
+    <div class="wrap"><table><thead><tr><th>cut</th><th>length</th><th>size</th><th>slides</th><th>TTS</th><th>record</th><th>drift</th><th>pipeline</th><th>API cost</th></tr></thead>
     <tbody>${renderRow('landscape', 'landscape 1280×720 · Kokoro')}${renderRow('shorts', 'shorts 1080×1920 · Kokoro')}${renderRow('landscape-openrouter', 'landscape 1280×720 · OpenRouter gpt-audio')}</tbody></table></div>
-    <p>Source of truth is <code>reel.json</code>. Stills in <code>images/</code> (desktop) and <code>images-shorts/</code> (phone); clips in <code>clips/</code>. Timecodes are the landscape cut's TTS durations.</p>
+    <p>Source of truth is <code>reel.json</code>. Stills in <code>images/</code> (desktop) and <code>images-shorts/</code> (phone); clips in <code>clips/</code>. Timecodes are the landscape cut's TTS durations. API cost is the narration provider's charge, priced per request from the OpenRouter generation endpoint; Kokoro runs locally at $0.00.</p>
   </section>
 </main></body></html>`;
 const outName = INLINE ? 'reel.inline.html' : 'reel.html';
