@@ -102,9 +102,9 @@ About three days, leaving `demo-reel` as a JSON shape plus two scripts. The pack
 
 | File | What |
 |---|---|
-| `landscape.webm` | The 16:9 video, 1280×720, 99 s, heartbeat on |
-| `shorts.webm` | The 9:16 cut, 1080×1920, 46 s, six scenes re-shot at a phone viewport |
-| `shorts-crop.webm` | The same six scenes from cropped desktop stills, for comparison |
+| `landscape.webm` | The 16:9 video, 1280×720; round 2: 117 s with title and closing slides. Not committed |
+| `shorts.webm` | The 9:16 cut, 1080×1920; round 2: 64 s, six scenes at a phone viewport plus title and closing. Not committed |
+| `shorts-crop.webm` | Round 1 only: the same six scenes from cropped desktop stills. Not committed |
 | `reel.json` | The script: 13 scenes, narration + caption + shot spec, invented for this spike, with notes on what changed and why |
 | `capture-log.json`, `capture-log.shorts.json` | What each shot resolved to, timings, captured/used counts |
 | `render-log.landscape.json`, `render-log.shorts.json`, `render-log.shorts-crop.json` | TTS, intended vs actual, heartbeats, file info, wall clock |
@@ -118,6 +118,10 @@ About three days, leaving `demo-reel` as a JSON shape plus two scripts. The pack
 | `scripts/01-capture.mjs`, `scripts/annotate.mjs` | Scene capture, per-format viewport, DOM-injected annotation |
 | `scripts/02-render.mjs` | Drives `video-creator`'s JS API: slides, TTS timing, heartbeat, download, remux; `CROP=1` for the crop variant |
 | `scripts/03-frames.sh` | Frame extraction |
+| `scripts/slides.mjs` | Round 2: in-page slide compositor (header, caption band, title and closing slides) |
+| `scripts/04-doc.mjs` | Round 2: `reel.html` and `reel.pdf`, the storyboard sheet; `INLINE=1` for a single-file copy |
+| `reel.html`, `reel.pdf` | Round 2: one row per scene, artefact beside caption, narration and shot spec, with timecodes |
+| `.gitignore` | `*.webm` and the inline HTML are not committed; the videos are handed over directly |
 
 Run order: `scripts/run-locally.sh` (repo root) → `cache-server.mjs` → `01-capture.mjs` (`FORMAT=landscape`, then `FORMAT=shorts`) → `02-render.mjs` (same two formats) → `03-frames.sh`. Environment for the Node scripts: `NODE_PATH=/opt/node22/lib/node_modules NODE_USE_ENV_PROXY=1 NODE_EXTRA_CA_CERTS=/root/.ccr/ca-bundle.crt CACHE_DIR=<dir> FFMPEG=<full ffmpeg>`.
 
@@ -139,7 +143,20 @@ No key, token or vault key is in this folder. The published read key used for th
 
 ## Numbers, round 2
 
-__R2NUMBERS__
+| Measurement | Landscape (15 slides) | Shorts (8 slides) |
+|---|---|---|
+| Length | 01:57.17 (117.1 s of speech) | 01:04.08 (64.0 s) |
+| File | 10.7 MB, 1280×720, 30 fps | 6.8 MB, 1080×1920, 30 fps |
+| Intended vs actual record | 117,075 vs 117,337 ms | 63,950 vs 64,196 ms |
+| **Drift** | **+262 ms (134 ms/min)** | +246 ms (230 ms/min) |
+| Heartbeat repaints | 7,009 | 3,830 |
+| TTS generation | 237 s for 117 s of speech (2.02×) | 139 s for 64 s (2.17×) |
+| Model load (disk cache) | 8.1 s | 9.9 s |
+| Capture | 93 s, 15 shot / 13 used | 33 s, 6 / 6 |
+| Script → video wall clock | 366 s | 217 s |
+| Annotation targets resolved by element | 11 of 13 scenes | 5 of 6 |
+
+Drift grew from round 1 (58 ms/min) to 134 ms/min with the heartbeat repainting a composed 1280×720 slide sixty times a second next to the encoder; still a quarter of a second over two minutes, and still not the problem. TTS was slower than in round 1 (2.02× against 1.24×) because the capture of the shorts scenes and git work overlapped its first minute; the second pass with nothing else running was 2.02×. The closing slide overflowed its band on the first attempt (the last row printed one wrapped line too many) and cost one re-render, about seven minutes.
 
 ## What this round says about the design
 

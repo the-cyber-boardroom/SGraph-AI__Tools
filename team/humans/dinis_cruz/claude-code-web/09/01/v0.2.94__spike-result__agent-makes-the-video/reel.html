@@ -40,11 +40,12 @@
   .renders thead th { color:var(--dim); font-weight:500; text-transform:uppercase; letter-spacing:.04em; font-size:11px; }
   .renders p { font-size:14px; color:var(--dim); margin:12px 0 0; }
   .renders code { font-family:"IBM Plex Mono", monospace; font-size:13px; }
+  .poster-print { display:none; }
   a { color:var(--accent); }
   :focus-visible { outline:2px solid var(--mark); outline-offset:2px; }
   @media (max-width: 800px) { .scene { grid-template-columns: 1fr; } header.sheet { grid-template-columns: 1fr; } header.sheet .meta { text-align:left; } }
   @page { size: A4 landscape; margin: 12mm; }
-  @media print { :root { --bg:#fff; --panel:#fff; --ink:#111827; --dim:#5b6472; --rule:#d7dde2; --accent:#0f766e; --accent-ink:#fff; } body { font-size:12px; } main { padding:0; max-width:none; } .scene { page-break-inside:avoid; gap:18px; padding:16px 0; } .say { font-size:13px; } .scene h2 { font-size:19px; } video { display:none; } .art .phone { width:64px; } header.sheet h1 { font-size:34px; } }
+  @media print { :root { --bg:#fff; --panel:#fff; --ink:#111827; --dim:#5b6472; --rule:#d7dde2; --accent:#0f766e; --accent-ink:#fff; } body { font-size:12px; } main { padding:0; max-width:none; } .scene { page-break-inside:avoid; gap:18px; padding:16px 0; } .say { font-size:13px; } .scene h2 { font-size:19px; } video { display:none; } .poster-print { display:block; } .art .phone { width:64px; } header.sheet h1 { font-size:34px; } }
 </style></head>
 <body><main>
   <header class="sheet">
@@ -91,7 +92,7 @@
   </article>
 
   <article class="scene" id="s04">
-    <div class="art"><video controls muted playsinline preload="metadata" poster="images/s04.png" src="clips/s04.webm"></video></div>
+    <div class="art"><video controls muted playsinline preload="metadata" poster="images/s04.png" src="clips/s04.webm"></video><img class="poster-print" src="images/s04.png" alt="Work like git (last frame of the clip)"></div>
     <div class="words">
       <p class="slug"><span class="tc">00:25</span><span>scene 4 of 13</span><span>s04</span><span>7.3 s</span></p>
       <h2>Work like git</h2>
@@ -161,7 +162,7 @@
   </article>
 
   <article class="scene" id="s11">
-    <div class="art"><video controls muted playsinline preload="metadata" poster="images/s11.png" src="clips/s11.webm"></video></div>
+    <div class="art"><video controls muted playsinline preload="metadata" poster="images/s11.png" src="clips/s11.webm"></video><img class="poster-print" src="images/s11.png" alt="Files, history, branches (last frame of the clip)"></div>
     <div class="words">
       <p class="slug"><span class="tc">01:25</span><span>scene 11 of 13</span><span>s11</span><span>8.6 s</span></p>
       <h2>Files, history, branches</h2>
@@ -193,12 +194,12 @@
     <p class="slug"><span class="tc">01:46</span><span>closing</span><span>10.9 s</span></p>
     <h2>How this video was made</h2>
     <p class="say">This video was made by an agent, end to end, with no human at a screen and no API cost. The numbers are on the screen.</p>
-    <ul><li><b>Made by</b>a Claude Code agent, unattended</li><li><b>When</b>2026-09-01</li><li><b>Script</b>13 scenes + title and closing · 257 words · reel.json written first</li><li><b>Screenshots</b>15 shot, 13 used · Playwright, headless · 93 s</li><li><b>Narration</b>Kokoro-82M in the browser (2 workers) · 117.1 s of speech in 252 s · model load 14.7 s</li><li><b>Render</b>video-creator, canvas + MediaRecorder, real time · 117 s</li><li><b>Pipeline wall clock</b>479 s: capture 93 + compose and narrate 270 + render 117</li><li><b>API cost</b>$0.00 · no LLM, TTS or image API calls</li><li><b>Compute</b>one 4-core container, ~10 min of CPU for both cuts · agent session tokens not metered here</li></ul>
+    <ul><li><b>Made by</b>a Claude Code agent, unattended</li><li><b>When</b>2026-09-01</li><li><b>Script</b>13 scenes + title and closing · 257 words · reel.json written first</li><li><b>Screenshots</b>15 shot, 13 used · Playwright, headless · 93 s</li><li><b>Narration</b>Kokoro-82M in the browser (2 workers) · 117.1 s of speech in 237 s · model load 8.1 s</li><li><b>Render</b>video-creator, canvas + MediaRecorder, real time · 117 s</li><li><b>Pipeline wall clock</b>458 s: capture 93 + compose and narrate 248 + render 117</li><li><b>API cost</b>$0.00 · no LLM, TTS or image API calls</li><li><b>Compute</b>one 4-core container · agent session tokens not metered here</li></ul>
   </section>
   <section class="renders">
     <h3>Renders</h3>
     <div class="wrap"><table><thead><tr><th>cut</th><th>length</th><th>size</th><th>slides</th><th>TTS</th><th>record</th><th>drift</th><th>pipeline</th></tr></thead>
-    <tbody><tr><th>landscape 1280×720</th><td>01:57.16</td><td>10.8 MB</td><td>15</td><td>252 s</td><td>117.3 s</td><td>217 ms</td><td>387 s</td></tr><tr><th>shorts 1080×1920</th><td>01:04.08</td><td>6.8 MB</td><td>8</td><td>139 s</td><td>64.2 s</td><td>246 ms</td><td>217 s</td></tr></tbody></table></div>
+    <tbody><tr><th>landscape 1280×720</th><td>01:57.17</td><td>10.7 MB</td><td>15</td><td>237 s</td><td>117.3 s</td><td>262 ms</td><td>366 s</td></tr><tr><th>shorts 1080×1920</th><td>01:04.08</td><td>6.8 MB</td><td>8</td><td>139 s</td><td>64.2 s</td><td>246 ms</td><td>217 s</td></tr></tbody></table></div>
     <p>Source of truth is <code>reel.json</code>. Stills in <code>images/</code> (desktop) and <code>images-shorts/</code> (phone); clips in <code>clips/</code>. Timecodes are the landscape cut's TTS durations.</p>
   </section>
 </main></body></html>
