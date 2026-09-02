@@ -28,10 +28,21 @@ const rows = reel.scenes.map((s, i) => {
   const media = clip
     ? `<video controls muted playsinline preload="metadata" poster="${src(`images/${s.id}.png`, 'image/png')}" src="${src(`clips/${s.id}.webm`, 'video/webm')}"></video><img class="poster-print" src="${src(`images/${s.id}.png`, 'image/png')}" alt="${esc(s.caption)} (last frame of the clip)">`
     : `<img src="${src(`images/${s.id}.png`, 'image/png')}" alt="${esc(s.caption)}">`;
+  // "How this shot was taken": the shot spec from reel.json in plain words, one step per line.
   const ann = Array.isArray(s.shot.annotate) ? s.shot.annotate : (s.shot.annotate?.landscape || []);
-  const what = [s.shot.kind === 'clip' ? 'clip' : 'still', s.shot.url.replace(/^vault:/, 'published vault “') + (s.shot.url.startsWith('vault:') ? '”' : ''),
-    s.shot.scrollTo?.startsWith('text:') ? `scroll to “${s.shot.scrollTo.slice(5)}”` : '',
-    ...ann.map(a => a.spot ? 'spot ' + (typeof a.spot === 'string' ? a.spot.replace(/^el:/, '') : 'rect') : a.blur ? 'blur ' + a.blur.replace(/^el:/, '') : a.label ? `label “${a.label}”` : '')].filter(Boolean);
+  const target = (t) => typeof t !== 'string' ? 'a hand-placed rectangle'
+    : t.startsWith('el:heading:') ? `the heading “${t.slice(11)}”` : t.startsWith('el:text:') ? `the text “${t.slice(8)}”`
+    : ({ 'el:table': 'the table after the heading', 'el:code': 'the code block after the heading', 'el:terminal': 'the terminal block', 'el:right-column': 'the “The server” column',
+        'el:keys': 'the read-key cells', 'el:badges': 'the access badges in the header', 'el:pip': 'the pip install line' }[t] || t.replace(/^el:/, ''));
+  const where = s.shot.url.startsWith('vault:') ? `the published vault “${s.shot.url.slice(6)}”, opened live in SG/App` : s.shot.url;
+  const what = [
+    `${s.shot.kind === 'clip' ? 'Recorded a clip of' : 'Opened'} ${where}`,
+    s.shot.scrollTo?.startsWith('text:') ? `Scrolled to “${s.shot.scrollTo.slice(5)}”` : '',
+    s.shot.clickTabs ? `Clicked through the tabs: ${s.shot.clickTabs.join(', ')}` : '',
+    ...(s.shot.click || []).map(c => `Clicked “${c.replace(/^text:/, '')}”`),
+    ...ann.map(a => a.spot ? `Spotlighted ${target(a.spot)}` : a.blur ? `Blurred ${target(a.blur)}` : a.label ? `Added the label “${a.label}”` : ''),
+    s.shot.kind === 'clip' ? 'Used the last frame as the still' : '',
+  ].filter(Boolean);
   const k = i + 1;   // slide index: 0 is the title slide
   return `
   <article class="scene" id="${s.id}">
@@ -39,7 +50,7 @@ const rows = reel.scenes.map((s, i) => {
       <p class="slug"><span class="tc">${starts[k] != null ? tc(starts[k]) : '—'}</span><span>scene ${i + 1} of ${reel.scenes.length}</span><span>${s.id}</span><span>${fmtDur(durs[k])}</span></p>
       <h2>${esc(s.caption)}</h2>
       <blockquote class="say">${esc(s.narration)}</blockquote>
-      <p class="shot">${what.map(esc).join('<span class="sep"> · </span>')}</p>
+      <div class="shot"><span class="shot-label">How this shot was taken</span><ul>${what.map(w => `<li>${esc(w)}</li>`).join('')}</ul></div>
     </div>
     <div class="art">${media}</div>
   </article>`;
@@ -70,7 +81,11 @@ const html = `<!doctype html>
   .slug { display:flex; gap:14px; flex-wrap:wrap; font-family:"IBM Plex Mono", monospace; font-size:12.5px; color:var(--dim); margin:0; letter-spacing:.02em; text-transform:uppercase; }
   .slug .tc { color:var(--accent-ink); background:var(--accent); padding:1px 8px; border-radius:3px; font-weight:500; font-variant-numeric:tabular-nums; }
   .say { margin:0; font-size:22px; line-height:1.45; background:var(--panel); border:1px solid var(--rule); border-left:5px solid var(--accent); border-radius:6px; padding:16px 20px; }
-  .shot { font-family:"IBM Plex Mono", monospace; font-size:12.5px; color:var(--dim); margin:14px 0 0; line-height:1.7; }
+  .shot { margin:14px 0 0; }
+  .shot-label { display:block; font-family:"IBM Plex Sans Condensed", sans-serif; font-weight:600; font-size:12px; letter-spacing:.06em; text-transform:uppercase; color:var(--accent); margin-bottom:4px; }
+  .shot ul { margin:0; padding:0; list-style:none; font-family:"IBM Plex Mono", monospace; font-size:12.5px; color:var(--dim); line-height:1.7; }
+  .shot li { padding-left:16px; position:relative; }
+  .shot li::before { content:"▸"; position:absolute; left:0; color:var(--accent); }
   /* Text on the left; a fixed image column on the right, so every frame is the same width and sits at the same x. */
   .scene { display:grid; grid-template-columns: minmax(0, 1fr) 620px; gap:32px; padding:30px 0; border-bottom:1px solid var(--rule); align-items:start; break-inside:avoid; }
   .art { width:620px; }
@@ -109,7 +124,7 @@ const html = `<!doctype html>
     .outro { break-before:page; page-break-before:always; }
     .outro ul { grid-template-columns: 1fr 1fr; gap:2px 20px; } .outro li { font-size:11px; padding:4px 0; }
     .say { font-size:14px; padding:10px 14px; line-height:1.4; } .scene h2, .intro h2, .outro h2 { font-size:19px; margin:4px 0 8px; }
-    .slug { font-size:10.5px; } .shot { font-size:10.5px; margin-top:8px; line-height:1.5; }
+    .slug { font-size:10.5px; } .shot { margin-top:8px; } .shot-label { font-size:10px; } .shot ul { font-size:10.5px; line-height:1.5; }
     .transcript { break-before:page; page-break-before:always; margin-top:0; padding-top:0; border-top:0; } .transcript h3 { font-size:18px; } .transcript button { display:none; } .transcript pre { font-size:11.5px; line-height:1.5; padding:12px 16px; }
     .renders { margin-top:16px; } .renders h3 { font-size:15px; } .renders table { font-size:10px; }
   }
