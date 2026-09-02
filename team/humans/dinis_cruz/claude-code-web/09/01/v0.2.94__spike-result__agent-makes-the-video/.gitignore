@@ -1,0 +1,4 @@
+# Rendered videos are not committed: they are delivered to the requester directly.
+*.webm
+*.raw.webm
+reel.inline.html

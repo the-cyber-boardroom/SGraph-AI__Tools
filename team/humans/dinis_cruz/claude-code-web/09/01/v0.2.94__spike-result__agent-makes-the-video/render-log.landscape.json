@@ -1,0 +1,47 @@
+{
+  "format": "landscape",
+  "pool": 2,
+  "sceneCount": 13,
+  "started": "2026-09-01T21:59:05.640Z",
+  "toolReadyMs": 1677,
+  "crop": [],
+  "tts": {
+    "modelLoadMs": 5358.299999999814,
+    "coldGenMs": 122434.29999999981,
+    "durations": [
+      7.4,
+      8.85,
+      2.625,
+      7.25,
+      8.5,
+      8.975,
+      12.275,
+      5.475,
+      8.4,
+      8.575,
+      8.6,
+      5.325,
+      6.85
+    ]
+  },
+  "intendedMs": 99100,
+  "record": {
+    "actualMs": 99196.30000000028,
+    "size": 9803168,
+    "type": "video/webm;codecs=vp9,opus",
+    "status": "done",
+    "heartbeat": true,
+    "heartbeats": 5943,
+    "wallMs": 99201
+  },
+  "file": {
+    "path": "landscape.webm",
+    "bytes": 9786702,
+    "duration": "00:01:39.14",
+    "streams": [
+      "Stream #0:0(eng): Video: vp9 (Profile 0), yuv420p(tv, smpte170m/unknown/unknown), 1280x720, SAR 1:1 DAR 16:9, 30 fps, 30 tbr, 1k tbn (default)",
+      "Stream #0:1(eng): Audio: opus, 48000 Hz, stereo, fltp (default)"
+    ]
+  },
+  "totalMs": 229102
+}

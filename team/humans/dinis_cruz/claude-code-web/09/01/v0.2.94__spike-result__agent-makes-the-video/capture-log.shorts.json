@@ -1,0 +1,145 @@
+{
+  "format": "shorts",
+  "started": "2026-09-02T11:38:45.850Z",
+  "scenes": [
+    {
+      "id": "s01",
+      "kind": "still",
+      "url": "https://sgit.ai/",
+      "annotations": [
+        {
+          "kind": "spot",
+          "spec": "el:heading:The encrypted git",
+          "resolved": true,
+          "rect": {
+            "x": 19.1875,
+            "y": 159.78125,
+            "w": 501.625,
+            "h": 80.625
+          }
+        }
+      ],
+      "ms": 2555
+    },
+    {
+      "id": "s02",
+      "kind": "still",
+      "url": "https://sgit.ai/",
+      "annotations": [
+        {
+          "kind": "spot",
+          "spec": "el:right-column",
+          "resolved": true,
+          "rect": {
+            "x": 17.59375,
+            "y": 384.712646484375,
+            "w": 504.8125,
+            "h": 172.078125
+          }
+        },
+        {
+          "kind": "label",
+          "resolved": true,
+          "rect": null,
+          "text": "the whole list, published",
+          "at": "below"
+        }
+      ],
+      "ms": 2659
+    },
+    {
+      "id": "s06",
+      "kind": "still",
+      "url": "https://sgit.ai/vault/",
+      "annotations": [
+        {
+          "kind": "spot",
+          "spec": "el:code",
+          "resolved": true,
+          "rect": {
+            "x": 22.390625,
+            "y": 165.8125,
+            "w": 495.21875,
+            "h": 91.3125
+          }
+        },
+        {
+          "kind": "label",
+          "resolved": true,
+          "rect": null,
+          "text": "the key lives after the #",
+          "at": "below"
+        }
+      ],
+      "ms": 2651
+    },
+    {
+      "id": "s10",
+      "kind": "still",
+      "url": "vault:Field Notes",
+      "annotations": [
+        {
+          "kind": "spot",
+          "spec": "el:heading:Field Notes",
+          "resolved": false
+        },
+        {
+          "kind": "label",
+          "resolved": true,
+          "rect": null,
+          "text": "decrypted in the browser, with a published read key",
+          "at": "below"
+        }
+      ],
+      "ms": 10688
+    },
+    {
+      "id": "s12",
+      "kind": "still",
+      "url": "vault:Field Notes",
+      "annotations": [
+        {
+          "kind": "spot",
+          "spec": "el:badges",
+          "resolved": true,
+          "rect": {
+            "x": 320.40625,
+            "y": 13.609375,
+            "w": 162.59375,
+            "h": 20.78125
+          }
+        },
+        {
+          "kind": "label",
+          "resolved": true,
+          "rect": null,
+          "text": "R1 W0: one read key, no write key",
+          "at": "below"
+        }
+      ],
+      "ms": 11599
+    },
+    {
+      "id": "s13",
+      "kind": "still",
+      "url": "https://sgit.ai/",
+      "annotations": [
+        {
+          "kind": "spot",
+          "spec": "el:pip",
+          "resolved": true,
+          "rect": {
+            "x": 25.625,
+            "y": 362.609375,
+            "w": 261.53125,
+            "h": 37.1875
+          }
+        }
+      ],
+      "ms": 2413
+    }
+  ],
+  "captured": 6,
+  "used": 6,
+  "totalMs": 32700
+}
