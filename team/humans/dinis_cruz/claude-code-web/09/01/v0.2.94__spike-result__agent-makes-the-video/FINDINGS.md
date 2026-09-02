@@ -127,6 +127,8 @@ About three days, leaving `demo-reel` as a JSON shape plus two scripts. The pack
 | `poc/` | Round 3: the iframe screenshot proof of concept (page, headless test, the captured image) |
 | `landscape-openrouter.webm` | Round 3: the landscape reel narrated through OpenRouter. Not committed |
 | `sgraph_ai_tools__static/tools/v0/v0.1/v0.1.72/` | Round 3: the `video-creator` delta with `paintEveryFrame` and `captionBar` |
+| `BUILD-PLAN.md` | The plan: what exists, three phases to a demo-reel tool, and the pack's decisions with the spike's verdicts |
+| `library/skills/make-a-demo-reel/SKILL.md` | The skill: how another agent repeats this run with the scripts in this folder |
 
 Run order: `scripts/run-locally.sh` (repo root) → `cache-server.mjs` → `01-capture.mjs` (`FORMAT=landscape`, then `FORMAT=shorts`) → `02-render.mjs` (same two formats) → `03-frames.sh`. Environment for the Node scripts: `NODE_PATH=/opt/node22/lib/node_modules NODE_USE_ENV_PROXY=1 NODE_EXTRA_CA_CERTS=/root/.ccr/ca-bundle.crt CACHE_DIR=<dir> FFMPEG=<full ffmpeg>`.
 
