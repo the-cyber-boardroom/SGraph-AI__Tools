@@ -26,7 +26,7 @@ const fmtDur = (d) => d ? `${d.toFixed(1)} s` : '';
 const rows = reel.scenes.map((s, i) => {
   const clip = s.shot.kind === 'clip' && fs.existsSync(path.join(ROOT, 'clips', `${s.id}.webm`));
   const media = clip
-    ? `<video controls muted playsinline preload="metadata" poster="${src(`images/${s.id}.png`, 'image/png')}" src="${src(`clips/${s.id}.webm`, 'video/webm')}"></video>`
+    ? `<video controls muted playsinline preload="metadata" poster="${src(`images/${s.id}.png`, 'image/png')}" src="${src(`clips/${s.id}.webm`, 'video/webm')}"></video><img class="poster-print" src="${src(`images/${s.id}.png`, 'image/png')}" alt="${esc(s.caption)} (last frame of the clip)">`
     : `<img src="${src(`images/${s.id}.png`, 'image/png')}" alt="${esc(s.caption)}">`;
   const phone = fs.existsSync(path.join(ROOT, 'images-shorts', `${s.id}.png`))
     ? `<figure class="phone"><img src="${src(`images-shorts/${s.id}.png`, 'image/png')}" alt="${esc(s.caption)} at a phone viewport"><figcaption>phone cut</figcaption></figure>` : '';
@@ -91,11 +91,12 @@ const html = `<!doctype html>
   .renders thead th { color:var(--dim); font-weight:500; text-transform:uppercase; letter-spacing:.04em; font-size:11px; }
   .renders p { font-size:14px; color:var(--dim); margin:12px 0 0; }
   .renders code { font-family:"IBM Plex Mono", monospace; font-size:13px; }
+  .poster-print { display:none; }
   a { color:var(--accent); }
   :focus-visible { outline:2px solid var(--mark); outline-offset:2px; }
   @media (max-width: 800px) { .scene { grid-template-columns: 1fr; } header.sheet { grid-template-columns: 1fr; } header.sheet .meta { text-align:left; } }
   @page { size: A4 landscape; margin: 12mm; }
-  @media print { :root { --bg:#fff; --panel:#fff; --ink:#111827; --dim:#5b6472; --rule:#d7dde2; --accent:#0f766e; --accent-ink:#fff; } body { font-size:12px; } main { padding:0; max-width:none; } .scene { page-break-inside:avoid; gap:18px; padding:16px 0; } .say { font-size:13px; } .scene h2 { font-size:19px; } video { display:none; } .art .phone { width:64px; } header.sheet h1 { font-size:34px; } }
+  @media print { :root { --bg:#fff; --panel:#fff; --ink:#111827; --dim:#5b6472; --rule:#d7dde2; --accent:#0f766e; --accent-ink:#fff; } body { font-size:12px; } main { padding:0; max-width:none; } .scene { page-break-inside:avoid; gap:18px; padding:16px 0; } .say { font-size:13px; } .scene h2 { font-size:19px; } video { display:none; } .poster-print { display:block; } .art .phone { width:64px; } header.sheet h1 { font-size:34px; } }
 </style></head>
 <body><main>
   <header class="sheet">
@@ -131,6 +132,7 @@ if (!INLINE) {
   const browser = await launch(); const ctx = await context(browser); const page = await ctx.newPage();   // bridged, so the web fonts load into the PDF
   await page.goto('file://' + path.join(ROOT, 'reel.html'), { waitUntil: 'networkidle' });
   await page.evaluate(() => document.fonts.ready);
+  await page.emulateMedia({ media: 'print' });
   await page.pdf({ path: path.join(ROOT, 'reel.pdf'), format: 'A4', landscape: true, printBackground: true, margin: { top: '12mm', bottom: '12mm', left: '12mm', right: '12mm' } });
   await browser.close();
   console.log('wrote reel.pdf', (fs.statSync(path.join(ROOT, 'reel.pdf')).size / 1e6).toFixed(2), 'MB');

@@ -1,41 +1,111 @@
 {
   "format": "shorts",
-  "crop": [],
+  "crop": false,
   "images": "images-shorts",
   "pool": 2,
   "sceneCount": 6,
-  "started": "2026-09-01T22:04:08.664Z",
-  "toolReadyMs": 1527,
+  "started": "2026-09-02T11:47:58.769Z",
+  "toolReadyMs": 2929,
+  "compose": {
+    "report": [
+      {
+        "id": "s01",
+        "narrationLines": 2
+      },
+      {
+        "id": "s02",
+        "narrationLines": 3
+      },
+      {
+        "id": "s06",
+        "narrationLines": 3
+      },
+      {
+        "id": "s10",
+        "narrationLines": 2
+      },
+      {
+        "id": "s12",
+        "narrationLines": 2
+      },
+      {
+        "id": "s13",
+        "narrationLines": 2
+      }
+    ],
+    "gotSlidesRef": true,
+    "count": 8
+  },
   "tts": {
-    "modelLoadMs": 5271.200000000186,
-    "coldGenMs": 64429.299999999814,
+    "modelLoadMs": 9885.399999999907,
+    "coldGenMs": 138958.90000000002,
     "durations": [
+      7.1,
       7.4,
       8.85,
       8.975,
       8.575,
       5.325,
-      6.85
+      6.85,
+      10.875
     ]
   },
-  "intendedMs": 45975,
+  "intendedMs": 63950,
+  "closingRows": [
+    [
+      "Made by",
+      "a Claude Code agent, unattended"
+    ],
+    [
+      "When",
+      "2026-09-01"
+    ],
+    [
+      "Script",
+      "6 scenes + title and closing · 141 words · reel.json written first"
+    ],
+    [
+      "Screenshots",
+      "6 shot, 6 used · Playwright, headless · 33 s"
+    ],
+    [
+      "Narration",
+      "Kokoro-82M in the browser (2 workers) · 64.0 s of speech in 139 s · model load 9.9 s"
+    ],
+    [
+      "Render",
+      "video-creator, canvas + MediaRecorder, real time · 64 s"
+    ],
+    [
+      "Pipeline wall clock",
+      "249 s: capture 33 + compose and narrate 153 + render 64"
+    ],
+    [
+      "API cost",
+      "$0.00 · no LLM, TTS or image API calls"
+    ],
+    [
+      "Compute",
+      "one 4-core container, ~10 min of CPU for both cuts · agent session tokens not metered here"
+    ]
+  ],
   "record": {
-    "actualMs": 46059.39999999991,
-    "size": 5424245,
+    "actualMs": 64195.59999999998,
+    "size": 6813162,
     "type": "video/webm;codecs=vp9,opus",
     "status": "done",
     "heartbeat": true,
-    "heartbeats": 2761,
-    "wallMs": 46069
+    "heartbeats": 3830,
+    "wallMs": 64208
   },
   "file": {
     "path": "shorts.webm",
-    "bytes": 5417437,
-    "duration": "00:00:46.01",
+    "bytes": 6803507,
+    "duration": "00:01:04.08",
     "streams": [
-      "Stream #0:0(eng): Video: vp9 (Profile 0), yuv420p(tv, smpte170m/unknown/unknown), 1080x1920, SAR 1:1 DAR 9:16, 30 fps, 30 tbr, 1k tbn (default)",
+      "Stream #0:0(eng): Video: vp9 (Profile 0), yuv420p(tv, smpte170m/unknown/unknown), 1080x1920, SAR 1:1 DAR 9:16, 1k fps, 1k tbr, 1k tbn (default)",
       "Stream #0:1(eng): Audio: opus, 48000 Hz, stereo, fltp (default)"
     ]
   },
-  "totalMs": 117676
+  "totalMs": 217099
 }
